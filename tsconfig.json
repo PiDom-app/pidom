@@ -1,0 +1,22 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"],
+      "@convex/*": ["./convex/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "env.d.ts",
+    "globals.d.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts",
+    "react-native-css-env.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}

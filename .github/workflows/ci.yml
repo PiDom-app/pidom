@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # `convex/_generated` is written by the Convex CLI and is not committed,
+      # so a typecheck without it fails on every import of the generated API.
+      # This job runs when a deploy key is configured and skips cleanly when it
+      # is not — a check that is always red teaches nobody anything.
+      - name: Convex codegen
+        id: codegen
+        if: ${{ secrets.CONVEX_DEPLOY_KEY != '' }}
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex codegen
+
+      - name: Typecheck
+        if: steps.codegen.outcome == 'success'
+        run: npm run typecheck
+
+      # These need no deployment, and they catch the class of bug that has
+      # actually shipped here: a colour utility naming a token that does not
+      # exist renders nothing, silently.
+      - name: Every colour resolves to a token
+        run: node scripts/check-tokens.mjs
+
+      - name: Design artboards build
+        run: node .design/build.mjs && node .design/screens.mjs

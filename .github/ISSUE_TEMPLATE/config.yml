@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/BotCoder254/pidom/security/advisories/new
+    about: Report privately. Please do not open a public issue for anything that exposes a reader's documents or credentials.
+  - name: Question or idea
+    url: https://github.com/BotCoder254/pidom/discussions
+    about: For anything that is not yet a bug or a concrete request.

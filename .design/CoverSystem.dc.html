@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #6a59e8; } a:hover { color: #7a6af0; }
+    .c2, .c5 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    .c2 { -webkit-line-clamp: 2; } .c5 { -webkit-line-clamp: 5; }
+    .pretty { text-wrap: pretty; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace }
+  </style>
+</helmet>
+<div style="width:1360px;min-height:640px;background:#000000;overflow:hidden">
+<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:#e8e6e3">Fallback covers</div>
+  <div style="margin-top:6px;max-width:700px;font-size:13px;line-height:19px;color:#8f8d88" class="pretty">Import renders the real first page now, so this is the fallback: a document imported before that existed, one whose render failed, or one whose cover has not reached this device yet. The tint is a pure function of the document id — twelve buckets thirty degrees apart, anchored on the brand hue — so the same document is the same colour on every device, for as long as it exists.</div>
+  <div class="mono" style="margin-top:14px;font-size:12px;color:#6e6c68">hue = ({{base}} + hash(id) % 12 × 30) mod 360 &nbsp;·&nbsp; dark oklch(.295 .062 h) &nbsp;·&nbsp; light oklch(.925 .045 h)</div>
+  <div style="margin-top:28px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68">Dark</div>
+  <div style="margin-top:12px;display:flex;gap:10px">
+    <sc-for list="{{darkCovers}}" as="c" hint-placeholder-count="12"><div style="position:relative;width:96px;height:136px;flex:0 0 auto;border-radius:6px;overflow:hidden;background:{{c.bg}};box-shadow:inset 0 0 0 1px {{c.inset}}">
+        <div style="position:absolute;left:8px;right:8px;top:8px;font-size:10px;line-height:1.26;font-weight:600;letter-spacing:-.01em;color:{{c.fg}}" class="c5 pretty">{{c.title}}</div>
+        <div style="position:absolute;right:6px;bottom:6px;font-size:6.4px;font-weight:600;letter-spacing:.09em;opacity:.48;color:{{c.fg}}">PDF</div>
+      </div></sc-for>
+  </div>
+  <div style="margin-top:26px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68">Light</div>
+  <div style="margin-top:12px;padding:14px;border-radius:6px;background:#ffffff;display:flex;gap:10px">
+    <sc-for list="{{lightCovers}}" as="c" hint-placeholder-count="12"><div style="position:relative;width:96px;height:136px;flex:0 0 auto;border-radius:6px;overflow:hidden;background:{{c.bg}};box-shadow:inset 0 0 0 1px {{c.inset}}">
+        <div style="position:absolute;left:8px;right:8px;top:8px;font-size:10px;line-height:1.26;font-weight:600;letter-spacing:-.01em;color:{{c.fg}}" class="c5 pretty">{{c.title}}</div>
+        <div style="position:absolute;right:6px;bottom:6px;font-size:6.4px;font-weight:600;letter-spacing:.09em;opacity:.48;color:{{c.fg}}">PDF</div>
+      </div></sc-for>
+  </div>
+</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"base":{"editor":"range","default":282,"min":0,"max":359,"step":1,"unit":"deg","section":"Cover tint"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const base = this.props.base ?? 282;
+    const titles = ["Thinking, Fast and Slow","The Design of Everyday Things","Convex Backend Architecture","Designing Data-Intensive Applications","Sapiens: A Brief History of Humankind","React Native Performance Notes","Annual Report 2025","The Pragmatic Programmer","Domain-Driven Design","Lease Agreement — 14 Kilimani Road","Structure and Interpretation of Computer Programs","Kubernetes Up and Running"];
+    const hash = (s) => { let h = 0; for (const ch of s) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0; return h; };
+    const build = (dark) => titles.map((title) => {
+      const h = (base + (hash(title) % 12) * 30) % 360;
+      return {
+        title: title,
+        bg: dark ? 'oklch(0.295 0.062 ' + h + ')' : 'oklch(0.925 0.045 ' + h + ')',
+        fg: dark ? 'oklch(0.900 0.045 ' + h + ')' : 'oklch(0.400 0.105 ' + h + ')',
+        inset: dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)',
+      };
+    });
+    return { base: base, darkCovers: build(true), lightCovers: build(false) };
+  }
+}
+</script>
+</body>
+</html>

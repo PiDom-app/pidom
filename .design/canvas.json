@@ -1,0 +1,182 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Home — dark, full scroll",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 1960
+    },
+    {
+      "file": "HomeLight.dc.html",
+      "title": "Home — light, full scroll",
+      "x": 490,
+      "y": 0,
+      "w": 390,
+      "h": 1960
+    },
+    {
+      "file": "HomeEmpty.dc.html",
+      "title": "Home — empty",
+      "x": 0,
+      "y": 2080,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "HomeLoading.dc.html",
+      "title": "Home — loading",
+      "x": 490,
+      "y": 2080,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AccountMenu.dc.html",
+      "title": "Account menu",
+      "x": 980,
+      "y": 2080,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DocumentActions.dc.html",
+      "title": "Document actions",
+      "x": 1470,
+      "y": 2080,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AllLibrary.dc.html",
+      "title": "All library — grid, sorting",
+      "x": 0,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AllLibraryList.dc.html",
+      "title": "All library — list, light",
+      "x": 490,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Collection.dc.html",
+      "title": "A collection",
+      "x": 980,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "OfflineStates.dc.html",
+      "title": "Offline — cached, and not",
+      "x": 1470,
+      "y": 3044,
+      "w": 390,
+      "h": 1180
+    },
+    {
+      "file": "ImportChoosing.dc.html",
+      "title": "Import — choosing",
+      "x": 1960,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportUploading.dc.html",
+      "title": "Import — uploading",
+      "x": 2450,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportTooLarge.dc.html",
+      "title": "Import — over the sync limit",
+      "x": 2940,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Reader.dc.html",
+      "title": "Reader — controls shown",
+      "x": 3430,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderPlain.dc.html",
+      "title": "Reader — reading",
+      "x": 3920,
+      "y": 3044,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DocumentActionsFull.dc.html",
+      "title": "Document actions — all of them",
+      "x": 4410,
+      "y": 3044,
+      "w": 390,
+      "h": 940
+    },
+    {
+      "file": "SyncStates.dc.html",
+      "title": "Where a document is",
+      "x": 0,
+      "y": 4344,
+      "w": 900,
+      "h": 560
+    },
+    {
+      "file": "TileAnatomy.dc.html",
+      "title": "Document tile — anatomy and states",
+      "x": 0,
+      "y": 5024,
+      "w": 900,
+      "h": 1100
+    },
+    {
+      "file": "CoverSystem.dc.html",
+      "title": "Generated covers",
+      "x": 1000,
+      "y": 5024,
+      "w": 1360,
+      "h": 640
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-boundary",
+      "x": 0,
+      "y": -150,
+      "w": 880,
+      "text": "Convex owns metadata, the device owns the PDF.\nRendering this screen never touches a file. Every rail below is one query and one index scan; \"On this device\" is answered by the filesystem, not the server."
+    },
+    {
+      "id": "note-norails",
+      "x": 1960,
+      "y": 2080,
+      "w": 300,
+      "text": "A rail with nothing in it renders nothing — a new account falls through to the empty state rather than showing six empty headings."
+    },
+    {
+      "id": "note-covers",
+      "x": 1960,
+      "y": 2360,
+      "w": 300,
+      "text": "No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

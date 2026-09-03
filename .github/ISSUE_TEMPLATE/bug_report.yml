@@ -1,0 +1,84 @@
+name: Bug report
+description: Something behaves differently from how it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The most useful bug report says what you did,
+        what happened, and what you expected instead — in that order.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, in the order you saw it.
+      placeholder: |
+        1. Imported a 40 MB PDF with sync on
+        2. Backed out to the library
+        3. The tile showed "In your account" but never finished uploading
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - Library and home
+        - Import
+        - Reader
+        - Syncing and downloads
+        - Collections
+        - Sign-in and account
+        - Offline behaviour
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS
+      placeholder: Pixel 8, Android 15
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - Development build (npx expo run:*)
+        - EAS build
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Anything from Metro or the Convex dashboard. **Redact tokens** — an ID
+        token in an issue is a credential in public.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I am on a development build, not Expo Go (Expo Go cannot do Google Sign-In)
+          required: true
+        - label: There are no credentials or personal document titles in what I pasted
+          required: true

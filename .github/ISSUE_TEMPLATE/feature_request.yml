@@ -1,0 +1,37 @@
+name: Feature request
+description: Something Pidom should be able to do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The most useful requests describe the situation you are in, rather than
+        the control you want added. The control is usually the easy part.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The situation, and what makes it awkward today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: Optional. A shape, if you have one.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Optional, and often the most informative part.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and discussions
+          required: true

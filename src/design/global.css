@@ -1,0 +1,378 @@
+/*
+ * Pidom design tokens.
+ *
+ * Ported from the Typido Tailwind v4 theme. Three parts of that theme do not
+ * cross to React Native and are deliberately absent here:
+ *
+ *   1. The `@keyframes` block. RN has no CSS animation engine; entrances run
+ *      through Reanimated 4 (`react-native-reanimated`, already installed).
+ *   2. The `@utility min-w-radix-*` / `app-drag` / `titlebar-safe` rules. Those
+ *      describe Radix poppers and an Electron title bar. Neither exists here.
+ *   3. `'Pin Sans'`. There is no font file for it, and RN cannot pull a webfont
+ *      the way a browser can. The platform system stack stands in until a real
+ *      face is loaded through `expo-font`.
+ *
+ * What did cross over: the semantic layer, the palette, and the 6px radius rule.
+ *
+ * NAMING. The token *names* are gluestack-ui v5's, not Typido's. The 30 vendored
+ * components under `src/components/ui` are written against `bg-primary`,
+ * `text-muted-foreground`, `border-border`, `bg-accent`, `ring` and friends, so
+ * renaming would break every one of them. Instead each gluestack name is
+ * re-valued from Typido's palette, and the semantics Typido has that gluestack
+ * lacks (elevated, sunken, hover, hairline, ok, warn, overlay, …) are added
+ * alongside. Components reach for the semantic layer and never the raw palette.
+ *
+ * STRUCTURE. NativeWind v5 resolves `@media (prefers-color-scheme: dark)`
+ * against RN's `Appearance`, which is what `GluestackUIProvider mode` drives on
+ * native. `:root.dark` / `:root.light` carry the same values at higher
+ * specificity for the web class toggle. Every value therefore appears three
+ * times; that repetition is the price of one token set working on both
+ * platforms, and the three blocks must be edited together.
+ */
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@import "nativewind/theme";
+
+/* ─── Typography ────────────────────────────────────────────────────────── */
+@layer theme {
+  :root {
+    --font-sans:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial,
+      sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial,
+      sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+/* ─── Light ─────────────────────────────────────────────────────────────── */
+@layer theme {
+  :root {
+    /* Surfaces, lightest to deepest. `elevated` sits above `bg`, `sunken`
+       below it. `hover` is the fill for something resting directly on `bg`. */
+    --background: 255 255 255;
+    --surface: 250 250 249;
+    --elevated: 255 255 255;
+    --sunken: 244 243 241;
+    --hover: 240 239 236;
+
+    /* Lines. `hairline` is a separator you should barely register; `border` is
+       a real edge; `border-strong` is for an edge that has to hold its own. */
+    --hairline: 236 234 230;
+    --border: 226 224 220;
+    --border-strong: 198 195 190;
+    --input: 226 224 220;
+
+    /* Text, most to least prominent. */
+    --foreground: 23 22 21;
+    --fg-muted: 110 108 104;
+    --fg-subtle: 143 141 136;
+    --fg-disabled: 176 174 169;
+    --fg-inverted: 255 255 255;
+
+    /* Brand. Purple is the single accent; it is the same in both themes so a
+       screenshot reads as Pidom regardless of the reader's setting. */
+    --primary: 106 89 232;
+    --primary-foreground: 255 255 255;
+    --primary-hover: 92 76 214;
+    --primary-tint: 240 238 253;
+
+    --link: 90 74 214;
+    --link-hover: 74 60 190;
+
+    /* Status. */
+    --destructive: 208 40 44;
+    --destructive-foreground: 255 255 255;
+    --danger-tint: 253 240 240;
+    --ok: 22 143 89;
+    --ok-fg: 255 255 255;
+    --warn: 176 116 12;
+    --warn-fg: 255 255 255;
+    --warn-tint: 253 246 232;
+
+    --focus: 106 89 232;
+    --overlay: 23 22 21;
+
+    /* gluestack aliases. These exist only so the vendored components resolve;
+       app code should reach for the roles above. */
+    --card: 255 255 255;
+    --card-foreground: 23 22 21;
+    --popover: 255 255 255;
+    --popover-foreground: 23 22 21;
+    --muted: 244 243 241;
+    --muted-foreground: 110 108 104;
+    --secondary: 250 250 249;
+    --secondary-foreground: 23 22 21;
+    --accent: 240 239 236;
+    --accent-foreground: 23 22 21;
+    --ring: 106 89 232;
+  }
+}
+
+/* ─── Dark ──────────────────────────────────────────────────────────────── */
+/* True black, and neutral: the greys are warm-leaning off Typido's charcoal
+   (#e8e6e3) and steel (#8f8d88), with no blue anywhere in the ramp. */
+@layer theme {
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 0 0 0;
+      --surface: 13 13 13;
+      --elevated: 20 20 20;
+      --sunken: 8 8 8;
+      --hover: 26 26 26;
+
+      --hairline: 28 27 26;
+      --border: 38 37 35;
+      --border-strong: 61 59 56;
+      --input: 38 37 35;
+
+      --foreground: 232 230 227;
+      --fg-muted: 143 141 136;
+      --fg-subtle: 110 108 104;
+      --fg-disabled: 78 77 74;
+      --fg-inverted: 0 0 0;
+
+      --primary: 106 89 232;
+      --primary-foreground: 255 255 255;
+      --primary-hover: 122 106 240;
+      --primary-tint: 26 22 51;
+
+      --link: 138 124 240;
+      --link-hover: 160 148 245;
+
+      --destructive: 235 87 87;
+      --destructive-foreground: 255 255 255;
+      --danger-tint: 45 20 20;
+      --ok: 61 194 128;
+      --ok-fg: 0 0 0;
+      --warn: 224 168 62;
+      --warn-fg: 0 0 0;
+      --warn-tint: 43 33 12;
+
+      --focus: 122 106 240;
+      --overlay: 0 0 0;
+
+      --card: 20 20 20;
+      --card-foreground: 232 230 227;
+      --popover: 20 20 20;
+      --popover-foreground: 232 230 227;
+      --muted: 8 8 8;
+      --muted-foreground: 143 141 136;
+      --secondary: 13 13 13;
+      --secondary-foreground: 232 230 227;
+      --accent: 26 26 26;
+      --accent-foreground: 232 230 227;
+      --ring: 122 106 240;
+    }
+  }
+
+  :root.dark {
+    --background: 0 0 0;
+    --surface: 13 13 13;
+    --elevated: 20 20 20;
+    --sunken: 8 8 8;
+    --hover: 26 26 26;
+
+    --hairline: 28 27 26;
+    --border: 38 37 35;
+    --border-strong: 61 59 56;
+    --input: 38 37 35;
+
+    --foreground: 232 230 227;
+    --fg-muted: 143 141 136;
+    --fg-subtle: 110 108 104;
+    --fg-disabled: 78 77 74;
+    --fg-inverted: 0 0 0;
+
+    --primary: 106 89 232;
+    --primary-foreground: 255 255 255;
+    --primary-hover: 122 106 240;
+    --primary-tint: 26 22 51;
+
+    --link: 138 124 240;
+    --link-hover: 160 148 245;
+
+    --destructive: 235 87 87;
+    --destructive-foreground: 255 255 255;
+    --danger-tint: 45 20 20;
+    --ok: 61 194 128;
+    --ok-fg: 0 0 0;
+    --warn: 224 168 62;
+    --warn-fg: 0 0 0;
+    --warn-tint: 43 33 12;
+
+    --focus: 122 106 240;
+    --overlay: 0 0 0;
+
+    --card: 20 20 20;
+    --card-foreground: 232 230 227;
+    --popover: 20 20 20;
+    --popover-foreground: 232 230 227;
+    --muted: 8 8 8;
+    --muted-foreground: 143 141 136;
+    --secondary: 13 13 13;
+    --secondary-foreground: 232 230 227;
+    --accent: 26 26 26;
+    --accent-foreground: 232 230 227;
+    --ring: 122 106 240;
+  }
+
+  :root.light {
+    --background: 255 255 255;
+    --surface: 250 250 249;
+    --elevated: 255 255 255;
+    --sunken: 244 243 241;
+    --hover: 240 239 236;
+
+    --hairline: 236 234 230;
+    --border: 226 224 220;
+    --border-strong: 198 195 190;
+    --input: 226 224 220;
+
+    --foreground: 23 22 21;
+    --fg-muted: 110 108 104;
+    --fg-subtle: 143 141 136;
+    --fg-disabled: 176 174 169;
+    --fg-inverted: 255 255 255;
+
+    --primary: 106 89 232;
+    --primary-foreground: 255 255 255;
+    --primary-hover: 92 76 214;
+    --primary-tint: 240 238 253;
+
+    --link: 90 74 214;
+    --link-hover: 74 60 190;
+
+    --destructive: 208 40 44;
+    --destructive-foreground: 255 255 255;
+    --danger-tint: 253 240 240;
+    --ok: 22 143 89;
+    --ok-fg: 255 255 255;
+    --warn: 176 116 12;
+    --warn-fg: 255 255 255;
+    --warn-tint: 253 246 232;
+
+    --focus: 106 89 232;
+    --overlay: 23 22 21;
+
+    --card: 255 255 255;
+    --card-foreground: 23 22 21;
+    --popover: 255 255 255;
+    --popover-foreground: 23 22 21;
+    --muted: 244 243 241;
+    --muted-foreground: 110 108 104;
+    --secondary: 250 250 249;
+    --secondary-foreground: 23 22 21;
+    --accent: 240 239 236;
+    --accent-foreground: 23 22 21;
+    --ring: 106 89 232;
+  }
+}
+
+/*
+ * `inline` is load-bearing. Without it Tailwind emits `--color-background:
+ * rgb(var(--background))` once at `:root`, and every utility reads the value as
+ * resolved *there* — freezing the palette at whatever theme the root element
+ * happened to be. `inline` puts the literal in the utility instead, so
+ * `--background` is looked up at the element and the theme toggle works.
+ */
+@theme inline {
+  /* Drop Tailwind's default palette. `bg-red-500` should not exist here: the
+     only way to reach a colour is through a semantic token. */
+  --color-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Raw palette. Kept as literals so there is always an escape hatch back to
+     the authored values whatever the active theme — used by `tokens.ts` for the
+     native APIs that cannot read CSS. */
+  --color-purple: #6a59e8;
+  --color-canvas: #000000;
+  --color-charcoal: #e8e6e3;
+  --color-steel: #8f8d88;
+  --color-white: #ffffff;
+
+  /* Surfaces */
+  --color-background: rgb(var(--background));
+  --color-surface: rgb(var(--surface));
+  --color-elevated: rgb(var(--elevated));
+  --color-sunken: rgb(var(--sunken));
+  --color-hover: rgb(var(--hover));
+
+  /* Lines */
+  --color-hairline: rgb(var(--hairline));
+  --color-border: rgb(var(--border));
+  --color-border-strong: rgb(var(--border-strong));
+  --color-input: rgb(var(--input));
+
+  /* Text */
+  --color-foreground: rgb(var(--foreground));
+  --color-fg-muted: rgb(var(--fg-muted));
+  --color-fg-subtle: rgb(var(--fg-subtle));
+  --color-fg-disabled: rgb(var(--fg-disabled));
+  --color-fg-inverted: rgb(var(--fg-inverted));
+
+  /* Brand */
+  --color-primary: rgb(var(--primary));
+  --color-primary-foreground: rgb(var(--primary-foreground));
+  --color-primary-hover: rgb(var(--primary-hover));
+  --color-primary-tint: rgb(var(--primary-tint));
+  --color-link: rgb(var(--link));
+  --color-link-hover: rgb(var(--link-hover));
+
+  /* Status */
+  --color-destructive: rgb(var(--destructive));
+  --color-destructive-foreground: rgb(var(--destructive-foreground));
+  --color-danger-tint: rgb(var(--danger-tint));
+  --color-ok: rgb(var(--ok));
+  --color-ok-fg: rgb(var(--ok-fg));
+  --color-warn: rgb(var(--warn));
+  --color-warn-fg: rgb(var(--warn-fg));
+  --color-warn-tint: rgb(var(--warn-tint));
+
+  --color-focus: rgb(var(--focus));
+  --color-overlay: rgb(var(--overlay));
+
+  /* gluestack aliases */
+  --color-card: rgb(var(--card));
+  --color-card-foreground: rgb(var(--card-foreground));
+  --color-popover: rgb(var(--popover));
+  --color-popover-foreground: rgb(var(--popover-foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-secondary: rgb(var(--secondary));
+  --color-secondary-foreground: rgb(var(--secondary-foreground));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-ring: rgb(var(--ring));
+
+  /*
+   * gluestack's `Text` and `Heading` both offer a `2xs` size and map it to
+   * `text-2xs`, which Tailwind's default scale does not define — so the utility
+   * resolved to nothing and the smallest text in the app rendered at whatever
+   * it inherited. 10px is the metadata line under a document tile.
+   */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 0.8125rem;
+
+  /*
+   * Every corner is 6px. `full` is reserved for avatars and status dots.
+   * The whole scale is defined at the same value on purpose: a vendored
+   * component reaching for `rounded-lg` cannot break the rule by accident.
+   */
+  --radius-*: initial;
+  --radius-none: 0;
+  --radius-xs: 6px;
+  --radius-sm: 6px;
+  --radius-md: 6px;
+  --radius-lg: 6px;
+  --radius-xl: 6px;
+  --radius-2xl: 6px;
+  --radius-3xl: 6px;
+  --radius-4xl: 6px;
+  --radius-full: 9999px;
+}
