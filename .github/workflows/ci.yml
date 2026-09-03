@@ -17,6 +17,11 @@ jobs:
   checks:
     name: Checks
     runs-on: ubuntu-latest
+    # Job-level, because the `secrets` context is not available in a step's
+    # `if` — only `env` is. This is what lets the codegen step below skip
+    # cleanly on a fork or before the key is configured.
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,9 +39,7 @@ jobs:
       # is not — a check that is always red teaches nobody anything.
       - name: Convex codegen
         id: codegen
-        if: ${{ secrets.CONVEX_DEPLOY_KEY != '' }}
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        if: env.CONVEX_DEPLOY_KEY != ''
         run: npx convex codegen
 
       - name: Typecheck
