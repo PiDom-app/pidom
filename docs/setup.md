@@ -36,8 +36,11 @@ on a fresh clone, not a broken checkout.
 
 ### Cloudflare setup
 
-Syncing needs an R2 bucket. Importing, reading and everything local work without
-one; only "Available on all devices" is dead until it is set up.
+Syncing needs an R2 bucket. Importing, reading, covers, contents and everything
+else local work without one — two things are dead until it is set up: "Available
+on all devices", and searching inside documents. That second one follows from
+the first: extraction reads the copy in the bucket, because that copy is the only
+one the server can see.
 
 - Create a Cloudflare account and an R2 bucket.
 - Give the bucket a CORS policy allowing `GET` and `PUT`.
@@ -48,6 +51,20 @@ one; only "Available on all devices" is dead until it is set up.
 R2's free tier is 10 GB of storage, 1M class-A and 10M class-B operations a
 month, and no egress charge. At the 100 MB per-document cap that is around a
 hundred synced documents.
+
+### Opening PDFs from other apps
+
+`app.json` registers Pidom as a PDF handler on both platforms, which puts it in
+Android's "Open with" list and iOS's "Open in" list. Both are native manifest
+entries, so they only exist after a rebuild:
+
+```bash
+npx expo prebuild --clean
+npx expo run:android      # or run:ios
+```
+
+Android's share sheet is deliberately not covered — see
+[architecture.md](architecture.md#opening-a-pdf-from-another-app) for why.
 
 ### Google setup
 

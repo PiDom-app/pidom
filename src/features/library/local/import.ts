@@ -5,6 +5,7 @@ import { File } from 'expo-file-system';
 import { log } from '@/lib/logger';
 
 import { documentFile, ensureLibraryDirectory, ensureStagingDirectory } from './paths';
+import { readsAsPdf } from './validate';
 
 const SCOPE = 'import';
 
@@ -14,6 +15,9 @@ const SCOPE = 'import';
  * The order is the security property. The Convex row is written first so the
  * server mints the id, and the id is what names the file — the picker's own
  * `name` is only ever a title. See `./paths.ts`.
+ *
+ * Nothing is staged until the file's first five bytes say `%PDF-`. See
+ * `./validate.ts` for why neither the MIME type nor the extension is enough.
  *
  * That leaves one window worth handling: a row can exist for a moment with no
  * file behind it. If the move fails, the row is deleted again, because a row
@@ -26,6 +30,10 @@ export type PickedDocument = {
   uri: string;
   /** The picker's filename, minus `.pdf`. A title, never a path. */
   title: string;
+  /** The picker's filename, whole. Presentation metadata, never a path. */
+  originalFileName: string;
+  /** What the picker claimed. Recorded, not trusted — the bytes decided. */
+  mimeType: string | null;
   byteSize: number;
 };
 
@@ -60,10 +68,10 @@ export async function pickPdf(): Promise<PickOutcome> {
     // Android file managers hand back `application/octet-stream` for a PDF
     // often enough that rejecting on MIME type alone would refuse real
     // documents. The extension is the second chance, and one of the two has to
-    // agree before a file enters the library.
-    const looksLikePdf =
+    // agree before the file is even opened.
+    const claimsToBePdf =
       asset.mimeType === 'application/pdf' || asset.name.toLowerCase().endsWith('.pdf');
-    if (!looksLikePdf) {
+    if (!claimsToBePdf) {
       return { ok: false, reason: 'not-a-pdf' };
     }
 
@@ -73,10 +81,18 @@ export async function pickPdf(): Promise<PickOutcome> {
       return { ok: false, reason: 'no-size' };
     }
 
+    // And then the bytes, which are the only thing that actually settles it.
+    // Both answers above came from the reader: a MIME type Android guessed and
+    // a filename they chose. A `.docx` renamed `.pdf` used to import cleanly,
+    // sit in the library with a tinted cover, and open to nothing.
+    if (!readsAsPdf(asset.uri)) {
+      return { ok: false, reason: 'not-a-pdf' };
+    }
+
     // Out of the picker's cache and into ours, immediately. From here on the
-    // cover renderer and the commit both work from a path this app owns, and
-    // neither can be surprised by the other or by the system reclaiming the
-    // picker's copy. See `stagingDirectory` for the whole reason.
+    // probe and the commit both work from a path this app owns, and neither can
+    // be surprised by the other or by the system reclaiming the picker's copy.
+    // See `stagingDirectory` for the whole reason.
     const staged = stage(asset.uri);
 
     return {
@@ -84,6 +100,8 @@ export async function pickPdf(): Promise<PickOutcome> {
       document: {
         uri: staged.uri,
         title: titleFromFilename(asset.name),
+        originalFileName: asset.name,
+        mimeType: asset.mimeType ?? null,
         byteSize: asset.size,
       },
     };

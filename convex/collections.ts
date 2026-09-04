@@ -4,6 +4,7 @@ import { mutation, query } from './_generated/server';
 import { requireUser } from './model/auth';
 import * as Collections from './model/collections';
 import * as Library from './model/library';
+import { limit } from './model/rateLimits';
 import { COLLECTION_COVER_LIMIT, RAIL_LIMIT } from './model/limits';
 
 /**
@@ -80,6 +81,7 @@ export const create = mutation({
   returns: v.id('collections'),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await limit(ctx, user, 'createCollection');
     return await Collections.create(ctx, user, args.name);
   },
 });

@@ -52,14 +52,115 @@ export default defineSchema({
     author: v.optional(v.string()),
 
     /**
-     * Absent until the reader opens the document once.
+     * Written at import, off the same PDF load that produces the cover.
      *
-     * Nothing in the import path can count pages: that needs a PDF renderer,
-     * and the renderer is the reader's dependency, not the library's. Until
-     * then the tile shows the file size instead, which is honest and true.
+     * Still optional, because that load can fail: a document whose probe came
+     * back `failed` has no count and the tile shows its file size instead,
+     * which is honest and true. The first open writes it too, so a document
+     * imported before the probe existed picks one up the first time it is read.
      */
     pageCount: v.optional(v.number()),
     byteSize: v.number(),
+
+    /**
+     * What the one PDF load at import came back with.
+     *
+     * The row is written before the load runs, because the row's id is the
+     * filename — so a document is in the library, and openable, while its cover
+     * is still being rendered. This is the field that says so, and the reason
+     * a cover that failed is no longer indistinguishable from a document that
+     * never had one.
+     */
+    processing: v.optional(
+      v.union(
+        /** The probe is running. No cover yet, and the tile says as much. */
+        v.literal('probing'),
+        /** Page count and cover both landed. Where every document ends up. */
+        v.literal('ready'),
+        /** The count came back and the snapshot did not. The tint stands in. */
+        v.literal('partial'),
+        /** The viewer could not read the file at all. Reprocess is offered. */
+        v.literal('failed'),
+      ),
+    ),
+
+    /**
+     * Whether the pages of this document can be searched.
+     *
+     * Absent for a document that is not synced, and that is the whole rule:
+     * extraction reads the copy in R2, because the copy in R2 is the only one
+     * the server can see. A local-only document has no text status because
+     * nothing could have given it one.
+     */
+    textStatus: v.optional(
+      v.union(
+        v.literal('queued'),
+        v.literal('extracting'),
+        v.literal('ready'),
+        /** Parsed, and it is a scan. There is no text layer to index. */
+        v.literal('none'),
+        v.literal('failed'),
+      ),
+    ),
+
+    /**
+     * Whether this document has a table of contents to open.
+     *
+     * Denormalised off `documentOutline`, and for the same reason
+     * `collections.documentCount` is: every rail item's wire shape carries it,
+     * so reading it from the outline table would be twelve index lookups per
+     * rail per render to decide whether one menu item is shown. Maintained by
+     * `Processing.setOutline`, which is the only writer.
+     */
+    hasOutline: v.optional(v.boolean()),
+
+    /**
+     * Why processing failed, as a code.
+     *
+     * Never a message. The client owns the sentence a reader reads, the same
+     * way it does for every code in `convex/model/auth.ts` — a backend string
+     * rendered straight into a screen is a backend string in a screenshot.
+     */
+    processingError: v.optional(v.string()),
+
+    /**
+     * What the file was called when it was picked.
+     *
+     * Presentation metadata and nothing else — the document id is the filename
+     * on disk, and always was. It is here because renaming otherwise destroys
+     * the only record of what the reader actually chose, which is the one thing
+     * they can find the original by in their own downloads folder.
+     *
+     * Optional, because a document imported before this existed has no answer
+     * and inventing one from the title would be a guess dressed as a fact.
+     */
+    originalFileName: v.optional(v.string()),
+
+    /**
+     * What the picker claimed the file was.
+     *
+     * Recorded, never trusted. Android file managers report
+     * `application/octet-stream` for real PDFs often enough that this cannot
+     * gate an import — the first five bytes do that, in
+     * `src/features/library/local/validate.ts`. It is kept as a fact about how
+     * the document arrived, for the one screen that answers "what is this".
+     */
+    mimeType: v.optional(v.string()),
+
+    /**
+     * Enough of the file to recognise it again, so the same PDF is not
+     * imported twice as two rows, two files and two uploads.
+     *
+     * `<byteSize>-<sha256 of the first and last 64 KB>`, and deliberately not a
+     * digest of the whole file: `expo-crypto` hashes a buffer, so a real
+     * content hash means holding a 100 MB textbook in memory on a phone.
+     * Size plus both ends is decisive for the case this exists for — the same
+     * file picked twice — and honest about being nothing stronger.
+     *
+     * `contentHash` beside it is the real digest, read back from R2's own
+     * metadata, and only a synced document has one.
+     */
+    fingerprint: v.optional(v.string()),
 
     /** 1-based, and clamped against `pageCount` server-side on every write. */
     currentPage: v.number(),
@@ -67,6 +168,31 @@ export default defineSchema({
     progress: v.number(),
     isFinished: v.boolean(),
     isFavorite: v.boolean(),
+
+    /**
+     * How the reader last laid this document out.
+     *
+     * Optional because most documents have never been opened, and absent means
+     * "whatever suits this screen" rather than a fourth mode — a phone opens
+     * continuous, a tablet opens spread, and neither is a decision worth
+     * writing down until somebody makes it.
+     *
+     * A preference rather than a position: it changes when a reader taps a menu,
+     * not when they turn a page, so it belongs on the row beside the position
+     * rather than in a table of its own. Zoom and scroll offset deliberately do
+     * not join it — those change continuously, are meaningless on a screen of a
+     * different size, and stay on the device that produced them.
+     */
+    readingMode: v.optional(
+      v.union(
+        /** One long scroll. What long-form reading on a phone is. */
+        v.literal('continuous'),
+        /** One page at a time, swiped horizontally. */
+        v.literal('single'),
+        /** Two pages side by side. Only reachable on a wide screen. */
+        v.literal('spread'),
+      ),
+    ),
 
     /** Absent until first opened, which is what keeps it out of Continue Reading. */
     lastOpenedAt: v.optional(v.number()),
@@ -113,6 +239,11 @@ export default defineSchema({
     // There is deliberately no `by_owner_and_author`: `author` is optional, and
     // an index sorts a missing value first, so sorting by author would open the
     // library with every document that has no author on it.
+    // "Have I already got this one?", asked once per import against an index
+    // rather than by scanning the library. Documents imported before
+    // fingerprints existed sort first under a missing value and are never
+    // looked up, because the query always names a fingerprint.
+    .index('by_owner_and_fingerprint', ['ownerId', 'fingerprint'])
     .index('by_owner_and_opened', ['ownerId', 'lastOpenedAt'])
     .index('by_owner_and_title', ['ownerId', 'title'])
     // `ownerId` as a filter field is what keeps one reader's search out of
@@ -123,9 +254,153 @@ export default defineSchema({
     }),
 
   /**
+   * A document's table of contents, as one row rather than one row per entry.
+   *
+   * An outline is read whole or not at all — the Contents sheet opens with all
+   * of it — so a row per entry would be one index scan and forty document reads
+   * to draw one list. Flattened with `depth` instead of nested children: Convex
+   * caps nesting at 16 levels, a recursive validator is not expressible in
+   * `v`, and the sheet renders depth as indentation anyway.
+   *
+   * It comes off `react-native-pdf`'s `onLoadComplete`, which hands back
+   * `tableContents` on the same load that produced the cover. The entries are
+   * therefore **client-supplied**, and `Library.setOutline` bounds and clamps
+   * every one of them the way `cleanText` bounds a title.
+   */
+  documentOutline: defineTable({
+    ownerId: v.id('users'),
+    documentId: v.id('documents'),
+    entries: v.array(
+      v.object({
+        title: v.string(),
+        /** 1-based and clamped against the document's `pageCount`. */
+        page: v.number(),
+        /** 0, 1 or 2. Deeper than that is four characters of title on a phone. */
+        depth: v.number(),
+      }),
+    ),
+    updatedAt: v.number(),
+  }).index('by_document', ['documentId']),
+
+  /**
+   * One page's text, which is what makes searching inside a document possible.
+   *
+   * Only a synced document has these rows: extraction reads the copy in R2,
+   * because that copy is the only one the server can see. Deleting the cloud
+   * copy deletes them — see `Library.detachUpload`.
+   *
+   * A row per page rather than a row per document, and the search index is why:
+   * a hit has to name a page for the reader to jump to, and a 600-page book's
+   * text is far past Convex's 1 MiB document limit besides.
+   */
+  documentPages: defineTable({
+    ownerId: v.id('users'),
+    documentId: v.id('documents'),
+    /** 1-based, matching what the reader sees at the bottom of the screen. */
+    page: v.number(),
+    text: v.string(),
+  })
+    // Reading a document's pages back in order, and deleting them all when its
+    // cloud copy goes away.
+    .index('by_document_and_page', ['documentId', 'page'])
+    // `ownerId` as a filter field is what keeps one reader's search out of
+    // another's documents — a search index has no implicit scope. `documentId`
+    // beside it is what makes "search inside this one" one query rather than a
+    // whole-library search filtered afterwards.
+    .searchIndex('search_text', {
+      searchField: 'text',
+      filterFields: ['ownerId', 'documentId'],
+    }),
+
+  /**
+   * Documents whose page text still needs clearing.
+   *
+   * `detachUpload` and `removeDocument` delete pages as they go, but a mutation
+   * reads 16 MiB and a page holds up to `PAGE_TEXT_MAX` — so a long book cannot
+   * be emptied inside one of them, and whatever is left has to be found again
+   * later.
+   *
+   * Found by being *recorded*, not by being searched for. The previous version
+   * scanned the head of `documentPages` looking for orphans, which reads the
+   * oldest pages in the deployment — pages that almost always belong to a
+   * document that is still perfectly synced. It swept nothing, every night, for
+   * ever, while the reader's own document text sat further down the table.
+   *
+   * `documentId` is a `v.string()` rather than a `v.id('documents')` on purpose:
+   * this row outlives the document it names, which is the entire point of it,
+   * and a typed id would be a reference that is dangling by design.
+   */
+  pagePruneQueue: defineTable({
+    documentId: v.string(),
+    queuedAt: v.number(),
+  })
+    // Oldest first, so a backlog drains in the order it accumulated.
+    .index('by_queued', ['queuedAt'])
+    // "Is this one already queued?" — one lookup rather than a scan.
+    .index('by_document', ['documentId']),
+
+  /**
+   * The state of one extraction, owner-scoped so a device can subscribe to it.
+   *
+   * The workflow component keeps its own status, and this is not a duplicate of
+   * it: that status lives in the component's tables, which carry no `ownerId`
+   * and which the client has no business reading. This row is the part of the
+   * job a reader is allowed to see, and the only part the Details sheet needs.
+   */
+  documentJobs: defineTable({
+    ownerId: v.id('users'),
+    documentId: v.id('documents'),
+    /** The component's handle, for `getStatus`, `cancel` and `cleanup`. */
+    workflowId: v.string(),
+    status: v.union(
+      v.literal('queued'),
+      v.literal('running'),
+      v.literal('done'),
+      v.literal('failed'),
+      v.literal('cancelled'),
+    ),
+    /** Pages written so far, so the sheet can say "218 of 499" rather than spin. */
+    pagesDone: v.number(),
+    pagesTotal: v.optional(v.number()),
+    /** A code, for the same reason `processingError` is one. */
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_document', ['documentId'])
+    // The nightly re-drive: everything still claiming to run, oldest first.
+    .index('by_status', ['status', 'updatedAt']),
+
+  /**
    * A named group of documents. It owns no files and duplicates no document —
    * a PDF can sit in several collections and still be one row in `documents`.
    */
+  /**
+   * A page somebody marked, in a document they own.
+   *
+   * A table rather than an array on `documents`, for the reason the guidelines
+   * give: an unbounded list inside a document grows into the 1 MB limit and
+   * rewrites the whole row on every append. This one is also written far more
+   * often than the row it belongs to.
+   *
+   * `ownerId` is denormalised, as on `collectionDocuments`, so a bookmark row
+   * can be owner-checked without fetching the document behind it.
+   */
+  documentBookmarks: defineTable({
+    ownerId: v.id('users'),
+    documentId: v.id('documents'),
+    /** 1-based, and clamped against `pageCount` server-side on every write. */
+    page: v.number(),
+    /** What the reader called it. Absent means the page number speaks for it. */
+    label: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    // "Is this page already marked?" — one lookup rather than a scan, and the
+    // toggle in the reader asks it on every page turn.
+    .index('by_document_and_page', ['documentId', 'page'])
+    // The list, in the order they were made.
+    .index('by_document', ['documentId', 'createdAt']),
+
   collections: defineTable({
     ownerId: v.id('users'),
     name: v.string(),

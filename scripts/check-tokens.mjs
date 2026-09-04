@@ -28,6 +28,9 @@ const NOT_A_COLOUR = new Set(
   ).split(' '),
 );
 
+/** An import or export line, whose string is a path rather than markup. */
+const IMPORT = /^\s*(?:import|export)\b[^;]*from\s+['"]/;
+
 const problems = [];
 (function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -40,6 +43,11 @@ const problems = [];
     fs.readFileSync(file, 'utf8')
       .split('\n')
       .forEach((line, i) => {
+        // A module path is not a className. `from './text-index'` and
+        // `from '../data/use-text-mirror'` both read as `text-index` /
+        // `text-mirror` to the pattern below, and a filename is not something a
+        // token can be found for.
+        if (IMPORT.test(line)) return;
         for (const match of line.matchAll(UTILITY)) {
           const name = match[1];
           if (defined.has(name) || NOT_A_COLOUR.has(name)) continue;

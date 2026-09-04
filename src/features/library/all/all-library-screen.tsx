@@ -1,7 +1,16 @@
 import { FlashList } from '@shopify/flash-list';
 import { usePaginatedQuery, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowUpDown, Check, ChevronLeft, LayoutGrid, List, Search, X } from 'lucide-react-native';
+import {
+  ArrowUpDown,
+  Check,
+  ChevronLeft,
+  LayoutGrid,
+  List,
+  Search,
+  TextSearch,
+  X,
+} from 'lucide-react-native';
 import React, { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 
@@ -187,6 +196,23 @@ export function AllLibraryScreen() {
         ))}
       </HStack>
 
+      {/* This box searches titles, which is a different question to "which page
+          says this". The reader who meant the second one is one tap away rather
+          than being told their library is empty. */}
+      {searching ? (
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: '/search', params: { term: searchTerm } })
+          }
+          accessibilityRole="button"
+          className="mt-1 flex-row items-center gap-2.5 border-b border-hairline px-6 py-3 data-[active=true]:bg-hover">
+          <Icon as={TextSearch} size="md" className="text-fg-muted" />
+          <Text size="sm" numberOfLines={1} className="flex-1 text-primary">
+            {`Search inside documents for “${searchTerm}”`}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {loading ? (
         <Center className="flex-1">
           <Spinner />
@@ -195,7 +221,7 @@ export function AllLibraryScreen() {
         <Center className="flex-1 px-10">
           <Text size="sm" className="text-center text-fg-subtle">
             {searching
-              ? `Nothing matches “${searchTerm}”.`
+              ? `No titles match “${searchTerm}”.`
               : chip === 'device'
                 ? 'No documents are stored on this device yet.'
                 : 'Nothing here yet.'}

@@ -15,7 +15,7 @@ import { coverTint } from './cover-tints';
  * The rendered first page when this device has one, and otherwise a page-shaped
  * surface with the title set in type, tinted from the document id.
  *
- * Import renders the real page now — see `cover-renderer.tsx` — so the tint is
+ * Import renders the real page now — see `document-probe.tsx` — so the tint is
  * the fallback rather than the only answer: a document imported before that
  * existed, one whose render failed, or one that arrived from another device
  * whose cover has not been fetched yet.

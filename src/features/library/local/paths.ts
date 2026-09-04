@@ -102,6 +102,59 @@ export function localCoverUri(profileId: string, documentId: string): string | n
 }
 
 /**
+ * Moves a rendered cover into place under its document's id.
+ *
+ * Returns whether it worked, because that is the difference between a document
+ * that is `ready` and one that is `partial`. Never throws: a cover is
+ * decoration, the tinted fallback already covers its absence, and losing a
+ * document over a thumbnail would not be survivable.
+ *
+ * A move rather than a copy — the source is the probe's output in the cache
+ * directory, which the system may clear whenever it likes.
+ */
+export function keepCover(profileId: string, documentId: string, sourceUri: string): boolean {
+  try {
+    ensureCoversDirectory(profileId);
+    const destination = coverFile(profileId, documentId);
+    if (destination.exists) {
+      destination.delete();
+    }
+    new File(sourceUri).move(destination);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gives a new document the cover of one that is already here.
+ *
+ * For the duplicate import: the reader is adding a second copy of a file this
+ * account already holds, so its first page has been rendered once already.
+ * Copying it is the whole of the work the probe is still doing.
+ *
+ * A copy, not a move: the document it comes from is still in the library and
+ * still needs its own.
+ */
+export function copyCoverFrom(profileId: string, fromId: string, toId: string): boolean {
+  try {
+    const source = coverFile(profileId, fromId);
+    if (!source.exists) {
+      return false;
+    }
+    ensureCoversDirectory(profileId);
+    const destination = coverFile(profileId, toId);
+    if (destination.exists) {
+      destination.delete();
+    }
+    source.copy(destination);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Where a picked file waits while the reader decides.
  *
  * The import screen renders a cover from the picked PDF and, if the reader

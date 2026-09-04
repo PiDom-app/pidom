@@ -1,10 +1,11 @@
-import { CloudDownload, Smartphone } from 'lucide-react-native';
+import { CloudDownload, Smartphone, TriangleAlert } from 'lucide-react-native';
 import React from 'react';
 
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useIsOnThisDevice } from '@/stores/local-library-store';
@@ -29,7 +30,11 @@ export function tileHeight(width: number, showProgress: boolean): number {
 }
 
 /** The glyph that goes in front of the meta line, if any. */
-function glyphFor(placement: Placement) {
+function glyphFor(document: LibraryDocument, placement: Placement) {
+  // A document the viewer could not read says so, whatever else is true of it.
+  if (document.processing === 'failed') {
+    return TriangleAlert;
+  }
   switch (placement) {
     case 'fetchable':
       return CloudDownload;
@@ -70,18 +75,21 @@ export function DocumentTile({
   const transfer = useTransfer(document.id);
   const placement = placementOf(document, { onThisDevice, transferring: transfer !== null });
   const meta = metaLineFor(document, { onThisDevice, showProgress, transfer });
-  const glyph = glyphFor(placement);
+  const glyph = glyphFor(document, placement);
 
-  // A transfer's bar is the transfer, not the reading position. Showing both at
-  // once in the same 2px would be two different numbers in one place.
+  // One meaning at a time in the same 2px. A transfer's bar is the transfer,
+  // not the reading position — and a document still being probed gets neither,
+  // because a third meaning in two pixels is a bar nobody can read.
   const bar =
-    transfer !== null
-      ? transfer.total > 0
-        ? Math.round((transfer.sent / transfer.total) * 100)
-        : 0
-      : showProgress && onThisDevice
-        ? Math.round(document.progress * 100)
-        : null;
+    document.processing === 'probing'
+      ? null
+      : transfer !== null
+        ? transfer.total > 0
+          ? Math.round((transfer.sent / transfer.total) * 100)
+          : 0
+        : showProgress && onThisDevice
+          ? Math.round(document.progress * 100)
+          : null;
 
   // Never disabled, even for a document imported on another phone. Disabling
   // would take the long press with it, and the action sheet is the only way to
@@ -94,12 +102,22 @@ export function DocumentTile({
       accessibilityRole="button"
       accessibilityLabel={`${document.title}. ${meta}`}
       style={{ width, height: tileHeight(width, showProgress) }}>
-      <DocumentCover
-        documentId={document.id}
-        title={document.title}
-        width={width}
-        dimmed={!onThisDevice}
-      />
+      {/* The probe has not reported, so there is no cover to draw and no tint
+          worth drawing either — the tint is the *fallback*, and showing it here
+          would mean replacing it a second later. */}
+      {document.processing === 'probing' && onThisDevice ? (
+        <Skeleton
+          className="rounded-md"
+          style={{ width, height: coverHeight(width) }}
+        />
+      ) : (
+        <DocumentCover
+          documentId={document.id}
+          title={document.title}
+          width={width}
+          dimmed={!onThisDevice}
+        />
+      )}
 
       <Text
         size="xs"
@@ -147,7 +165,7 @@ export function DocumentRow({
   const transfer = useTransfer(document.id);
   const placement = placementOf(document, { onThisDevice, transferring: transfer !== null });
   const meta = metaLineFor(document, { onThisDevice, showProgress: true, transfer });
-  const glyph = glyphFor(placement);
+  const glyph = glyphFor(document, placement);
 
   return (
     <Pressable
@@ -157,12 +175,16 @@ export function DocumentRow({
       accessibilityLabel={`${document.title}. ${meta}`}
       className="px-6 py-3 data-[active=true]:bg-hover">
       <HStack className="items-center" space="lg">
-        <DocumentCover
-          documentId={document.id}
-          title={document.title}
-          width={44}
-          dimmed={!onThisDevice}
-        />
+        {document.processing === 'probing' && onThisDevice ? (
+          <Skeleton className="rounded-md" style={{ width: 44, height: coverHeight(44) }} />
+        ) : (
+          <DocumentCover
+            documentId={document.id}
+            title={document.title}
+            width={44}
+            dimmed={!onThisDevice}
+          />
+        )}
 
         <VStack className="flex-1">
           <Text

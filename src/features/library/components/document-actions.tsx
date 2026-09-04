@@ -10,7 +10,9 @@ import {
   Heart,
   HeartOff,
   Info,
+  ListTree,
   Pencil,
+  RefreshCw,
   RotateCcw,
   Share,
   Smartphone,
@@ -56,6 +58,7 @@ import { documentFile } from '../local/paths';
 import { CollectionPicker } from './collection-picker';
 import { DocumentCover } from './document-cover';
 import { DocumentDetails } from './document-details';
+import { DocumentProbe, type ProbeResult } from './document-probe';
 import { NameDialog } from './name-dialog';
 import { RenameDialog } from './rename-dialog';
 
@@ -75,9 +78,16 @@ const SCOPE = 'document-actions';
 export function DocumentActions({
   document,
   onClose,
+  onShowContents,
 }: {
   document: LibraryDocument | null;
   onClose: () => void;
+  /**
+   * Offered only where a Contents sheet can actually open — the reader owns
+   * one, and jumping to a page means nothing on a library screen. Absent
+   * everywhere else, and the menu item goes with it.
+   */
+  onShowContents?: (document: LibraryDocument) => void;
 }) {
   const {
     deleteDocument,
@@ -88,6 +98,8 @@ export function DocumentActions({
     fetchDocument,
     removeDownload,
     setFinished,
+    reprocess,
+    recordProbe,
   } = useLibraryActions();
   const { profileId } = useLibraryStatus();
   const createCollection = useMutation(api.collections.create);
@@ -126,6 +138,15 @@ export function DocumentActions({
   const [filing, setFiling] = useState(false);
   const [namingCollection, setNamingCollection] = useState(false);
   const [showingDetails, setShowingDetails] = useState(false);
+  /**
+   * The document whose local file is being read again.
+   *
+   * Held here rather than in `useLibraryActions` because a probe is a mounted
+   * native view, and this component is what can mount one. It outlives the
+   * sheet on purpose: the reader closes the sheet immediately, and the tile
+   * carries the state from there.
+   */
+  const [reprobing, setReprobing] = useState<LibraryDocument | null>(null);
 
   // Hooks cannot be called conditionally, so the id has to be a string either
   // way; an empty one is simply never on the device.
@@ -288,10 +309,41 @@ export function DocumentActions({
                   </ActionsheetItem>
                 ) : null}
 
+                {/* Only where a page jump means something, and only when the
+                    PDF declares an outline at all. */}
+                {onShowContents !== undefined && document.hasOutline ? (
+                  <ActionsheetItem onPress={() => onShowContents(document)}>
+                    <ActionsheetIcon as={ListTree} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">Contents</ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
                 <ActionsheetItem onPress={() => setRenaming(true)}>
                   <ActionsheetIcon as={Pencil} className="text-fg-muted" />
                   <ActionsheetItemText className="text-foreground">Rename</ActionsheetItemText>
                 </ActionsheetItem>
+
+                {/* Offered when something the pipeline should have produced is
+                    missing. A document that came out `ready` with its text
+                    extracted has nothing here to redo, so the item is absent
+                    rather than present and inert. */}
+                {onThisDevice &&
+                (document.processing !== 'ready' ||
+                  document.textStatus === 'failed' ||
+                  !document.hasOutline) ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      const target = document;
+                      onClose();
+                      // The device half needs the file, so it only runs where
+                      // the file is. The cloud half runs from the server.
+                      setReprobing(target);
+                      void reprocess(target);
+                    }}>
+                    <ActionsheetIcon as={RefreshCw} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">Reprocess</ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
 
                 <ActionsheetItem onPress={() => setShowingDetails(true)}>
                   <ActionsheetIcon as={Info} className="text-fg-muted" />
@@ -411,6 +463,20 @@ export function DocumentActions({
           onClose();
         }}
       />
+
+      {/* Mounted, not called: reading a PDF page means putting a native view on
+          screen and snapshotting it. It sits off-screen, reports once, and
+          unmounts itself. */}
+      {reprobing === null || profileId === null ? null : (
+        <DocumentProbe
+          pdfUri={documentFile(profileId, reprobing.id).uri}
+          onDone={(result: ProbeResult) => {
+            const target = reprobing;
+            setReprobing(null);
+            void recordProbe(target.id, result);
+          }}
+        />
+      )}
 
       {/* Removing the local copy destroys data on this phone, so it is
           acknowledged — and the sentence that matters is the one saying the

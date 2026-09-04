@@ -10,6 +10,7 @@ import { useLocalLibraryStore } from '@/stores/local-library-store';
 import { removeLocally } from '../local/import';
 import type { LibraryCollection, LibraryDocument } from './types';
 import { useCoverSync } from './use-cover-sync';
+import { useTextMirror } from './use-text-mirror';
 import { useLibraryStatus } from './use-library-status';
 
 /**
@@ -194,6 +195,9 @@ export function useHome(): HomeState {
     [home],
   );
   useCoverSync(everything);
+  // The other thing the account has that the device wants on disk. Same footing
+  // as covers: quiet, sequential, once per document, and never urgent.
+  useTextMirror(everything);
 
   const sections = useMemo<HomeSection[]>(() => {
     if (home === undefined) {

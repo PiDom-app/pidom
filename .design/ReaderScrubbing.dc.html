@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #6a59e8; } a:hover { color: #7a6af0; }
+    .c2, .c5 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    .c2 { -webkit-line-clamp: 2; } .c5 { -webkit-line-clamp: 5; }
+    .pretty { text-wrap: pretty; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width:390px;min-height:844px;background:#fdfdfc;overflow:hidden">
+<div style="position:relative;height:844px;overflow:hidden;background:#fdfdfc">
+  <div style="padding:64px 40px 0">
+    <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#8f8d88">Part II · Heuristics and Biases</div>
+         <div style="margin-top:26px;font-size:15px;line-height:1.5;font-weight:700;color:#1a1a1a">The Law of Small Numbers</div>
+    <div style="margin-top:18px"><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:88%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:52%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:88%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:52%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:88%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:88%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:52%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:88%;margin-bottom:12px"></div><div style="height:2px;border-radius:1px;background:#c9c6c0;width:100%;margin-bottom:12px"></div></div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:26px;text-align:center;font-size:10px;color:#8f8d88">142</div>
+  <div style="position:absolute;left:0;right:0;top:0;height:96px;background:#000000;box-shadow:0 1px 0 #1c1b1a">
+    <div style="display:flex;align-items:center;gap:6px;padding:44px 24px 0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8e6e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      <div style="flex:1;margin-left:6px;min-width:0">
+        <div style="font-size:14px;font-weight:600;letter-spacing:-.01em;color:#e8e6e3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Thinking, Fast and Slow</div>
+      </div>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8e6e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8e6e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    </div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;height:132px;background:#000000;box-shadow:0 -1px 0 #1c1b1a">
+    <div style="position:absolute;left:0;right:0;top:-92px;display:flex;justify-content:center">
+           <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;background:#141414;box-shadow:inset 0 0 0 1px #262523">
+             <div style="width:38px;height:54px;border-radius:6px;background:#fdfdfc;box-shadow:inset 0 0 0 1px #262523;padding:7px 6px 0">
+               <div style="height:1.5px;border-radius:1px;background:#c9c6c0;width:92%;margin-bottom:4px"></div><div style="height:1.5px;border-radius:1px;background:#c9c6c0;width:92%;margin-bottom:4px"></div><div style="height:1.5px;border-radius:1px;background:#c9c6c0;width:58%;margin-bottom:4px"></div><div style="height:1.5px;border-radius:1px;background:#c9c6c0;width:92%;margin-bottom:4px"></div><div style="height:1.5px;border-radius:1px;background:#c9c6c0;width:78%;margin-bottom:4px"></div>
+             </div>
+             <div>
+               <div style="font-size:13px;font-weight:600;color:#e8e6e3" class="tnum">Page 438</div>
+               <div style="margin-top:2px;font-size:11px;color:#6e6c68">The Law of Small Numbers</div>
+             </div>
+           </div>
+         </div>
+    <div style="padding:16px 24px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;color:#e8e6e3" class="tnum">438 of 499</span>
+        <span style="font-size:12px;color:#6e6c68" class="tnum">88%</span>
+      </div>
+      <div style="position:relative;margin-top:16px;height:4px;border-radius:6px;background:#262523">
+        <div style="width:88%;height:100%;border-radius:6px;background:#6a59e8"></div>
+        <div style="position:absolute;left:88%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:9999px;background:#6a59e8;box-shadow:0 0 0 4px #000000"></div>
+        <div style="position:absolute;left:12%;top:-7px;width:1px;height:5px;background:#3d3b38"></div><div style="position:absolute;left:24%;top:-7px;width:1px;height:5px;background:#3d3b38"></div><div style="position:absolute;left:47%;top:-7px;width:1px;height:5px;background:#3d3b38"></div><div style="position:absolute;left:63%;top:-7px;width:1px;height:5px;background:#3d3b38"></div><div style="position:absolute;left:81%;top:-7px;width:1px;height:5px;background:#3d3b38"></div>
+      </div>
+      <div style="margin-top:14px;text-align:center;font-size:11px;color:#6e6c68">Release to go there</div>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+
+</body>
+</html>

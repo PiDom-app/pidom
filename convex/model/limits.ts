@@ -19,6 +19,9 @@ export const AUTHOR_MAX = 200;
 /** A collection name has to fit a 148px tile in two lines at 13px. */
 export const COLLECTION_NAME_MAX = 80;
 
+/** `application/vnd.openxmlformats-officedocument.wordprocessingml.document` is 71. */
+export const MIME_TYPE_MAX = 128;
+
 /** Items per home rail. The rail shows four and scrolls a few more. */
 export const RAIL_LIMIT = 12;
 /** Collections on the home screen. Past this, the all-library screen is the answer. */
@@ -41,6 +44,67 @@ export const SEARCH_TERM_MAX = 120;
 
 /** No PDF has more pages than this, and a bad client should not claim one does. */
 export const PAGE_COUNT_MAX = 100_000;
+
+/**
+ * Past this many pages the reader stops offering a thumbnail strip and offers
+ * the scrubber alone.
+ *
+ * A thumbnail is a live PDF render, so a strip is a handful of native views
+ * being recycled as it scrolls — fine over a few hundred pages, and a way to
+ * spend a second of a reader's time scrolling past nothing over a few thousand.
+ * The scrubber reaches any page in one drag regardless of length, so nothing is
+ * lost past the cap.
+ *
+ * Here rather than in the client because the reader and the artboards both
+ * quote it, and a number in two places is a number that disagrees with itself.
+ */
+export const THUMBNAIL_PAGE_MAX = 1_200;
+
+/**
+ * How far the renderer's own pinch is allowed to go.
+ *
+ * `react-native-pdf` defaults to 3, which is not enough to read a footnote on a
+ * scan. 4 is, and past it a page is a texture rather than text.
+ */
+export const READER_ZOOM_MAX = 4;
+
+/**
+ * How long the reader waits before telling the server where somebody got to.
+ *
+ * A write per page turn is a write per swipe, replicated to every device the
+ * account owns and re-running the home query on all of them. Fifteen seconds is
+ * long enough that ordinary reading produces almost none, and short enough that
+ * a phone that dies mid-chapter loses one paragraph rather than one chapter.
+ * The local write is not debounced this far — see `use-reader-session.ts`.
+ */
+export const PROGRESS_DEBOUNCE_MS = 15_000;
+
+/**
+ * A jump big enough to write immediately rather than wait out the debounce.
+ *
+ * Somebody who taps a Contents entry has moved deliberately, and losing that to
+ * a force-quit inside the debounce window would lose the one page they went
+ * looking for. Ten pages is past what any amount of swiping does in a moment.
+ */
+export const PROGRESS_JUMP_PAGES = 10;
+
+/**
+ * A bookmark's own name.
+ *
+ * Shorter than a document title, because it is a line in a list beside a page
+ * number and anything longer is ellipsis. Most bookmarks will have none at all.
+ */
+export const BOOKMARK_LABEL_MAX = 120;
+
+/**
+ * How many pages one document can have marked.
+ *
+ * Generous for the thing it is — somebody working through a textbook marks
+ * tens, not hundreds — and low enough that the list is one bounded read the
+ * reader renders without paging. Past it the answer is Contents, not more
+ * bookmarks.
+ */
+export const BOOKMARKS_PER_DOCUMENT = 200;
 
 /**
  * The largest file the library will *record*. 512 MB — past this the device
@@ -73,6 +137,123 @@ export const DOWNLOAD_URL_SECONDS = 300;
 
 /** A 600px JPEG has no business exceeding this. */
 export const COVER_BYTE_MAX = 512 * 1024;
+
+/* ── processing ──────────────────────────────────────────────────────── */
+
+/**
+ * Entries kept from a document's table of contents.
+ *
+ * `react-native-pdf` hands back whatever the PDF declares, and a PDF can
+ * declare a bookmark per paragraph. 500 covers a textbook's every section and
+ * still fits one Convex document with room to spare.
+ */
+export const OUTLINE_ENTRY_MAX = 500;
+
+/**
+ * Nesting kept, as a depth rather than a tree.
+ *
+ * Three levels is part, chapter, section. A fourth is indented off the side of
+ * a 390px sheet, so it is flattened into the third rather than rendered.
+ */
+export const OUTLINE_DEPTH_MAX = 3;
+
+/** One line of a Contents sheet, at the size the sheet sets. */
+export const OUTLINE_TITLE_MAX = 200;
+
+/**
+ * The largest document the server will parse for text.
+ *
+ * A Node action gets 512 MiB, and pdf.js holds several multiples of a file's
+ * size while parsing it — so this is well under `CLOUD_BYTE_MAX` on purpose.
+ * A document past this syncs and downloads exactly as before; it is only its
+ * text that is not extracted, and `textStatus` says so.
+ */
+export const EXTRACT_BYTE_MAX = 32 * 1024 * 1024;
+
+/** Pages parsed. Past this the document is a data dump, not something read. */
+export const EXTRACT_PAGE_MAX = 2_000;
+
+/**
+ * How long extraction gets before it is abandoned.
+ *
+ * unpdf's serverless build parses on the event loop with no worker to kill, so
+ * a malformed PDF that sends it spinning cannot be interrupted — only outlived.
+ * A Node action's own ceiling is ten minutes, which is nine and a half minutes
+ * of a compute bill for a file that is never going to parse.
+ */
+export const EXTRACT_TIMEOUT_MS = 120_000;
+
+/**
+ * Text kept per page.
+ *
+ * A Convex document caps at 1 MiB, and a page carrying more than 8 KB of text
+ * is a table of figures nobody searches by phrase. Truncated rather than
+ * refused: most of a page still finds the page.
+ */
+export const PAGE_TEXT_MAX = 8 * 1024;
+
+/** Pages written per mutation. A mutation writes 16 MiB and 16,000 documents. */
+export const PAGE_BATCH = 50;
+
+/**
+ * Pages one mutation will delete in a pass.
+ *
+ * Deleting reads first, and a page holds up to `PAGE_TEXT_MAX`, so 400 of them
+ * is around 3 MB against a mutation's 16 MiB read budget — headroom, rather
+ * than a number chosen to sit on the edge. A book longer than this is finished
+ * by the nightly prune, which is what a nightly prune is for.
+ */
+export const PAGE_DELETE_BUDGET = 400;
+
+/**
+ * Documents the nightly prune clears in one run.
+ *
+ * It drains `pagePruneQueue`, so every one of these is a document that really
+ * does have text to clear — nothing is spent looking. Four of them at
+ * `PAGE_DELETE_BUDGET` each is around 12 MB of reads against a mutation's
+ * 16 MiB, which is the ceiling this number is set by.
+ */
+export const PRUNE_DOCUMENTS = 4;
+
+/**
+ * Finished workflows whose journals the nightly cleanup drops.
+ *
+ * The workflow component keeps a completed run's step journal until something
+ * calls `cleanup`, and Pidom starts one per document per sync — so this is the
+ * only thing standing between the component's tables and unbounded growth.
+ * Fifty a night stays well ahead of any realistic import rate.
+ */
+export const WORKFLOW_CLEANUP_LIMIT = 50;
+
+/** Characters either side of a search hit, for the line under the page number. */
+export const SNIPPET_CHARS = 90;
+
+/**
+ * Pages the device pulls per request when mirroring text for offline search.
+ *
+ * A function returns 16 MiB and a page holds up to `PAGE_TEXT_MAX`, so 100 is
+ * around 800 KB — a comfortable request on mobile data, and a 600-page book in
+ * six of them. The mirror runs once per document and never again.
+ */
+export const PAGE_MIRROR_BATCH = 100;
+
+/**
+ * How long a job may claim to be running before the nightly sweep re-drives it.
+ *
+ * A Node action's own ceiling is ten minutes, so anything still `running` an
+ * hour later is a job whose process died without ever writing a terminal state.
+ */
+export const JOB_STALE_MS = 60 * 60 * 1000;
+
+/**
+ * Extractions the nightly re-drive restarts in one run.
+ *
+ * Each one starts a workflow, and the workflow's pool runs four at a time — so
+ * restarting a hundred at three in the morning would queue work into the
+ * following afternoon and put a hundred scheduled functions in one mutation.
+ * Twenty a night clears any realistic backlog within a week.
+ */
+export const JOB_SWEEP_LIMIT = 20;
 
 /**
  * Rows the nightly orphan sweep looks at per run.

@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { ChevronRight, FilePlus2 } from 'lucide-react-native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl } from 'react-native';
 
 import { Screen } from '@/components/layout/screen';
@@ -20,9 +20,13 @@ import type { LibraryCollection, LibraryDocument } from '../data/types';
 import type { HomeSection } from '../data/use-home';
 import { useHome } from '../data/use-home';
 import { useLibraryActions } from '../data/use-library-actions';
+import { useLibraryStatus } from '../data/use-library-status';
+import { usePendingProbe } from '../data/use-pending-probe';
+import { documentFile } from '../local/paths';
 import { COLLECTION_TILE_HEIGHT, CollectionTile } from './collection-tile';
 import { DocumentActions } from './document-actions';
 import { COVER_WIDTH } from './document-cover';
+import { DocumentProbe, type ProbeResult } from './document-probe';
 import { DocumentTile, tileHeight } from './document-tile';
 import { EmptyLibrary } from './empty-library';
 import { LibraryHeader } from './library-header';
@@ -54,7 +58,22 @@ export function LibraryScreen() {
 
   const { sections, loading, isEmpty, offline, stale, staleAt, hasNetwork, refreshing, refresh } =
     useHome();
-  const { fetchDocument } = useLibraryActions();
+  const { fetchDocument, recordProbe } = useLibraryActions();
+
+  /**
+   * A document whose probe never finished, if there is one.
+   *
+   * Committing an import before the probe reports is the ordinary case — the
+   * Add button is live immediately and the render takes a second or two — and
+   * the import screen closes with the probe still running. This is where that
+   * document gets read. See `usePendingProbe`.
+   */
+  const documents = useMemo(
+    () =>
+      sections.flatMap((section) => (section.kind === 'documents' ? section.documents : [])),
+    [sections],
+  );
+  const pending = usePendingProbe(documents);
 
   const [acting, setActing] = useState<LibraryDocument | null>(null);
 
@@ -65,6 +84,7 @@ export function LibraryScreen() {
   const photoUrl = account?.photoUrl ?? profile?.pictureUrl ?? null;
 
   const localIds = useLocalLibraryStore((state) => state.ids);
+  const { profileId } = useLibraryStatus();
 
   const openDocument = useCallback(
     (document: LibraryDocument) => {
@@ -198,6 +218,16 @@ export function LibraryScreen() {
       />
 
       <DocumentActions document={acting} onClose={() => setActing(null)} />
+
+      {/* Mounted, not called: reading a PDF page means putting a native view on
+          screen and snapshotting it. It sits off-screen and reports once, and
+          the row it writes is what selects the next one. */}
+      {pending === null || profileId === null ? null : (
+        <DocumentProbe
+          pdfUri={documentFile(profileId, pending.id).uri}
+          onDone={(result: ProbeResult) => void recordProbe(pending.id, result)}
+        />
+      )}
     </Screen>
   );
 }

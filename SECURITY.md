@@ -40,10 +40,12 @@ vulnerability:
   weaker than the authenticated route it replaced, and it is what makes 100 MB
   documents possible at all — Convex caps an HTTP action response at 20 MiB.
   Anyone who captures a URL within its window can fetch that one document.
-- **There is no per-user rate limiting yet.** An authenticated caller can drive
-  writes as fast as Convex will accept them. It affects only their own data and
-  their own quota, and it should land before this repository takes outside
-  contributions.
+- **Rate limiting covers writes, not reads.** `@convex-dev/rate-limiter` sits in
+  front of every mutation that costs money or work — importing, upload and
+  download URLs, reprocessing, recording a probe, creating a collection, and
+  recording reading progress. Reads are not covered and cannot be: spending a
+  token is a write, and a Convex query cannot write. They stay bounded by
+  `.take(n)` instead.
 - **`EXPO_PUBLIC_*` values are in the bundle.** A Convex deployment URL and
   OAuth client IDs are public identifiers. The Google *client secret* is not
   among them and must never be — the native ID token flow never needs one.

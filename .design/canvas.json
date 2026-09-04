@@ -126,7 +126,7 @@
       "x": 4410,
       "y": 3044,
       "w": 390,
-      "h": 940
+      "h": 1044
     },
     {
       "file": "SyncStates.dc.html",
@@ -151,6 +151,222 @@
       "y": 5024,
       "w": 1360,
       "h": 640
+    },
+    {
+      "file": "HomeProcessing.dc.html",
+      "title": "Home — a document still processing",
+      "x": 0,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportDuplicate.dc.html",
+      "title": "Import — already in the library",
+      "x": 490,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportNotAPdf.dc.html",
+      "title": "Import — not a PDF",
+      "x": 980,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportProtected.dc.html",
+      "title": "Import — password protected",
+      "x": 1470,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Contents.dc.html",
+      "title": "Contents — the PDF’s own outline",
+      "x": 1960,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ContentsEmpty.dc.html",
+      "title": "Contents — none in the file",
+      "x": 2450,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SearchInside.dc.html",
+      "title": "Search inside documents",
+      "x": 2940,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ProcessingDetail.dc.html",
+      "title": "Details — what was made from it",
+      "x": 3430,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SearchOffline.dc.html",
+      "title": "Search inside — with no connection",
+      "x": 3920,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportIncoming.dc.html",
+      "title": "Import — opened from another app",
+      "x": 4410,
+      "y": 6264,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "TileProcessing.dc.html",
+      "title": "Document tile — processing states",
+      "x": 0,
+      "y": 7228,
+      "w": 900,
+      "h": 720
+    },
+    {
+      "file": "ReaderOpening.dc.html",
+      "title": "Reader — opening",
+      "x": 0,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderContinuous.dc.html",
+      "title": "Reader — continuous scroll",
+      "x": 490,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderSinglePage.dc.html",
+      "title": "Reader — one page at a time",
+      "x": 980,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderPageJump.dc.html",
+      "title": "Reader — jump to a page",
+      "x": 1470,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderScrubbing.dc.html",
+      "title": "Reader — dragging to a page",
+      "x": 1960,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderModes.dc.html",
+      "title": "Reader — how it reads",
+      "x": 2450,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderSettings.dc.html",
+      "title": "Reader — settings",
+      "x": 2940,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderPassword.dc.html",
+      "title": "Reader — this PDF has a password",
+      "x": 3430,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderFailed.dc.html",
+      "title": "Reader — this file will not open",
+      "x": 3920,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderLink.dc.html",
+      "title": "Reader — a link in the document",
+      "x": 4410,
+      "y": 8068,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderFind.dc.html",
+      "title": "Reader — find in this document",
+      "x": 0,
+      "y": 10332,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderBookmarks.dc.html",
+      "title": "Reader — the pages you marked",
+      "x": 490,
+      "y": 10332,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderTint.dc.html",
+      "title": "Reader — a layer over the page",
+      "x": 980,
+      "y": 10332,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderSelection.dc.html",
+      "title": "Reader — text you selected",
+      "x": 1470,
+      "y": 10332,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderAnatomy.dc.html",
+      "title": "Reader — chrome, lifecycle, commands",
+      "x": 0,
+      "y": 9032,
+      "w": 900,
+      "h": 1180
+    },
+    {
+      "file": "ReaderSpread.dc.html",
+      "title": "Reader — two pages, landscape",
+      "x": 1000,
+      "y": 9032,
+      "w": 1024,
+      "h": 768
     }
   ],
   "annotations": [
@@ -167,6 +383,34 @@
       "y": 2080,
       "w": 300,
       "text": "A rail with nothing in it renders nothing — a new account falls through to the empty state rather than showing six empty headings."
+    },
+    {
+      "id": "note-processing",
+      "x": 0,
+      "y": 6114,
+      "w": 880,
+      "text": "One <Pdf> mount answers three questions at once: how many pages, what the contents are, and what the first page looks like. The row is written before any of them, so the document is in the library and openable while the probe is still running."
+    },
+    {
+      "id": "note-text",
+      "x": 2940,
+      "y": 6114,
+      "w": 380,
+      "text": "Searching inside a document reads the copy in your account, not the file on this phone — it is the one thing the server can see. A local-only document is absent from these results and says so."
+    },
+    {
+      "id": "note-find",
+      "x": 0,
+      "y": 10182,
+      "w": 880,
+      "text": "Finding inside a document is the search that already existed, asked a narrower question.\nThe page text is extracted for every synced document and mirrored into the phone’s own index, and both were already scoped by document — so find works with no connection, and the reader never leaves the page to use it."
+    },
+    {
+      "id": "note-reader",
+      "x": 0,
+      "y": 7918,
+      "w": 880,
+      "text": "The renderer owns the page; the app owns everything around it.\nZoom, panning and page rendering are native and are left alone — a second zoom engine over a renderer that already has one is two gesture recognisers fighting. What React Native adds is the chrome, the modes, and one goToPage every feature calls."
     },
     {
       "id": "note-covers",

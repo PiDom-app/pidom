@@ -13,9 +13,10 @@ export type LibraryErrorCode =
   | 'NO_PROFILE'
   | 'FORBIDDEN'
   | 'INVALID'
+  | 'RATE_LIMITED'
   | 'UNKNOWN';
 
-type ErrorPayload = { code?: unknown; message?: unknown };
+type ErrorPayload = { code?: unknown; message?: unknown; retryAfter?: unknown };
 
 export function codeOf(error: unknown): LibraryErrorCode {
   if (!(error instanceof ConvexError)) {
@@ -29,6 +30,7 @@ export function codeOf(error: unknown): LibraryErrorCode {
     case 'NO_PROFILE':
     case 'FORBIDDEN':
     case 'INVALID':
+    case 'RATE_LIMITED':
       return code;
     default:
       return 'UNKNOWN';
@@ -51,6 +53,15 @@ export function messageOf(error: unknown, fallback: string): string {
     }
   }
 
+  if (codeOf(error) === 'RATE_LIMITED') {
+    // The server sends how long, in milliseconds, so the sentence can say when
+    // rather than only no. See `convex/model/rateLimits.ts`.
+    const data = (error as ConvexError<never>).data as ErrorPayload | undefined;
+    return typeof data?.retryAfter === 'number'
+      ? `Too many in a short time. Try again in ${describe(data.retryAfter)}.`
+      : 'Too many in a short time. Try again shortly.';
+  }
+
   switch (codeOf(error)) {
     case 'FORBIDDEN':
       return 'That document is no longer in your library.';
@@ -60,4 +71,18 @@ export function messageOf(error: unknown, fallback: string): string {
     default:
       return fallback;
   }
+}
+
+/** Milliseconds as a person would say them. Rounded up, so it is never early. */
+function describe(ms: number): string {
+  const seconds = Math.ceil(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  }
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  }
+  const hours = Math.ceil(minutes / 60);
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
 }

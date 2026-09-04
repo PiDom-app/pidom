@@ -7,12 +7,18 @@ import { r2 } from '../r2';
 
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { assertOwner } from './auth';
+import * as Processing from './processing';
+import { queueExtraction } from '../workflows/document';
 import {
   AUTHOR_MAX,
+  BOOKMARKS_PER_DOCUMENT,
+  BOOKMARK_LABEL_MAX,
   BYTE_SIZE_MAX,
   CLOUD_BYTE_MAX,
   COVER_BYTE_MAX,
   IDS_MAX,
+  MIME_TYPE_MAX,
+  PAGE_DELETE_BUDGET,
   PAGE_COUNT_MAX,
   RAIL_LIMIT,
   SEARCH_LIMIT,
@@ -43,6 +49,22 @@ import {
  * Pinned like `toPublicProfile`, so adding a column to the schema cannot leak
  * it by accident.
  */
+/**
+ * How the reader lays a document out.
+ *
+ * Declared once and used four times — the schema, the wire type, the wire
+ * validator and the mutation argument — because a fourth mode added in three of
+ * those places and forgotten in the fourth is a runtime validator error, not a
+ * build one.
+ */
+export const readingModeValidator = v.union(
+  v.literal('continuous'),
+  v.literal('single'),
+  v.literal('spread'),
+);
+
+export type ReadingMode = 'continuous' | 'single' | 'spread';
+
 export type PublicDocument = {
   id: Id<'documents'>;
   title: string;
@@ -53,12 +75,23 @@ export type PublicDocument = {
   progress: number;
   isFinished: boolean;
   isFavorite: boolean;
+  /** Null until the reader has chosen one; the screen picks a default by width. */
+  readingMode: ReadingMode | null;
   lastOpenedAt: number | null;
   createdAt: number;
   /** True when a copy exists in the account and any device can fetch it. */
   isSynced: boolean;
   /** True when a rendered first page exists to fetch. */
   hasCover: boolean;
+  /** What the device probe got off the one PDF load at import. */
+  processing: 'probing' | 'ready' | 'partial' | 'failed';
+  /** Absent unless the document is synced — only then is there text to read. */
+  textStatus: 'queued' | 'extracting' | 'ready' | 'none' | 'failed' | null;
+  /** True when there is a Contents sheet to open. */
+  hasOutline: boolean;
+  /** What the file was called when it was picked, if that was recorded. */
+  originalFileName: string | null;
+  mimeType: string | null;
 };
 
 export function toPublicDocument(doc: Doc<'documents'>): PublicDocument {
@@ -72,6 +105,7 @@ export function toPublicDocument(doc: Doc<'documents'>): PublicDocument {
     progress: doc.progress,
     isFinished: doc.isFinished,
     isFavorite: doc.isFavorite,
+    readingMode: doc.readingMode ?? null,
     lastOpenedAt: doc.lastOpenedAt ?? null,
     createdAt: doc.createdAt,
     // The storage ids themselves never cross the wire. The client fetches by
@@ -79,6 +113,17 @@ export function toPublicDocument(doc: Doc<'documents'>): PublicDocument {
     // identifier it has no use for and one more thing that can leak.
     isSynced: doc.storageKey !== undefined,
     hasCover: doc.coverStorageKey !== undefined,
+    // A row written before processing existed has already been through
+    // whatever processing there was, so a missing value reads as `ready`
+    // rather than leaving old documents in a state they can never leave.
+    processing: doc.processing ?? 'ready',
+    textStatus: doc.textStatus ?? null,
+    hasOutline: doc.hasOutline ?? false,
+    originalFileName: doc.originalFileName ?? null,
+    mimeType: doc.mimeType ?? null,
+    // `fingerprint` and `processingError` are deliberately absent. The first is
+    // a fact about a file on somebody's phone and the second is a code the
+    // client already has a sentence for; neither is a thing a rail needs.
   };
 }
 
@@ -99,10 +144,28 @@ export const publicDocumentValidator = v.object({
   progress: v.number(),
   isFinished: v.boolean(),
   isFavorite: v.boolean(),
+  readingMode: v.union(readingModeValidator, v.null()),
   lastOpenedAt: v.union(v.number(), v.null()),
   createdAt: v.number(),
   isSynced: v.boolean(),
   hasCover: v.boolean(),
+  processing: v.union(
+    v.literal('probing'),
+    v.literal('ready'),
+    v.literal('partial'),
+    v.literal('failed'),
+  ),
+  textStatus: v.union(
+    v.literal('queued'),
+    v.literal('extracting'),
+    v.literal('ready'),
+    v.literal('none'),
+    v.literal('failed'),
+    v.null(),
+  ),
+  hasOutline: v.boolean(),
+  originalFileName: v.union(v.string(), v.null()),
+  mimeType: v.union(v.string(), v.null()),
 });
 
 export type PublicCollection = {
@@ -379,6 +442,18 @@ export type ImportInput = {
   title: string;
   author?: string;
   byteSize: number;
+  /** The picker's filename. Presentation metadata; the id is the path. */
+  originalFileName?: string;
+  /** What the picker claimed. Recorded, not trusted. */
+  mimeType?: string;
+  /**
+   * From the probe, which runs while the reader is still typing a title. A
+   * document arrives in the library already knowing how long it is; only a
+   * probe that failed leaves this out.
+   */
+  pageCount?: number;
+  /** `<byteSize>-<sha256 of both ends>`. See the field's note in the schema. */
+  fingerprint?: string;
 };
 
 /**
@@ -396,6 +471,11 @@ export async function importDocument(
 ): Promise<Id<'documents'>> {
   const title = cleanText(input.title, TITLE_MAX, 'Title');
   const author = cleanOptionalText(input.author, AUTHOR_MAX, 'Author');
+  // Through the same normaliser as a title, because it arrives from the same
+  // place and is rendered in the same kind of row. It is never a path — the
+  // document id is — so this is about legibility rather than safety.
+  const originalFileName = cleanOptionalText(input.originalFileName, TITLE_MAX, 'File name');
+  const mimeType = cleanOptionalText(input.mimeType, MIME_TYPE_MAX, 'File type');
 
   if (!Number.isFinite(input.byteSize) || input.byteSize <= 0) {
     invalid('A document must have a size.');
@@ -405,6 +485,11 @@ export async function importDocument(
   }
 
   const now = Date.now();
+  const pageCount =
+    input.pageCount === undefined
+      ? undefined
+      : Math.round(clamp(input.pageCount, 1, PAGE_COUNT_MAX));
+
   return await ctx.db.insert('documents', {
     ownerId: owner._id,
     title,
@@ -412,13 +497,91 @@ export async function importDocument(
     // patch as "delete this field", and keeping one shape for insert and patch
     // means the same habit everywhere.
     ...(author === undefined ? {} : { author }),
+    ...(originalFileName === undefined ? {} : { originalFileName }),
+    ...(mimeType === undefined ? {} : { mimeType }),
+    ...(pageCount === undefined ? {} : { pageCount }),
+    ...(input.fingerprint === undefined ? {} : { fingerprint: cleanFingerprint(input.fingerprint) }),
     byteSize: Math.round(input.byteSize),
+    // A page count means the probe finished before the reader committed, which
+    // is the usual case — the cover renders while they are reading the title.
+    // Without one the document is in the library and its cover is still coming.
+    processing: pageCount === undefined ? 'probing' : 'ready',
+    hasOutline: false,
     currentPage: 1,
     progress: 0,
     isFinished: false,
     isFavorite: false,
     createdAt: now,
     updatedAt: now,
+  });
+}
+
+/**
+ * A fingerprint, or a refusal.
+ *
+ * It is only ever compared for equality and never parsed, so the check is that
+ * it is the shape this app writes rather than an attempt to validate a hash.
+ * The point is that a client cannot store an arbitrary string in an indexed
+ * field — `<digits>-<64 hex characters>` and nothing else.
+ */
+function cleanFingerprint(value: string): string {
+  if (!/^[0-9]{1,20}-[0-9a-f]{64}$/.test(value)) {
+    invalid('That file fingerprint is not one Pidom writes.');
+  }
+  return value;
+}
+
+/**
+ * The caller's document with this fingerprint, if they already have one.
+ *
+ * Asked once per import, against an index rather than by scanning the library.
+ * The answer is a whole document rather than a boolean because the import
+ * screen offers to open it, which needs its title and its id.
+ */
+export async function findByFingerprint(
+  ctx: QueryCtx,
+  ownerId: Id<'users'>,
+  fingerprint: string,
+): Promise<Doc<'documents'> | null> {
+  return await ctx.db
+    .query('documents')
+    .withIndex('by_owner_and_fingerprint', (q) =>
+      q.eq('ownerId', ownerId).eq('fingerprint', fingerprint),
+    )
+    .first();
+}
+
+/**
+ * Records how the device probe ended.
+ *
+ * Called after the import screen has closed, because the probe can outlive it —
+ * a large document renders its first page while the reader is already back on
+ * home. `processingError` is a code; the client owns the sentence.
+ */
+export async function setProcessing(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  input: {
+    documentId: Id<'documents'>;
+    processing: 'probing' | 'ready' | 'partial' | 'failed';
+    pageCount?: number;
+    error?: string;
+  },
+): Promise<void> {
+  const doc = await requireDocument(ctx, owner, input.documentId);
+
+  const pageCount =
+    input.pageCount === undefined
+      ? doc.pageCount
+      : Math.round(clamp(input.pageCount, 1, PAGE_COUNT_MAX));
+
+  await ctx.db.patch('documents', doc._id, {
+    processing: input.processing,
+    ...(pageCount === undefined ? {} : { pageCount }),
+    // Cleared on any outcome that is not a failure, so a document that was
+    // reprocessed successfully stops carrying the reason it failed last time.
+    processingError: input.processing === 'failed' ? (input.error ?? 'UNREADABLE') : undefined,
+    updatedAt: Date.now(),
   });
 }
 
@@ -460,6 +623,11 @@ export type ProgressInput = {
   /** Sent the first time the reader opens the file, once a renderer can count. */
   pageCount?: number;
   isFinished?: boolean;
+  /**
+   * Sent only when the reader changed it, not on every position write. Absent
+   * leaves whatever is stored alone, which is what an ordinary page turn means.
+   */
+  readingMode?: ReadingMode;
 };
 
 export async function recordProgress(
@@ -481,9 +649,142 @@ export async function recordProgress(
     currentPage,
     progress,
     isFinished: input.isFinished ?? doc.isFinished,
+    // Spread rather than assigned: an explicit `undefined` in a patch deletes
+    // the field, and a page turn must not clear a mode the reader chose.
+    ...(input.readingMode === undefined ? {} : { readingMode: input.readingMode }),
     lastOpenedAt: Date.now(),
     updatedAt: Date.now(),
   });
+}
+
+/* ── bookmarks ──────────────────────────────────────────────────────── */
+
+/** The wire shape, beside the function that produces it, as everywhere else. */
+export const bookmarkValidator = v.object({
+  id: v.id('documentBookmarks'),
+  page: v.number(),
+  label: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+});
+
+export type PublicBookmark = {
+  id: Id<'documentBookmarks'>;
+  page: number;
+  label: string | null;
+  createdAt: number;
+};
+
+function toPublicBookmark(row: Doc<'documentBookmarks'>): PublicBookmark {
+  return {
+    id: row._id,
+    page: row.page,
+    label: row.label ?? null,
+    createdAt: row.createdAt,
+    // `ownerId` and `documentId` are deliberately absent: the caller asked for
+    // one document's bookmarks and already knows both.
+  };
+}
+
+/**
+ * Every page marked in one document, oldest first.
+ *
+ * Ownership is checked on the *document*, not on the bookmark rows, so a caller
+ * probing ids gets `FORBIDDEN` before a single row is read — the same rule the
+ * outline and the page text follow.
+ */
+export async function bookmarksFor(
+  ctx: QueryCtx | MutationCtx,
+  owner: Doc<'users'>,
+  documentId: Id<'documents'>,
+): Promise<PublicBookmark[]> {
+  await requireDocument(ctx, owner, documentId);
+  const rows = await ctx.db
+    .query('documentBookmarks')
+    .withIndex('by_document', (q) => q.eq('documentId', documentId))
+    .take(BOOKMARKS_PER_DOCUMENT);
+  return rows.map(toPublicBookmark);
+}
+
+/**
+ * Marks a page, or does nothing if it is already marked.
+ *
+ * Idempotent on purpose. The reader's control is a toggle over a page it may
+ * arrive at twice, and the alternative — a second row for the same page — is a
+ * list with duplicates in it.
+ */
+export async function addBookmark(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  input: { documentId: Id<'documents'>; page: number; label?: string },
+): Promise<void> {
+  const doc = await requireDocument(ctx, owner, input.documentId);
+
+  // Clamped against the document, like every other page number that crosses
+  // this boundary. A bookmark on page 99999 of a 499-page book is a row that
+  // renders and can never be reached.
+  const lastPage = doc.pageCount === undefined ? PAGE_COUNT_MAX : Math.max(1, doc.pageCount);
+  const page = Math.round(clamp(input.page, 1, lastPage));
+  const label = cleanOptionalText(input.label, BOOKMARK_LABEL_MAX, 'A bookmark name');
+
+  const existing = await ctx.db
+    .query('documentBookmarks')
+    .withIndex('by_document_and_page', (q) => q.eq('documentId', doc._id).eq('page', page))
+    .unique();
+  if (existing !== null) {
+    // Re-marking a marked page renames it rather than duplicating it.
+    if (label !== undefined) {
+      await ctx.db.patch('documentBookmarks', existing._id, { label });
+    }
+    return;
+  }
+
+  const count = (
+    await ctx.db
+      .query('documentBookmarks')
+      .withIndex('by_document', (q) => q.eq('documentId', doc._id))
+      .take(BOOKMARKS_PER_DOCUMENT)
+  ).length;
+  if (count >= BOOKMARKS_PER_DOCUMENT) {
+    invalid(`A document can hold ${BOOKMARKS_PER_DOCUMENT} bookmarks.`);
+  }
+
+  await ctx.db.insert('documentBookmarks', {
+    ownerId: owner._id,
+    documentId: doc._id,
+    page,
+    ...(label === undefined ? {} : { label }),
+    createdAt: Date.now(),
+  });
+}
+
+/** Unmarks a page. Silent when it was not marked — the toggle asked, not told. */
+export async function removeBookmark(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  documentId: Id<'documents'>,
+  page: number,
+): Promise<void> {
+  const doc = await requireDocument(ctx, owner, documentId);
+  const existing = await ctx.db
+    .query('documentBookmarks')
+    .withIndex('by_document_and_page', (q) =>
+      q.eq('documentId', doc._id).eq('page', Math.round(page)),
+    )
+    .unique();
+  if (existing !== null) {
+    await ctx.db.delete('documentBookmarks', existing._id);
+  }
+}
+
+/** The cascade, called from `removeDocument`. */
+async function deleteBookmarks(ctx: MutationCtx, documentId: Id<'documents'>): Promise<void> {
+  const rows = await ctx.db
+    .query('documentBookmarks')
+    .withIndex('by_document', (q) => q.eq('documentId', documentId))
+    .take(BOOKMARKS_PER_DOCUMENT);
+  for (const row of rows) {
+    await ctx.db.delete('documentBookmarks', row._id);
+  }
 }
 
 export async function setFavorite(
@@ -536,6 +837,31 @@ export function pdfKey(ownerId: Id<'users'>, documentId: Id<'documents'>): strin
 
 export function coverKey(ownerId: Id<'users'>, documentId: Id<'documents'>): string {
   return `${ownerId}/${documentId}.cover.jpg`;
+}
+
+/**
+ * The document id a key claims to belong to, or `null`.
+ *
+ * A hint and never an answer. Both key shapes are `<ownerId>/<documentId>` plus
+ * a suffix, so the id is recovered by taking the shape apart — and then whatever
+ * comes out is put back through `pdfKey`/`coverKey` and compared for exact
+ * equality. Every caller does that; none of them trusts this on its own.
+ *
+ * It lives beside the two functions that mint the keys, because a parser that
+ * drifts from its printer is a parser that eventually disagrees with it.
+ */
+export function documentIdOf(key: string): string | null {
+  const slash = key.indexOf('/');
+  if (slash === -1) {
+    return null;
+  }
+  const rest = key.slice(slash + 1);
+  const suffix = rest.endsWith('.cover.jpg') ? '.cover.jpg' : rest.endsWith('.pdf') ? '.pdf' : null;
+  if (suffix === null) {
+    return null;
+  }
+  const id = rest.slice(0, -suffix.length);
+  return id.length === 0 ? null : id;
 }
 
 export async function attachUpload(
@@ -618,6 +944,11 @@ export async function attachUpload(
     ...(pdf.size === undefined ? {} : { byteSize: pdf.size }),
     updatedAt: Date.now(),
   });
+
+  // The first moment the server can see this file, so it is the moment its text
+  // becomes extractable. Never awaited for its result and never able to fail
+  // the upload — see `queueExtraction`.
+  await queueExtraction(ctx, doc._id, owner._id);
 }
 
 /** Deletes objects that were rejected, so a refusal does not become storage. */
@@ -650,11 +981,28 @@ export async function detachUpload(
     await r2.deleteObject(ctx, doc.coverStorageKey);
   }
 
+  // The extracted text goes with the copy it was read from. Keeping it would
+  // leave the reader's document content searchable in an account they just
+  // asked to stop holding it — and it would be answering for a file nothing
+  // could re-derive it from. Bounded, so a very long book is finished by the
+  // nightly prune rather than blowing this mutation's read budget — deleting a
+  // page reads its text first, and a page holds up to `PAGE_TEXT_MAX`.
+  //
+  // Hitting the budget means there is more, and the queue is how the nightly
+  // job learns that. Nothing else can tell it: an orphaned page is
+  // indistinguishable from a live one without the document row to check
+  // against, and by then that row may be gone.
+  if ((await Processing.deletePages(ctx, doc._id, PAGE_DELETE_BUDGET)) === PAGE_DELETE_BUDGET) {
+    await Processing.queuePagePrune(ctx, doc._id);
+  }
+  await Processing.deleteJob(ctx, doc._id);
+
   await ctx.db.patch('documents', doc._id, {
     storageKey: undefined,
     coverStorageKey: undefined,
     uploadedAt: undefined,
     contentHash: undefined,
+    textStatus: undefined,
     updatedAt: Date.now(),
   });
 }
@@ -691,6 +1039,23 @@ export async function removeDocument(
       });
     }
     await ctx.db.delete('collectionDocuments', membership._id);
+  }
+
+  // The outline, the job and the page text all point at this document and
+  // nothing else. Left behind they would be rows no screen can reach and no
+  // query would ever name — page text especially, which is the reader's own
+  // document content.
+  await Processing.deleteOutline(ctx, doc._id);
+  await Processing.deleteJob(ctx, doc._id);
+  // Bounded by the same constant that bounds how many can exist, so one pass
+  // is always enough.
+  await deleteBookmarks(ctx, doc._id);
+  // Bounded like the one in `detachUpload`, and queued for the same reason.
+  // This is the case where the queue earns its keep: in a moment there will be
+  // no document row at all, so anything left behind could never be recognised
+  // as belonging to a document that used to exist.
+  if ((await Processing.deletePages(ctx, doc._id, PAGE_DELETE_BUDGET)) === PAGE_DELETE_BUDGET) {
+    await Processing.queuePagePrune(ctx, doc._id);
   }
 
   // The objects go with the row. A deleted document that keeps its storage is

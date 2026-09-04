@@ -65,6 +65,16 @@ export function metaLineFor(
     transfer?: { sent: number; total: number } | null;
   },
 ): string {
+  // Ahead of everything, because a document still being read has no page count
+  // to report and no useful placement to describe. It is deliberately not part
+  // of `Placement`: where a document *is* and what state it is *in* are two
+  // questions, and merging them would put a processing state in the sync badge.
+  if (document.processing === 'probing' && onThisDevice) {
+    return 'Preparing…';
+  }
+  if (document.processing === 'failed') {
+    return "Couldn't read this one";
+  }
   if (transfer !== null) {
     return transfer.total > 0
       ? `${formatBytes(transfer.sent)} of ${formatBytes(transfer.total)}`
@@ -85,9 +95,9 @@ export function metaLineFor(
     return `${percent}% · page ${document.currentPage} of ${document.pageCount}`;
   }
   if (document.pageCount === null) {
-    // Import renders the first page and reads the count off the same load, so
-    // this is now the exception: a document imported before that existed, or
-    // one whose render failed.
+    // Import reads the count off the same load that renders the first page, so
+    // this is the exception: a document imported before the probe existed, and
+    // never opened since.
     return `PDF · ${formatBytes(document.byteSize)}`;
   }
   // A document that is only here is worth saying so about — it is the one state

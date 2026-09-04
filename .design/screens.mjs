@@ -88,6 +88,14 @@ const ICONS = {
   logout: 'm16 17 5-5-5-5M21 12H9M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4',
   folder: 'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z',
   x: 'M18 6 6 18M6 6l12 12',
+  listTree: 'M21 12h-8M21 6H8M21 18h-8M3 6v4c0 1.1.9 2 2 2h3M3 10v6c0 1.1.9 2 2 2h3',
+  rows3: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2M21 9H3M21 15H3',
+  rectangleVertical: 'M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2',
+  columns2: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2M12 3v18',
+  maximize: 'M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3',
+  target: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4',
+  chevronUp: 'm18 15-6-6-6 6',
+  chevronDown: 'm6 9 6 6 6-6',
 };
 function icon(name, x, y, size, color, sw = 1.75) {
   const s = size / 24;
@@ -245,19 +253,24 @@ screens['reader'] = (() => {
   const d = doc('Thinking,');
   const pct = 142 / d.p;
   let o = rect(0, 0, W, H, c.page);
-  o += text(40, 78, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2 });
-  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
-  for (let i = 0; i < 24; i++) {
+  // The chrome overlays the page, so the text starts below it. Drawn at 78 the
+  // running head sat underneath the top bar.
+  o += text(40, 138, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2 });
+  o += text(40, 176, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+  for (let i = 0; i < 40; i++) {
     const w = i % 7 === 6 ? 160 : i % 5 === 4 ? 270 : 310;
-    o += rect(40, 140 + i * 14, w, 2, c.pageRule);
+    o += rect(40, 200 + i * 14, w, 2, c.pageRule);
   }
   o += rect(0, 0, W, 96, c.bg) + rect(0, 96, W, 1, c.hairline);
   o += icon('arrowLeft', PAD, 54, 22, c.fg, 2);
-  o += block(PAD + 34, 62, d.t, { size: 14, fill: c.fg, weight: 600, width: 240, lines: 1, lh: 16 });
+  o += block(PAD + 34, 62, d.t, { size: 14, fill: c.fg, weight: 600, width: 220, lines: 1, lh: 16 });
+  o += icon('listTree', W - PAD - 52, 55, 20, c.fg, 2);
   o += icon('more', W - PAD - 20, 55, 20, c.fg, 2);
   o += rect(0, H - 88, W, 1, c.hairline) + rect(0, H - 87, W, 87, c.bg);
+  // The page count is a control: tapping it is how you reach page 438.
   o += text(PAD, H - 56, `142 of ${d.p}`, { size: 12, fill: c.fgMuted });
-  o += text(W - PAD, H - 56, `${Math.round(pct * 100)}%`, { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  o += text(W - PAD - 26, H - 56, `${Math.round(pct * 100)}%`, { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  o += icon('rows3', W - PAD - 16, H - 66, 16, c.fgMuted);
   o += rect(PAD, H - 44, W - PAD * 2, 2, c.border, 1) + rect(PAD, H - 44, Math.round((W - PAD * 2) * pct), 2, c.primary, 1);
   return svg(o, { bg: c.page });
 })();
@@ -455,6 +468,295 @@ function importScreen(variant) {
 }
 screens['import'] = importScreen('normal');
 screens['import-too-large'] = importScreen('large');
+
+/**
+ * Home a second after an import.
+ *
+ * The row is written before the probe runs, so the document is in Recently
+ * added with its real title and its real place in the rail while its cover is
+ * still being rendered.
+ */
+screens['home-processing'] = (() => {
+  const c = D;
+  const d = doc('Kubernetes');
+  const bone = (x, y, w, h) => rect(x, y, w, h, c.hover, R);
+  const probing = (x, y) => {
+    let o = bone(x, y, COVER_W, COVER_H);
+    o += block(x, y + COVER_H + 19, d.t, { size: 12, fill: c.fg, width: COVER_W, lines: 2, lh: 16 });
+    o += text(x, y + COVER_H + 8 + 32 + 11, 'Preparing…', { size: 10, fill: c.fgSubtle });
+    return o;
+  };
+
+  let o = header(c) + searchTrigger(c);
+  o += rail('Recently added', 152, c, [
+    probing,
+    (x, y) => tile(doc('Annual Report'), x, y, c),
+    (x, y) => tile(doc('Lease Agreement'), x, y, c),
+  ]);
+  o += rail('Continue reading', 152 + 32 + tileH() + 28, c, [
+    (x, y) => tile(doc('Thinking,'), x, y, c, { progress: true, meta: '42% · page 216 of 499' }),
+    (x, y) => tile(doc('The Design of'), x, y, c, { progress: true, meta: '71% · page 261 of 368' }),
+    (x, y) => tile(doc('Convex Backend'), x, y, c, { progress: true, meta: '18% · page 15 of 84' }),
+  ]);
+
+  const ny = 152 + 32 + tileH() + 28 + 32 + tileH(COVER_W, true) + 24;
+  o += icon('info', PAD, ny - 2, 13, c.fgSubtle, 2);
+  wrap('Kubernetes Up and Running is being read. Its cover, page count and contents land in a second or two; it is already openable.', 12, 300, 3)
+    .forEach((l, i) => { o += text(PAD + 20, ny + 9 + i * 17, l, { size: 12, fill: c.fgSubtle }); });
+  return svg(o, { bg: c.bg });
+})();
+
+/**
+ * The document's own table of contents.
+ *
+ * Read out of the PDF on the same load that produced the cover, so it costs
+ * nothing extra and every document that carries one gets it.
+ */
+screens['contents'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  const entries = [
+    ['Part I · Two Systems', 19, 0], ['The Characters of the Story', 30, 1],
+    ['Attention and Effort', 39, 1], ['The Lazy Controller', 50, 1],
+    ['Part II · Heuristics and Biases', 117, 0], ['The Law of Small Numbers', 142, 1],
+    ['Anchors', 152, 1], ['The Science of Availability', 168, 1],
+    ['Part III · Overconfidence', 235, 0],
+  ];
+  const sheetH = 70 + 74 + entries.length * 44 + 34;
+  const top = H - sheetH;
+
+  // The page underneath, dimmed by the backdrop the sheet carries.
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 84, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.1 });
+  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+  for (let i = 0; i < 14; i++) {
+    o += rect(40, 142 + i * 14, (i % 7 === 6 ? 160 : W - 80), 2, c.pageRule, 1);
+  }
+  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
+
+  o += rect(0, top, W, sheetH, c.elevated, R);
+  o += rect(0, top + sheetH - 12, W, 12, c.elevated);
+  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
+
+  let y = top + 26;
+  o += icon('listTree', PAD, y + 8, 18, c.fgMuted);
+  o += text(PAD + 30, y + 16, 'Contents', { size: 15, fill: c.fg, weight: 600 });
+  o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
+  o += text(W - PAD, y + 16, '38 entries', { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  y += 74;
+  o += rect(0, y - 8, W, 1, c.hairline);
+
+  for (const [title, page, depth] of entries) {
+    const current = page === 142;
+    if (current) o += rect(0, y, W, 44, c.hover);
+    o += block(PAD + depth * 18, y + 27, title, {
+      size: depth === 0 ? 15 : 14,
+      fill: depth === 0 ? c.fg : c.fgMuted,
+      weight: depth === 0 ? 600 : 400,
+      width: W - PAD * 2 - depth * 18 - 40, lines: 1, lh: 18,
+    });
+    o += text(W - PAD, y + 27, String(page), { size: 12, fill: current ? c.primary : c.fgSubtle, anchor: 'end' });
+    y += 44;
+  }
+  return svg(o, { bg: c.bg });
+})();
+
+/**
+ * How it reads.
+ *
+ * The sheet the three modes live in. Two pages is shown refused rather than
+ * hidden, because a control that vanishes on a small screen reads as a bug to
+ * somebody who has seen it on their tablet.
+ */
+screens['reader-modes'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 78, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2, op: 0.5 });
+  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700, op: 0.5 });
+  for (let i = 0; i < 24; i++) {
+    const w = i % 7 === 6 ? 160 : i % 5 === 4 ? 270 : 310;
+    o += rect(40, 140 + i * 14, w, 2, c.pageRule, 0, ' opacity=".5"');
+  }
+  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
+
+  const sheetH = 378;
+  const top = H - sheetH;
+  o += rect(0, top, W, sheetH, c.elevated, R) + rect(0, top + sheetH - 12, W, 12, c.elevated);
+  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
+  o += icon('book', PAD, top + 30, 18, c.fgMuted);
+  o += text(PAD + 30, top + 42, 'How it reads', { size: 15, fill: c.fg, weight: 600 });
+  o += text(PAD + 30, top + 60, d.t, { size: 12, fill: c.fgSubtle });
+  o += rect(0, top + 74, W, 1, c.hairline);
+
+  const rows = [
+    ['rows3', 'Continuous', 'One long scroll, fit to the width of the screen.', true, false],
+    ['rectangleVertical', 'One page at a time', 'Swipe sideways. The whole page is always on screen.', false, false],
+    ['columns2', 'Two pages', 'Needs a wider screen. Turn a tablet sideways.', false, true],
+  ];
+  let y = top + 84;
+  for (const [ic, label, note, checked, off] of rows) {
+    const fg = off ? c.fgDisabled : c.fg;
+    o += icon(ic, PAD, y + 12, 19, off ? c.fgDisabled : c.fgMuted);
+    o += text(PAD + 34, y + 26, label, { size: 15, fill: fg });
+    o += block(PAD + 34, y + 44, note, { size: 12, fill: c.fgSubtle, width: 250, lines: 2, lh: 16 });
+    if (checked) o += icon('check', W - PAD - 18, y + 13, 18, c.primary, 2);
+    y += 70;
+  }
+  o += rect(PAD, y + 2, W - PAD * 2, 1, c.hairline);
+  o += icon('maximize', PAD, y + 24, 19, c.fgMuted);
+  o += text(PAD + 34, y + 38, 'Fit', { size: 15, fill: c.fg });
+  o += text(W - PAD, y + 38, 'Width', { size: 13, fill: c.fgSubtle, anchor: 'end' });
+  return svg(o, { bg: c.bg });
+})();
+
+/**
+ * Getting to a page directly.
+ *
+ * The number, the track and the strip are three ways into one goToPage. The
+ * ticks are the document's own contents, so dragging past a chapter is
+ * something a reader can feel.
+ */
+screens['reader-jump'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 78, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2, op: 0.5 });
+  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700, op: 0.5 });
+  for (let i = 0; i < 24; i++) {
+    const w = i % 7 === 6 ? 160 : i % 5 === 4 ? 270 : 310;
+    o += rect(40, 140 + i * 14, w, 2, c.pageRule, 0, ' opacity=".5"');
+  }
+  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
+
+  const sheetH = 452;
+  const top = H - sheetH;
+  o += rect(0, top, W, sheetH, c.elevated, R) + rect(0, top + sheetH - 12, W, 12, c.elevated);
+  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
+  o += icon('target', PAD, top + 30, 18, c.fgMuted);
+  o += text(PAD + 30, top + 42, 'Go to page', { size: 15, fill: c.fg, weight: 600 });
+  o += text(PAD + 30, top + 60, d.t, { size: 12, fill: c.fgSubtle });
+  o += text(W - PAD, top + 48, `of ${d.p}`, { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  o += rect(0, top + 74, W, 1, c.hairline);
+
+  o += rect(PAD, top + 92, W - PAD * 2, 48, c.elevated, R, ` stroke="${c.primary}"`);
+  o += text(W / 2, top + 124, '438', { size: 20, fill: c.fg, weight: 600, anchor: 'middle' });
+
+  const trackY = top + 172, trackW = W - PAD * 2, at = 0.88;
+  o += rect(PAD, trackY, trackW, 4, c.border, 2);
+  o += rect(PAD, trackY, Math.round(trackW * at), 4, c.primary, 2);
+  for (const t of [0.12, 0.24, 0.47, 0.63, 0.81]) {
+    o += rect(PAD + Math.round(trackW * t), trackY - 7, 1, 5, c.borderStrong);
+  }
+  o += `<circle cx="${PAD + Math.round(trackW * at)}" cy="${trackY + 2}" r="9" fill="${c.primary}"/>`;
+  o += text(PAD, trackY + 26, '1', { size: 11, fill: c.fgSubtle });
+  o += text(W / 2, trackY + 26, 'ticks are chapters', { size: 11, fill: c.fgSubtle, anchor: 'middle' });
+  o += text(W - PAD, trackY + 26, String(d.p), { size: 11, fill: c.fgSubtle, anchor: 'end' });
+
+  // Runs off the right edge on purpose: a strip that stops flush with the
+  // screen looks like the whole of it.
+  let x = PAD;
+  for (const n of [436, 437, 438, 439, 440, 441]) {
+    const here = n === 438;
+    o += rect(x, trackY + 48, 54, 76, c.page, R, ` stroke="${here ? c.primary : c.border}" stroke-width="${here ? 2 : 1}"`);
+    for (let i = 0; i < 5; i++) o += rect(x + 7, trackY + 58 + i * 7, i % 4 === 3 ? 22 : 40, 1.5, c.pageRule);
+    o += text(x + 27, trackY + 140, String(n), { size: 10, fill: here ? c.primary : c.fgSubtle, anchor: 'middle' });
+    x += 64;
+  }
+  o += rect(PAD, trackY + 164, W - PAD * 2, 48, c.primary, R);
+  o += text(W / 2, trackY + 194, 'Go to page 438', { size: 15, fill: c.onPrimary, weight: 500, anchor: 'middle' });
+  return svg(o, { bg: c.bg });
+})();
+
+/**
+ * Two pages, on a screen wide enough to mean it.
+ *
+ * Two renderers side by side, because react-native-pdf has no spread of its
+ * own. That cost is the reason the mode is gated on width.
+ */
+screens['reader-spread'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  const SW = 1024, SH = 768;
+  let o = rect(0, 0, SW, SH, c.bg);
+
+  o += rect(0, 55, SW, 1, c.hairline);
+  o += icon('arrowLeft', PAD, 17, 21, c.fg, 2);
+  o += text(PAD + 32, 26, d.t, { size: 14, fill: c.fg, weight: 600 });
+  o += text(PAD + 32, 43, 'Daniel Kahneman', { size: 11, fill: c.fgSubtle });
+  o += rect(SW - 292, 13, 108, 30, c.bg, R, ` stroke="${c.border}"`);
+  o += icon('columns2', SW - 282, 21, 14, c.primary, 2);
+  o += text(SW - 262, 33, 'Two pages', { size: 12, fill: c.fg });
+  o += icon('listTree', SW - 160, 18, 19, c.fg, 2);
+  o += icon('search', SW - 116, 18, 19, c.fg, 2);
+  o += icon('more', SW - 44, 18, 19, c.fg, 2);
+
+  const pageW = (SW - PAD * 2 - 10) / 2, pageTop = 70, pageH = SH - 70 - 76;
+  for (const [i, n] of [142, 143].entries()) {
+    const px = PAD + i * (pageW + 10);
+    o += rect(px, pageTop, pageW, pageH, c.page);
+    if (i === 0) {
+      o += text(px + 46, pageTop + 46, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2 });
+      o += text(px + 46, pageTop + 84, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+    }
+    const from = i === 0 ? pageTop + 108 : pageTop + 46;
+    const count = i === 0 ? 37 : 41;
+    for (let k = 0; k < count; k++) {
+      const w = k % 7 === 6 ? 200 : k % 5 === 4 ? 340 : 390;
+      o += rect(px + 46, from + k * 13, w, 2, c.pageRule);
+    }
+    o += text(px + pageW / 2, pageTop + pageH - 18, String(n), { size: 10, fill: '#8f8d88', anchor: 'middle' });
+  }
+
+  o += rect(0, SH - 76, SW, 1, c.hairline);
+  o += text(PAD, SH - 40, `142–143 of ${d.p}`, { size: 12, fill: c.fgMuted });
+  let sx = PAD + 130;
+  for (let n = 138; n <= 149; n++) {
+    const here = n === 142 || n === 143;
+    o += rect(sx, SH - 66, 40, 56, c.page, R, ` stroke="${here ? c.primary : c.border}" stroke-width="${here ? 2 : 1}"`);
+    for (let i = 0; i < 4; i++) o += rect(sx + 5, SH - 58 + i * 6, i % 4 === 3 ? 16 : 30, 1.5, c.pageRule);
+    sx += 48;
+  }
+  o += text(SW - PAD, SH - 40, '29%', { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  return svg(o, { w: SW, h: SH, bg: c.bg });
+})();
+
+/**
+ * Finding a word without leaving the page.
+ *
+ * The bar takes the top chrome's place — same strip of screen, and somebody
+ * searching a document is not also reading its title. The snippet under the
+ * field is why this beats a hit count: enough to know whether to go.
+ */
+screens['reader-find'] = (() => {
+  const c = D;
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 178, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2 });
+  o += text(40, 216, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+  for (let i = 0; i < 36; i++) {
+    const w = i % 7 === 6 ? 160 : i % 5 === 4 ? 270 : 310;
+    o += rect(40, 240 + i * 14, w, 2, c.pageRule);
+  }
+
+  o += rect(0, 0, W, 132, c.bg) + rect(0, 132, W, 1, c.hairline);
+  o += rect(PAD - 8, 44, 208, 40, c.bg, R, ` stroke="${c.primary}"`);
+  o += text(PAD + 4, 69, 'anchoring', { size: 14, fill: c.fg });
+  o += text(258, 69, '3 of 17', { size: 12, fill: c.fgSubtle });
+  o += icon('chevronUp', 300, 55, 18, c.fg, 2);
+  o += icon('chevronDown', 328, 55, 18, c.fg, 2);
+  o += icon('x', 356, 55, 18, c.fg, 2);
+  o += text(PAD, 110, 'p.142', { size: 12, fill: c.fgMuted });
+  o += text(PAD + 42, 110, '…the law of small numbers and', { size: 12, fill: c.fgSubtle });
+  o += text(PAD + 232, 110, 'anchoring', { size: 12, fill: c.fg });
+  o += text(PAD + 296, 110, ' effects…', { size: 12, fill: c.fgSubtle });
+
+  o += rect(0, H - 88, W, 1, c.hairline) + rect(0, H - 87, W, 87, c.bg);
+  o += text(PAD, H - 56, '142 of 499', { size: 12, fill: c.fgMuted });
+  o += text(W - PAD - 26, H - 56, '28%', { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  o += icon('rows3', W - PAD - 16, H - 66, 16, c.fgMuted);
+  o += rect(PAD, H - 44, W - PAD * 2, 2, c.border, 1) + rect(PAD, H - 44, Math.round((W - PAD * 2) * 0.28), 2, c.primary, 1);
+  return svg(o, { bg: c.page });
+})();
 
 mkdirSync(new URL('../docs/screens/', import.meta.url), { recursive: true });
 for (const [name, body] of Object.entries(screens)) {

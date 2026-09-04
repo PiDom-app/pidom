@@ -10,8 +10,10 @@ touches a PDF, which is what makes a cold launch fast and a second device
 legible.
 
 ```
-document picker → convex row (mints the id) → Documents/library/<profile>/<id>.pdf
+document picker → %PDF- header check → staging → probe (cover, pages, contents)
+                → convex row (mints the id) → Documents/library/<profile>/<id>.pdf
                                             → R2 <ownerId>/<id>.pdf, if asked for
+                                            → text extraction, if it went to R2
 ```
 
 The local filename is the Convex document id. The name the reader picked the
@@ -22,7 +24,7 @@ That is also why the row is written before the file moves: the row's id is the
 filename. If the move fails the row is deleted again, because a row with no file
 reads as permanently "not on this device" with nothing the reader can do.
 
-`storageId` says a document *can* be fetched. It does not say it has been, and
+`storageKey` says a document *can* be fetched. It does not say it has been, and
 no field says that — a row cannot know what is on a given phone's disk, and a
 stale flag would put a wrong badge on the one screen whose job is to say what
 opens offline. There is no `file://` URI and no download state.
@@ -83,9 +85,9 @@ out of R2's metadata, and **deletes anything that fails rather than linking it**
 A rejected upload that stayed would be billed storage the reader cannot see or
 remove.
 
-For the same reason there is one cron. An object whose `attachUpload` never
-arrived — the app was killed mid-upload — is referenced by nothing, and neither
-R2 nor Convex collects it. `convex/crons.ts` sweeps those nightly.
+For the same reason an object whose `attachUpload` never arrived — the app was
+killed mid-upload — is referenced by nothing, and neither R2 nor Convex collects
+it. That is one of the four things the nightly job sweeps; see **Maintenance**.
 
 ## Offline
 
@@ -118,49 +120,211 @@ means anything.
 
 ## Reading
 
-`src/features/reader/` is a full-bleed route above the library. Tapping a
-document opens it; tapping the page toggles the controls.
+`src/features/reader/` is a full-bleed route above the library, and it is where
+somebody actually spends their time. The architecture is one boundary: React
+Native owns the controls, the navigation, the reading state and the responsive
+layout; `react-native-pdf` owns page rendering, document loading, zoom and
+panning. Nothing crosses it. In particular there is **no application-level zoom**
+— the renderer's pinch and double-tap are native, and a second engine layered
+over them is two gesture recognisers competing for the same fingers.
 
-**Position is written on the way out, not per page.** A mutation per swipe is a
-write per swipe, replicated to every device the account owns, re-rendering rails
-on all of them to move a bar on one. The page lives in local state while reading
-and lands once — on unmount, and on the app going to the background, because
-somebody who swipes up mid-chapter has still read to there. Both paths read
-refs, since neither sees the render that set the state.
+It opens `Documents/library/<profile>/<document>.pdf` and nothing else. Convex
+is never asked for bytes to open a document, which is what lets a 600-page
+textbook open in airplane mode; the account supplies the metadata around it —
+the title, the saved position, whether there is an outline, whether there is a
+copy to fall back on.
+
+### Three modes
+
+`continuous` and `single` are one renderer with different props: vertical and
+unpaged, fit to width, versus horizontal and paged, whole page on screen.
+`spread` is **two** renderers, because `react-native-pdf` has no two-page layout
+and `enablePaging` plus `horizontal` does not compose into one. Two instances is
+the honest implementation, and its cost — a second copy of the document held
+open — is why the mode is offered only above 900 points of width.
+
+Width, not orientation. Expo's documentation is explicit that from iOS 27 a
+supported orientation is a preference rather than a requirement for a resizable
+app, so a layout keyed on "am I landscape" is wrong in a split view and on a
+foldable. `useWindowDimensions` reports the space actually available.
+
+A mode change **remounts** the canvas rather than changing props on it. Layout
+props reach the native view directly, and an Android `PdfView` is not built to
+reflow from scrolling to paged in place; a reload on an explicit menu tap is the
+cheaper thing to be wrong about.
+
+### Where the position goes
+
+```
+onPageChanged ─► component state             immediately, it draws the bar
+              ─► reader store (AsyncStorage)  immediately, it survives a crash
+              ─► api.library.recordProgress   debounced 15s, and on the way out
+```
+
+The middle line is what makes a force-quit survivable. Position used to land
+only on unmount and on backgrounding, which is right for the exits that are
+exits and loses the chapter for the one that is not — an OOM kill, a battery, a
+swipe-up from the app switcher. The store write is cheap enough to do on every
+page and is read back *before* Convex answers, so reopening lands on the right
+page instantly and offline.
+
+The last line stays expensive and therefore stays rare: fifteen seconds of
+quiet, a jump of ten pages or more, backgrounding, or leaving. `recordProgress`
+is rate limited now that it is the most frequent mutation in the app.
+
+`readingMode` rides along on the same row, because how a document reads is a
+property of the document. Fit policy, zoom and the wake lock do not — those
+describe a screen in a room, and a phone and a tablet want different answers
+without either being wrong. They stay in `pidom.reader` on the device.
+
+### Finding, marking, selecting
+
+**Find works without leaving the page.** The reader's search button used to push
+to `/search`, which meant leaving a document to look inside it and coming back
+through a `?page=` deep link. It now opens a bar over the top chrome. There is
+no new backend behind it: the page text is already extracted into
+`documentPages` for every synced document and already mirrored into this phone's
+FTS5 database, and both were already scoped by document id — so finding inside
+one document is the search that existed, asked a narrower question, and it
+answers with no connection. Hits are ordered by page rather than by relevance,
+because stepping forwards and backwards through a book by relevance is not
+something a reader can follow.
+
+**Bookmarks are a table**, not an array on `documents`: an unbounded list inside
+a row grows into the 1 MB limit and rewrites the whole row on every append, and
+this one is written far more often than the row it belongs to. `ownerId` is
+denormalised as on `collectionDocuments`, so a bookmark is owner-checked without
+fetching the document behind it. Adding a marked page renames it rather than
+duplicating it, and removing an unmarked one is silent, so the toggle in the
+chrome cannot produce a list with duplicates in it. Contents and Bookmarks share
+a sheet because they answer the same question — where in this document do I want
+to be.
+
+**Selection was already on.** `enableTextSelection` defaults to `true` in
+`react-native-pdf`, so an iOS reader could select text and reach the system menu
+while nothing here knew; `onTextSelectionChange` was firing into a default
+no-op. It now raises Copy and Find. iOS only, because the renderer's selection
+is — on Android there is no bar rather than a button that cannot work.
+
+**The page tint is a layer, not an inversion.** `react-native-pdf` cannot invert
+a page, and a dark reading treatment is a different feature from a dark
+application. So the switch is phrased the right way round: *Follow the document*
+is on by default and means pages render as they were authored, which is what a
+PDF reader owes a PDF. Turning it off puts a dim or warm overlay between the
+page and the chrome — the controls stay at full contrast while the document
+dims.
+
+### One way to move the page
+
+Contents entries, find results, the scrubber, the page field, a bookmark and a
+screen reader's swipe-to-adjust all call `goToPage` in `reader-commands.ts`.
+That is also the one place a page change is announced to assistive technology,
+so one call covers every caller. Five features talking to
+`pdfRef.setPage` directly is five places to get clamping and spread-pairing
+right. The scrubber in particular does **not** move the document during a drag,
+only on release: asking the renderer to turn to each page under a moving finger
+is asking it to render three hundred pages nobody will look at.
+
+### What a document can do to the app
+
+A PDF is a file somebody else wrote, and two of `react-native-pdf`'s defaults
+are not defaults this app should inherit silently.
+
+`trustAllCerts` defaults to **`true`**, which turns certificate validation off.
+Pidom only ever passes a `file://` URI so nothing is fetched — which is exactly
+why it is set to `false` on every mount, including the probe and both panes of a
+spread: the day somebody passes a URL, the safe behaviour should already be
+there rather than needing to be remembered.
+
+`enableAnnotationRendering` also defaults to `true` and is deliberately left on,
+written out rather than inherited. Links are content and a document with dead
+cross-references is a worse document. What makes that safe is `onPressLink`,
+which was previously unset — so links did nothing, safely by accident.
+`open-pdf-link.ts` now parses the URL and refuses everything that is not
+`https:`. Not a blocklist of `javascript:` and `data:`, because a blocklist is a
+list of the attacks somebody thought of; an allowlist of one scheme also covers
+`file:` and `content:`, which are the interesting ones given this app registers
+itself as a handler for both. What survives that is shown to the reader host
+first, and only opened if they agree.
+
+A password for an encrypted PDF goes to `expo-secure-store` and nowhere else —
+not to Convex, not to the document row, not to the log, not even its length.
+`SECURITY.md` reserved that dependency for this and nothing had needed it until
+now.
 
 This is what Continue Reading, the progress bars and Finished were built to be
 fed by. Before it existed `library.recordProgress` was a public function with no
 caller and three of the six home rails could never hold anything.
 
-## Covers
+## Processing
 
-Import renders the real first page. There is no library that turns a PDF page
-into an image on React Native 0.86 — the two purpose-built ones were last
-published in November 2023 and September 2024, neither declaring New
-Architecture support, and 0.86 is bridgeless-only. So the page is rendered by
-the viewer that is already here and still maintained (`react-native-pdf` 7.0.5,
-August 2026, ships `codegenConfig`), snapshotted with `react-native-view-shot`,
-and downscaled with `expo-image-manipulator`. `onLoadComplete` hands back the
-page count on the same load, which is the first point in the app's life where
-that number is knowable.
+One `<Pdf>` mount answers three questions about a file, and until recently it
+answered one and threw the other two away. `onLoadComplete` hands back the page
+count **and** `tableContents` on the same load the cover is snapshotted from —
+so the table of contents in every bookmarked PDF was sitting there, free, behind
+an ignored fourth argument.
 
-`src/features/library/components/cover-renderer.tsx` is mounted rather than
-called, because rendering a native view is what it does. It sits off-screen —
-not hidden, since `display: none` and zero opacity both give Android nothing to
-snapshot.
+`src/features/library/components/document-probe.tsx` is what reads it. It is
+mounted rather than called, because rendering a native view is what it does, and
+it sits off-screen — not hidden, since `display: none` and zero opacity both
+give Android nothing to snapshot. There is no library that turns a PDF page into
+an image on React Native 0.86: the two purpose-built ones were last published in
+November 2023 and September 2024, neither declaring New Architecture support,
+and 0.86 is bridgeless-only. So the page is rendered by the viewer that is
+already here and still maintained (`react-native-pdf` 7.0.5, August 2026, ships
+`codegenConfig`), snapshotted with `react-native-view-shot`, and downscaled with
+`expo-image-manipulator`.
 
-It renders from a **staged** copy of the picked file, not the picker's own. The
-import screen renders a cover and, on commit, moves that PDF into the library;
-against one shared path that is a race the reader wins by tapping Add promptly,
-pulling the file out from under the view reading it. So the picked file moves
-once into `Paths.cache/pidom-import/<uuid>.pdf` — a UUID, because a reader's
-filename never becomes a path segment anywhere here — and everything downstream
-works from a path this app controls. It also survives the system clearing the
-picker's cache while somebody is still typing a title.
+**The row is written before the probe runs**, because the row's id is the
+filename. So a document is in the library and openable while its cover is still
+being made, and `documents.processing` is the field that says which:
 
-The tinted cover is now the fallback: a document imported before this existed,
-one whose render failed, or one from another device whose cover has not been
-fetched yet. It is a page-shaped surface with the title set in type, tinted by
+```
+probing → ready      cover and page count both landed
+        → partial    the count landed, the snapshot did not
+        → failed     the viewer could not read the file at all
+```
+
+`partial` and `failed` exist because a cover that never rendered used to be
+indistinguishable from a document that never had one, with nothing the reader
+could do about either. Now the action sheet offers **Reprocess**, which re-runs
+the probe against the local file.
+
+**`probing` is a state with an exit**, and that is load-bearing rather than
+tidy. Add to library is live the moment a file is picked and the probe takes a
+second or two, so a reader who taps promptly commits before it reports — and the
+import screen closes, taking the probe with it. That used to write the document
+as `failed`, permanently, on the strength of a page count that had not arrived
+yet; the faster the reader, the worse it behaved.
+
+Now the row lands as `probing` and `usePendingProbe` on the home screen picks it
+up: one document at a time, oldest first, only those whose file is on this
+device. One at a time because a probe is a native view rendering a page, and
+four mounted at once on a cold launch is the frame budget spent on covers nobody
+is looking at yet. The same loop recovers a probe the OS killed by backgrounding
+the app mid-import.
+
+**Two files are refused outright**, both before anything is written. A file
+whose first five bytes are not `%PDF-` never gets staged — `pickPdf` used to
+accept anything whose MIME type or extension claimed to be a PDF, and Android
+file managers report `application/octet-stream` often enough that neither could
+be trusted, so a renamed `.docx` imported cleanly and opened to nothing. And a
+PDF with a password ends at the probe: `onError` used to be logged at debug and
+reported as "no cover", so an encrypted document got a tinted cover, a row, and
+a blank reader with no explanation.
+
+The same open that reads the header also takes a **fingerprint** —
+`<byteSize>-<sha256 of the first and last 64 KB and the size>` — so importing
+the same file twice says so before it makes a second copy. Deliberately not a
+digest of the whole file: `expo-crypto` hashes a buffer with no streaming API,
+and holding a 100 MB textbook in memory is a crash on the phones this is for.
+The field is called `fingerprint` for that reason; `contentHash` beside it is
+R2's real digest of the copy in the account.
+
+The tinted cover is still the fallback: a document imported before any of this
+existed, one whose render failed, or one from another device whose cover has not
+been fetched yet. It is a page-shaped surface with the title set in type, tinted
+by
 
 ```
 hue = (282 + hash(id) % 12 × 30) mod 360
@@ -169,17 +333,159 @@ hue = (282 + hash(id) % 12 × 30) mod 360
 Twelve buckets thirty degrees apart, anchored on the brand purple's hue, so the
 same document is the same colour on every device for as long as it exists. The
 table is baked to hex in `src/features/library/components/cover-tints.ts`,
-because React Native's colour parser does not read `oklch()`. `DocumentCover`
-reads `thumbnailUri` first regardless, so a real rasteriser later changes one
-file and nothing that calls it.
+because React Native's colour parser does not read `oklch()`.
+
+## Searching inside documents
+
+The device can render a page and count pages; it cannot search a library. That
+needs the text, and the only copy of a document the server can see is the one in
+R2 — so **extraction runs over synced documents and nowhere else**, and
+`documents.textStatus` is optional for exactly that reason. A local-only
+document has no text status because nothing could have given it one, and the
+search screen says so rather than leaving a reader to wonder where their book
+went.
+
+It is a **Convex Workflow** (`convex/workflows/document.ts`), which is the one
+durable multi-step flow in the app. Four steps with four different failure
+modes: a fetch that can 404, a parse that can hang, a long run of writes, and a
+finalisation that must happen exactly once. A scheduled action that died halfway
+would leave a document `extracting` forever with half its pages in the table and
+nothing to notice; a workflow survives a server restart, retries the step that
+failed rather than the whole run, and publishes a status the Details sheet
+subscribes to.
+
+The parse itself is a **Node action** (`convex/node/extract.ts`) running
+`unpdf`, which ships Mozilla's PDF.js built for serverless runtimes. Node
+because that build wants built-ins the Convex runtime does not have, and the
+trade is worth naming: 512 MiB and ten minutes, against the Convex runtime's
+64 MiB and thirty.
+
+**The text never travels through a workflow step.** The component caps a run's
+total step arguments and returns at 1 MB, and a 600-page book is far past it —
+so the action writes `documentPages` fifty at a time from inside itself and
+returns counts. That single constraint is what the whole pipeline is shaped
+around.
+
+Everything in that action is parsing a file Pidom did not write, so it is
+bounded on every axis it can be: 32 MB, 2,000 pages, 8 KB of text per page, and
+a two-minute timeout the parse cannot outlive — unpdf's serverless build parses
+on the event loop with no worker to kill. Terminal answers throw
+`NonRetryableError` rather than burning three attempts to reach the same
+conclusion.
+
+Then `documentPages` carries a search index filtered on `ownerId`, which is
+load-bearing in the way it is on `search_title`: a search index has no implicit
+scope. A hit is a page, so it names one, and tapping it opens the reader there.
+
+## Searching with no connection
+
+There are two indexes and they answer different questions. Convex's is reactive,
+cross-device and always current. The device's own is on the phone and works in
+aeroplane mode. The search screen picks between them by whether the backend is
+answering, and says which one did.
+
+The local one is `expo-sqlite` with an FTS5 virtual table, one database per
+profile for the reason the library directory is per profile — these are the
+words of somebody's documents. FTS5 is compiled in on both platforms unless
+`expo.sqlite.enableFTS` is set to `false`, which nothing here sets; the
+`CREATE VIRTUAL TABLE` at open is still the proof rather than the assumption,
+and a build without it disables local search instead of failing to launch.
+
+**It is a mirror, not a second extractor.** `react-native-pdf` has no text API,
+so the device physically cannot read a PDF's words — the only text in the system
+is what the Node action read out of the R2 copy. So a document is searchable
+offline exactly when it has been synced, extracted, and then pulled down here
+once by `useTextMirror`, which runs on the same quiet footing as
+`use-cover-sync.ts`: sequential, once per document, and only for documents whose
+file is already on this device. Mirroring a document that is not here would spend
+a reader's data on a book they would still have to download.
+
+The text goes when the file goes. `deleteDocument` and `removeDownload` both
+call `forgetLocally`, because a delete that leaves the reader's document content
+in a database on their phone is a delete that did not happen.
+
+## Opening a PDF from another app
+
+`app.json` registers Pidom as a PDF handler: an Android `intentFilters` entry for
+`VIEW` on `application/pdf`, and iOS `CFBundleDocumentTypes` with
+`LSSupportsOpeningDocumentsInPlace`. That is the "Open with" and "Open in" entry
+from Files, Drive, Mail and a browser download.
+
+**Android's share sheet is not covered**, and it is worth knowing rather than
+discovering: `ACTION_SEND` delivers the file as an `EXTRA_STREAM` extra rather
+than as the intent's data URI, and `expo-linking` surfaces the URI only. Reading
+that extra needs a native module Expo does not ship.
+
+The URL arrives as `content://` on Android, which the `expo-file-system` `File`
+class cannot open — the same problem `copyToCacheDirectory` solves for the
+picker. `react-native-blob-util` is already here for the reader and can read a
+content URI, so it copies the file into the same staging directory the picker
+uses under a UUID. Everything after that is the existing import path, header
+check included: another app's idea of a PDF is exactly as trustworthy as a
+filename.
+
+## Maintenance
+
+Everything the nightly cron repairs is the same shape of failure: something that
+accumulates because nothing else will ever collect it.
+
+An R2 object whose `attachUpload` never arrived — the app was killed mid-upload
+— is referenced by nothing, visible in no screen, and billed forever. An
+extraction whose process went away leaves a document `extracting` for good. Page
+text belonging to a document that is no longer synced is the reader's own
+content outliving their decision to remove it. And the workflow component keeps
+a completed run's step journal until something calls `cleanup`, which is one per
+document per sync.
+
+The page-text collector is worth naming, because the first version of it did not
+work. It scanned the head of `documentPages` looking for rows whose document was
+gone — which reads the *oldest* pages in the deployment, almost always a document
+that is perfectly fine. It swept nothing, every night, while orphaned text sat
+further down the table. Orphans are now **recorded** rather than searched for:
+`detachUpload` and `removeDocument` delete as much as a mutation's read budget
+allows and enqueue whatever they could not reach, and the job drains that queue.
+
+`convex/crons.ts` runs one job that queues four into a **Workpool**
+(`convex/maintenance.ts`). That is the distinction against the workflow next
+door: these four are independent, unordered and idempotent, so what they want is
+a bounded queue with backoff rather than a resumable journal. Its own pool
+rather than the workflow's, so a night of maintenance cannot sit in front of a
+reader's import — the free plan allows 20 parallel across every pool in the
+deployment, and these two take 4 and 2.
+
+The orphan sweep asks whether an object is referenced **one object at a time**.
+It used to diff two truncated pages — the first two thousand objects against the
+oldest two thousand document rows in the deployment — and delete the difference,
+which made every object belonging to a newer row an orphan by construction. A
+candidate list can be paged over several nights; an allowlist cannot. See
+`docs/security.md`.
+
+## Rate limits
+
+`convex/model/rateLimits.ts` puts a per-account token bucket in front of the
+four writes that cost money or work: `importDocument`, `uploadUrl`,
+`downloadUrl`, `reprocess`, and collection creation beside them. `uploadUrl` is
+the one that mattered most — it mints a signed PUT against a bucket Pidom is
+billed for, and nothing but authentication stood in front of it.
+
+Buckets rather than fixed windows: a reader who adds nine books in one evening
+is doing something real, and a fixed window would refuse the tenth for no reason
+a person could understand.
+
+Reads are absent, search included, and that is a limitation rather than a
+choice — spending a token is a write, and a query cannot write. Declaring a
+limit nothing enforces would be worse than declaring none.
 
 ## Layout
 
 ```
 convex/          schema, OIDC config, and the public function surface
-  convex.config.ts  the R2 component
+  convex.config.ts  R2, Workflow, Workpool, Rate Limiter
   r2.ts          the bucket, and the one function the client may call on it
-  crons.ts       the nightly sweep for objects nothing points at
+  crons.ts       one nightly job, which queues four
+  maintenance.ts the workpool those four run in
+  workflows/     the durable extraction flow, and how one is started
+  node/          the one "use node" action: pdf.js over a synced document
   model/         all server logic; public functions are thin wrappers
 src/
   app/           expo-router routes and nothing else
@@ -187,23 +493,29 @@ src/
     library/
       components/  the screen, and the one tile every surface draws
       data/        hooks over Convex, plus the wire types and error codes
-      local/       the device half: paths, the picker, the move, transfers
+      local/       the device half: paths, the picker, validation, transfers,
+                   and the phone's own FTS5 index of document text
       import/      the import screen and the order its steps happen in
       all/         everything behind "View all"
       collection/  one collection
-    reader/        the document itself, and where the place is kept
+      search/      searching the words inside documents, not their titles
+    reader/        the canvas the PDF renders on, the chrome over it, the
+                   sheets, the one goToPage they all call, and the place kept
   providers/     the provider stack
   design/        global.css tokens, plus the mirror native APIs read
   components/
     ui/          gluestack primitives, vendored by the CLI
     brand/       the Pidom mark
   stores/        zustand — theme, which documents are on this device, what is
-                 transferring, and the offline copy of the library
+                 transferring, the offline copy of the library, and the page
+                 the reader is on between two writes to the account
   lib/           env, jwt, logger
 .design/         the design canvas: one .dc.html per artboard, and the
                  generator that writes them
 ```
 
 A route file composes a screen out of `src/features/<capability>/` and holds no
-logic of its own. Adding the reader means adding `src/features/reader/` and a
-route, and touching nothing else.
+logic of its own. The reader is `src/features/reader/` and a ten-line route; the
+only thing it reaches outside itself for is deletion — removing a document has
+to forget the page and the password with it, so `use-library-actions.ts` calls
+both.

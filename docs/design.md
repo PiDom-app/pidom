@@ -42,10 +42,13 @@ breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.
 ## The canvas
 
 `.design/` holds the design source: `build.mjs` generates one `.dc.html`
-artboard per screen, and `screens.mjs` draws the same screens as SVG for the
-images in the README. Both read the same tokens as `src/design/global.css`, so a
-colour that changes there has to change in both — the audit that checks `src/`
-does not reach them.
+artboard per screen — forty-six of them — and `screens.mjs` draws eighteen of
+the same screens as SVG for the images in the README. Both read the same tokens
+as `src/design/global.css`, so a colour that changes there has to change in both
+— the audit that checks `src/` does not reach them.
+
+`build.mjs` also writes `canvas.json`, which lays the artboards out. Editing that
+file by hand is a change the next build silently reverts; the generator owns it.
 
 ```bash
 node .design/build.mjs      # artboards for the canvas

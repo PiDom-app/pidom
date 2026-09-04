@@ -65,6 +65,28 @@ const icons = {
   logOut: '<path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>',
   user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   filePlus: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/>',
+  fileX: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  listTree: '<path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/>',
+  textSearch: '<path d="M21 6H3"/><path d="M10 12H3"/><path d="M10 18H3"/><circle cx="17" cy="15" r="3"/><path d="m21 19-1.9-1.9"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  share2: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/>',
+  scanText: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h8"/><path d="M7 12h10"/><path d="M7 16h6"/>',
+  /* Reader. The three modes are drawn as what they lay out, not as verbs. */
+  rows3: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M21 9H3"/><path d="M21 15H3"/>',
+  rectangleVertical: '<rect width="12" height="20" x="6" y="2" rx="2"/>',
+  columns2: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
+  maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  externalLink: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+  chevronUp: '<path d="m18 15-6-6-6 6"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
 };
 const icon = (name, size, color, sw = 1.75) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block">${icons[name]}</svg>`;
@@ -98,10 +120,12 @@ function cover(doc, { w = COVER_W, h = COVER_H, dark = true, dim = false, base =
 }
 
 /** The one document component. Every rail and both library modes draw this. */
-function tile(doc, { dark = true, showProgress = false, offline = false, finished = false, w = COVER_W, real = false } = {}) {
+function tile(doc, { dark = true, showProgress = false, offline = false, finished = false, w = COVER_W, real = false, processing = null } = {}) {
   const c = dark ? DARK : LIGHT;
   const pct = doc.page && doc.p ? Math.round((doc.page / doc.p) * 100) : 0;
-  const meta = finished
+  const meta = processing !== null
+    ? { probing: 'Preparing…', partial: `No cover · ${doc.p ?? '—'} pages`, failed: "Couldn't read this one" }[processing]
+    : finished
     ? `Finished · ${doc.p} pages`
     : offline
       ? 'Not on this device'
@@ -109,13 +133,15 @@ function tile(doc, { dark = true, showProgress = false, offline = false, finishe
         ? `PDF · ${doc.p} pages`
         : `PDF · ${doc.size}`;
   return `<div style="width:${w}px;flex:0 0 auto">
-      ${real
-        ? (offline ? `<div style="opacity:.4">${pageCover(doc, { w })}</div>` : pageCover(doc, { w }))
-        : cover(doc, { dark, dim: offline, w, h: Math.round(w * (COVER_H / COVER_W)) })}
+      ${processing === 'probing'
+        ? `<div class="bones" style="width:${w}px;height:${Math.round(w * (COVER_H / COVER_W))}px;border-radius:${R};background:${c.hover}"></div>`
+        : real
+          ? (offline ? `<div style="opacity:.4">${pageCover(doc, { w })}</div>` : pageCover(doc, { w }))
+          : cover(doc, { dark, dim: offline, w, h: Math.round(w * (COVER_H / COVER_W)) })}
       <div style="margin-top:8px;font-size:12px;line-height:16px;letter-spacing:-.006em;color:${offline ? c.fgDisabled : c.fg};" class="c2">${doc.t}</div>
       ${showProgress ? `<div style="margin-top:7px;height:2px;border-radius:${R};background:${c.border};overflow:hidden"><div style="width:${pct}%;height:100%;border-radius:${R};background:${c.primary}"></div></div>` : ''}
       <div style="margin-top:${showProgress ? 5 : 4}px;display:flex;align-items:center;gap:5px;font-size:10px;line-height:13px;color:${offline ? c.fgDisabled : c.fgSubtle}">
-        ${offline ? icon('cloudOff', 11, c.fgDisabled, 2) : ''}${showProgress ? `${pct}% · page ${doc.page} of ${doc.p}` : meta}
+        ${processing === 'failed' ? icon('alert', 11, c.fgSubtle, 2) : offline ? icon('cloudOff', 11, c.fgDisabled, 2) : ''}${showProgress && processing === null ? `${pct}% · page ${doc.page} of ${doc.p}` : meta}
       </div>
     </div>`;
 }
@@ -495,8 +521,10 @@ function importScreen(variant) {
   const c = DARK;
   const doc = variant === 'large' ? byTitle('Designing Data') : byTitle('Thinking,');
   const size = variant === 'large' ? '317 MB' : '4.1 MB';
+  const probing = variant === 'choosing';
   const uploading = variant === 'uploading';
   const large = variant === 'large';
+  const duplicate = variant === 'duplicate';
 
   const field = (label, value, muted = false) => `<div style="margin-top:18px">
       <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${label}</div>
@@ -507,6 +535,13 @@ function importScreen(variant) {
 
   const track = large ? c.border : c.primary;
   const knob = large ? 'left:3px' : 'right:3px';
+
+  /* The one pass over the file yields the cover, the page count and the
+     outline together, so the status line names all three rather than the
+     spinner standing in for an unexplained wait. */
+  const info = probing
+    ? 'Checking this PDF…'
+    : `PDF · ${size} · ${doc.p} pages${duplicate ? '' : ' · 14 chapters'}`;
 
   return dc({
     w: 390, h: 844, bg: c.bg,
@@ -519,22 +554,32 @@ function importScreen(variant) {
 
   <div style="flex:1;padding:0 ${PAD}px;overflow:hidden">
     <div style="display:flex;justify-content:center;margin-top:26px">
-      ${variant === 'choosing'
+      ${probing
         ? `<div style="width:132px;height:187px;border-radius:${R};background:${c.hover};display:flex;align-items:center;justify-content:center">
              <div style="width:22px;height:22px;border-radius:9999px;box-shadow:inset 0 0 0 2px ${c.border};border-top:2px solid ${c.primary}"></div>
            </div>`
         : pageCover(doc, { w: 132 })}
     </div>
 
+    ${duplicate
+      ? `<div style="margin-top:20px;display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-top:1px solid ${c.hairline};border-bottom:1px solid ${c.hairline}">
+           ${icon('copy', 17, c.fgMuted)}
+           <div style="flex:1">
+             <div style="font-size:14px;color:${c.fg}">You already have this one</div>
+             <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Added 3 weeks ago, same size and same first and last pages. Adding it again makes a second copy on this phone.</div>
+           </div>
+         </div>`
+      : ''}
+
     ${field('Title', doc.t)}
     ${field('Author', doc.a ?? 'Optional', doc.a === null)}
 
     <div style="margin-top:14px;display:flex;align-items:center;gap:6px">
       ${icon('info', 12, c.fgSubtle, 2)}
-      <span style="font-size:12px;color:${c.fgSubtle}">PDF · ${size}${variant === 'choosing' ? '' : ` · ${doc.p} pages`}</span>
+      <span style="font-size:12px;color:${c.fgSubtle}">${info}</span>
     </div>
 
-    <div style="margin-top:22px;height:1px;background:${c.hairline}"></div>
+    ${duplicate ? '' : `<div style="margin-top:22px;height:1px;background:${c.hairline}"></div>
 
     <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 0">
       ${icon(large ? 'phone' : 'cloudUp', 19, large ? c.fgDisabled : c.fgMuted)}
@@ -543,13 +588,13 @@ function importScreen(variant) {
         <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${
           large
             ? 'Over the 100 MB limit for syncing, so this one stays on this phone. It still opens here with no connection.'
-            : 'Keeps a copy in your account so your other phones can download it.'
+            : 'Keeps a copy in your account so your other phones can download it, and lets Pidom search inside it.'
         }</div>
       </div>
       <div style="width:44px;height:26px;border-radius:9999px;background:${track};position:relative;flex:0 0 auto;margin-top:2px;${large ? 'opacity:.5' : ''}">
         <div style="position:absolute;${knob};top:3px;width:20px;height:20px;border-radius:9999px;background:${large ? c.fgDisabled : '#ffffff'}"></div>
       </div>
-    </div>
+    </div>`}
 
     ${uploading
       ? `<div style="margin-top:2px">
@@ -565,9 +610,55 @@ function importScreen(variant) {
   </div>
 
   <div style="padding:0 ${PAD}px 34px">
-    <div style="height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${variant === 'choosing' ? c.hover : c.primary}">
-      <span style="font-size:15px;font-weight:500;color:${variant === 'choosing' ? c.fgDisabled : c.onPrimary}">Add to library</span>
+    <div style="height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${probing ? c.hover : c.primary}">
+      <span style="font-size:15px;font-weight:500;color:${probing ? c.fgDisabled : c.onPrimary}">${duplicate ? 'Open the one you have' : 'Add to library'}</span>
     </div>
+    ${duplicate
+      ? `<div style="margin-top:14px;text-align:center"><span style="font-size:14px;color:${c.fgMuted}">Add it anyway</span></div>`
+      : ''}
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * The two files Pidom will not take.
+ *
+ * A refusal is its own screen rather than a toast over the form, because there
+ * is nothing on the form left to decide — the title and the sync toggle both
+ * describe a document that is not going to exist.
+ */
+function importRefusal(kind) {
+  const c = DARK;
+  const protectedPdf = kind === 'protected';
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:20px ${PAD}px 0">
+    <span style="font-size:14px;color:${c.fgMuted}">Cancel</span>
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Add to library</span>
+    <span style="font-size:14px;color:transparent">Cancel</span>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 40px;text-align:center">
+    ${icon(protectedPdf ? 'lock' : 'fileX', 38, c.fgSubtle, 1.5)}
+    <div style="margin-top:20px;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.018em;color:${c.fg}">${
+      protectedPdf ? 'This PDF has a password' : 'That is not a PDF'
+    }</div>
+    <div style="margin-top:8px;max-width:290px;font-size:14px;line-height:21px;color:${c.fgMuted}" class="pretty">${
+      protectedPdf
+        ? 'Pidom cannot open it, so it would sit in your library as a document that never renders. Remove the password in whatever made it, then add it again.'
+        : 'The name ends in .pdf but the file does not start like one. It was probably renamed, or the download did not finish.'
+    }</div>
+    <div style="margin-top:10px;font-size:12px;color:${c.fgSubtle}">Nothing was added.</div>
+  </div>
+
+  <div style="padding:0 ${PAD}px 34px">
+    <div style="height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${c.primary}">
+      <span style="font-size:15px;font-weight:500;color:${c.onPrimary}">Choose another file</span>
+    </div>
+    <div style="margin-top:14px;text-align:center"><span style="font-size:14px;color:${c.fgMuted}">Cancel</span></div>
   </div>
 </div>`,
   });
@@ -644,54 +735,888 @@ function syncStates() {
 
 /* ------------------------------ reader ---------------------------- */
 
+/* ------------------------------ reader ---------------------------- */
+
+/**
+ * The colours of a printed page.
+ *
+ * Deliberately not tokens. Everything else on these artboards is themed,
+ * because everything else is Pidom; a PDF page is somebody else's document and
+ * renders as it was authored whatever the reader's theme is set to. Dark mode
+ * changes what surrounds the page, never the page.
+ */
+const PAPER = { bg: '#fdfdfc', ink: '#1a1a1a', rule: '#c9c6c0', meta: '#8f8d88', hint: '#b0aea9' };
+
+/**
+ * A page of the book, at reading size.
+ *
+ * Ruled body type, a running head and a folio — the shape of a page rather than
+ * a picture of one. Every reader artboard draws the same page, so what differs
+ * between them is only the chrome around it.
+ */
+function readerPage({ lines = 26, top = 64, side = 40, head = true } = {}) {
+  let body = '';
+  for (let i = 0; i < lines; i++) {
+    const w = i % 7 === 6 ? 52 : i % 5 === 4 ? 88 : 100;
+    body += `<div style="height:2px;border-radius:1px;background:${PAPER.rule};width:${w}%;margin-bottom:12px"></div>`;
+  }
+  return `<div style="padding:${top}px ${side}px 0">
+    ${head
+      ? `<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:${PAPER.meta}">Part II · Heuristics and Biases</div>
+         <div style="margin-top:26px;font-size:15px;line-height:1.5;font-weight:700;color:${PAPER.ink}">The Law of Small Numbers</div>`
+      : ''}
+    <div style="margin-top:${head ? 18 : 0}px">${body}</div>
+  </div>`;
+}
+
+/** The folio, which is part of the document rather than part of the chrome. */
+const folio = (page) =>
+  `<div style="position:absolute;left:0;right:0;bottom:26px;text-align:center;font-size:10px;color:${PAPER.meta}">${page}</div>`;
+
+/**
+ * The top chrome.
+ *
+ * Overlays the page rather than pushing it down, so hiding it does not reflow
+ * the document. 44px of that 96 is the status bar; the rest is a 52px bar.
+ */
+function readerTop(c, { title, trailing = ['listTree', 'more'] } = {}) {
+  return `<div style="position:absolute;left:0;right:0;top:0;height:96px;background:${c.bg};box-shadow:0 1px 0 ${c.hairline}">
+    <div style="display:flex;align-items:center;gap:6px;padding:44px ${PAD}px 0">
+      ${icon('arrowLeft', 22, c.fg, 2)}
+      <div style="flex:1;margin-left:6px;min-width:0">
+        <div style="font-size:14px;font-weight:600;letter-spacing:-.01em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
+      </div>
+      ${trailing.map((n) => icon(n, 20, c.fg, 2)).join('')}
+    </div>
+  </div>`;
+}
+
+/**
+ * The bottom chrome.
+ *
+ * The page count is a control rather than a label — tapping it is the way to
+ * page 438 of 499 — so it carries a hit area and the track under it is
+ * draggable. `scrubbing` is what that looks like mid-drag.
+ */
+function readerBottom(c, { page, total, scrubbing = false } = {}) {
+  const pct = Math.round((page / total) * 100);
+  return `<div style="position:absolute;left:0;right:0;bottom:0;height:${scrubbing ? 132 : 88}px;background:${c.bg};box-shadow:0 -1px 0 ${c.hairline}">
+    ${scrubbing
+      ? `<div style="position:absolute;left:0;right:0;top:-92px;display:flex;justify-content:center">
+           <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border}">
+             <div style="width:38px;height:54px;border-radius:${R};background:${PAPER.bg};box-shadow:inset 0 0 0 1px ${c.border};padding:7px 6px 0">
+               ${[92, 92, 58, 92, 78].map((w) => `<div style="height:1.5px;border-radius:1px;background:${PAPER.rule};width:${w}%;margin-bottom:4px"></div>`).join('')}
+             </div>
+             <div>
+               <div style="font-size:13px;font-weight:600;color:${c.fg}" class="tnum">Page ${page}</div>
+               <div style="margin-top:2px;font-size:11px;color:${c.fgSubtle}">The Law of Small Numbers</div>
+             </div>
+           </div>
+         </div>`
+      : ''}
+    <div style="padding:16px ${PAD}px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;color:${scrubbing ? c.fg : c.fgMuted}" class="tnum">${page} of ${total}</span>
+        <span style="font-size:12px;color:${c.fgSubtle}" class="tnum">${pct}%</span>
+      </div>
+      <div style="position:relative;margin-top:${scrubbing ? 16 : 10}px;height:${scrubbing ? 4 : 2}px;border-radius:${R};background:${c.border}">
+        <div style="width:${pct}%;height:100%;border-radius:${R};background:${c.primary}"></div>
+        ${scrubbing
+          ? `<div style="position:absolute;left:${pct}%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:9999px;background:${c.primary};box-shadow:0 0 0 4px ${c.bg}"></div>`
+          : ''}
+        ${scrubbing
+          ? [12, 24, 47, 63, 81].map((t) => `<div style="position:absolute;left:${t}%;top:-7px;width:1px;height:5px;background:${c.borderStrong}"></div>`).join('')
+          : ''}
+      </div>
+      ${scrubbing
+        ? `<div style="margin-top:14px;text-align:center;font-size:11px;color:${c.fgSubtle}">Release to go there</div>`
+        : ''}
+    </div>
+  </div>`;
+}
+
+/** A page under a dimmed overlay, which is what every reader sheet sits on. */
+function dimmedPage({ page = 142, dim = 0.62 } = {}) {
+  return `<div style="position:absolute;inset:0;background:${PAPER.bg}">
+      <div style="opacity:.5">${readerPage()}</div>
+      ${folio(page)}
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,${dim})"></div>`;
+}
+
+/** The Actionsheet shell every reader sheet shares with `DocumentActions`. */
+function readerSheet(c, { glyph, title, subtitle, trailing = '', body }) {
+  return `<div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
+    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px ${PAD}px 14px">
+      ${icon(glyph, 18, c.fgMuted)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">${title}</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>
+      </div>
+      ${trailing}
+    </div>
+    <div style="height:1px;background:${c.hairline}"></div>
+    ${body}
+  </div>`;
+}
+
+/** One row of a reader sheet: an icon, a label, and what it is currently set to. */
+function readerRow(c, { glyph, label, detail = '', checked = false, disabled = false, note = '' }) {
+  const fg = disabled ? c.fgDisabled : c.fg;
+  return `<div style="min-height:52px;display:flex;align-items:center;gap:14px;padding:9px ${PAD}px">
+    ${icon(glyph, 19, disabled ? c.fgDisabled : c.fgMuted)}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;color:${fg}">${label}</div>
+      ${note ? `<div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">${note}</div>` : ''}
+    </div>
+    ${detail ? `<span style="font-size:13px;color:${c.fgSubtle}">${detail}</span>` : ''}
+    ${checked ? icon('check', 18, c.primary, 2) : ''}
+  </div>`;
+}
+
+/**
+ * Reading a document, with and without the chrome.
+ *
+ * The page is the whole screen and the controls are transient: they fade rather
+ * than unmount, so the document never reflows to make room for them.
+ */
 function reader(withChrome) {
   const c = DARK;
   const doc = byTitle('Thinking,');
   const page = 142;
-  const pct = Math.round((page / doc.p) * 100);
 
-  // A page of the book, at reading size. Ruled body type, a running head,
-  // a folio — the shape of a page rather than a picture of one.
+  // The chrome overlays the page, so the text has to start below it — the
+  // running head used to sit underneath the top bar. Without the chrome the
+  // page starts where a page starts, and runs further down.
+  const top = withChrome ? 116 : 64;
+  const lines = withChrome ? 41 : 50;
+
+  return dc({
+    w: 390, h: 844, bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${readerPage({ top, lines })}
+  ${folio(page)}
+  ${withChrome
+    ? readerTop(c, { title: doc.t }) + readerBottom(c, { page, total: doc.p })
+    : `<div style="position:absolute;left:0;right:0;bottom:26px;display:flex;justify-content:center">
+         <div style="font-size:10px;color:${PAPER.hint}">tap to show controls</div>
+       </div>`}
+</div>`,
+  });
+}
+
+/**
+ * Opening a document.
+ *
+ * The cover the import already rendered stands in for the page while the native
+ * renderer loads, so the screen a reader waits on is a picture of the book
+ * rather than an empty rectangle. The bar is real progress from
+ * `onLoadProgress`, not a spinner pretending to be one.
+ */
+function readerOpening() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center">
+    <div style="opacity:.45">${pageCover(doc, { w: 132 })}</div>
+    <div style="margin-top:26px;width:132px;height:2px;border-radius:${R};background:${c.border}">
+      <div style="width:38%;height:100%;border-radius:${R};background:${c.primary}"></div>
+    </div>
+    <div style="margin-top:14px;font-size:13px;color:${c.fgMuted}">Opening…</div>
+    <div style="margin-top:4px;font-size:11px;color:${c.fgSubtle}">499 pages · from this device</div>
+  </div>
+  ${readerTop(c, { title: doc.t, trailing: [] })}
+</div>`,
+  });
+}
+
+/**
+ * Continuous, which is the default on a phone.
+ *
+ * One long scroll: the page below is already on screen, separated by the app's
+ * own background rather than by a gap in the document. Fit-to-width, so the
+ * measure is the same on every page whatever the page's own proportions are.
+ */
+function readerContinuous() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="background:${PAPER.bg};height:604px;overflow:hidden;position:relative">
+    ${readerPage({ lines: 20, top: 40 })}
+    ${`<div style="position:absolute;left:0;right:0;bottom:14px;text-align:center;font-size:10px;color:${PAPER.meta}">142</div>`}
+  </div>
+  <div style="height:8px"></div>
+  <div style="background:${PAPER.bg};height:232px;overflow:hidden">
+    ${readerPage({ lines: 10, top: 34, head: false })}
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * One page at a time.
+ *
+ * Swiped horizontally, one page per swipe, fit so the whole page is on screen
+ * at once — the app's background is what fills whatever the page's proportions
+ * leave over, which is why that background has to be the theme's and not the
+ * renderer's grey default.
+ */
+function readerSinglePage() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg};display:flex;align-items:center">
+  <div style="width:100%;height:756px;background:${PAPER.bg};position:relative;overflow:hidden">
+    ${readerPage({ lines: 24, top: 52 })}
+    <div style="position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:10px;color:${PAPER.meta}">142</div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:26px;display:flex;justify-content:center;gap:6px">
+    ${[0, 1, 2].map((i) => `<div style="width:4px;height:4px;border-radius:9999px;background:${i === 1 ? c.fgMuted : c.fgDisabled}"></div>`).join('')}
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * Getting to a page directly.
+ *
+ * Three ways into the same `goToPage`: type the number, drag the track, or pick
+ * a page off the strip. The ticks on the track are the document's own contents,
+ * so dragging past a chapter is something a reader can feel.
+ */
+function readerPageJump() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  ${readerSheet(c, {
+    glyph: 'target',
+    title: 'Go to page',
+    subtitle: doc.t,
+    trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">of ${doc.p}</span>`,
+    body: `<div style="padding:18px ${PAD}px 0">
+      <div style="height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+        <span style="font-size:20px;font-weight:600;letter-spacing:-.02em;color:${c.fg}" class="tnum">438</span>
+      </div>
+      <div style="position:relative;margin-top:26px;height:4px;border-radius:${R};background:${c.border}">
+        <div style="width:88%;height:100%;border-radius:${R};background:${c.primary}"></div>
+        <div style="position:absolute;left:88%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:9999px;background:${c.primary};box-shadow:0 0 0 4px ${c.elevated}"></div>
+        ${[12, 24, 47, 63, 81].map((t) => `<div style="position:absolute;left:${t}%;top:-7px;width:1px;height:5px;background:${c.borderStrong}"></div>`).join('')}
+      </div>
+      <div style="margin-top:9px;display:flex;justify-content:space-between">
+        <span style="font-size:11px;color:${c.fgSubtle}" class="tnum">1</span>
+        <span style="font-size:11px;color:${c.fgSubtle}">ticks are chapters</span>
+        <span style="font-size:11px;color:${c.fgSubtle}" class="tnum">${doc.p}</span>
+      </div>
+      <div style="margin-top:22px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${c.primary}">
+        <span style="font-size:15px;font-weight:500;color:${c.onPrimary}">Go to page 438</span>
+      </div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Mid-drag.
+ *
+ * The bubble and the page under it both follow the thumb on the UI thread; the
+ * document only moves on release, because turning 300 pages one at a time to
+ * get somewhere is work the renderer should never be asked to do.
+ */
+function readerScrubbing() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${readerPage()}
+  ${folio(142)}
+  ${readerTop(c, { title: doc.t })}
+  ${readerBottom(c, { page: 438, total: doc.p, scrubbing: true })}
+</div>`,
+  });
+}
+
+/**
+ * How it reads.
+ *
+ * Three modes, and the one a phone cannot do says why rather than being absent
+ * — a control that disappears on a small screen reads as a bug, and a reader
+ * who saw it on their tablet will go looking for it.
+ */
+function readerModes() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  ${readerSheet(c, {
+    glyph: 'bookOpen',
+    title: 'How it reads',
+    subtitle: doc.t,
+    body: `<div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'rows3', label: 'Continuous', detail: '', checked: true, note: 'One long scroll, fit to the width of the screen.' })}
+      ${readerRow(c, { glyph: 'rectangleVertical', label: 'One page at a time', note: 'Swipe sideways. The whole page is always on screen.' })}
+      ${readerRow(c, { glyph: 'columns2', label: 'Two pages', disabled: true, note: 'Needs a wider screen. Turn a tablet sideways, or rotate this phone.' })}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      ${readerRow(c, { glyph: 'maximize', label: 'Fit', detail: 'Width' })}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Reader settings.
+ *
+ * Everything here is about this phone rather than about the document, which is
+ * what the last line says — the mode syncs because it is a way of reading a
+ * particular book, and the rest does not because it is about a particular
+ * screen in a particular room.
+ */
+function readerSettings() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const toggle = (on) =>
+    `<div style="width:44px;height:26px;border-radius:9999px;background:${on ? c.primary : c.border};position:relative;flex:0 0 auto">
+       <div style="position:absolute;${on ? 'right:3px' : 'left:3px'};top:3px;width:20px;height:20px;border-radius:9999px;background:${on ? c.onPrimary : c.fgSubtle}"></div>
+     </div>`;
+  const switchRow = (glyph, label, note, on) =>
+    `<div style="min-height:52px;display:flex;align-items:center;gap:14px;padding:11px ${PAD}px">
+       ${icon(glyph, 19, c.fgMuted)}
+       <div style="flex:1;min-width:0">
+         <div style="font-size:15px;color:${c.fg}">${label}</div>
+         <div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">${note}</div>
+       </div>
+       ${toggle(on)}
+     </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  ${readerSheet(c, {
+    glyph: 'settings',
+    title: 'Reader',
+    subtitle: doc.t,
+    body: `<div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'rows3', label: 'How it reads', detail: 'Continuous' })}
+      ${readerRow(c, { glyph: 'maximize', label: 'Fit', detail: 'Width' })}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      ${switchRow('eye', 'Keep the screen awake', 'While this document is open, and only while it is.', true)}
+      ${switchRow('sun', 'Follow the document', 'Pages render as they were authored. Dark mode changes what is around them.', true)}
+      <div style="padding:14px ${PAD}px 4px">
+        <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">How it reads follows the document to your other devices. Everything else stays on this phone.</div>
+      </div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * A PDF with a password.
+ *
+ * The import refuses these outright, so a document only reaches this screen if
+ * it was encrypted after it was added or arrived from another device. The
+ * renderer takes the password itself; nothing here sends it anywhere.
+ */
+function readerPassword() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.62)"></div>
+  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 ${PAD}px">
+    <div style="border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border};padding:20px">
+      ${icon('lock', 22, c.fgMuted)}
+      <div style="margin-top:14px;font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">This PDF has a password</div>
+      <div style="margin-top:8px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Enter it to read the document. Pidom never sends it anywhere — it goes straight to the viewer on this phone.</div>
+      <div style="margin-top:16px;height:44px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+        <span style="font-size:15px;letter-spacing:.22em;color:${c.fg}">••••••••</span>
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:26px;border-radius:9999px;background:${c.border};position:relative;flex:0 0 auto">
+          <div style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:9999px;background:${c.fgSubtle}"></div>
+        </div>
+        <div style="flex:1;font-size:13px;color:${c.fgMuted}">Remember on this device</div>
+      </div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+          <span style="font-size:14px;font-weight:500;color:${c.fg}">Cancel</span>
+        </div>
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary}">
+          <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Open</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * A document that will not render.
+ *
+ * Flat, and it says which of the two things went wrong — a file that is damaged
+ * is a different problem from one that is missing, and the second has a fix the
+ * reader can act on.
+ */
+function readerFailed() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 40px;text-align:center">
+    <div style="display:flex;justify-content:center">${icon('fileX', 34, c.fgSubtle, 1.5)}</div>
+    <div style="margin-top:18px;font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">This file will not open</div>
+    <div style="margin-top:8px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">The copy on this phone is damaged. There is a copy in your account, so downloading it again should fix it.</div>
+    <div style="margin-top:24px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${c.primary}">
+      <span style="font-size:15px;font-weight:500;color:${c.onPrimary}">Download it again</span>
+    </div>
+    <div style="margin-top:16px;font-size:14px;color:${c.primary}">Back to your library</div>
+  </div>
+  ${readerTop(c, { title: byTitle('Thinking,').t, trailing: [] })}
+</div>`,
+  });
+}
+
+/**
+ * A link inside the document.
+ *
+ * A PDF is a file somebody else wrote, and it does not get to open a URL
+ * without the reader seeing where it goes. The host is what the sentence leads
+ * with, because the host is the part that decides whether this is safe.
+ */
+function readerLink() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 ${PAD}px">
+    <div style="border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border};padding:20px">
+      ${icon('externalLink', 22, c.fgMuted)}
+      <div style="margin-top:14px;font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">Leave Pidom?</div>
+      <div style="margin-top:12px;padding:10px 12px;border-radius:${R};background:${c.sunken};box-shadow:inset 0 0 0 1px ${c.hairline}">
+        <div style="font-size:14px;font-weight:600;color:${c.fg}">psycnet.apa.org</div>
+        <div style="margin-top:2px;font-size:11px;line-height:15px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">https://psycnet.apa.org/record/1974-02325-001</div>
+      </div>
+      <div style="margin-top:12px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">This link is written into the document, not into Pidom. It opens in your browser.</div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+          <span style="font-size:14px;font-weight:500;color:${c.fg}">Stay here</span>
+        </div>
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary}">
+          <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Open</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * Finding a word without leaving the page.
+ *
+ * The bar takes the top chrome's place rather than stacking under it: they are
+ * the same strip of screen, and somebody searching a document is not also
+ * reading its title. The snippet under the field is why this beats a bare hit
+ * count — enough to know whether to go, and going is one tap.
+ *
+ * No new backend behind it. The page text is already extracted for every synced
+ * document and already mirrored into this phone's own index, both already
+ * scoped by document, so this is the search that existed asked a narrower
+ * question — and it answers with no connection.
+ */
+function readerFind() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${readerPage({ top: 132, lines: 38 })}
+  ${folio(142)}
+
+  <div style="position:absolute;left:0;right:0;top:0;background:${c.bg};box-shadow:0 1px 0 ${c.hairline};padding:44px ${PAD - 8}px 12px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;height:40px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+        <span style="font-size:14px;color:${c.fg}">anchoring</span>
+      </div>
+      <span style="font-size:12px;color:${c.fgSubtle};flex:0 0 auto" class="tnum">3 of 17</span>
+      ${icon('chevronUp', 18, c.fg, 2)}
+      ${icon('chevronDown', 18, c.fg, 2)}
+      ${icon('close', 18, c.fg, 2)}
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;padding:0 8px">
+      <span style="font-size:12px;color:${c.fgMuted};flex:0 0 auto" class="tnum">p.142</span>
+      <span style="flex:1;min-width:0;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…the law of small numbers and <span style="color:${c.fg}">anchoring</span> effects both follow from…</span>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * The pages this reader marked.
+ *
+ * The second half of the Contents sheet, because both answer the same question
+ * — where in this document do I want to be — and the toolbar already has four
+ * buttons. Unlike Contents, this list is the reader's own, so a row can be
+ * removed from it.
+ */
+function readerBookmarks() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+
+  const tab = (label, on) =>
+    `<div style="padding:6px 12px;border-radius:${R};${on ? `background:${c.primaryTint}` : ''}">
+       <span style="font-size:12px;color:${on ? c.primary : c.fgMuted}">${label}</span>
+     </div>`;
+
+  const row = (label, page, current) =>
+    `<div style="display:flex;align-items:center;${current ? `background:${c.hover}` : ''}">
+       <div style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 0 12px ${PAD}px">
+         <div style="flex:1;min-width:0;font-size:15px;color:${current ? c.fg : c.fgMuted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</div>
+         <span style="font-size:12px;color:${current ? c.primary : c.fgSubtle};flex:0 0 auto" class="tnum">${page}</span>
+       </div>
+       <div style="width:48px;display:flex;align-items:center;justify-content:center">${icon('trash', 15, c.fgSubtle)}</div>
+     </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  <div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
+    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px ${PAD}px 14px">
+      ${icon('bookmark', 18, c.fgMuted)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Bookmarks</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${doc.t}</div>
+      </div>
+      <span style="font-size:12px;color:${c.fgSubtle}" class="tnum">5</span>
+    </div>
+    <div style="display:flex;gap:6px;padding:0 ${PAD}px 12px">
+      ${tab('Contents', false)}${tab('Bookmarks · 5', true)}
+    </div>
+    <div style="height:1px;background:${c.hairline}"></div>
+    <div style="padding-top:4px">
+      ${row('Anchors', 152, false)}
+      ${row('The two-systems diagram', 24, false)}
+      ${row('Page 142', 142, true)}
+      ${row('Prospect theory', 279, false)}
+      ${row('Page 438', 438, false)}
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * A layer over the page.
+ *
+ * Not an inversion. `react-native-pdf` cannot invert a page, and a dark reading
+ * treatment is a different feature from a dark application — so the switch is
+ * phrased the right way round: on means the document renders as it was
+ * authored, and turning it off is a reader deciding they would rather have a
+ * dimmer page than a faithful one.
+ */
+function readerTint() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+
+  const toggle = (on) =>
+    `<div style="width:44px;height:26px;border-radius:9999px;background:${on ? c.primary : c.border};position:relative;flex:0 0 auto">
+       <div style="position:absolute;${on ? 'right:3px' : 'left:3px'};top:3px;width:20px;height:20px;border-radius:9999px;background:${on ? c.onPrimary : c.fgSubtle}"></div>
+     </div>`;
+  const chip = (label, on) =>
+    `<div style="padding:6px 10px;border-radius:${R};${on ? `background:${c.primaryTint}` : ''}">
+       <span style="font-size:12px;color:${on ? c.primary : c.fgMuted}">${label}</span>
+     </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  <div>${readerPage({ top: 64, lines: 30 })}</div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.35)"></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.62)"></div>
+
+  ${readerSheet(c, {
+    glyph: 'settings',
+    title: 'Reader',
+    subtitle: doc.t,
+    body: `<div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'rows3', label: 'How it reads', detail: 'Continuous' })}
+      ${readerRow(c, { glyph: 'maximize', label: 'Fit', detail: 'Width' })}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      <div style="min-height:52px;display:flex;align-items:center;gap:14px;padding:11px ${PAD}px">
+        ${icon('eye', 19, c.fgMuted)}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;color:${c.fg}">Keep the screen awake</div>
+          <div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">While this document is open, and only while it is.</div>
+        </div>
+        ${toggle(true)}
+      </div>
+      <div style="min-height:52px;display:flex;align-items:center;gap:14px;padding:11px ${PAD}px">
+        ${icon('sun', 19, c.fgMuted)}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;color:${c.fg}">Follow the document</div>
+          <div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">Pages render as they were authored. Dark mode changes what is around them.</div>
+        </div>
+        ${toggle(false)}
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:4px ${PAD}px 14px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;color:${c.fgMuted}">Over the page</div>
+          <div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">A layer over the page, not a change to it — the document is not inverted.</div>
+        </div>
+        <div style="display:flex;gap:6px;flex:0 0 auto">${chip('Dim', true)}${chip('Warm', false)}</div>
+      </div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Text somebody selected.
+ *
+ * `enableTextSelection` has been on the whole time — it is the package's
+ * default — so an iOS reader could already select text and reach the system
+ * menu while nothing here knew. This is that callback given somewhere to go.
+ * iOS only, because the renderer's selection is; on Android there is no bar
+ * rather than a button that cannot work.
+ */
+function readerSelection() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+
+  // A run of ruled lines with three of them highlighted, which is what a
+  // selection looks like at this scale.
   let body = '';
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 30; i++) {
     const w = i % 7 === 6 ? 52 : i % 5 === 4 ? 88 : 100;
-    body += `<div style="height:2px;border-radius:1px;background:#c9c6c0;width:${w}%;margin-bottom:12px"></div>`;
+    const picked = i >= 11 && i <= 13;
+    body += `<div style="height:2px;border-radius:1px;background:${picked ? '#a8b4e8' : PAPER.rule};width:${w}%;margin-bottom:12px;${picked ? 'box-shadow:0 0 0 3px rgba(106,89,232,.22)' : ''}"></div>`;
   }
 
   return dc({
-    w: 390, h: 844, bg: '#fdfdfc',
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:#fdfdfc">
-  <div style="padding:64px 40px 0">
-    <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#8f8d88">Part II · Heuristics and Biases</div>
-    <div style="margin-top:26px;font-size:15px;line-height:1.5;font-weight:700;color:#1a1a1a">The Law of Small Numbers</div>
+    w: 390, h: 844, bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  <div style="padding:116px 40px 0">
+    <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:${PAPER.meta}">Part II · Heuristics and Biases</div>
+    <div style="margin-top:26px;font-size:15px;line-height:1.5;font-weight:700;color:${PAPER.ink}">The Law of Small Numbers</div>
     <div style="margin-top:18px">${body}</div>
   </div>
-  <div style="position:absolute;left:0;right:0;bottom:26px;text-align:center;font-size:10px;color:#8f8d88">${page}</div>
+  ${folio(142)}
 
-  ${withChrome
-    ? `<div style="position:absolute;left:0;right:0;top:0;height:96px;background:${c.bg};box-shadow:0 1px 0 ${c.hairline}">
-         <div style="display:flex;align-items:center;gap:6px;padding:44px ${PAD}px 0">
-           ${icon('arrowLeft', 22, c.fg, 2)}
-           <div style="flex:1;margin-left:6px;min-width:0">
-             <div style="font-size:14px;font-weight:600;letter-spacing:-.01em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${doc.t}</div>
-           </div>
-           ${icon('more', 20, c.fg, 2)}
+  <div style="position:absolute;left:0;right:0;bottom:196px;display:flex;justify-content:center">
+    <div style="display:flex;gap:4px;padding:4px 6px;border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border}">
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:${R}">
+        ${icon('copy', 15, c.fg)}<span style="font-size:14px;color:${c.fg}">Copy</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:${R}">
+        ${icon('search', 15, c.fg)}<span style="font-size:14px;color:${c.fg}">Find</span>
+      </div>
+    </div>
+  </div>
+
+  ${readerTop(c, { title: doc.t })}
+  ${readerBottom(c, { page: 142, total: doc.p })}
+</div>`,
+  });
+}
+
+/**
+ * Two pages, on a screen wide enough to mean it.
+ *
+ * `react-native-pdf` has no spread of its own, so this is two renderers side by
+ * side, each showing one page and neither scrolling. That is the reason the
+ * mode is gated on width rather than offered everywhere: it costs a second
+ * native view holding a second copy of the document open, which is a fair trade
+ * on a tablet and a bad one on a phone.
+ */
+function readerSpread() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const W = 1024, H = 768;
+
+  const page = (n, head) =>
+    `<div style="flex:1;height:100%;background:${PAPER.bg};position:relative;overflow:hidden">
+       <div style="padding:44px 46px 0">
+         ${head ? `<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:${PAPER.meta}">Part II · Heuristics and Biases</div>
+                   <div style="margin-top:20px;font-size:15px;line-height:1.5;font-weight:700;color:${PAPER.ink}">The Law of Small Numbers</div>` : ''}
+         <div style="margin-top:${head ? 16 : 0}px">
+           ${Array.from({ length: head ? 40 : 45 }, (_, i) => {
+             const w = i % 7 === 6 ? 52 : i % 5 === 4 ? 88 : 100;
+             return `<div style="height:2px;border-radius:1px;background:${PAPER.rule};width:${w}%;margin-bottom:11px"></div>`;
+           }).join('')}
          </div>
        </div>
-       <div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:${c.bg};box-shadow:0 -1px 0 ${c.hairline}">
-         <div style="padding:16px ${PAD}px 0">
-           <div style="display:flex;align-items:center;justify-content:space-between">
-             <span style="font-size:12px;color:${c.fgMuted}" class="tnum">${page} of ${doc.p}</span>
-             <span style="font-size:12px;color:${c.fgSubtle}" class="tnum">${pct}%</span>
-           </div>
-           <div style="margin-top:10px;height:2px;border-radius:${R};background:${c.border};overflow:hidden">
-             <div style="width:${pct}%;height:100%;border-radius:${R};background:${c.primary}"></div>
-           </div>
-         </div>
-       </div>`
-    : `<div style="position:absolute;left:0;right:0;bottom:26px;display:flex;justify-content:center">
-         <div style="font-size:10px;color:#b0aea9">tap to show controls</div>
-       </div>`}
+       <div style="position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:10px;color:${PAPER.meta}">${n}</div>
+     </div>`;
+
+  const strip = [138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149]
+    .map((n) => {
+      const here = n === 142 || n === 143;
+      return `<div style="flex:0 0 auto;width:40px">
+        <div style="width:40px;height:56px;border-radius:${R};background:${PAPER.bg};box-shadow:inset 0 0 0 ${here ? 2 : 1}px ${here ? c.primary : c.border};padding:7px 5px 0">
+          ${[100, 88, 100, 52].map((w) => `<div style="height:1.5px;border-radius:1px;background:${PAPER.rule};width:${w}%;margin-bottom:4px"></div>`).join('')}
+        </div>
+        <div style="margin-top:4px;text-align:center;font-size:9px;color:${here ? c.primary : c.fgSubtle}" class="tnum">${n}</div>
+      </div>`;
+    })
+    .join('');
+
+  return dc({
+    w: W, h: H, bg: c.bg,
+    body: `<div style="position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${c.bg};display:flex;flex-direction:column">
+  <div style="height:56px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 ${PAD}px;box-shadow:0 1px 0 ${c.hairline}">
+    ${icon('arrowLeft', 21, c.fg, 2)}
+    <div style="flex:1;margin-left:6px;min-width:0">
+      <div style="font-size:14px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">${doc.t}</div>
+      <div style="margin-top:1px;font-size:11px;color:${c.fgSubtle}">Daniel Kahneman</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+      ${icon('columns2', 14, c.primary, 2)}<span style="font-size:12px;color:${c.fg}">Two pages</span>
+    </div>
+    <div style="width:14px"></div>
+    ${icon('listTree', 19, c.fg, 2)}<div style="width:16px"></div>${icon('textSearch', 19, c.fg, 2)}<div style="width:16px"></div>${icon('more', 19, c.fg, 2)}
+  </div>
+
+  <div style="flex:1;display:flex;gap:10px;padding:14px ${PAD}px;min-height:0">
+    ${page(142, true)}
+    ${page(143, false)}
+  </div>
+
+  <div style="flex:0 0 auto;box-shadow:0 -1px 0 ${c.hairline};padding:12px ${PAD}px 14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:${c.fgMuted};flex:0 0 auto" class="tnum">142–143 of ${doc.p}</span>
+      <div style="flex:1;display:flex;gap:8px;overflow:hidden">${strip}</div>
+      <span style="font-size:12px;color:${c.fgSubtle};flex:0 0 auto" class="tnum">29%</span>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * What the reader is made of.
+ *
+ * The measurements, the four states a document can be in while it is open, and
+ * the one place every feature goes through to move the page. Drawn rather than
+ * written down because the numbers are the sort that drift.
+ */
+function readerAnatomy() {
+  const c = DARK;
+  const W = 900, H = 1180;
+
+  const label = (t) =>
+    `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${t}</div>`;
+
+  const measure = (t) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+       <div style="width:18px;height:1px;background:${c.borderStrong};flex:0 0 auto"></div>
+       <span style="font-size:12px;color:${c.fgMuted}" class="tnum">${t}</span>
+     </div>`;
+
+  const state = (glyph, title, body) =>
+    `<div style="flex:1;min-width:0">
+       ${icon(glyph, 19, c.fgMuted)}
+       <div style="margin-top:10px;font-size:14px;font-weight:600;color:${c.fg}">${title}</div>
+       <div style="margin-top:5px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${body}</div>
+     </div>`;
+
+  const command = (name, body) =>
+    `<div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 ${c.hairline}">
+       <span style="flex:0 0 168px;font-size:12.5px;color:${c.fg};font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${name}</span>
+       <span style="flex:1;font-size:12.5px;line-height:17px;color:${c.fgSubtle}" class="pretty">${body}</span>
+     </div>`;
+
+  return dc({
+    w: W, h: H, bg: c.bg,
+    body: `<div style="width:${W}px;min-height:${H}px;background:${c.bg};padding:40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">The reader</div>
+  <div style="margin-top:7px;max-width:600px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">React Native owns the controls, the navigation and the reading state. The native renderer owns the page, the zoom and the panning. Nothing crosses that line — in particular there is no second zoom engine over a renderer that already has pinch and double tap.</div>
+
+  <div style="margin-top:34px;display:flex;gap:40px">
+    <div style="flex:0 0 300px">
+      <div style="position:relative;width:300px;height:649px;border-radius:${R};overflow:hidden;background:${PAPER.bg};box-shadow:inset 0 0 0 1px ${c.border}">
+        <div style="padding:52px 32px 0">
+          <div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:${PAPER.meta}">Part II · Heuristics and Biases</div>
+          <div style="margin-top:20px;font-size:13px;line-height:1.5;font-weight:700;color:${PAPER.ink}">The Law of Small Numbers</div>
+          <div style="margin-top:14px">
+            ${Array.from({ length: 18 }, (_, i) => {
+              const w = i % 7 === 6 ? 52 : i % 5 === 4 ? 88 : 100;
+              return `<div style="height:2px;border-radius:1px;background:${PAPER.rule};width:${w}%;margin-bottom:11px"></div>`;
+            }).join('')}
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;top:0;height:74px;background:${c.bg};box-shadow:0 1px 0 ${c.hairline}">
+          <div style="display:flex;align-items:center;gap:6px;padding:34px 18px 0">
+            ${icon('arrowLeft', 18, c.fg, 2)}
+            <div style="flex:1;margin-left:4px;font-size:12px;font-weight:600;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Thinking, Fast and Slow</div>
+            ${icon('listTree', 16, c.fg, 2)}${icon('more', 16, c.fg, 2)}
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:68px;background:${c.bg};box-shadow:0 -1px 0 ${c.hairline};padding:13px 18px 0">
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-size:11px;color:${c.fgMuted}" class="tnum">142 of 499</span>
+            <span style="font-size:11px;color:${c.fgSubtle}" class="tnum">28%</span>
+          </div>
+          <div style="margin-top:8px;height:2px;border-radius:${R};background:${c.border}"><div style="width:28%;height:100%;border-radius:${R};background:${c.primary}"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:0">
+      ${label('Chrome')}
+      <div style="margin-top:12px">
+        ${measure('96 top bar — 44 status bar plus 52 of controls, from useSafeAreaInsets rather than a constant')}
+        ${measure('88 bottom bar, growing to 132 while the track is being dragged')}
+        ${measure('22 back arrow, 20 everything else, stroke 2')}
+        ${measure('14 / 600 title, ellipsised — one line, never two')}
+        ${measure('2 progress track, 4 while dragging')}
+        ${measure('6 corner radius, as everywhere')}
+        ${measure('Both bars overlay the page. Hiding them never reflows the document.')}
+      </div>
+
+      <div style="margin-top:26px">${label('While it is open')}</div>
+      <div style="margin-top:14px;display:flex;gap:22px">
+        ${state('cloudDown', 'Opening', 'The cover stands in for the page and onLoadProgress drives a real bar.')}
+        ${state('bookOpen', 'Ready', 'The saved position is restored once, and after that the reader owns the page.')}
+      </div>
+      <div style="margin-top:20px;display:flex;gap:22px">
+        ${state('lock', 'Locked', 'The renderer takes the password itself. Nothing here sends it anywhere.')}
+        ${state('fileX', 'Failed', 'A flat state with a way out, not a blank screen and a log line.')}
+      </div>
+
+      <div style="margin-top:28px">${label('Where the page comes from')}</div>
+      <div style="margin-top:12px;font-size:12.5px;line-height:19px;color:${c.fgMuted}" class="pretty">Documents/library/&lt;profile&gt;/&lt;document&gt;.pdf, straight into the renderer. Convex is never asked for a file to open one, which is why a 600-page textbook opens in airplane mode.</div>
+    </div>
+  </div>
+
+  <div style="margin-top:34px">${label('One way to move the page')}</div>
+  <div style="margin-top:6px;max-width:820px;font-size:12.5px;line-height:18px;color:${c.fgMuted}" class="pretty">Contents, find results, the scrubber, the page field and a swipe-to-adjust all call the same function. Five features talking to the renderer directly is five places to fix when a sixth arrives.</div>
+  <div style="margin-top:16px;max-width:820px">
+    ${command('goToPage(n)', 'Clamped, pair-snapped in a spread, announced to assistive tech, recorded as deliberate.')}
+    ${command('nextPage() / previousPage()', 'One page, or two when two are on screen. What a swipe-to-adjust routes to.')}
+    ${command('setMode(mode)', 'Remounts the canvas and restores the page. Syncs to the document.')}
+    ${command('setFit(policy)', 'Offered only in continuous; the other two modes size the page themselves.')}
+    ${command('resetZoom()', 'Back to fit. A scale prop, because the ref exposes setPage and nothing else.')}
+    ${command('toggleControls()', 'What a tap on the page does, and what pinching in and back out does.')}
+    ${command('openContents() / openSearch() / openPageJump()', 'Three sheets, all landing back on goToPage.')}
+    ${command('closeReader()', 'Leaving writes the position, releases the wake lock and returns to portrait.')}
+  </div>
 </div>`,
   });
 }
@@ -711,8 +1636,8 @@ function documentActionsFull() {
     </div>`;
 
   return dc({
-    w: 390, h: 940, bg: c.bg,
-    body: `<div style="position:relative;height:940px;overflow:hidden">
+    w: 390, h: 1044, bg: c.bg,
+    body: `<div style="position:relative;height:1044px;overflow:hidden">
   <div style="position:absolute;inset:0;background:rgba(0,0,0,.62)"></div>
   <div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
     <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
@@ -726,6 +1651,7 @@ function documentActionsFull() {
     <div style="height:1px;background:${c.hairline}"></div>
     <div style="padding-top:4px">
       ${row('bookOpen', 'Open')}
+      ${row('listTree', 'Contents', false, '38 chapters, read out of the PDF itself')}
       ${row('check2', 'Mark as finished')}
       ${row('folderPlus', 'Add to collection')}
       ${row('folder', 'New collection with this')}
@@ -733,6 +1659,7 @@ function documentActionsFull() {
       ${row('cloudCheck', 'Keep on this device only', false, 'Removes the copy in your account')}
       ${row('phone', 'Remove from this device', false, 'Keeps it in your account — 4.1 MB freed')}
       ${row('pencil', 'Rename')}
+      ${row('refresh', 'Reprocess', false, 'Reads the file again for its cover, pages and contents')}
       ${row('info', 'Details')}
       ${row('share', 'Share a copy')}
       <div style="height:1px;background:${c.hairline};margin:4px 0"></div>
@@ -828,6 +1755,383 @@ class Component extends DCLogic {
 }
 
 /* ------------------------------ emit ------------------------------ */
+/* ---------------------- processing and contents ------------------- */
+
+/**
+ * Home a second after an import.
+ *
+ * The document is already in Recently added with a real title and a real
+ * position in the rail; only its cover is missing. Waiting for the whole probe
+ * before showing anything is the version of this screen where a reader taps
+ * Add and nothing happens for two seconds.
+ */
+function homeProcessing() {
+  const c = DARK;
+  const t = (title, opts) => tile(byTitle(title), { dark: true, ...opts });
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    helmet: `    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }\n    .bones { animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite }\n`,
+    body: `${header(c)}
+${searchTrigger(c)}
+${rail('Recently added', [
+    t('Kubernetes', { processing: 'probing' }),
+    t('Annual Report', { real: true }),
+    t('Lease Agreement', { real: true }),
+    t('Sapiens', { real: true }),
+  ], c)}
+${rail('Continue reading', [
+    t('Thinking,', { showProgress: true, real: true }),
+    t('The Design of', { showProgress: true, real: true }),
+    t('Convex Backend', { showProgress: true }),
+    t('Designing Data', { showProgress: true, real: true }),
+  ], c)}
+<div style="margin:26px ${PAD}px 0;display:flex;align-items:flex-start;gap:10px">
+  ${icon('info', 13, c.fgSubtle, 2)}
+  <span style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Kubernetes Up and Running is being read. Its cover, page count and contents land in a second or two; it is already openable.</span>
+</div>`,
+  });
+}
+
+/**
+ * The four states a tile can be in while the probe runs, and after it fails.
+ *
+ * `failed` and `partial` exist because a cover that never rendered used to be
+ * indistinguishable from a document that never had one, with nothing the reader
+ * could do about either.
+ */
+function tileProcessing() {
+  const c = DARK;
+  const state = (label, node, note) => `<div style="width:${COVER_W}px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle};margin-bottom:11px">${label}</div>${node}<div style="margin-top:10px;font-size:11px;line-height:15px;color:${c.fgSubtle}" class="pretty">${note}</div></div>`;
+  const doc = byTitle('Kubernetes');
+  return dc({
+    w: 900, h: 720, bg: c.bg,
+    helmet: `    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }\n    .bones { animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite }\n`,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Processing</div>
+  <div style="margin-top:6px;max-width:660px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">One <span style="color:${c.fg}">&lt;Pdf&gt;</span> mount yields the page count, the table of contents and the cover together. The row is written before any of it, so the document is in the library and openable while the probe is still running.</div>
+  <div style="margin-top:34px;display:flex;gap:${GAP + 24}px;align-items:flex-start">
+    ${state('probing', tile(doc, { processing: 'probing' }), 'The row exists, the file is on disk, the probe is reading it. Tapping opens it — and if the probe never reports, the library picks the document up and reads it again.')}
+    ${state('ready', tile(doc, { real: true }), 'Cover, page count and contents all landed. The state every document ends in.')}
+    ${state('partial', tile(doc, { processing: 'partial' }), 'The page count came back and the snapshot did not. The tinted cover stands in, and Reprocess is offered.')}
+    ${state('failed', tile(doc, { processing: 'failed' }), 'The viewer could not read the file at all. Nothing is hidden — the document stays, and says so.')}
+  </div>
+  <div style="margin-top:44px;height:1px;background:${c.hairline}"></div>
+  <div style="margin-top:24px;display:flex;gap:40px">
+    <div style="max-width:380px">
+      <div style="font-size:13px;font-weight:600;color:${c.fg}">Probing is not a dead end</div>
+      <div style="margin-top:6px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="pretty">Add to library is live before the probe finishes, so committing early is the ordinary case rather than an edge one. The document lands as <span style="color:${c.fg}">probing</span> and home reads it again, one at a time. That is also what recovers a probe the app killed by going to the background.</div>
+    </div>
+    <div style="max-width:380px">
+      <div style="font-size:13px;font-weight:600;color:${c.fg}">Why not a progress bar</div>
+      <div style="margin-top:6px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="pretty">The 2px track under a tile already carries reading position, and during a transfer it carries bytes sent. A third meaning in the same two pixels is a bar nobody can read.</div>
+    </div>
+    <div style="max-width:380px">
+      <div style="font-size:13px;font-weight:600;color:${c.fg}">Text is a separate state</div>
+      <div style="margin-top:6px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="pretty">Only a synced document has text, because only a synced document exists somewhere the server can read it. It never appears on the tile — it belongs in Details, beside the thing it qualifies.</div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * The document's own table of contents.
+ *
+ * It arrives free: `onLoadComplete` hands back `tableContents` on the same load
+ * that produced the cover. Depth is rendered as indentation and capped at three,
+ * because a fourth level in a 390px sheet is four characters of title.
+ */
+function contentsSheet(hasOutline) {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const entry = (title, page, depth, current = false) =>
+    `<div style="min-height:44px;display:flex;align-items:center;gap:12px;padding:6px ${PAD}px 6px ${PAD + depth * 18}px;${current ? `background:${c.hover}` : ''}">
+      <div style="flex:1;font-size:${depth === 0 ? 15 : 14}px;line-height:19px;${depth === 0 ? `font-weight:600;color:${c.fg}` : `color:${c.fgMuted}`};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
+      <span style="font-size:12px;color:${current ? c.primary : c.fgSubtle};flex:0 0 auto" class="tnum">${page}</span>
+    </div>`;
+
+  const list = hasOutline
+    ? `${entry('Part I · Two Systems', 19, 0)}
+      ${entry('The Characters of the Story', 30, 1)}
+      ${entry('Attention and Effort', 39, 1)}
+      ${entry('The Lazy Controller', 50, 1)}
+      ${entry('Part II · Heuristics and Biases', 117, 0)}
+      ${entry('The Law of Small Numbers', 142, 1, true)}
+      ${entry('Anchors', 152, 1)}
+      ${entry('The Science of Availability', 168, 1)}
+      ${entry('Part III · Overconfidence', 235, 0)}
+      ${entry('The Illusion of Understanding', 236, 1)}`
+    : `<div style="padding:44px 40px 52px;text-align:center;display:flex;flex-direction:column;align-items:center">
+         ${icon('listTree', 32, c.fgSubtle, 1.5)}
+         <div style="margin-top:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">No contents in this PDF</div>
+         <div style="margin-top:7px;max-width:280px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Nothing was built into the file — most scans and exports carry none. Searching inside it still works.</div>
+         <div style="margin-top:20px;height:40px;display:flex;align-items:center;gap:8px;padding:0 16px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+           ${icon('textSearch', 16, c.fg, 2)}
+           <span style="font-size:14px;color:${c.fg}">Search inside</span>
+         </div>
+       </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:#fdfdfc">
+  <div style="padding:64px 40px 0;opacity:.5">
+    <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#8f8d88">Part II · Heuristics and Biases</div>
+    <div style="margin-top:26px;font-size:15px;line-height:1.5;font-weight:700;color:#1a1a1a">The Law of Small Numbers</div>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.62)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
+    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px ${PAD}px 14px">
+      ${icon('listTree', 18, c.fgMuted)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Contents</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${doc.t}</div>
+      </div>
+      ${hasOutline ? `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">38 entries</span>` : ''}
+    </div>
+    <div style="height:1px;background:${c.hairline}"></div>
+    <div style="padding-top:4px">${list}</div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * Searching inside documents, which only synced documents can answer.
+ *
+ * The results are pages, not documents, so each row carries a page number and
+ * the line the term was found on. A document with no text layer says so in the
+ * same list rather than being silently absent from it.
+ */
+function searchInside() {
+  const c = DARK;
+  const hit = (title, page, before, term, after) =>
+    `<div style="padding:14px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
+        <span style="font-size:11px;color:${c.fgSubtle};flex:0 0 auto" class="tnum">page ${page}</span>
+      </div>
+      <div style="margin-top:5px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="c2">${before}<span style="color:${c.fg};background:${c.primaryTint};border-radius:3px;padding:0 3px">${term}</span>${after}</div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:52px ${PAD}px 0">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <div style="flex:1;height:40px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:${R};background:${c.surface};box-shadow:inset 0 0 0 1px ${c.hairline}">
+      ${icon('search', 16, c.fgSubtle)}
+      <span style="font-size:14px;color:${c.fg}">anchoring</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;padding:16px ${PAD}px 0">
+    <div style="height:32px;display:flex;align-items:center;padding:0 13px;border-radius:${R};background:${c.fg}"><span style="font-size:13px;font-weight:500;color:${c.bg}">Inside documents</span></div>
+    <div style="height:32px;display:flex;align-items:center;padding:0 13px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}"><span style="font-size:13px;color:${c.fgMuted}">Titles</span></div>
+  </div>
+
+  <div style="padding:16px ${PAD}px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">7 pages in 2 documents</div>
+
+  <div style="flex:1;border-top:1px solid ${c.hairline};overflow:hidden">
+    ${hit('Thinking, Fast and Slow', 152, 'The phenomenon we were studying is so common and so important in the everyday world that you should know its name: it is an ', 'anchoring', ' effect.')}
+    ${hit('Thinking, Fast and Slow', 153, 'Any number that you are asked to consider as a possible solution to an estimation problem will induce an ', 'anchoring', ' effect.')}
+    ${hit('Thinking, Fast and Slow', 156, 'The main moral of priming research is that our thoughts and our behavior are influenced by ', 'anchors', ' we are not aware of.')}
+    ${hit('The Design of Everyday Things', 88, 'Designers rely on the same ', 'anchoring', ' that makes a price tag work: the first number seen sets the scale for every one after it.')}
+
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:16px ${PAD}px">
+      ${icon('scanText', 17, c.fgSubtle)}
+      <div style="flex:1">
+        <div style="font-size:13px;color:${c.fgMuted}">Annual Report 2025 was not searched</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">It is a scan with no text in it. Nothing to search until it is run through OCR.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:0 ${PAD}px 16px">
+      ${icon('phone', 17, c.fgSubtle)}
+      <div style="flex:1">
+        <div style="font-size:13px;color:${c.fgMuted}">4 documents are on this phone only</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Searching inside a document reads the copy in your account. Turn on “Available on all devices” for one and it joins these results.</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * What was made from this document, and what was not.
+ *
+ * Four independent facts that used to be one silent boolean. Each one names its
+ * own state, and the two that can be retried say so.
+ */
+function processingDetail() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const line = (ic, label, value, tone = 'ok', note = null) => {
+    const colour = tone === 'ok' ? c.fg : tone === 'wait' ? c.fgMuted : c.fgSubtle;
+    return `<div style="display:flex;align-items:flex-start;gap:14px;padding:13px ${PAD}px">
+      ${icon(ic, 18, tone === 'ok' ? c.fgMuted : c.fgSubtle)}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <div style="flex:1;font-size:14px;color:${c.fg}">${label}</div>
+          <span style="font-size:13px;color:${colour}" class="tnum">${value}</span>
+        </div>
+        ${note === null ? '' : `<div style="margin-top:3px;font-size:11px;line-height:16px;color:${c.fgSubtle}" class="pretty">${note}</div>`}
+      </div>
+    </div>`;
+  };
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.62)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
+    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
+    <div style="display:flex;gap:14px;align-items:center;padding:10px ${PAD}px 14px">
+      ${pageCover(doc, { w: 44 })}
+      <div style="min-width:0">
+        <div style="font-size:15px;line-height:19px;font-weight:600;letter-spacing:-.01em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${doc.t}</div>
+        <div style="margin-top:3px;font-size:12px;color:${c.fgSubtle}">Daniel Kahneman · 4.1 MB</div>
+      </div>
+    </div>
+    <div style="height:1px;background:${c.hairline}"></div>
+
+    <div style="padding:10px ${PAD}px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">On this device</div>
+    ${line('filePlus', 'Pages', '499')}
+    ${line('bookOpen', 'Cover', 'Page 1, rendered')}
+    ${line('listTree', 'Contents', '38 entries')}
+
+    <div style="height:1px;background:${c.hairline};margin-top:8px"></div>
+    <div style="padding:12px ${PAD}px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">In your account</div>
+    ${line('cloudCheck', 'Copy', 'Synced 3 weeks ago')}
+    ${line('scanText', 'Searchable text', 'Extracting · 218 of 499', 'wait', 'Read from the copy in your account, a page at a time. It resumes on its own if it is interrupted.')}
+
+    <div style="height:1px;background:${c.hairline};margin-top:8px"></div>
+    <div style="min-height:52px;display:flex;align-items:center;gap:14px;padding:8px ${PAD}px 4px">
+      ${icon('refresh', 19, c.fgMuted)}
+      <div style="flex:1">
+        <div style="font-size:16px;color:${c.fg}">Reprocess</div>
+        <div style="margin-top:2px;font-size:11px;color:${c.fgSubtle}">Reads the file again — the cover, the page count and the contents</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * Searching inside documents with no connection.
+ *
+ * Answered by the phone's own FTS5 index rather than by Convex, which is why
+ * the caveat is above the results and not under them: this list is drawn from
+ * what has been downloaded, and a reader owed an explanation for a short answer
+ * should get it before they read the answer.
+ */
+function searchOffline() {
+  const c = DARK;
+  const hit = (title, page, before, term, after) =>
+    `<div style="padding:14px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
+        <span style="font-size:11px;color:${c.fgSubtle};flex:0 0 auto" class="tnum">page ${page}</span>
+      </div>
+      <div style="margin-top:5px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="c2">${before}<span style="color:${c.fg};background:${c.primaryTint};border-radius:3px;padding:0 3px">${term}</span>${after}</div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:52px ${PAD}px 0">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <div style="flex:1;height:40px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:${R};background:${c.surface};box-shadow:inset 0 0 0 1px ${c.hairline}">
+      ${icon('search', 16, c.fgSubtle)}
+      <span style="font-size:14px;color:${c.fg}">anchoring</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;gap:10px;padding:16px ${PAD}px 0">
+    ${icon('cloudOff', 15, c.fgSubtle, 2)}
+    <span style="flex:1;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Searching the copy on this phone. Documents whose text has not been downloaded yet are not in these results.</span>
+  </div>
+
+  <div style="padding:16px ${PAD}px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">3 pages in 1 document</div>
+
+  <div style="flex:1;border-top:1px solid ${c.hairline};overflow:hidden">
+    ${hit('Thinking, Fast and Slow', 152, '…you should know its name: it is an ', 'anchoring', ' effect.')}
+    ${hit('Thinking, Fast and Slow', 153, '…as a possible solution to an estimation problem will induce an ', 'anchoring', ' effect.')}
+    ${hit('Thinking, Fast and Slow', 156, '…our thoughts and our behavior are influenced by ', 'anchors', ' we are not aware of.')}
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * A PDF handed over by another app.
+ *
+ * The same screen the picker leads to — the file was chosen elsewhere, so the
+ * only difference is the line saying where it came from. It goes through the
+ * same header check: another app's idea of a PDF is exactly as trustworthy as a
+ * filename.
+ */
+function importIncoming() {
+  const c = DARK;
+  const doc = byTitle('Lease Agreement');
+
+  const field = (label, value, muted = false) => `<div style="margin-top:18px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${label}</div>
+      <div style="margin-top:7px;height:44px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+        <span style="font-size:14px;color:${muted ? c.fgSubtle : c.fg}">${value}</span>
+      </div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:20px ${PAD}px 0">
+    <span style="font-size:14px;color:${c.fgMuted}">Cancel</span>
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Add to library</span>
+    <span style="font-size:14px;color:transparent">Cancel</span>
+  </div>
+
+  <div style="flex:1;padding:0 ${PAD}px;overflow:hidden">
+    <div style="display:flex;justify-content:center;margin-top:26px">${pageCover(doc, { w: 132 })}</div>
+
+    <div style="margin-top:20px;display:flex;align-items:center;gap:10px;justify-content:center">
+      ${icon('share2', 13, c.fgSubtle, 2)}
+      <span style="font-size:12px;color:${c.fgSubtle}">Opened from Files</span>
+    </div>
+
+    ${field('Title', doc.t)}
+    ${field('Author', 'Optional', true)}
+
+    <div style="margin-top:14px;display:flex;align-items:center;gap:6px">
+      ${icon('info', 12, c.fgSubtle, 2)}
+      <span style="font-size:12px;color:${c.fgSubtle}">PDF · 210 KB · 9 pages</span>
+    </div>
+
+    <div style="margin-top:22px;height:1px;background:${c.hairline}"></div>
+
+    <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 0">
+      ${icon('cloudUp', 19, c.fgMuted)}
+      <div style="flex:1">
+        <div style="font-size:15px;color:${c.fg}">Available on all devices</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Keeps a copy in your account so your other phones can download it, and lets Pidom search inside it.</div>
+      </div>
+      <div style="width:44px;height:26px;border-radius:9999px;background:${c.primary};position:relative;flex:0 0 auto;margin-top:2px">
+        <div style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:9999px;background:#ffffff"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:0 ${PAD}px 34px">
+    <div style="height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${c.primary}">
+      <span style="font-size:15px;font-weight:500;color:${c.onPrimary}">Add to library</span>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
 const out = {
   'Main.dc.html': home(true),
   'HomeLight.dc.html': home(false),
@@ -841,10 +2145,37 @@ const out = {
   'ImportChoosing.dc.html': importScreen('choosing'),
   'ImportUploading.dc.html': importScreen('uploading'),
   'ImportTooLarge.dc.html': importScreen('large'),
+  'ImportDuplicate.dc.html': importScreen('duplicate'),
+  'ImportNotAPdf.dc.html': importRefusal('notapdf'),
+  'ImportProtected.dc.html': importRefusal('protected'),
+  'HomeProcessing.dc.html': homeProcessing(),
+  'Contents.dc.html': contentsSheet(true),
+  'ContentsEmpty.dc.html': contentsSheet(false),
+  'SearchInside.dc.html': searchInside(),
+  'ProcessingDetail.dc.html': processingDetail(),
+  'TileProcessing.dc.html': tileProcessing(),
+  'SearchOffline.dc.html': searchOffline(),
+  'ImportIncoming.dc.html': importIncoming(),
   'OfflineStates.dc.html': offlineStates(),
   'SyncStates.dc.html': syncStates(),
   'Reader.dc.html': reader(true),
   'ReaderPlain.dc.html': reader(false),
+  'ReaderOpening.dc.html': readerOpening(),
+  'ReaderContinuous.dc.html': readerContinuous(),
+  'ReaderSinglePage.dc.html': readerSinglePage(),
+  'ReaderPageJump.dc.html': readerPageJump(),
+  'ReaderScrubbing.dc.html': readerScrubbing(),
+  'ReaderModes.dc.html': readerModes(),
+  'ReaderSettings.dc.html': readerSettings(),
+  'ReaderPassword.dc.html': readerPassword(),
+  'ReaderFailed.dc.html': readerFailed(),
+  'ReaderLink.dc.html': readerLink(),
+  'ReaderFind.dc.html': readerFind(),
+  'ReaderBookmarks.dc.html': readerBookmarks(),
+  'ReaderTint.dc.html': readerTint(),
+  'ReaderSelection.dc.html': readerSelection(),
+  'ReaderSpread.dc.html': readerSpread(),
+  'ReaderAnatomy.dc.html': readerAnatomy(),
   'DocumentActionsFull.dc.html': documentActionsFull(),
   'TileAnatomy.dc.html': tileAnatomy(),
   'CoverSystem.dc.html': coverSystem(),
@@ -868,14 +2199,45 @@ const canvas = {
     { file: 'ImportTooLarge.dc.html', title: 'Import — over the sync limit', x: 2940, y: 3044, w: 390, h: 844 },
     { file: 'Reader.dc.html', title: 'Reader — controls shown', x: 3430, y: 3044, w: 390, h: 844 },
     { file: 'ReaderPlain.dc.html', title: 'Reader — reading', x: 3920, y: 3044, w: 390, h: 844 },
-    { file: 'DocumentActionsFull.dc.html', title: 'Document actions — all of them', x: 4410, y: 3044, w: 390, h: 940 },
+    { file: 'DocumentActionsFull.dc.html', title: 'Document actions — all of them', x: 4410, y: 3044, w: 390, h: 1044 },
     { file: 'SyncStates.dc.html', title: 'Where a document is', x: 0, y: 4344, w: 900, h: 560 },
     { file: 'TileAnatomy.dc.html', title: 'Document tile — anatomy and states', x: 0, y: 5024, w: 900, h: 1100 },
     { file: 'CoverSystem.dc.html', title: 'Generated covers', x: 1000, y: 5024, w: 1360, h: 640 },
+    { file: 'HomeProcessing.dc.html', title: 'Home — a document still processing', x: 0, y: 6264, w: 390, h: 844 },
+    { file: 'ImportDuplicate.dc.html', title: 'Import — already in the library', x: 490, y: 6264, w: 390, h: 844 },
+    { file: 'ImportNotAPdf.dc.html', title: 'Import — not a PDF', x: 980, y: 6264, w: 390, h: 844 },
+    { file: 'ImportProtected.dc.html', title: 'Import — password protected', x: 1470, y: 6264, w: 390, h: 844 },
+    { file: 'Contents.dc.html', title: 'Contents — the PDF\u2019s own outline', x: 1960, y: 6264, w: 390, h: 844 },
+    { file: 'ContentsEmpty.dc.html', title: 'Contents — none in the file', x: 2450, y: 6264, w: 390, h: 844 },
+    { file: 'SearchInside.dc.html', title: 'Search inside documents', x: 2940, y: 6264, w: 390, h: 844 },
+    { file: 'ProcessingDetail.dc.html', title: 'Details — what was made from it', x: 3430, y: 6264, w: 390, h: 844 },
+    { file: 'SearchOffline.dc.html', title: 'Search inside — with no connection', x: 3920, y: 6264, w: 390, h: 844 },
+    { file: 'ImportIncoming.dc.html', title: 'Import — opened from another app', x: 4410, y: 6264, w: 390, h: 844 },
+    { file: 'TileProcessing.dc.html', title: 'Document tile — processing states', x: 0, y: 7228, w: 900, h: 720 },
+    { file: 'ReaderOpening.dc.html', title: 'Reader — opening', x: 0, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderContinuous.dc.html', title: 'Reader — continuous scroll', x: 490, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderSinglePage.dc.html', title: 'Reader — one page at a time', x: 980, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderPageJump.dc.html', title: 'Reader — jump to a page', x: 1470, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderScrubbing.dc.html', title: 'Reader — dragging to a page', x: 1960, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderModes.dc.html', title: 'Reader — how it reads', x: 2450, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderSettings.dc.html', title: 'Reader — settings', x: 2940, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderPassword.dc.html', title: 'Reader — this PDF has a password', x: 3430, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderFailed.dc.html', title: 'Reader — this file will not open', x: 3920, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderLink.dc.html', title: 'Reader — a link in the document', x: 4410, y: 8068, w: 390, h: 844 },
+    { file: 'ReaderFind.dc.html', title: 'Reader — find in this document', x: 0, y: 10332, w: 390, h: 844 },
+    { file: 'ReaderBookmarks.dc.html', title: 'Reader — the pages you marked', x: 490, y: 10332, w: 390, h: 844 },
+    { file: 'ReaderTint.dc.html', title: 'Reader — a layer over the page', x: 980, y: 10332, w: 390, h: 844 },
+    { file: 'ReaderSelection.dc.html', title: 'Reader — text you selected', x: 1470, y: 10332, w: 390, h: 844 },
+    { file: 'ReaderAnatomy.dc.html', title: 'Reader — chrome, lifecycle, commands', x: 0, y: 9032, w: 900, h: 1180 },
+    { file: 'ReaderSpread.dc.html', title: 'Reader — two pages, landscape', x: 1000, y: 9032, w: 1024, h: 768 },
   ],
   annotations: [
     { id: 'note-boundary', x: 0, y: -150, w: 880, text: 'Convex owns metadata, the device owns the PDF.\nRendering this screen never touches a file. Every rail below is one query and one index scan; "On this device" is answered by the filesystem, not the server.' },
     { id: 'note-norails', x: 1960, y: 2080, w: 300, text: 'A rail with nothing in it renders nothing — a new account falls through to the empty state rather than showing six empty headings.' },
+    { id: 'note-processing', x: 0, y: 6114, w: 880, text: 'One <Pdf> mount answers three questions at once: how many pages, what the contents are, and what the first page looks like. The row is written before any of them, so the document is in the library and openable while the probe is still running.' },
+    { id: 'note-text', x: 2940, y: 6114, w: 380, text: 'Searching inside a document reads the copy in your account, not the file on this phone \u2014 it is the one thing the server can see. A local-only document is absent from these results and says so.' },
+    { id: 'note-find', x: 0, y: 10182, w: 880, text: 'Finding inside a document is the search that already existed, asked a narrower question.\nThe page text is extracted for every synced document and mirrored into the phone\u2019s own index, and both were already scoped by document \u2014 so find works with no connection, and the reader never leaves the page to use it.' },
+    { id: 'note-reader', x: 0, y: 7918, w: 880, text: 'The renderer owns the page; the app owns everything around it.\nZoom, panning and page rendering are native and are left alone — a second zoom engine over a renderer that already has one is two gesture recognisers fighting. What React Native adds is the chrome, the modes, and one goToPage every feature calls.' },
     { id: 'note-covers', x: 1960, y: 2360, w: 300, text: 'No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library.' },
   ],
   launch: { view: 'canvas' },
