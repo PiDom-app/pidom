@@ -47,6 +47,18 @@ import { PagePreview } from './page-preview';
 /** Below this the track is a readout: two pages is not worth dragging between. */
 const MIN_PAGES = 3;
 
+/**
+ * The page a fraction of the track points at.
+ *
+ * A worklet, because the pan handlers run on the UI thread and calling a
+ * JavaScript-thread function from one is the thing this file is trying to do
+ * less of.
+ */
+function pageAt(fraction: number, pageCount: number): number {
+  'worklet';
+  return Math.min(pageCount, Math.max(1, Math.round(fraction * pageCount)));
+}
+
 export function ReaderScrubber({
   page,
   pageCount,
@@ -82,6 +94,11 @@ export function ReaderScrubber({
 
   const held = useSharedValue(at);
   const active = useSharedValue(0);
+  // The last page number handed to JavaScript. A drag produces a touch event
+  // every few milliseconds and almost all of them land on the page already
+  // shown, so without this the bubble re-rendered ~50 times a second to display
+  // the same number — and React warned about the updates it could not land.
+  const announced = useSharedValue(-1);
 
   // While nobody is dragging, the thumb follows the page the renderer reports —
   // and while somebody is, it does not, or their finger would fight the pages
@@ -112,15 +129,24 @@ export function ReaderScrubber({
     .onBegin((event) => {
       active.value = 1;
       held.value = Math.min(1, Math.max(0, event.x / width));
+      const page = pageAt(held.value, pageCount);
+      announced.value = page;
       runOnJS(setDragging)(true);
-      runOnJS(setPreviewPage)(Math.min(pageCount, Math.max(1, Math.round(held.value * pageCount))));
+      runOnJS(setPreviewPage)(page);
     })
     .onUpdate((event) => {
       held.value = Math.min(1, Math.max(0, event.x / width));
-      runOnJS(setPreviewPage)(Math.min(pageCount, Math.max(1, Math.round(held.value * pageCount))));
+      // The thumb keeps following the finger on the UI thread; only a change of
+      // page crosses to JavaScript.
+      const page = pageAt(held.value, pageCount);
+      if (page !== announced.value) {
+        announced.value = page;
+        runOnJS(setPreviewPage)(page);
+      }
     })
     .onFinalize(() => {
       active.value = 0;
+      announced.value = -1;
       runOnJS(setDragging)(false);
       runOnJS(commit)(held.value);
     });

@@ -93,7 +93,13 @@ export function PageJumpSheet({
               autoFocus
               selectTextOnFocus
               accessibilityLabel="Page number"
-              className="text-center text-foreground"
+              // `textAlign` as a prop, not `text-center` as a class. NativeWind
+              // v5's interop declares `nativeStyleMapping: { textAlign: true }`
+              // for `TextInput` — a special path this was the only caller of,
+              // and the frame the crash resolved to. The prop is the same
+              // result without going through it.
+              textAlign="center"
+              className="text-foreground"
             />
           </Input>
 

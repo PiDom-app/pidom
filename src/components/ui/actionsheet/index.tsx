@@ -62,7 +62,13 @@ export const UIActionsheet = createActionsheet({
   AnimatePresence: AnimatePresence,
 });
 
-const actionsheetStyle = tva({ base: 'w-full h-full web:pointer-events-none' });
+const actionsheetStyle = tva({
+  // `justify-end` is what makes this a *bottom* sheet. A full-height flex column
+  // with no justification starts at `flex-start`, so the content was rendering
+  // against the top of the screen — see `alert-dialog`, which says
+  // `justify-center` for exactly the same reason.
+  base: 'w-full h-full justify-end items-center web:pointer-events-none',
+});
 
 const actionsheetContentStyle = tva({
   base: 'items-center rounded-t-lg p-4 bg-background web:pointer-events-auto web:select-none border-t border-border dark:border-border/10 max-h-[80vh] pb-safe',
@@ -230,6 +236,13 @@ const ActionsheetContent = React.forwardRef<
 >(function ActionsheetContent({ className, ...props }, ref) {
   return (
     <UIActionsheet.Content
+      // A bottom sheet arrives from the bottom. Without these the content is a
+      // `Motion.View` with nothing to animate, so it simply appeared — and the
+      // backdrop faded around it, which is what made the two look out of step.
+      initial={{ y: 500 }}
+      animate={{ y: 0 }}
+      exit={{ y: 500 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 260 }}
       className={actionsheetContentStyle({
         class: className,
       })}

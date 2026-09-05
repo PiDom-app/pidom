@@ -65,23 +65,26 @@ export function ReaderOpening({
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
       </HStack>
-      <Center className="flex-1">
-      <VStack className="items-center">
-        <Box className="opacity-40">
-          <DocumentCover documentId={documentId} title={title} width={132} />
-        </Box>
-        <Progress
-          value={Math.round(Math.min(1, Math.max(0, progress)) * 100)}
-          className="mt-7 h-0.5 w-[132px] bg-border">
-          <ProgressFilledTrack className="bg-primary" />
-        </Progress>
-        <Text size="sm" className="mt-3.5 text-fg-muted">
-          Opening…
-        </Text>
-        <Text size="xs" className="mt-1 text-fg-subtle">
-          {pageCount === null ? 'from this device' : `${pageCount} pages · from this device`}
-        </Text>
-      </VStack>
+      <Center className="flex-1 px-10">
+        {/* `w-full` on the column, not `items-center` alone. A column that only
+            centres shrinks to its widest child — the 132pt cover — and the
+            caption underneath was being clipped mid-word. */}
+        <VStack className="w-full items-center">
+          <Box className="opacity-40">
+            <DocumentCover documentId={documentId} title={title} width={132} />
+          </Box>
+          <Progress
+            value={Math.round(Math.min(1, Math.max(0, progress)) * 100)}
+            className="mt-7 h-0.5 w-[132px] bg-border">
+            <ProgressFilledTrack className="bg-primary" />
+          </Progress>
+          <Text size="sm" className="mt-3.5 text-center text-fg-muted">
+            Opening…
+          </Text>
+          <Text size="xs" className="mt-1 text-center text-fg-subtle">
+            {pageCount === null ? 'from this device' : `${pageCount} pages · from this device`}
+          </Text>
+        </VStack>
       </Center>
     </Box>
   );
