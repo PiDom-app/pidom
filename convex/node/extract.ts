@@ -1,6 +1,6 @@
 'use node';
 
-import { v } from 'convex/values';
+import { v, type Infer } from 'convex/values';
 import { NonRetryableError } from '@convex-dev/workpool';
 import { getDocumentProxy, getMeta } from 'unpdf';
 
@@ -64,7 +64,13 @@ export const extractText = internalAction({
     byteSize: v.number(),
   },
   returns: resultValidator,
-  handler: async (ctx, args) => {
+  // The return type is annotated rather than inferred, and it has to be: this
+  // action reaches for `internal` to mint a signed URL, `internal` includes
+  // this action, and TypeScript cannot infer a type that refers to itself. It
+  // gives up with `implicitly has type 'any'` — on the handler and on every
+  // `await` inside it. `Infer` reads the shape off the validator that is
+  // already the contract, so the two cannot drift.
+  handler: async (ctx, args): Promise<Infer<typeof resultValidator>> => {
     if (args.byteSize > EXTRACT_BYTE_MAX) {
       // The workflow checks this too, from the row. This is the second check,
       // against the size the caller passed, and it exists because the value the

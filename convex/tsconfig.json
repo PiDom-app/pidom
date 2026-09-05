@@ -5,6 +5,14 @@
    */
   "compilerOptions": {
     /* These settings are not required by Convex and can be modified. */
+
+    /* `auth.config.ts` reads `process.env.GOOGLE_WEB_CLIENT_ID`. It has to:
+       the config is evaluated outside the function runtime, so the typed `env`
+       object from `_generated/server` is not available to it. Without node
+       types `process` is unresolved and `npx convex codegen` fails its own
+       typecheck — which is what made codegen unrunnable here. */
+    "types": ["node"],
+
     "allowJs": true,
     "strict": true,
     "moduleResolution": "Bundler",

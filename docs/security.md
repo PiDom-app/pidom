@@ -236,6 +236,20 @@ base is enough, and the schema calls local-only the normal state. With one it
 was faster: `importDocument` writes a row and needs no file, so filling that
 window with rows that have no `storageKey` emptied the allowlist completely.
 
+**It also has to survive a shared bucket.** Dev and prod point at the same R2
+bucket, so each deployment's sweep sees objects belonging to the other's
+documents — which have no row here, by definition. Asking only "is there a
+document row?" would call every one of them an orphan, and whether that fired
+came down to whether `normalizeId` accepts an id minted by another deployment.
+That is not a guarantee anybody's files should rest on.
+
+So the **owner is checked first**. A key is `<ownerId>/<documentId>`, and a
+`users` row is deployment-local: an owner id from elsewhere either fails to
+normalise or names a row that is not here, and the object is left alone either
+way. A genuine orphan from this deployment still has its owner, so it is still
+collected. The cost is that objects belonging to a deleted account outlive it —
+and there is no account-deletion flow, so today that costs nothing.
+
 The sweep now asks the question one object at a time. A key carries the ids that
 produced it, so `documentIdOf` recovers the document, one point lookup fetches
 that row, and the object survives only if the row still names **this exact key**.

@@ -850,18 +850,24 @@ export function coverKey(ownerId: Id<'users'>, documentId: Id<'documents'>): str
  * It lives beside the two functions that mint the keys, because a parser that
  * drifts from its printer is a parser that eventually disagrees with it.
  */
-export function documentIdOf(key: string): string | null {
+export function keyParts(key: string): { ownerId: string; documentId: string } | null {
   const slash = key.indexOf('/');
-  if (slash === -1) {
+  if (slash <= 0) {
     return null;
   }
+  const ownerId = key.slice(0, slash);
   const rest = key.slice(slash + 1);
   const suffix = rest.endsWith('.cover.jpg') ? '.cover.jpg' : rest.endsWith('.pdf') ? '.pdf' : null;
   if (suffix === null) {
     return null;
   }
-  const id = rest.slice(0, -suffix.length);
-  return id.length === 0 ? null : id;
+  const documentId = rest.slice(0, -suffix.length);
+  return documentId.length === 0 ? null : { ownerId, documentId };
+}
+
+/** Just the document half, for the callers that only bind against that. */
+export function documentIdOf(key: string): string | null {
+  return keyParts(key)?.documentId ?? null;
 }
 
 export async function attachUpload(

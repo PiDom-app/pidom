@@ -27,6 +27,7 @@
     },
     "android": {
       "package": "com.pidom.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -71,12 +72,7 @@
           "imageWidth": 96
         }
       ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
-        }
-      ],
+      "@react-native-google-signin/google-signin",
       "expo-secure-store",
       "expo-sharing",
       "@config-plugins/react-native-blob-util",

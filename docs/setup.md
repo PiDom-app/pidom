@@ -16,7 +16,6 @@ npx convex env set R2_BUCKET <bucket>
 npx convex env set R2_ENDPOINT <endpoint>
 npx convex env set R2_ACCESS_KEY_ID <id>
 npx convex env set R2_SECRET_ACCESS_KEY <secret>
-npx convex env set R2_TOKEN <token>
 
 cp .env.example .env.local           # fill in all three values
 
@@ -43,7 +42,31 @@ the first: extraction reads the copy in the bucket, because that copy is the onl
 one the server can see.
 
 - Create a Cloudflare account and an R2 bucket.
-- Give the bucket a CORS policy allowing `GET` and `PUT`.
+- One bucket serves both deployments. That is safe because the orphan sweep
+  checks the owner in the key against this deployment's `users` table before it
+  considers anything an orphan — see `docs/security.md`. A separate bucket per
+  deployment is still the tidier arrangement if you want one.
+- Give the bucket a CORS policy. **Only a web build needs one** — React Native's
+  `fetch` is not a browser and does not enforce CORS, so on Android and iOS the
+  upload works without any policy at all. It is `web.output: 'single'` that
+  makes this matter, and the origin is the Expo dev server:
+
+  ```json
+  [
+    {
+      "AllowedOrigins": ["http://localhost:8081"],
+      "AllowedMethods": ["GET", "PUT"],
+      "AllowedHeaders": ["content-type"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+  ```
+
+  `PUT` because an S3 signed upload URL is a PUT; `GET` for the signed
+  download. `content-type` is the only header `transfer.ts` sends, and there is
+  no `ExposeHeaders` because nothing reads anything off the response — the size,
+  type and digest are read back from R2 server-side in `attachUpload` instead.
+  Add the deployed web origin to `AllowedOrigins` when there is one.
 - **Manage R2 API Tokens → Create API Token**, permissions **Object Read &
   Write**, scoped to that bucket. It hands back the four values above alongside
   the bucket name.
@@ -73,12 +96,41 @@ and **iOS**.
 
 - The **Web** client ID is what goes in both `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
   and the Convex `GOOGLE_WEB_CLIENT_ID`. They must match exactly.
-- The **iOS** client ID goes in `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, and its
-  reversed form in `app.json` under the google-signin plugin's `iosUrlScheme`.
-- The **Android** client needs the SHA-1 of every key that will sign the app:
-  your local debug keystore, the EAS build key, and the Play upload key. A
-  missing fingerprint shows up as `DEVELOPER_ERROR` at sign-in and nothing more
-  specific.
+- The **iOS** client ID goes in `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`. It is only
+  required when building for iOS — `env.ts` asks for it on that platform alone,
+  so Android works without one.
+- The **Android** client is never named in code. Nothing passes its id anywhere;
+  it exists so Google Play Services can check the app's signature. What it needs
+  is the SHA-1 of every key that will sign the app: the local debug keystore,
+  the EAS build key, and the Play upload key. A missing fingerprint shows up as
+  `DEVELOPER_ERROR` at sign-in and nothing more specific.
+
+**Do not create the Android client by hand.** Adding a SHA-1 under Firebase →
+Project settings → Your apps creates it for you, and creating a second one in
+Google Cloud then fails with *"the Android package name and fingerprint are
+already in use"* — Google requires every (package name, SHA-1) pair to be unique
+across all Firebase and Cloud projects, so that error means the client already
+exists. Re-download `google-services.json` and check for an entry with
+`"client_type": 1`; if it is there, the work is done. Getting the debug SHA-1:
+
+```bash
+keytool -list -v -keystore ~/.android/debug.keystore \
+  -alias androiddebugkey -storepass android -keypass android | grep SHA1
+```
+
+**The google-signin config plugin has two modes, and the wrong one is silent.**
+Given options (`["@react-native-google-signin/google-signin", { iosUrlScheme }]`)
+it appends an iOS URL scheme and does *nothing whatsoever for Android* — no
+Gradle plugin, and `google-services.json` never reaches the build. Given no
+options it applies `withClassPath`, `withApplyPlugin` and `withGoogleServicesFile`
+on Android, which is the mode to use when there is a Firebase config file. That
+is what `app.json` does now, alongside `android.googleServicesFile`. The iOS half
+of that mode returns early when `ios.googleServicesFile` is absent, so it is safe
+to use with no `GoogleService-Info.plist`.
+
+Note that this library takes `webClientId` as a plain string — there is no
+`autoDetect` value, whatever you may read about it. That belongs to the separate
+Nitro rewrite, not to this package.
 
 ## Scripts
 

@@ -684,13 +684,33 @@ export const sweepOrphanedObjects = internalMutation({
  * the scan it replaces.
  */
 async function isReferenced(ctx: MutationCtx, key: string): Promise<boolean> {
-  const claimed = Library.documentIdOf(key);
-  if (claimed === null) {
+  const parts = Library.keyParts(key);
+  if (parts === null) {
     // Not a shape this backend mints. Left alone rather than deleted: an object
     // nothing here can account for is not the sweep's to remove.
     return true;
   }
-  const documentId = ctx.db.normalizeId('documents', claimed);
+
+  // **The owner is checked before the document, and that is what makes a bucket
+  // shared between deployments safe.**
+  //
+  // Dev and prod point at the same bucket, so this sweep sees objects belonging
+  // to the other deployment's documents. Those have no document row here — by
+  // definition — and asking only "is there a document row?" would call every
+  // one of them an orphan and delete it. Whether that actually fired came down
+  // to whether `normalizeId` accepts an id minted by a different deployment,
+  // which is not a guarantee anybody's files should rest on.
+  //
+  // The key carries the owner, and a `users` row is deployment-local. An id
+  // from elsewhere either fails to normalise or names a row that is not here,
+  // and either way the object is left alone. A genuine orphan from *this*
+  // deployment still has its owner, so it is still collected.
+  const ownerId = ctx.db.normalizeId('users', parts.ownerId);
+  if (ownerId === null || (await ctx.db.get('users', ownerId)) === null) {
+    return true;
+  }
+
+  const documentId = ctx.db.normalizeId('documents', parts.documentId);
   if (documentId === null) {
     return true;
   }
