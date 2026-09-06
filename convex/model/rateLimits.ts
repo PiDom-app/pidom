@@ -94,6 +94,17 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   bookmark: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
 
   /**
+   * Keeping a passage, or writing a note.
+   *
+   * Sized like `bookmark` and for the same reason, with one difference worth
+   * naming: this one carries the reader's text rather than a page number, so a
+   * loop against it writes bytes rather than rows. The row ceiling in
+   * `limits.ts` is the harder bound — 500 per document — and this is what stops
+   * somebody reaching it in a second.
+   */
+  annotation: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
+
+  /**
    * Linking an uploaded object to its document — and, when it is the PDF, the
    * call that starts text extraction.
    *
@@ -137,6 +148,7 @@ type LimitName =
   | 'setProcessed'
   | 'recordProgress'
   | 'bookmark'
+  | 'annotation'
   | 'attachUpload'
   | 'removeDocument';
 

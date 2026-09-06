@@ -6,6 +6,7 @@ import { Directory, File, Paths } from 'expo-file-system';
  * ```
  * Documents/library/<profile id>/<document id>.pdf
  * Documents/library/<profile id>/covers/<document id>.jpg
+ * Documents/library/<profile id>/pages/<document id>/<page>.jpg
  * ```
  *
  * **The filename is the Convex document id.** The name the reader picked the
@@ -27,6 +28,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 const ROOT = 'library';
 const COVERS = 'covers';
+const PAGES = 'pages';
 const STAGING = 'pidom-import';
 
 /**
@@ -151,6 +153,104 @@ export function copyCoverFrom(profileId: string, fromId: string, toId: string): 
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Rendered page thumbnails, one directory per document.
+ *
+ * A subdirectory for the same reason `covers` is one: `documentIdFromName` over
+ * the library directory keeps seeing exactly the PDFs, and a thumbnail never
+ * counts as a document the reader owns.
+ *
+ * These exist because a thumbnail is a **live renderer** otherwise. Nine cells
+ * of `<Pdf singlePage>` is nine native document handles over the same file, and
+ * on a 2.4 MB book that took eight seconds to paint a single screen of the grid
+ * — measured on a device, not guessed. Rendered once and kept, the grid is
+ * `expo-image` over files on disk, which is instant and scrolls.
+ *
+ * In `Documents` rather than the cache directory, deliberately. The system may
+ * clear a cache whenever it likes, and re-rendering four hundred pages because
+ * the OS wanted some space back is the cost this exists to avoid. They go when
+ * the document goes.
+ */
+export function pagesDirectory(profileId: string, documentId: string): Directory {
+  return new Directory(libraryDirectory(profileId), PAGES, checked(documentId));
+}
+
+export function ensurePagesDirectory(profileId: string, documentId: string): Directory {
+  const directory = pagesDirectory(profileId, documentId);
+  if (!directory.exists) {
+    directory.create({ intermediates: true, idempotent: true });
+  }
+  return directory;
+}
+
+/**
+ * One page's thumbnail.
+ *
+ * The page number is checked the same way an id is. It is a number here and a
+ * path segment there, and "it came from a page count" is a belief rather than
+ * an assertion.
+ */
+export function pageThumbnailFile(profileId: string, documentId: string, page: number): File {
+  if (!Number.isSafeInteger(page) || page < 1) {
+    throw new UnsafeId(String(page));
+  }
+  return new File(pagesDirectory(profileId, documentId), `${page}.jpg`);
+}
+
+/** The thumbnail on disk, or `null`. What the grid reads before rendering one. */
+export function pageThumbnailUri(
+  profileId: string,
+  documentId: string,
+  page: number,
+): string | null {
+  try {
+    const file = pageThumbnailFile(profileId, documentId, page);
+    return file.exists ? file.uri : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Moves a rendered page into place. Returns whether it worked. */
+export function keepPageThumbnail(
+  profileId: string,
+  documentId: string,
+  page: number,
+  sourceUri: string,
+): boolean {
+  try {
+    ensurePagesDirectory(profileId, documentId);
+    const destination = pageThumbnailFile(profileId, documentId, page);
+    if (destination.exists) {
+      destination.delete();
+    }
+    new File(sourceUri).move(destination);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Throws away a document's thumbnails.
+ *
+ * Called when the document is deleted and when its local copy is removed —
+ * pictures of somebody's pages outliving the document they came from is the
+ * same failure as its text outliving it, and `docs/security.md` is explicit
+ * about that one.
+ */
+export function forgetPageThumbnails(profileId: string, documentId: string): void {
+  try {
+    const directory = pagesDirectory(profileId, documentId);
+    if (directory.exists) {
+      directory.delete();
+    }
+  } catch {
+    // A directory that will not go is not worth failing a delete over; the
+    // document row and the PDF are what the reader asked to be rid of.
   }
 }
 

@@ -33,6 +33,27 @@ const { withMainActivity } = require('expo/config-plugins');
 const MARKER = 'pidom:font-weight-adjustment';
 
 /**
+ * Matches a block this plugin wrote before, whichever form it was.
+ *
+ * The guard used to be `contents.includes(MARKER) → return`, which made the
+ * override **unupgradable**: the first version of this fix used
+ * `applyOverrideConfiguration`, that version does not work, and every prebuild
+ * after it saw its own marker and left it there. The stale one shipped, and the
+ * symptom was the symptom this plugin exists to prevent — a device with Bold
+ * text on rendered "Contents" as "Content" in a build whose source contained
+ * the working fix. Found with `dumpsys activity activities`, which reported
+ * `fontWeightAdjustment=300` on an activity that was supposed to have cleared
+ * it.
+ *
+ * So the block is replaced rather than skipped. The comment marker opens it and
+ * the function it introduces closes it, which is what this matches.
+ */
+const EXISTING = new RegExp(
+  `\\n?\\s*// ${MARKER}[\\s\\S]*?\\n  \\}\\n`,
+  'm',
+);
+
+/**
  * `attachBaseContext`, not `applyOverrideConfiguration`.
  *
  * The tidier-looking hook does not work here. The framework hands
@@ -68,8 +89,9 @@ module.exports = function withTextMeasurementFix(config) {
         'with-text-measurement-fix: MainActivity is not Kotlin; the override would not compile.',
       );
     }
-    if (cfg.modResults.contents.includes(MARKER)) {
-      return cfg;
+    // Replaced, not skipped. See EXISTING for what skipping cost.
+    if (EXISTING.test(cfg.modResults.contents)) {
+      cfg.modResults.contents = cfg.modResults.contents.replace(EXISTING, '\n');
     }
     // Inserted before the final brace of the class, which is the last one in
     // the file — matching how Expo's own plugins append to this class.

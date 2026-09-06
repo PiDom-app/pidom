@@ -96,6 +96,11 @@ const ICONS = {
   target: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4',
   chevronUp: 'm18 15-6-6-6 6',
   chevronDown: 'm6 9 6 6 6-6',
+  bookmark: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
+  highlighter: 'm9 11-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4',
+  quote: 'M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2zM5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z',
+  notebookPen: 'M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4M2 6h4M2 10h4M2 14h4M2 18h4M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z',
+  copy: 'M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2',
 };
 function icon(name, x, y, size, color, sw = 1.75) {
   const s = size / 24;
@@ -512,6 +517,33 @@ screens['home-processing'] = (() => {
  * Read out of the PDF on the same load that produced the cover, so it costs
  * nothing extra and every document that carries one gets it.
  */
+/**
+ * The navigator's segments.
+ *
+ * Four labels with two counts on them come to 340 of the 342 points between the
+ * gutters at the default type size, so the row scrolls rather than wraps — a
+ * control that reflows into two lines a step up the accessibility scale is
+ * worse than one that slides.
+ */
+function navTabs(c, active, y, { bookmarks = 0, notes = 0 } = {}) {
+  const labels = [
+    ['contents', 'Contents'],
+    ['bookmarks', bookmarks === 0 ? 'Bookmarks' : `Bookmarks · ${bookmarks}`],
+    ['notes', notes === 0 ? 'Notes' : `Notes · ${notes}`],
+    ['pages', 'Pages'],
+  ];
+  let o = '';
+  let x = PAD;
+  for (const [key, label] of labels) {
+    const w = Math.round(label.length * 12 * 0.54) + 24;
+    const on = key === active;
+    if (on) o += rect(x, y, w, 26, c.primaryTint, R);
+    o += text(x + 12, y + 17, label, { size: 12, fill: on ? c.primary : c.fgMuted });
+    x += w + 6;
+  }
+  return o;
+}
+
 screens['contents'] = (() => {
   const c = D;
   const d = doc('Thinking,');
@@ -522,7 +554,7 @@ screens['contents'] = (() => {
     ['Anchors', 152, 1], ['The Science of Availability', 168, 1],
     ['Part III · Overconfidence', 235, 0],
   ];
-  const sheetH = 70 + 74 + entries.length * 44 + 34;
+  const sheetH = 26 + 62 + 50 + entries.length * 44 + 28;
   const top = H - sheetH;
 
   // The page underneath, dimmed by the backdrop the sheet carries.
@@ -543,7 +575,9 @@ screens['contents'] = (() => {
   o += text(PAD + 30, y + 16, 'Contents', { size: 15, fill: c.fg, weight: 600 });
   o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
   o += text(W - PAD, y + 16, '38 entries', { size: 12, fill: c.fgSubtle, anchor: 'end' });
-  y += 74;
+  y += 62;
+  o += navTabs(c, 'contents', y, { bookmarks: 5, notes: 3 });
+  y += 50;
   o += rect(0, y - 8, W, 1, c.hairline);
 
   for (const [title, page, depth] of entries) {
@@ -755,6 +789,181 @@ screens['reader-find'] = (() => {
   o += text(W - PAD - 26, H - 56, '28%', { size: 12, fill: c.fgSubtle, anchor: 'end' });
   o += icon('rows3', W - PAD - 16, H - 66, 16, c.fgMuted);
   o += rect(PAD, H - 44, W - PAD * 2, 2, c.border, 1) + rect(PAD, H - 44, Math.round((W - PAD * 2) * 0.28), 2, c.primary, 1);
+  return svg(o, { bg: c.page });
+})();
+
+/**
+ * Passages and notes.
+ *
+ * The mark is in this list and not on the page, because the renderer gives no
+ * page coordinates to put one at: `onTextSelectionChange` reports the words and
+ * `onPageSingleTap` reports where a finger touched the view. Drawing a
+ * highlight would mean drawing it somewhere the reader would then go looking
+ * for it and not find it.
+ */
+screens['reader-notes'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  const rows = [
+    ['“System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.”', 'His own summary. Quote this one.', 20],
+    [null, 'The small-numbers argument starts here, not in the chapter named after it.', 142],
+    ['“…an anchoring index of 55%, which is about what most of these experiments produce.”', null, 152],
+  ];
+  const rowH = (quote, note) => (quote && note ? 76 : quote ? 58 : 58);
+  const sheetH = 26 + 62 + 50 + rows.reduce((n, [q, note]) => n + rowH(q, note), 0) + 28;
+  const top = H - sheetH;
+
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 84, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.1 });
+  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+  for (let i = 0; i < 14; i++) {
+    o += rect(40, 142 + i * 14, (i % 7 === 6 ? 160 : W - 80), 2, c.pageRule, 1);
+  }
+  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
+
+  o += rect(0, top, W, sheetH, c.elevated, R);
+  o += rect(0, top + sheetH - 12, W, 12, c.elevated);
+  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
+
+  let y = top + 26;
+  o += icon('highlighter', PAD, y + 8, 18, c.fgMuted);
+  o += text(PAD + 30, y + 16, 'Notes', { size: 15, fill: c.fg, weight: 600 });
+  o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
+  o += text(W - PAD, y + 16, '3', { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  y += 62;
+  o += navTabs(c, 'notes', y, { bookmarks: 5, notes: 3 });
+  y += 50;
+  o += rect(0, y - 8, W, 1, c.hairline);
+
+  for (const [quote, note, page] of rows) {
+    const h = rowH(quote, note);
+    const current = page === 142;
+    if (current) o += rect(0, y, W, h, c.hover);
+    // The rule down the left is the whole of the mark.
+    o += rect(PAD, y + 14, 2, h - 28, c.primary, 1);
+    const body = quote ?? note;
+    o += block(PAD + 14, y + 26, body, {
+      size: 14, fill: quote ? c.fg : c.fgMuted,
+      width: W - PAD * 2 - 14 - 34, lines: 2, lh: 19,
+    });
+    if (quote && note) {
+      o += block(PAD + 14, y + 66, note, {
+        size: 12, fill: c.fgSubtle, width: W - PAD * 2 - 14 - 34, lines: 1, lh: 16,
+      });
+    }
+    o += text(W - PAD, y + 26, String(page), { size: 12, fill: current ? c.primary : c.fgSubtle, anchor: 'end' });
+    y += h;
+  }
+  return svg(o, { bg: c.bg });
+})();
+
+/**
+ * Every page at once.
+ *
+ * Each cell is a live single-page renderer, the same one the scrubber mounts
+ * under a finger — nothing on React Native 0.86 turns a PDF page into a bitmap,
+ * so the viewer already here draws them and the list recycles all but the nine
+ * on screen.
+ */
+screens['reader-thumbnails'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  const CW = 98, CH = 139, GAP = 12;
+  const grid = [[140, 141, 142], [143, 144, 145]];
+  const sheetH = 26 + 62 + 50 + 14 + grid.length * (CH + 22) + 14;
+  const top = H - sheetH;
+
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 84, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.1 });
+  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+  for (let i = 0; i < 14; i++) {
+    o += rect(40, 142 + i * 14, (i % 7 === 6 ? 160 : W - 80), 2, c.pageRule, 1);
+  }
+  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
+
+  o += rect(0, top, W, sheetH, c.elevated, R);
+  o += rect(0, top + sheetH - 12, W, 12, c.elevated);
+  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
+
+  let y = top + 26;
+  o += icon('grid', PAD, y + 8, 18, c.fgMuted);
+  o += text(PAD + 30, y + 16, 'Pages', { size: 15, fill: c.fg, weight: 600 });
+  o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
+  o += text(W - PAD, y + 16, `142 of ${d.p}`, { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  y += 62;
+  o += navTabs(c, 'pages', y, { bookmarks: 5, notes: 3 });
+  y += 50;
+  o += rect(0, y - 8, W, 1, c.hairline);
+  y += 14;
+
+  for (const row of grid) {
+    row.forEach((page, i) => {
+      const x = PAD + i * (CW + GAP);
+      const current = page === 142;
+      o += rect(x, y, CW, CH, c.page, R);
+      o += rect(x, y, CW, CH, 'none', R, ` stroke="${current ? c.primary : c.border}" stroke-width="${current ? 2 : 1}"`);
+      for (let k = 0; k < 18; k++) {
+        const w = k % 5 === 4 ? 46 : k % 4 === 3 ? 70 : CW - 18;
+        o += rect(x + 9, y + 12 + k * 7, w, 1.5, c.pageRule, 1);
+      }
+      o += text(x + CW / 2, y + CH + 16, String(page), {
+        size: 11, fill: current ? c.primary : c.fgSubtle, anchor: 'middle',
+      });
+    });
+    y += CH + 22;
+  }
+  return svg(o, { bg: c.bg });
+})();
+
+/**
+ * Text you selected.
+ *
+ * Four actions rather than two. Copy and Find were what a selection could do;
+ * Keep saves the passage and Note opens a box to write about it, which is as
+ * far as an annotation goes without page coordinates to anchor one to. iOS
+ * only, because the renderer's selection is — on Android the same two verbs
+ * arrive from the overflow, anchored to the page instead of to the words.
+ */
+screens['reader-selection'] = (() => {
+  const c = D;
+  const d = doc('Thinking,');
+  const pct = 142 / d.p;
+  let o = rect(0, 0, W, H, c.page);
+  o += text(40, 138, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.2 });
+  o += text(40, 176, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
+  for (let i = 0; i < 40; i++) {
+    const w = i % 7 === 6 ? 160 : i % 5 === 4 ? 270 : 310;
+    const picked = i >= 11 && i <= 13;
+    if (picked) o += rect(37, 197 + i * 14, w + 6, 8, 'rgba(106,89,232,.22)', 2);
+    o += rect(40, 200 + i * 14, w, 2, picked ? '#a8b4e8' : c.pageRule);
+  }
+
+  // The bar sits over the page, clear of the bottom chrome.
+  const items = [['copy', 'Copy'], ['highlighter', 'Keep'], ['notebookPen', 'Note'], ['search', 'Find']];
+  const widths = items.map(([, label]) => Math.round(label.length * 14 * 0.54) + 15 + 5 + 20);
+  const barW = widths.reduce((a, b) => a + b, 0) + 12;
+  const barX = Math.round((W - barW) / 2);
+  const barY = H - 196 - 42;
+  o += rect(barX, barY, barW, 42, c.elevated, R);
+  o += rect(barX, barY, barW, 42, 'none', R, ` stroke="${c.border}" stroke-width="1"`);
+  let x = barX + 6;
+  items.forEach(([glyph, label], i) => {
+    o += icon(glyph, x + 10, barY + 13, 15, c.fg);
+    o += text(x + 30, barY + 26, label, { size: 14, fill: c.fg });
+    x += widths[i];
+  });
+
+  o += rect(0, 0, W, 96, c.bg) + rect(0, 96, W, 1, c.hairline);
+  o += icon('arrowLeft', PAD, 54, 22, c.fg, 2);
+  o += block(PAD + 34, 62, d.t, { size: 14, fill: c.fg, weight: 600, width: 190, lines: 1, lh: 16 });
+  o += icon('listTree', W - PAD - 78, 55, 20, c.fg, 2);
+  o += icon('bookmark', W - PAD - 49, 55, 20, c.fg, 2);
+  o += icon('more', W - PAD - 20, 55, 20, c.fg, 2);
+  o += rect(0, H - 88, W, 1, c.hairline) + rect(0, H - 87, W, 87, c.bg);
+  o += text(PAD, H - 56, `142 of ${d.p}`, { size: 12, fill: c.fgMuted });
+  o += text(W - PAD - 26, H - 56, `${Math.round(pct * 100)}%`, { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  o += icon('rows3', W - PAD - 16, H - 66, 16, c.fgMuted);
+  o += rect(PAD, H - 44, W - PAD * 2, 2, c.border, 1) + rect(PAD, H - 44, Math.round((W - PAD * 2) * pct), 2, c.primary, 1);
   return svg(o, { bg: c.page });
 })();
 

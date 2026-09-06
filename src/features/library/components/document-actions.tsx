@@ -11,6 +11,7 @@ import {
   HeartOff,
   Info,
   ListTree,
+  NotebookPen,
   Pencil,
   RefreshCw,
   RotateCcw,
@@ -79,6 +80,7 @@ export function DocumentActions({
   document,
   onClose,
   onShowContents,
+  onWriteNote,
 }: {
   document: LibraryDocument | null;
   onClose: () => void;
@@ -88,6 +90,16 @@ export function DocumentActions({
    * everywhere else, and the menu item goes with it.
    */
   onShowContents?: (document: LibraryDocument) => void;
+  /**
+   * Writing a note about the page the reader is on.
+   *
+   * Passed only from the reader, which is the only screen with a page to write
+   * one about. It is also the whole of the Android path into notes: that
+   * renderer reports no text selection, so there is no selection bar there to
+   * offer Keep and Note from, and without this the capability would exist on
+   * one platform.
+   */
+  onWriteNote?: () => void;
 }) {
   const {
     deleteDocument,
@@ -309,12 +321,26 @@ export function DocumentActions({
                   </ActionsheetItem>
                 ) : null}
 
-                {/* Only where a page jump means something, and only when the
-                    PDF declares an outline at all. */}
-                {onShowContents !== undefined && document.hasOutline ? (
+                {/* Only where a page jump means something — which is the
+                    reader — and no longer only where the PDF declares an
+                    outline. The sheet behind this holds the bookmarks and the
+                    notes as well, and most PDFs declare no outline, so gating
+                    it on one hid the reader's own marks on most documents. */}
+                {onShowContents !== undefined ? (
                   <ActionsheetItem onPress={() => onShowContents(document)}>
                     <ActionsheetIcon as={ListTree} className="text-fg-muted" />
-                    <ActionsheetItemText className="text-foreground">Contents</ActionsheetItemText>
+                    <ActionsheetItemText className="text-foreground">
+                      Contents and bookmarks
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {onWriteNote !== undefined ? (
+                  <ActionsheetItem onPress={onWriteNote}>
+                    <ActionsheetIcon as={NotebookPen} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      Write a note
+                    </ActionsheetItemText>
                   </ActionsheetItem>
                 ) : null}
 

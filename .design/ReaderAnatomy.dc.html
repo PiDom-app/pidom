@@ -108,7 +108,10 @@
      </div>
       </div>
 
-      <div style="margin-top:28px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68">Where the page comes from</div></div>
+      <div style="margin-top:26px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68">What is over the page</div></div>
+      <div style="margin-top:12px;font-size:12.5px;line-height:19px;color:#8f8d88" class="pretty">One <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8e6e3">activeOverlay</span>, not a boolean per sheet. Nine independent flags meant two sheets could be open at once and every hand-off between them had to be remembered; a single value makes that impossible instead of careful.</div>
+
+      <div style="margin-top:26px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68">Where the page comes from</div></div>
       <div style="margin-top:12px;font-size:12.5px;line-height:19px;color:#8f8d88" class="pretty">Documents/library/&lt;profile&gt;/&lt;document&gt;.pdf, straight into the renderer. Convex is never asked for a file to open one, which is why a 600-page textbook opens in airplane mode.</div>
     </div>
   </div>
@@ -117,8 +120,12 @@
   <div style="margin-top:6px;max-width:820px;font-size:12.5px;line-height:18px;color:#8f8d88" class="pretty">Contents, find results, the scrubber, the page field and a swipe-to-adjust all call the same function. Five features talking to the renderer directly is five places to fix when a sixth arrives.</div>
   <div style="margin-top:16px;max-width:820px">
     <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
+       <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">goToLocation(loc)</span>
+       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">The primitive. An outline entry, a find hit, a bookmark and a note all speak one { page } — so the app never grows four ways of saying take me there.</span>
+     </div>
+    <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
        <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">goToPage(n)</span>
-       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">Clamped, pair-snapped in a spread, announced to assistive tech, recorded as deliberate.</span>
+       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">goToLocation({ page: n }), kept for the callers that only have a number. Clamped, pair-snapped in a spread, announced to assistive tech, recorded as deliberate.</span>
      </div>
     <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
        <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">nextPage() / previousPage()</span>
@@ -133,16 +140,20 @@
        <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">Offered only in continuous; the other two modes size the page themselves.</span>
      </div>
     <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
-       <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">resetZoom()</span>
-       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">Back to fit. A scale prop, because the ref exposes setPage and nothing else.</span>
+       <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">toggleBookmark()</span>
+       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">Marks or unmarks the page on screen. Optimistic, because the icon filling half a second after the tap reads as a miss.</span>
      </div>
     <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
        <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">toggleControls()</span>
        <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">What a tap on the page does, and what pinching in and back out does.</span>
      </div>
     <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
-       <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">openContents() / openSearch() / openPageJump()</span>
-       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">Three sheets, all landing back on goToPage.</span>
+       <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">openNavigator(segment)</span>
+       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">Contents, Bookmarks, Notes or Pages — one sheet, four answers to one question, all landing back on goToLocation.</span>
+     </div>
+    <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
+       <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">openSearch() / openPageJump()</span>
+       <span style="flex:1;font-size:12.5px;line-height:17px;color:#6e6c68" class="pretty">The find bar over the chrome, and the field that takes a page number.</span>
      </div>
     <div style="display:flex;gap:14px;padding:9px 0;box-shadow:0 1px 0 #1c1b1a">
        <span style="flex:0 0 168px;font-size:12.5px;color:#e8e6e3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">closeReader()</span>

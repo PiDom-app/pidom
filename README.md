@@ -64,6 +64,19 @@ your phone where you left off on your tablet.
 
 <table>
 <tr>
+<td width="33%"><img src="docs/screens/reader-selection.png" alt="Text you selected"></td>
+<td width="33%"><img src="docs/screens/reader-notes.png" alt="Passages and notes you kept"></td>
+<td width="33%"><img src="docs/screens/reader-thumbnails.png" alt="Every page at once"></td>
+</tr>
+<tr>
+<td align="center"><b>Selection</b><br><sub>Copy, keep, note, find</sub></td>
+<td align="center"><b>Notes</b><br><sub>The passage, and what you made of it</sub></td>
+<td align="center"><b>Pages</b><br><sub>Every page, three at a time</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
 <td width="25%"><img src="docs/screens/home-processing.png" alt="A document still processing"></td>
 <td width="25%"><img src="docs/screens/collection.png" alt="A collection"></td>
 <td width="25%"><img src="docs/screens/offline.png" alt="Offline"></td>

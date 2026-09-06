@@ -17,8 +17,10 @@ import { useLocalLibrary } from '@/features/library/local/use-local-library';
  * A plain stack. `index` is home, `library` is everything behind "View all",
  * `collection` is one group, `search` looks inside documents rather than at
  * their titles, `import` is a modal task, and `reader` sits above them all so a
- * document opens full-bleed. A tab navigator, if it is ever the right answer,
- * goes here too.
+ * document opens full-bleed. `navigator` and `note` sit above the reader, and
+ * are screens rather than sheets over it — see `navigator-screen.tsx` for what
+ * a sheet whose height is the reader's data did to the control hanging off it.
+ * A tab navigator, if it is ever the right answer, goes here too.
  */
 export default function AppLayout() {
   useEnsureProfile();
@@ -36,6 +38,10 @@ export default function AppLayout() {
       <Stack.Screen name="import" options={{ presentation: 'modal' }} />
       {/* Full-bleed, and above everything: a document is what the app is for. */}
       <Stack.Screen name="reader" options={{ animation: 'fade' }} />
+      {/* Over the reader, and pushed rather than presented: the document stays
+          mounted underneath, so coming back is not reopening a 400-page file. */}
+      <Stack.Screen name="navigator" />
+      <Stack.Screen name="note" />
       <Stack.Screen name="collection" />
       <Stack.Screen name="search" />
       <Stack.Screen name="account" />

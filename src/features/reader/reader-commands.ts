@@ -5,6 +5,7 @@ import type { ReadingMode } from '@convex/model/library';
 import type { FitPolicy } from '@/stores/reader-store';
 
 import type { ReaderCanvasRef } from './reader-canvas';
+import type { DocumentLocation, NavigatorSegment } from './reader-location';
 
 /**
  * The one way anything moves the page.
@@ -14,9 +15,9 @@ import type { ReaderCanvasRef } from './reader-canvas';
  * to `pdfRef.setPage` directly then clamping, pair-snapping and progress
  * recording have to be right in five places. They are right here instead.
  *
- * This is also what makes the next feature cheap: bookmarks, a "back to where I
- * was" jump, an outline sidebar on a tablet — each is a caller of `goToPage`
- * rather than a new relationship with the renderer.
+ * This is also what makes the next feature cheap: bookmarks, a kept passage, a
+ * thumbnail grid, an outline sidebar on a tablet — each is a caller of
+ * `goToLocation` rather than a new relationship with the renderer.
  *
  * Every command is a plain function over a ref and two callbacks. There is no
  * store behind it on purpose: a command that wrote to a store would make
@@ -24,18 +25,27 @@ import type { ReaderCanvasRef } from './reader-canvas';
  */
 
 export type ReaderCommands = {
-  /** Clamped, pair-snapped in a spread, recorded as a deliberate move. */
+  /**
+   * The primitive every navigation surface calls.
+   *
+   * Takes a `DocumentLocation` rather than a number so that a renderer which one
+   * day reports where on a page something is becomes a change here and nowhere
+   * else. Today it reads `page` and ignores the rest.
+   */
+  goToLocation: (location: DocumentLocation) => void;
+  /** `goToLocation({ page })`, for the callers that only ever have a number. */
   goToPage: (page: number) => void;
   /** One page, or two when two are on screen. */
   nextPage: () => void;
   previousPage: () => void;
   setMode: (mode: ReadingMode) => void;
+  /** Marks or unmarks the page currently on screen. */
+  toggleBookmark: () => void;
   /** Only meaningful in continuous; the other modes size the page themselves. */
   setFit: (fit: FitPolicy) => void;
-  /** Back to fit-to-page after a pinch. The ref has no zoom, so this is a prop. */
-  resetZoom: () => void;
   toggleControls: () => void;
-  openContents: () => void;
+  /** Contents, Bookmarks, Notes or Pages — one sheet, opened on one of them. */
+  openNavigator: (segment: NavigatorSegment) => void;
   openSearch: () => void;
   openPageJump: () => void;
   closeReader: () => void;
@@ -49,9 +59,9 @@ export function useReaderCommands({
   onJumped,
   onModeChanged,
   onFitChanged,
-  onResetZoom,
+  onToggleBookmark,
   onToggleControls,
-  onOpenContents,
+  onOpenNavigator,
   onOpenSearch,
   onOpenPageJump,
   onClose,
@@ -64,15 +74,16 @@ export function useReaderCommands({
   onJumped: (page: number) => void;
   onModeChanged: (mode: ReadingMode) => void;
   onFitChanged: (fit: FitPolicy) => void;
-  onResetZoom: () => void;
+  onToggleBookmark: () => void;
   onToggleControls: () => void;
-  onOpenContents: () => void;
+  onOpenNavigator: (segment: NavigatorSegment) => void;
   onOpenSearch: () => void;
   onOpenPageJump: () => void;
   onClose: () => void;
 }): ReaderCommands {
-  const goToPage = useCallback(
-    (target: number) => {
+  const goToLocation = useCallback(
+    (location: DocumentLocation) => {
+      const target = location.page;
       if (!Number.isFinite(target)) {
         return;
       }
@@ -98,6 +109,8 @@ export function useReaderCommands({
     [canvas, pageCount, mode, onJumped],
   );
 
+  const goToPage = useCallback((target: number) => goToLocation({ page: target }), [goToLocation]);
+
   const step = mode === 'spread' ? 2 : 1;
 
   const nextPage = useCallback(() => goToPage(page + step), [goToPage, page, step]);
@@ -115,27 +128,29 @@ export function useReaderCommands({
 
   return useMemo(
     () => ({
+      goToLocation,
       goToPage,
       nextPage,
       previousPage,
       setMode,
+      toggleBookmark: onToggleBookmark,
       setFit: onFitChanged,
-      resetZoom: onResetZoom,
       toggleControls: onToggleControls,
-      openContents: onOpenContents,
+      openNavigator: onOpenNavigator,
       openSearch: onOpenSearch,
       openPageJump: onOpenPageJump,
       closeReader: onClose,
     }),
     [
+      goToLocation,
       goToPage,
       nextPage,
       previousPage,
       setMode,
+      onToggleBookmark,
       onFitChanged,
-      onResetZoom,
       onToggleControls,
-      onOpenContents,
+      onOpenNavigator,
       onOpenSearch,
       onOpenPageJump,
       onClose,

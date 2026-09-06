@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Box } from '@/components/ui/box';
@@ -18,7 +18,6 @@ import type { LibraryDocument } from '../library/data/types';
 import { useLibraryActions } from '../library/data/use-library-actions';
 import { useLibraryStatus } from '../library/data/use-library-status';
 import { documentFile } from '../library/local/paths';
-import { ContentsSheet } from './contents-sheet';
 import { FindBar } from './find-bar';
 import { forgetPassword, readPassword, savePassword } from './document-password';
 import { LinkPrompt } from './link-prompt';
@@ -30,8 +29,11 @@ import { ReaderChrome } from './reader-chrome';
 import { useReaderCommands } from './reader-commands';
 import { ReaderModesSheet } from './reader-modes-sheet';
 import { ReaderSettingsSheet } from './reader-settings-sheet';
+import type { NavigatorSegment } from './reader-location';
 import { SelectionBar } from './selection-bar';
+import { useAnnotations } from './use-annotations';
 import { useBookmarks } from './use-bookmarks';
+import { useRecoveredOutline } from './use-recovered-outline';
 import { ReaderFailed, ReaderMissing, ReaderOpening } from './reader-states';
 import { useReaderLayout } from './use-reader-layout';
 import { useReaderOrientation } from './use-reader-orientation';
@@ -43,6 +45,35 @@ const SCOPE = 'reader';
 
 /** `opening → ready`, or `locked`, or `failed`. Nothing else is a state. */
 type Phase = 'opening' | 'ready' | 'locked' | 'failed';
+
+/**
+ * What the reader has put over the page, of the things the *chrome* opens.
+ *
+ * One value rather than a boolean per sheet. There used to be five of those and
+ * nothing coordinated them, so two sheets could be open at once and every
+ * hand-off between them — settings to modes — had to be remembered as a pair of
+ * `setState` calls. A union makes that impossible instead of careful, and makes
+ * "close whatever is open" one assignment.
+ *
+ * What is left in it are the four small ones: a page number, three reading
+ * modes, four settings, and a find bar. Each is a short fixed list, so a sheet
+ * is the right surface and its height never surprises anybody. The navigator
+ * and the note composer used to be here too and are routes now — a list as long
+ * as the reader's data has no business setting the height of a control.
+ *
+ * The password prompt, the link prompt, the selection bar and the document's
+ * action sheet are deliberately outside it: those are opened by the renderer or
+ * by the library, not by a control in this chrome, and two of them can
+ * legitimately sit over one of these.
+ */
+type Overlay =
+  | { kind: 'none' }
+  | { kind: 'jump' }
+  | { kind: 'modes' }
+  | { kind: 'settings' }
+  | { kind: 'find' };
+
+const CLOSED: Overlay = { kind: 'none' };
 
 /**
  * Reading a document.
@@ -96,17 +127,10 @@ export function ReaderScreen() {
   const [triedPassword, setTriedPassword] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [acting, setActing] = useState<LibraryDocument | null>(null);
-  const [showingContents, setShowingContents] = useState(false);
-  const [showingModes, setShowingModes] = useState(false);
-  const [showingJump, setShowingJump] = useState(false);
-  const [finding, setFinding] = useState(false);
-  const [showingSettings, setShowingSettings] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay>(CLOSED);
   const [selection, setSelection] = useState<string | null>(null);
   const [link, setLink] = useState<PdfLink | null>(null);
-  // `1` is fit-to-page. The renderer's ref exposes only `setPage`, so returning
-  // from a pinch is a prop change rather than a method call.
-  const [scale, setScale] = useState(1);
-  const [zoomed, setZoomed] = useState(false);
+  const finding = overlay.kind === 'find';
 
   const fit = useReaderStore((state) => state.fit);
   const keepAwake = useReaderStore((state) => state.keepAwake);
@@ -116,6 +140,7 @@ export function ReaderScreen() {
   const setFit = useReaderStore((state) => state.setFit);
   const setKeepAwake = useReaderStore((state) => state.setKeepAwake);
   const setLastMode = useReaderStore((state) => state.setLastMode);
+  const takeJump = useReaderStore((state) => state.takeJump);
   const [modeOverride, setModeOverride] = useState<ReadingMode | null>(null);
 
   const askedPage = useMemo(() => {
@@ -170,7 +195,22 @@ export function ReaderScreen() {
     };
   }, [documentId]);
 
-  const { bookmarks, marked, toggle: toggleBookmark } = useBookmarks({ documentId, ready });
+  // `bookmarks` is not read here any more — the list moved to the navigator —
+  // but the subscription stays, because the toolbar's filled-or-not icon has to
+  // know whether *this* page is marked on every page turn.
+  const { marked, toggle: toggleBookmark } = useBookmarks({ documentId, ready });
+
+  // Only `keep` is used here. The list, the edit and the delete live on the
+  // navigator, which subscribes to the same query from its own screen.
+  const { keep } = useAnnotations({ documentId, ready });
+
+  // The renderer hands the document's own contents back on every load; this
+  // keeps them when the row has none. See the hook for why it is that narrow.
+  const recoverOutline = useRecoveredOutline({
+    documentId,
+    hasOutline: document?.hasOutline,
+    stored: outline,
+  });
 
   const find = useFindInDocument({
     documentId,
@@ -179,6 +219,40 @@ export function ReaderScreen() {
     isSynced: document?.isSynced ?? false,
     active: finding,
   });
+
+  /** The navigator, as a pushed screen. It reads the rest from its own params. */
+  const openNavigator = useCallback(
+    (segment: NavigatorSegment) => {
+      if (documentId === undefined) {
+        return;
+      }
+      router.push({
+        pathname: '/navigator',
+        params: { id: documentId, page: String(session.page), segment },
+      });
+    },
+    [router, documentId, session.page],
+  );
+
+  /** Writing a note about the page on screen, or about a passage from it. */
+  const openNote = useCallback(
+    (passage: string | null) => {
+      if (documentId === undefined) {
+        return;
+      }
+      router.push({
+        pathname: '/note',
+        params: {
+          id: documentId,
+          kind: 'note',
+          page: String(session.page),
+          value: '',
+          ...(passage === null ? {} : { passage }),
+        },
+      });
+    },
+    [router, documentId, session.page],
+  );
 
   const commands = useReaderCommands({
     canvas,
@@ -192,14 +266,11 @@ export function ReaderScreen() {
       session.onModeChanged(next);
     },
     onFitChanged: setFit,
-    onResetZoom: () => {
-      setScale(1);
-      setZoomed(false);
-    },
+    onToggleBookmark: () => toggleBookmark(session.page),
     onToggleControls: () => setChrome((shown) => !shown),
-    onOpenContents: () => setShowingContents(true),
-    onOpenSearch: () => setFinding(true),
-    onOpenPageJump: () => setShowingJump(true),
+    onOpenNavigator: openNavigator,
+    onOpenSearch: () => setOverlay({ kind: 'find' }),
+    onOpenPageJump: () => setOverlay({ kind: 'jump' }),
     // The three things `ReaderAnatomy` says this does. The position write and
     // the wake-lock release are unmount effects, so leaving is all it takes —
     // but the command is where somebody looks for them, so it says so.
@@ -234,6 +305,31 @@ export function ReaderScreen() {
       log.debug(SCOPE, 'pdf error', error);
     },
     [password, documentId],
+  );
+
+  /**
+   * A page chosen on the navigator, acted on when the reader comes back.
+   *
+   * A pushed screen cannot return a value — `router.back()` has nowhere to put
+   * "page 142" — so the navigator leaves it in the store and this picks it up.
+   * On focus rather than on mount, because the reader is never unmounted: the
+   * stack keeps it alive underneath, which is the whole reason these are pushes
+   * and not a second reader.
+   *
+   * `goToPage` and not `setPage`, so a jump from a list is clamped, pair-snapped
+   * in a spread, announced to assistive tech and recorded as deliberate — the
+   * same as one from the scrubber. That is what the one command is for.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (documentId === undefined || phase !== 'ready') {
+        return;
+      }
+      const page = takeJump(documentId);
+      if (page !== null) {
+        commands.goToPage(page);
+      }
+    }, [documentId, phase, takeJump, commands]),
   );
 
   const onPressLink = useCallback((url: string) => {
@@ -316,16 +412,16 @@ export function ReaderScreen() {
         // still scrolling.
         page={mode === 'spread' ? session.page : (session.resumeAt ?? 1)}
         pageCount={session.pageCount ?? document.pageCount}
-        scale={scale}
         title={document.title}
         mode={mode}
         fit={fit}
         password={password}
         theme={theme}
-        onLoadComplete={(count) => {
+        onLoadComplete={(count, tableContents) => {
           setPhase('ready');
           setTriedPassword(false);
           session.onLoaded(count);
+          recoverOutline(count, tableContents);
         }}
         onPageChanged={session.onPageChanged}
         onError={onError}
@@ -335,9 +431,7 @@ export function ReaderScreen() {
           // one moment the controls are certainly in the way. Zooming back out
           // is them finished — so this is a toggle, not a latch that only ever
           // hides.
-          const isZoomed = next > 1.05;
-          setZoomed(isZoomed);
-          if (isZoomed) {
+          if (next > 1.05) {
             setChrome(false);
           }
         }}
@@ -380,16 +474,18 @@ export function ReaderScreen() {
           find={find}
           isSynced={document.isSynced}
           onGo={commands.goToPage}
-          onClose={() => setFinding(false)}
+          onClose={() => setOverlay(CLOSED)}
         />
       ) : null}
 
       <SelectionBar
-        text={phase === 'ready' && !finding ? selection : null}
+        text={phase === 'ready' && overlay.kind === 'none' ? selection : null}
         onSearch={(term) => {
           find.setTerm(term);
-          setFinding(true);
+          setOverlay({ kind: 'find' });
         }}
+        onKeep={(passage) => keep({ page: session.page, kind: 'passage', text: passage })}
+        onNote={(passage) => openNote(passage)}
         onDismiss={() => setSelection(null)}
       />
 
@@ -398,17 +494,16 @@ export function ReaderScreen() {
         title={document.title}
         page={session.page}
         pageCount={session.pageCount ?? document.pageCount}
-        hasOutline={document.hasOutline}
         canSearch={document.isSynced}
         onBack={commands.closeReader}
-        onContents={commands.openContents}
+        onNavigator={() => commands.openNavigator('contents')}
         onSearch={commands.openSearch}
         isBookmarked={marked(session.page)}
-        onToggleBookmark={() => toggleBookmark(session.page)}
+        onToggleBookmark={commands.toggleBookmark}
         onMore={() => setActing(document)}
         onScrubTo={commands.goToPage}
         onOpenJump={commands.openPageJump}
-        onOpenModes={() => setShowingSettings(true)}
+        onOpenSettings={() => setOverlay({ kind: 'settings' })}
         onStep={(by) => (by === 1 ? commands.nextPage() : commands.previousPage())}
         outline={outline}
         uri={uri}
@@ -445,8 +540,8 @@ export function ReaderScreen() {
       />
 
       <PageJumpSheet
-        isOpen={showingJump}
-        onClose={() => setShowingJump(false)}
+        isOpen={overlay.kind === 'jump'}
+        onClose={() => setOverlay(CLOSED)}
         title={document.title}
         page={session.page}
         pageCount={session.pageCount ?? document.pageCount ?? 1}
@@ -454,31 +549,30 @@ export function ReaderScreen() {
       />
 
       <ReaderModesSheet
-        isOpen={showingModes}
-        onClose={() => setShowingModes(false)}
+        isOpen={overlay.kind === 'modes'}
+        onClose={() => setOverlay(CLOSED)}
         title={document.title}
         mode={mode}
         fit={fit}
         canSpread={layout.canSpread}
         onPickMode={(next) => {
           commands.setMode(next);
-          setShowingModes(false);
+          setOverlay(CLOSED);
         }}
         onPickFit={commands.setFit}
       />
 
       <ReaderSettingsSheet
-        isOpen={showingSettings}
-        onClose={() => setShowingSettings(false)}
+        isOpen={overlay.kind === 'settings'}
+        onClose={() => setOverlay(CLOSED)}
         title={document.title}
         mode={mode}
         fit={fit}
         tint={tint}
         keepAwake={keepAwake}
-        onOpenModes={() => {
-          setShowingSettings(false);
-          setShowingModes(true);
-        }}
+        // The one hand-off between two sheets, and now a single assignment
+        // rather than a close and an open that had to stay in step.
+        onOpenModes={() => setOverlay({ kind: 'modes' })}
         onKeepAwake={setKeepAwake}
         onTint={setTint}
       />
@@ -488,28 +582,14 @@ export function ReaderScreen() {
         onClose={() => setActing(null)}
         onShowContents={() => {
           setActing(null);
-          setShowingContents(true);
+          openNavigator('contents');
+        }}
+        onWriteNote={() => {
+          setActing(null);
+          openNote(null);
         }}
       />
 
-      <ContentsSheet
-        // `[]` rather than `undefined` when the file declares no contents at
-        // all: `undefined` is the sheet's "still loading" state, and a document
-        // with no outline is finished, not pending. It should land on the empty
-        // state that offers search, not on a spinner that never resolves.
-        entries={document.hasOutline === true ? outline : []}
-        title={document.title}
-        currentPage={session.page}
-        bookmarks={bookmarks}
-        onRemoveBookmark={toggleBookmark}
-        isOpen={showingContents}
-        onClose={() => setShowingContents(false)}
-        onJump={commands.goToPage}
-        onSearch={() => {
-          setShowingContents(false);
-          router.push({ pathname: '/search', params: { documentId } });
-        }}
-      />
     </Box>
   );
 }

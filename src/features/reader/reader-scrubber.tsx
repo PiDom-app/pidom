@@ -68,7 +68,7 @@ export function ReaderScrubber({
   theme,
   onScrubTo,
   onOpenJump,
-  onOpenModes,
+  onOpenSettings,
   onStep,
 }: {
   page: number;
@@ -81,7 +81,7 @@ export function ReaderScrubber({
   theme: ThemeName;
   onScrubTo: (page: number) => void;
   onOpenJump: () => void;
-  onOpenModes: () => void;
+  onOpenSettings: () => void;
   /** `+1` / `-1`, for the assistive-technology adjust actions. */
   onStep: (by: 1 | -1) => void;
 }) {
@@ -203,9 +203,9 @@ export function ReaderScrubber({
             {pageCount > 0 ? `${Math.round((page / pageCount) * 100)}%` : ''}
           </Text>
           <Pressable
-            onPress={onOpenModes}
+            onPress={onOpenSettings}
             accessibilityRole="button"
-            accessibilityLabel="How it reads"
+            accessibilityLabel="Reading settings"
             className="-mr-1.5 h-8 w-8 items-center justify-center rounded-md data-[active=true]:bg-hover">
             <Icon as={Rows3} size="sm" className="text-fg-muted" />
           </Pressable>

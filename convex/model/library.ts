@@ -6,6 +6,7 @@ import type { PaginationOptions, PaginationResult } from 'convex/server';
 import { r2 } from '../r2';
 
 import type { MutationCtx, QueryCtx } from '../_generated/server';
+import * as Annotations from './annotations';
 import { assertOwner } from './auth';
 import * as Processing from './processing';
 import { queueExtraction } from '../workflows/document';
@@ -776,6 +777,44 @@ export async function removeBookmark(
   }
 }
 
+/**
+ * Names a bookmark, or takes its name away.
+ *
+ * `label` has been in the schema and honoured by `addBookmark` since bookmarks
+ * landed, and nothing ever sent one — the reader's only control is a toggle,
+ * which has no name to give — so every row rendered as `Page 142` however
+ * deliberately somebody had stopped there. This is what the list's long press
+ * calls.
+ *
+ * An empty name clears the field rather than storing a blank one, which is what
+ * a reader clearing the box and saving means. Refused rather than created when
+ * the page is not marked: naming a bookmark that does not exist would be a
+ * second, quieter way of making one.
+ */
+export async function renameBookmark(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  documentId: Id<'documents'>,
+  page: number,
+  label: string,
+): Promise<void> {
+  const doc = await requireDocument(ctx, owner, documentId);
+  const existing = await ctx.db
+    .query('documentBookmarks')
+    .withIndex('by_document_and_page', (q) =>
+      q.eq('documentId', doc._id).eq('page', Math.round(page)),
+    )
+    .unique();
+  if (existing === null) {
+    invalid('That page is not bookmarked.');
+  }
+  await ctx.db.patch('documentBookmarks', existing._id, {
+    // Explicit `undefined` deletes the field, which is the intent here and one
+    // of the few places in this file that is true.
+    label: cleanOptionalText(label, BOOKMARK_LABEL_MAX, 'A bookmark name'),
+  });
+}
+
 /** The cascade, called from `removeDocument`. */
 async function deleteBookmarks(ctx: MutationCtx, documentId: Id<'documents'>): Promise<void> {
   const rows = await ctx.db
@@ -1053,9 +1092,10 @@ export async function removeDocument(
   // document content.
   await Processing.deleteOutline(ctx, doc._id);
   await Processing.deleteJob(ctx, doc._id);
-  // Bounded by the same constant that bounds how many can exist, so one pass
-  // is always enough.
+  // Both bounded by the same constants that bound how many can exist, so one
+  // pass is always enough.
   await deleteBookmarks(ctx, doc._id);
+  await Annotations.deleteAll(ctx, doc._id);
   // Bounded like the one in `detachUpload`, and queued for the same reason.
   // This is the case where the queue earns its keep: in a moment there will be
   // no document row at all, so anything left behind could never be recognised

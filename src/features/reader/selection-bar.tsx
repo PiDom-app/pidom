@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { Copy, Search } from 'lucide-react-native';
+import { Copy, Highlighter, NotebookPen, Search } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
-import { PAGE_TEXT_MAX } from '@convex/model/limits';
+import { ANNOTATION_TEXT_MAX, PAGE_TEXT_MAX } from '@convex/model/limits';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { log } from '@/lib/logger';
 
@@ -30,17 +30,30 @@ const SCOPE = 'reader-selection';
  *
  * The selected text is document content. It is bounded by `PAGE_TEXT_MAX` — the
  * same number the server uses for a page of extracted text — before it goes
- * anywhere, and it is never logged, not even its length.
+ * anywhere, and it is never logged, not even its length. **Keep** bounds it
+ * again and harder, at `ANNOTATION_TEXT_MAX`: a clipboard holds a page for a
+ * moment and a row in a list holds one forever.
+ *
+ * Four actions is what fits. Copy and Find are what a selection could already
+ * do; Keep saves the passage and Note opens a box to write about it, which is
+ * as far as an annotation goes on a renderer that reports no coordinates to
+ * anchor a highlight to.
  */
 export function SelectionBar({
   text,
   onSearch,
+  onKeep,
+  onNote,
   onDismiss,
 }: {
   /** `null` when nothing is selected. */
   text: string | null;
   /** Hands the selection to the find bar. */
   onSearch: (term: string) => void;
+  /** Keeps the passage against the page the reader is on. */
+  onKeep: (passage: string) => void;
+  /** Opens the note box with the passage quoted above it. */
+  onNote: (passage: string) => void;
   onDismiss: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -51,6 +64,9 @@ export function SelectionBar({
   }
 
   const selected = text.slice(0, PAGE_TEXT_MAX);
+  // A kept passage is stored, so it takes the tighter bound. Trimmed first, so
+  // the cut does not fall on whitespace the reader never selected.
+  const passage = selected.trim().slice(0, ANNOTATION_TEXT_MAX);
 
   return (
     <Box
@@ -76,10 +92,38 @@ export function SelectionBar({
           }}
           accessibilityRole="button"
           accessibilityLabel="Copy the selected text"
-          className="flex-row items-center gap-1.5 rounded-md px-3 py-2 data-[active=true]:bg-hover">
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
           <Icon as={Copy} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Copy
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            onKeep(passage);
+            onDismiss();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Keep the selected passage"
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
+          <Icon as={Highlighter} size="sm" className="text-foreground" />
+          <Text size="sm" className="text-foreground">
+            Keep
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            onNote(passage);
+            onDismiss();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Write a note about the selected passage"
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
+          <Icon as={NotebookPen} size="sm" className="text-foreground" />
+          <Text size="sm" className="text-foreground">
+            Note
           </Text>
         </Pressable>
 
@@ -92,7 +136,7 @@ export function SelectionBar({
           }}
           accessibilityRole="button"
           accessibilityLabel="Find the selected text in this document"
-          className="flex-row items-center gap-1.5 rounded-md px-3 py-2 data-[active=true]:bg-hover">
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
           <Icon as={Search} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Find

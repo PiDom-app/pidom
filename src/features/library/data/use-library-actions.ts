@@ -12,7 +12,13 @@ import { useTransferStore } from '@/stores/transfer-store';
 
 import type { OutlineEntry } from '../components/document-probe';
 import { removeLocally } from '../local/import';
-import { coverFile, documentFile, keepCover, localCoverUri } from '../local/paths';
+import {
+  coverFile,
+  documentFile,
+  forgetPageThumbnails,
+  keepCover,
+  localCoverUri,
+} from '../local/paths';
 import { forgetPassword } from '@/features/reader/document-password';
 import { useReaderStore } from '@/stores/reader-store';
 import { forgetLocally } from '../local/text-index';
@@ -93,6 +99,10 @@ export function useLibraryActions() {
       // come back for.
       useReaderStore.getState().forgetPage(documentId);
       void forgetPassword(documentId);
+      // And the pictures of its pages, for the same reason as the text: a
+      // rendered page is the document's content, and it has no business
+      // outliving the document.
+      forgetPageThumbnails(profileId, documentId);
       markAbsent(documentId);
       return true;
     },
@@ -254,6 +264,11 @@ export function useLibraryActions() {
       // still in the account and still has a position worth keeping, and the
       // copy that comes back may not even be encrypted the same way.
       void forgetPassword(documentId);
+      // The thumbnails were rendered from the file that has just gone. They
+      // would be re-rendered from the copy that comes back, and keeping stale
+      // pictures of a document this phone no longer holds is the same mistake
+      // as keeping its text.
+      forgetPageThumbnails(profileId, documentId);
       markAbsent(documentId);
       return true;
     },

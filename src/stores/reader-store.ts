@@ -42,9 +42,29 @@ export type FitPolicy = 'width' | 'height' | 'both';
 
 export const FIT_POLICY: Record<FitPolicy, 0 | 1 | 2> = { width: 0, height: 1, both: 2 };
 
+/**
+ * A page the reader should move to when it comes back into focus.
+ *
+ * The navigator is a screen rather than a sheet now, and a screen cannot return
+ * a value: `router.back()` has nowhere to put "page 142". Passing it forward as
+ * a route param would push a second reader over the first, which is a second
+ * copy of a 400-page document held open. So the navigator leaves the page here
+ * and the reader picks it up on focus.
+ *
+ * Carries the document id because a jump is only ever meant for the document it
+ * was chosen in — a stale one left by a reader who backed all the way out must
+ * not move the next document they open.
+ *
+ * Deliberately **not** persisted: it describes one navigation, and a jump
+ * surviving a force-quit would move somebody who reopened a book to wherever
+ * they last tapped in a list.
+ */
+type PendingJump = { documentId: string; page: number };
+
 type ReaderState = {
   /** Page per document id, 1-based. The between-writes record of the position. */
   pages: Record<string, number>;
+  pendingJump: PendingJump | null;
   /** The mode the next document opens under, when it has none of its own. */
   lastMode: ReadingMode;
   fit: FitPolicy;
@@ -55,6 +75,10 @@ type ReaderState = {
 
   rememberPage: (documentId: string, page: number) => void;
   forgetPage: (documentId: string) => void;
+  /** Asks the reader to move, from a screen sitting over it. */
+  requestJump: (documentId: string, page: number) => void;
+  /** Reads it once and clears it. A jump taken twice is a jump that fights. */
+  takeJump: (documentId: string) => number | null;
   setLastMode: (mode: ReadingMode) => void;
   setFit: (fit: FitPolicy) => void;
   setKeepAwake: (keepAwake: boolean) => void;
@@ -63,8 +87,9 @@ type ReaderState = {
 
 export const useReaderStore = create<ReaderState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       pages: {},
+      pendingJump: null,
       lastMode: 'continuous',
       fit: 'width',
       keepAwake: true,
@@ -91,6 +116,20 @@ export const useReaderStore = create<ReaderState>()(
           return { pages };
         }),
 
+      requestJump: (documentId, page) => set({ pendingJump: { documentId, page } }),
+
+      takeJump: (documentId) => {
+        // `get`, not `useReaderStore.getState()`: reading the store through its
+        // own binding here makes the initialiser reference the value it is
+        // creating, and TypeScript gives up on the whole state type.
+        const pending = get().pendingJump;
+        if (pending === null || pending.documentId !== documentId) {
+          return null;
+        }
+        set({ pendingJump: null });
+        return pending.page;
+      },
+
       setLastMode: (lastMode) => set({ lastMode }),
       setFit: (fit) => set({ fit }),
       setKeepAwake: (keepAwake) => set({ keepAwake }),
@@ -99,7 +138,8 @@ export const useReaderStore = create<ReaderState>()(
     {
       name: 'pidom.reader',
       storage: createJSONStorage(() => AsyncStorage),
-      // `hydrated` describes this launch and is never written back.
+      // `hydrated` and `pendingJump` describe this launch and one navigation
+      // inside it; neither is written back.
       partialize: (state) => ({
         pages: state.pages,
         lastMode: state.lastMode,

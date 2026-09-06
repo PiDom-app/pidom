@@ -1,6 +1,6 @@
 import React, { useImperativeHandle, useRef } from 'react';
 import { View } from 'react-native';
-import Pdf, { type PdfRef } from 'react-native-pdf';
+import Pdf, { type PdfRef, type TableContent } from 'react-native-pdf';
 
 import type { ReadingMode } from '@convex/model/library';
 import { READER_ZOOM_MAX } from '@convex/model/limits';
@@ -70,7 +70,6 @@ export function ReaderCanvas({
   pageCount,
   mode,
   fit,
-  scale,
   password,
   title,
   theme,
@@ -91,14 +90,22 @@ export function ReaderCanvas({
   pageCount: number | null;
   mode: ReadingMode;
   fit: FitPolicy;
-  /** `1` is fit-to-page. Bumping it back to 1 is the whole of `resetZoom`. */
-  scale: number;
   /** Only for an encrypted document; never logged, never sent anywhere. */
   password?: string;
   /** For assistive tech: the largest thing on screen should not be unlabelled. */
   title: string;
   theme: ThemeName;
-  onLoadComplete: (pageCount: number) => void;
+  /**
+   * The page count, and the document's own table of contents when it declares
+   * one.
+   *
+   * `tableContents` used to be dropped here. The outline was read once, at
+   * import, by the probe — so a document imported before outlines existed, or
+   * one whose probe failed, never gained one however many times it was opened.
+   * The renderer hands it back on every load; the screen decides whether it is
+   * worth writing.
+   */
+  onLoadComplete: (pageCount: number, tableContents?: TableContent[]) => void;
   onPageChanged: (page: number) => void;
   onError: (error: Error) => void;
   onTap: () => void;
@@ -137,6 +144,11 @@ export function ReaderCanvas({
     trustAllCerts: false,
     enableAnnotationRendering: true,
     enableAntialiasing: true,
+    // The renderer's zoom is the only zoom. There is no `scale` prop from this
+    // side: it existed for a `resetZoom` command that never had a caller, so it
+    // was pinned at 1 for the life of the feature and the renderer's own pinch
+    // and double-tap did all the work anyway. `react-native-pdf` defaults it to
+    // 1.0, which is what it always was.
     minScale: 1,
     maxScale: READER_ZOOM_MAX,
     enableDoubleTapZoom: true,
@@ -181,7 +193,6 @@ export function ReaderCanvas({
           source={{ uri }}
           page={left}
           password={password}
-          scale={scale}
           // `singlePage` is the package's own primitive for "one page, no
           // scrolling". `scrollEnabled={false}` faked it and took the page-turn
           // gesture with it, so a spread could only be moved by the scrubber.
@@ -195,17 +206,7 @@ export function ReaderCanvas({
           onError={onError}
           // Only the left pane reports position. Two renderers answering the
           // same question is two answers to reconcile for no extra information.
-          onLoadComplete={(count, _p, _sz, toc) => {
-            // TEMP DIAGNOSTIC
-            void (async () => {
-              const FS = await import('expo-file-system');
-              const f = new FS.File(FS.Paths.cache, 'toc-probe.json');
-              try { f.delete(); } catch {}
-              f.create({ overwrite: true, intermediates: true });
-              f.write(JSON.stringify({ count, toc: (toc ?? []).slice(0, 6) }));
-            })();
-            onLoadComplete(count);
-          }}
+          onLoadComplete={(count, _p, _sz, toc) => onLoadComplete(count, toc)}
           onPageChanged={(current) => onPageChanged(current)}
           onLoadProgress={onLoadProgress}
           style={style}
@@ -216,7 +217,6 @@ export function ReaderCanvas({
             source={{ uri }}
             page={right}
             password={password}
-            scale={scale}
             singlePage
             fitPolicy={FIT_POLICY.height}
             spacing={0}
@@ -249,7 +249,6 @@ export function ReaderCanvas({
       source={{ uri }}
       page={page}
       password={password}
-      scale={scale}
       onError={onError}
       horizontal={horizontal}
       enablePaging={horizontal}
@@ -262,7 +261,7 @@ export function ReaderCanvas({
       showsHorizontalScrollIndicator={false}
       onPageSingleTap={onTap}
       onScaleChanged={onScaleChanged}
-      onLoadComplete={(count) => onLoadComplete(count)}
+      onLoadComplete={(count, _p, _sz, toc) => onLoadComplete(count, toc)}
       onPageChanged={(current) => onPageChanged(current)}
       onLoadProgress={onLoadProgress}
       style={style}

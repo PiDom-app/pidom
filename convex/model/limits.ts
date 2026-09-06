@@ -107,6 +107,37 @@ export const BOOKMARK_LABEL_MAX = 120;
 export const BOOKMARKS_PER_DOCUMENT = 200;
 
 /**
+ * A passage kept out of a document.
+ *
+ * Deliberately a quarter of `PAGE_TEXT_MAX`. A selection can reach a whole
+ * page — `selection-bar.ts` truncates to `PAGE_TEXT_MAX` before the clipboard
+ * — and a whole page stored per row is a book in a list of two-line items. Two
+ * thousand characters is several paragraphs, which is longer than anything
+ * anybody quotes on purpose.
+ */
+export const ANNOTATION_TEXT_MAX = 2_000;
+
+/**
+ * What the reader wrote about it.
+ *
+ * The same bound as the passage, because a note about a paragraph is
+ * occasionally longer than the paragraph. Anything past this is a document of
+ * its own and Pidom is not a place to write one.
+ */
+export const ANNOTATION_NOTE_MAX = 2_000;
+
+/**
+ * How many one document can hold.
+ *
+ * Higher than the bookmark ceiling because these are made while reading rather
+ * than to come back to: somebody working through a textbook marks tens of pages
+ * and quotes hundreds of lines. Still low enough that the list is one bounded
+ * read the reader renders without paging, and low enough that the cascade
+ * clears in one mutation.
+ */
+export const ANNOTATIONS_PER_DOCUMENT = 500;
+
+/**
  * The largest file the library will *record*. 512 MB — past this the device
  * would struggle to render it anyway.
  */

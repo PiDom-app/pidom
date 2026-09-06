@@ -38,6 +38,7 @@ export function useBookmarks({
   );
   const add = useMutation(api.library.addBookmark);
   const remove = useMutation(api.library.removeBookmark);
+  const setLabel = useMutation(api.library.renameBookmark);
 
   const bookmarks = useMemo<readonly Bookmark[]>(
     () =>
@@ -76,5 +77,38 @@ export function useBookmarks({
     [documentId, bookmarks, add, remove, showToast],
   );
 
-  return { bookmarks, marked, toggle };
+  /**
+   * Names a marked page, or clears the name it has.
+   *
+   * `label` has been in the schema and honoured by `addBookmark` since bookmarks
+   * landed, and nothing ever sent one — the toolbar's control is a toggle, which
+   * has no name to give — so every row read `Page 142` however deliberately
+   * somebody had stopped there. This is what the list's long press calls.
+   *
+   * Resolves `false` rather than throwing, because the dialog decides whether to
+   * close on the answer.
+   */
+  const rename = useCallback(
+    async (page: number, label: string): Promise<boolean> => {
+      if (documentId === undefined) {
+        return false;
+      }
+      try {
+        await setLabel({ documentId, currentPage: page, label });
+        return true;
+      } catch (error: unknown) {
+        log.debug(SCOPE, 'could not name that bookmark', error);
+        showToast({
+          id: 'bookmark',
+          tone: 'error',
+          title: "Couldn't name that bookmark",
+          description: messageOf(error, 'Try again in a moment.'),
+        });
+        return false;
+      }
+    },
+    [documentId, setLabel, showToast],
+  );
+
+  return { bookmarks, marked, toggle, rename };
 }

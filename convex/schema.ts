@@ -372,10 +372,6 @@ export default defineSchema({
     .index('by_status', ['status', 'updatedAt']),
 
   /**
-   * A named group of documents. It owns no files and duplicates no document —
-   * a PDF can sit in several collections and still be one row in `documents`.
-   */
-  /**
    * A page somebody marked, in a document they own.
    *
    * A table rather than an array on `documents`, for the reason the guidelines
@@ -401,6 +397,78 @@ export default defineSchema({
     // The list, in the order they were made.
     .index('by_document', ['documentId', 'createdAt']),
 
+  /**
+   * A passage kept out of a document, or a note written about a page of it.
+   *
+   * **There are no coordinates, and that is a fact about the renderer rather
+   * than an omission.** `react-native-pdf` reports selected text and nothing
+   * else: `onTextSelectionChange` hands back a string, and `onPageSingleTap`
+   * hands back `MotionEvent.getX()` — where a finger touched the *view*, which
+   * is a different space from the page and stops meaning anything the moment
+   * somebody scrolls or zooms. There is no page-rect API and no overlay hook.
+   * So a highlight cannot be painted where the words are, and this table does
+   * not pretend it can: an annotation is a page, the words, and what the reader
+   * made of them. `rect` is here, optional and unwritten, so the day a renderer
+   * supplies one there is a column to put it in rather than a migration.
+   *
+   * A table rather than an array on `documents`, for the reason the guidelines
+   * give and `documentBookmarks` cites: an unbounded list inside a document
+   * grows into the 1 MB limit and rewrites the whole row on every append.
+   *
+   * `ownerId` is denormalised, as on `documentBookmarks`, so a row can be
+   * owner-checked without fetching the document behind it.
+   */
+  documentAnnotations: defineTable({
+    ownerId: v.id('users'),
+    documentId: v.id('documents'),
+    /** 1-based, and clamped against `pageCount` server-side on every write. */
+    page: v.number(),
+
+    /**
+     * Which of the two it is.
+     *
+     * `passage` came off a selection and carries the document's words;
+     * `note` was written against a page and carries only the reader's. The
+     * distinction is worth storing rather than deriving from which field is
+     * absent, because a passage the reader later annotates has both.
+     */
+    kind: v.union(v.literal('passage'), v.literal('note')),
+
+    /** The document's words. Absent on a `note`, bounded by `ANNOTATION_TEXT_MAX`. */
+    text: v.optional(v.string()),
+    /** The reader's words. Absent until they write some. */
+    note: v.optional(v.string()),
+
+    /**
+     * Where on the page, if anything ever knows.
+     *
+     * Never written today — see the note above. Kept optional and unread so
+     * that adding a renderer which reports quads is a client change rather than
+     * a schema migration over everybody's annotations.
+     */
+    rect: v.optional(
+      v.object({
+        x: v.number(),
+        y: v.number(),
+        width: v.number(),
+        height: v.number(),
+      }),
+    ),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // The list, which reads in page order because that is the order somebody
+    // moving through a book wants to step through their own marks in.
+    .index('by_document', ['documentId', 'page'])
+    // The count and the delete cascade, which do not care about page order.
+    // Two orders need two indexes; the guidelines are explicit about it.
+    .index('by_document_and_created', ['documentId', 'createdAt']),
+
+  /**
+   * A named group of documents. It owns no files and duplicates no document —
+   * a PDF can sit in several collections and still be one row in `documents`.
+   */
   collections: defineTable({
     ownerId: v.id('users'),
     name: v.string(),

@@ -148,6 +148,14 @@ supported orientation is a preference rather than a requirement for a resizable
 app, so a layout keyed on "am I landscape" is wrong in a split view and on a
 foldable. `useWindowDimensions` reports the space actually available.
 
+The chrome's own overlays are **one value, not a boolean each**. There used to
+be five flags and nothing coordinating them, so two sheets could be open at once
+and every hand-off between them had to be remembered as a pair of `setState`
+calls. `activeOverlay` makes that impossible instead of careful. The password
+prompt, the link prompt, the selection bar and the document's action sheet stay
+outside it: those are opened by the renderer or by the library, and can
+legitimately sit over one of the others.
+
 A mode change **remounts** the canvas rather than changing props on it. Layout
 props reach the native view directly, and an Android `PdfView` is not built to
 reflow from scrolling to paged in place; a reload on an explicit menu tap is the
@@ -196,9 +204,47 @@ this one is written far more often than the row it belongs to. `ownerId` is
 denormalised as on `collectionDocuments`, so a bookmark is owner-checked without
 fetching the document behind it. Adding a marked page renames it rather than
 duplicating it, and removing an unmarked one is silent, so the toggle in the
-chrome cannot produce a list with duplicates in it. Contents and Bookmarks share
-a sheet because they answer the same question — where in this document do I want
-to be.
+chrome cannot produce a list with duplicates in it. `label` had been in the
+schema and honoured by `addBookmark` from the start while nothing ever sent one
+— the chrome's control is a toggle, which has no name to give — so every row
+read `Page 142` however deliberately somebody had stopped there. A long press on
+a row names it now.
+
+**Notes are what an annotation can be on this renderer.** `react-native-pdf`
+reports the *text* of a selection and no geometry: `onTextSelectionChange` hands
+back a string, and `onPageSingleTap` hands back `MotionEvent.getX()`, which is
+where a finger touched the view rather than where the words sit on the page and
+stops meaning anything the moment somebody scrolls. There is no page-rect API
+and no overlay hook, so **a highlight cannot be painted where the passage is**,
+and nothing here pretends otherwise — the mark is a rule down the left of a row
+in a list, which is somewhere it can be accurate. A `documentAnnotations` row is
+a page, a kind, the document's words, and the reader's. `rect` is in the schema,
+optional and unwritten, so the day a renderer reports quads is a client change
+rather than a migration over everybody's notes.
+
+The renderer's selection is iOS-only — the Android view manager has no selection
+code at all — so the selection bar's **Keep** and **Note** exist on one platform
+and the capability does not: the reader's overflow offers *Write a note* on both,
+anchored to the page instead of to words. Keeping a passage carries a Convex
+optimistic update, which bookmarks do not: a bookmark's feedback is an icon that
+fills before a thumb leaves the glass, while a kept passage puts a row in a list
+the reader is about to open.
+
+**Contents, Bookmarks, Notes and Pages share one sheet**, because they answer the
+same question — where in this document do I want to be. That sheet used to be
+gated on the document declaring an outline, on both of its entry points, and
+most PDFs declare none: a reader could mark a page from the toolbar, watch the
+icon fill, and have no way left to reach the list. Contents is one of four
+segments now, and an outline the file does not have is an empty state rather
+than a locked door.
+
+**Pages is the document as pictures**, three columns of live single-page
+renderers — the same `PagePreview` the scrubber mounts under a finger, because
+nothing turns a PDF page into a bitmap on React Native 0.86. That is why the
+grid is virtualised rather than mapped: a screen holds nine of these and the list
+recycles the rest, and four hundred mounted at once is four hundred native
+document handles. Past `THUMBNAIL_PAGE_MAX` the segment is absent rather than
+slow, and the scrubber still reaches any page in one drag.
 
 **Selection was already on.** `enableTextSelection` defaults to `true` in
 `react-native-pdf`, so an iOS reader could select text and reach the system menu
@@ -216,8 +262,14 @@ dims.
 
 ### One way to move the page
 
-Contents entries, find results, the scrubber, the page field, a bookmark and a
-screen reader's swipe-to-adjust all call `goToPage` in `reader-commands.ts`.
+Contents entries, find results, the scrubber, the page field, a bookmark, a
+kept passage, a thumbnail and a screen reader's swipe-to-adjust all call
+`goToLocation` in `reader-commands.ts` — `goToPage` is that function with a bare
+number, kept for the callers that only have one. The argument is a
+`DocumentLocation`, which is a page today and has room for a rectangle, so a
+renderer that one day reports where on a page something is becomes a change to
+the two places that produce locations rather than to every place that consumes
+one.
 That is also the one place a page change is announced to assistive technology,
 so one call covers every caller. Five features talking to
 `pdfRef.setPage` directly is five places to get clamping and spread-pairing

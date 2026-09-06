@@ -85,6 +85,9 @@ const icons = {
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+  highlighter: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+  quote: '<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/>',
+  notebookPen: '<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
   chevronUp: '<path d="m18 15-6-6-6 6"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
 };
@@ -1266,21 +1269,57 @@ function readerFind() {
 }
 
 /**
+ * The navigator, which is one sheet with four ways of answering one question.
+ *
+ * Contents is the document's own outline, Bookmarks and Notes are the reader's
+ * additions to it, and Pages is the document as pictures. All four end in the
+ * same `goToPage`, so they belong behind one button rather than four.
+ *
+ * The segmented row scrolls. Four labels with two counts on them fit a 390pt
+ * screen at the default type size and stop fitting a step or two up the
+ * accessibility scale, and a control that reflows into two rows is worse than
+ * one that slides.
+ */
+function navTabs(c, active, { bookmarks = 0, notes = 0 } = {}) {
+  const tab = (key, label) =>
+    `<div style="padding:6px 12px;border-radius:${R};flex:0 0 auto;${active === key ? `background:${c.primaryTint}` : ''}">
+       <span style="font-size:12px;white-space:nowrap;color:${active === key ? c.primary : c.fgMuted}">${label}</span>
+     </div>`;
+  return `<div style="display:flex;gap:6px;padding:0 ${PAD}px 12px">
+      ${tab('contents', 'Contents')}${tab('bookmarks', bookmarks === 0 ? 'Bookmarks' : `Bookmarks · ${bookmarks}`)}${tab('notes', notes === 0 ? 'Notes' : `Notes · ${notes}`)}${tab('pages', 'Pages')}
+    </div>`;
+}
+
+/** The navigator's shell: the drag handle, the heading, the segments, the rule. */
+function navigatorSheet(c, { glyph, title, subtitle, trailing = '', active, counts, body }) {
+  return `<div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
+    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px ${PAD}px 14px">
+      ${icon(glyph, 18, c.fgMuted)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">${title}</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>
+      </div>
+      ${trailing}
+    </div>
+    ${navTabs(c, active, counts)}
+    <div style="height:1px;background:${c.hairline}"></div>
+    ${body}
+  </div>`;
+}
+
+/**
  * The pages this reader marked.
  *
- * The second half of the Contents sheet, because both answer the same question
- * — where in this document do I want to be — and the toolbar already has four
- * buttons. Unlike Contents, this list is the reader's own, so a row can be
- * removed from it.
+ * Unlike Contents, this list is the reader's own, so a row can be removed from
+ * it — and named. `documentBookmarks.label` has been in the schema and honoured
+ * by `addBookmark` since bookmarks landed, while the only writer never sent
+ * one, so every row in the app read `Page 142` however deliberate the mark was.
+ * A long press is what names one.
  */
 function readerBookmarks() {
   const c = DARK;
   const doc = byTitle('Thinking,');
-
-  const tab = (label, on) =>
-    `<div style="padding:6px 12px;border-radius:${R};${on ? `background:${c.primaryTint}` : ''}">
-       <span style="font-size:12px;color:${on ? c.primary : c.fgMuted}">${label}</span>
-     </div>`;
 
   const row = (label, page, current) =>
     `<div style="display:flex;align-items:center;${current ? `background:${c.hover}` : ''}">
@@ -1295,26 +1334,220 @@ function readerBookmarks() {
     w: 390, h: 844, bg: c.bg,
     body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
   ${dimmedPage()}
-  <div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
-    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
-    <div style="display:flex;align-items:center;gap:12px;padding:10px ${PAD}px 14px">
-      ${icon('bookmark', 18, c.fgMuted)}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Bookmarks</div>
-        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${doc.t}</div>
-      </div>
-      <span style="font-size:12px;color:${c.fgSubtle}" class="tnum">5</span>
-    </div>
-    <div style="display:flex;gap:6px;padding:0 ${PAD}px 12px">
-      ${tab('Contents', false)}${tab('Bookmarks · 5', true)}
-    </div>
-    <div style="height:1px;background:${c.hairline}"></div>
-    <div style="padding-top:4px">
+  ${navigatorSheet(c, {
+    glyph: 'bookmark', title: 'Bookmarks', subtitle: doc.t,
+    trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">5</span>`,
+    active: 'bookmarks', counts: { bookmarks: 5, notes: 3 },
+    body: `<div style="padding-top:4px">
       ${row('Anchors', 152, false)}
       ${row('The two-systems diagram', 24, false)}
       ${row('Page 142', 142, true)}
       ${row('Prospect theory', 279, false)}
       ${row('Page 438', 438, false)}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Passages and notes, which is as far as an annotation goes on this renderer.
+ *
+ * `react-native-pdf` reports selected text and no rectangles — `onPageSingleTap`
+ * hands back `MotionEvent.getX()`, which is where a finger touched the view and
+ * not where the words are on the page. So there is nothing to draw a highlight
+ * over, and a list that pretended otherwise would be drawing a mark the reader
+ * would then go looking for on the page and not find.
+ *
+ * What it is instead: the passage in the reader's own words-of-the-document,
+ * the note they wrote about it, and the page. The rule down the left is the
+ * only mark, and it is in this list rather than on the page.
+ */
+function readerNotes() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+
+  const row = (quote, note, page, current = false) =>
+    `<div style="display:flex;align-items:stretch;${current ? `background:${c.hover}` : ''}">
+       <div style="flex:1;min-width:0;display:flex;gap:12px;padding:12px 0 12px ${PAD}px">
+         <div style="width:2px;border-radius:1px;background:${c.primary};flex:0 0 auto"></div>
+         <div style="flex:1;min-width:0">
+           <div style="font-size:14px;line-height:19px;color:${quote ? c.fg : c.fgMuted}" class="c2 pretty">${quote ?? note}</div>
+           ${quote && note ? `<div style="margin-top:3px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="c2 pretty">${note}</div>` : ''}
+         </div>
+         <span style="font-size:12px;color:${current ? c.primary : c.fgSubtle};flex:0 0 auto" class="tnum">${page}</span>
+       </div>
+       <div style="width:48px;display:flex;align-items:center;justify-content:center">${icon('trash', 15, c.fgSubtle)}</div>
+     </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  ${navigatorSheet(c, {
+    glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
+    trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">3</span>`,
+    active: 'notes', counts: { bookmarks: 5, notes: 3 },
+    body: `<div style="padding-top:4px">
+      ${row('&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;', 'His own summary. Quote this one.', 20)}
+      ${row(null, 'The small-numbers argument starts here, not in the chapter that is named after it.', 142, true)}
+      ${row('&ldquo;&hellip;an anchoring index of 55%, which is about what most of these experiments produce.&rdquo;', null, 152)}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Nothing kept yet.
+ *
+ * It says what to do rather than what is absent, and it says both halves —
+ * selecting text is iOS-only because the renderer's selection is, so a screen
+ * that only offered that would be an empty state with no exit on Android.
+ */
+function readerNotesEmpty() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  ${navigatorSheet(c, {
+    glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
+    active: 'notes', counts: { bookmarks: 5, notes: 0 },
+    body: `<div style="padding:44px ${PAD}px 24px;text-align:center">
+      ${icon('quote', 26, c.fgDisabled)}
+      <div style="margin-top:14px;font-size:15px;font-weight:600;color:${c.fg}">Nothing kept yet</div>
+      <div style="margin-top:6px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Select a passage in the document to keep it, or write a note about the page you are on.</div>
+      <div style="margin-top:18px;display:flex;justify-content:center">
+        <div style="height:36px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+          ${icon('notebookPen', 15, c.fg)}<span style="font-size:14px;font-weight:500;color:${c.fg}">Write a note</span>
+        </div>
+      </div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Every page at once.
+ *
+ * A cell is a live `<Pdf singlePage>`, the same component the scrubber mounts
+ * while a finger is down — there is no library that turns a PDF page into an
+ * image on React Native 0.86, so the renderer that is already here draws them.
+ * That is what the virtualised grid is for: a screen holds nine of these, not
+ * four hundred, and the list recycles the rest.
+ *
+ * It is also why `THUMBNAIL_PAGE_MAX` gates the segment. Past 1,200 pages the
+ * grid is a long scroll past pages nobody is looking for, and the scrubber
+ * reaches any page in one drag regardless of length — so the segment is absent
+ * rather than present and slow.
+ */
+function readerThumbnails() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const W = 98, H = 139;
+
+  const cell = (page, current) =>
+    `<div style="flex:0 0 auto;width:${W}px">
+       <div style="width:${W}px;height:${H}px;border-radius:${R};overflow:hidden;background:${PAPER.bg};box-shadow:inset 0 0 0 ${current ? 2 : 1}px ${current ? c.primary : c.border};padding:11px 9px 0">
+         ${[100, 100, 88, 100, 52, 100, 100, 88, 100, 100, 52].map((w) => `<div style="height:1.5px;border-radius:1px;background:${PAPER.rule};width:${w}%;margin-bottom:5px"></div>`).join('')}
+       </div>
+       <div style="margin-top:5px;text-align:center;font-size:11px;color:${current ? c.primary : c.fgSubtle}" class="tnum">${page}</div>
+     </div>`;
+
+  const row = (pages) =>
+    `<div style="display:flex;gap:12px;padding:0 ${PAD}px 14px">${pages.map(([p, cur]) => cell(p, cur)).join('')}</div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  ${navigatorSheet(c, {
+    glyph: 'grid', title: 'Pages', subtitle: doc.t,
+    trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">142 of ${doc.p}</span>`,
+    active: 'pages', counts: { bookmarks: 5, notes: 3 },
+    body: `<div style="padding-top:14px">
+      ${row([[140, false], [141, false], [142, true]])}
+      ${row([[143, false], [144, false], [145, false]])}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Writing a note.
+ *
+ * The passage sits above the field, quoted and uneditable: the document's words
+ * and the reader's are different things and a single box would blur them. When
+ * the note is written from the overflow rather than from a selection — which is
+ * the whole of the Android path, since that renderer has no selection — the
+ * quote is absent and the page number is the anchor.
+ */
+function readerNoteCompose() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 ${PAD}px">
+    <div style="border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border};padding:20px">
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">Write a note</div>
+      <div style="margin-top:4px;font-size:13px;color:${c.fgSubtle}" class="tnum">Page 142</div>
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <div style="width:2px;border-radius:1px;background:${c.borderStrong};flex:0 0 auto"></div>
+        <div style="flex:1;font-size:13px;line-height:18px;color:${c.fgMuted}" class="c2 pretty">&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;</div>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:${c.fgSubtle}">Note</div>
+      <div style="margin-top:6px;min-height:88px;padding:11px 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+        <span style="font-size:15px;line-height:21px;color:${c.fg}">His own summary. Quote this one.</span>
+      </div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+          <span style="font-size:14px;font-weight:500;color:${c.fg}">Cancel</span>
+        </div>
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary}">
+          <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Keep</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * Naming a bookmark.
+ *
+ * The same dialog `NameDialog` gives a collection, because it is the same act.
+ * `maxLength` is `BOOKMARK_LABEL_MAX` so the keyboard stops a long name rather
+ * than a round trip coming back as an error.
+ */
+function readerBookmarkName() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${dimmedPage()}
+  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 ${PAD}px">
+    <div style="border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border};padding:20px">
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">Name this bookmark</div>
+      <div style="margin-top:8px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Page 152 on its own says where. A name says why you stopped there.</div>
+      <div style="margin-top:16px;font-size:12px;color:${c.fgSubtle}">Name</div>
+      <div style="margin-top:6px;height:44px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+        <span style="font-size:15px;color:${c.fg}">Anchors</span>
+      </div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+          <span style="font-size:14px;font-weight:500;color:${c.fg}">Cancel</span>
+        </div>
+        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary}">
+          <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Save</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>`,
@@ -1420,13 +1653,15 @@ function readerSelection() {
   ${folio(142)}
 
   <div style="position:absolute;left:0;right:0;bottom:196px;display:flex;justify-content:center">
-    <div style="display:flex;gap:4px;padding:4px 6px;border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border}">
-      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:${R}">
-        ${icon('copy', 15, c.fg)}<span style="font-size:14px;color:${c.fg}">Copy</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:${R}">
-        ${icon('search', 15, c.fg)}<span style="font-size:14px;color:${c.fg}">Find</span>
-      </div>
+    <div style="display:flex;gap:2px;padding:4px 6px;border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border}">
+      ${['copy:Copy', 'highlighter:Keep', 'notebookPen:Note', 'search:Find']
+        .map((pair) => {
+          const [glyph, label] = pair.split(':');
+          return `<div style="display:flex;align-items:center;gap:5px;padding:8px 10px;border-radius:${R}">
+        ${icon(glyph, 15, c.fg)}<span style="font-size:14px;white-space:nowrap;color:${c.fg}">${label}</span>
+      </div>`;
+        })
+        .join('')}
     </div>
   </div>
 
@@ -1600,7 +1835,10 @@ function readerAnatomy() {
         ${state('fileX', 'Failed', 'A flat state with a way out, not a blank screen and a log line.')}
       </div>
 
-      <div style="margin-top:28px">${label('Where the page comes from')}</div>
+      <div style="margin-top:26px">${label('What is over the page')}</div>
+      <div style="margin-top:12px;font-size:12.5px;line-height:19px;color:${c.fgMuted}" class="pretty">One <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:${c.fg}">activeOverlay</span>, not a boolean per sheet. Nine independent flags meant two sheets could be open at once and every hand-off between them had to be remembered; a single value makes that impossible instead of careful.</div>
+
+      <div style="margin-top:26px">${label('Where the page comes from')}</div>
       <div style="margin-top:12px;font-size:12.5px;line-height:19px;color:${c.fgMuted}" class="pretty">Documents/library/&lt;profile&gt;/&lt;document&gt;.pdf, straight into the renderer. Convex is never asked for a file to open one, which is why a 600-page textbook opens in airplane mode.</div>
     </div>
   </div>
@@ -1608,13 +1846,15 @@ function readerAnatomy() {
   <div style="margin-top:34px">${label('One way to move the page')}</div>
   <div style="margin-top:6px;max-width:820px;font-size:12.5px;line-height:18px;color:${c.fgMuted}" class="pretty">Contents, find results, the scrubber, the page field and a swipe-to-adjust all call the same function. Five features talking to the renderer directly is five places to fix when a sixth arrives.</div>
   <div style="margin-top:16px;max-width:820px">
-    ${command('goToPage(n)', 'Clamped, pair-snapped in a spread, announced to assistive tech, recorded as deliberate.')}
+    ${command('goToLocation(loc)', 'The primitive. An outline entry, a find hit, a bookmark and a note all speak one { page } — so the app never grows four ways of saying take me there.')}
+    ${command('goToPage(n)', 'goToLocation({ page: n }), kept for the callers that only have a number. Clamped, pair-snapped in a spread, announced to assistive tech, recorded as deliberate.')}
     ${command('nextPage() / previousPage()', 'One page, or two when two are on screen. What a swipe-to-adjust routes to.')}
     ${command('setMode(mode)', 'Remounts the canvas and restores the page. Syncs to the document.')}
     ${command('setFit(policy)', 'Offered only in continuous; the other two modes size the page themselves.')}
-    ${command('resetZoom()', 'Back to fit. A scale prop, because the ref exposes setPage and nothing else.')}
+    ${command('toggleBookmark()', 'Marks or unmarks the page on screen. Optimistic, because the icon filling half a second after the tap reads as a miss.')}
     ${command('toggleControls()', 'What a tap on the page does, and what pinching in and back out does.')}
-    ${command('openContents() / openSearch() / openPageJump()', 'Three sheets, all landing back on goToPage.')}
+    ${command('openNavigator(segment)', 'Contents, Bookmarks, Notes or Pages — one sheet, four answers to one question, all landing back on goToLocation.')}
+    ${command('openSearch() / openPageJump()', 'The find bar over the chrome, and the field that takes a page number.')}
     ${command('closeReader()', 'Leaving writes the position, releases the wake lock and returns to portrait.')}
   </div>
 </div>`,
@@ -2172,6 +2412,11 @@ const out = {
   'ReaderLink.dc.html': readerLink(),
   'ReaderFind.dc.html': readerFind(),
   'ReaderBookmarks.dc.html': readerBookmarks(),
+  'ReaderNotes.dc.html': readerNotes(),
+  'ReaderNotesEmpty.dc.html': readerNotesEmpty(),
+  'ReaderThumbnails.dc.html': readerThumbnails(),
+  'ReaderNoteCompose.dc.html': readerNoteCompose(),
+  'ReaderBookmarkName.dc.html': readerBookmarkName(),
   'ReaderTint.dc.html': readerTint(),
   'ReaderSelection.dc.html': readerSelection(),
   'ReaderSpread.dc.html': readerSpread(),
@@ -2228,6 +2473,11 @@ const canvas = {
     { file: 'ReaderBookmarks.dc.html', title: 'Reader — the pages you marked', x: 490, y: 10332, w: 390, h: 844 },
     { file: 'ReaderTint.dc.html', title: 'Reader — a layer over the page', x: 980, y: 10332, w: 390, h: 844 },
     { file: 'ReaderSelection.dc.html', title: 'Reader — text you selected', x: 1470, y: 10332, w: 390, h: 844 },
+    { file: 'ReaderNotes.dc.html', title: 'Reader — passages and notes you kept', x: 0, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderNotesEmpty.dc.html', title: 'Reader — nothing kept yet', x: 490, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderThumbnails.dc.html', title: 'Reader — every page at once', x: 980, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderNoteCompose.dc.html', title: 'Reader — writing a note', x: 1470, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderBookmarkName.dc.html', title: 'Reader — naming a bookmark', x: 1960, y: 11296, w: 390, h: 844 },
     { file: 'ReaderAnatomy.dc.html', title: 'Reader — chrome, lifecycle, commands', x: 0, y: 9032, w: 900, h: 1180 },
     { file: 'ReaderSpread.dc.html', title: 'Reader — two pages, landscape', x: 1000, y: 9032, w: 1024, h: 768 },
   ],
@@ -2238,6 +2488,8 @@ const canvas = {
     { id: 'note-text', x: 2940, y: 6114, w: 380, text: 'Searching inside a document reads the copy in your account, not the file on this phone \u2014 it is the one thing the server can see. A local-only document is absent from these results and says so.' },
     { id: 'note-find', x: 0, y: 10182, w: 880, text: 'Finding inside a document is the search that already existed, asked a narrower question.\nThe page text is extracted for every synced document and mirrored into the phone\u2019s own index, and both were already scoped by document \u2014 so find works with no connection, and the reader never leaves the page to use it.' },
     { id: 'note-reader', x: 0, y: 7918, w: 880, text: 'The renderer owns the page; the app owns everything around it.\nZoom, panning and page rendering are native and are left alone — a second zoom engine over a renderer that already has one is two gesture recognisers fighting. What React Native adds is the chrome, the modes, and one goToPage every feature calls.' },
+    { id: 'note-kept', x: 0, y: 11146, w: 880, text: 'A kept passage is not drawn on the page, and the design does not pretend it is.\nreact-native-pdf reports selected text and no rectangles \u2014 onPageSingleTap hands back where a finger touched the view, not where the words sit on the page. There is nothing to anchor a highlight to, so the mark lives in this list instead. The schema keeps an optional rect for the day a renderer supplies one.' },
+    { id: 'note-pages', x: 980, y: 11146, w: 380, text: 'Every cell is a live renderer, not a cached image \u2014 nothing turns a PDF page into a bitmap on React Native 0.86, so the viewer that is already here draws them. The grid holds nine at a time and recycles the rest; past 1,200 pages the segment is absent rather than slow.' },
     { id: 'note-covers', x: 1960, y: 2360, w: 300, text: 'No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library.' },
   ],
   launch: { view: 'canvas' },

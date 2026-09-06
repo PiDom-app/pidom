@@ -353,6 +353,46 @@
       "h": 844
     },
     {
+      "file": "ReaderNotes.dc.html",
+      "title": "Reader — passages and notes you kept",
+      "x": 0,
+      "y": 11296,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderNotesEmpty.dc.html",
+      "title": "Reader — nothing kept yet",
+      "x": 490,
+      "y": 11296,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderThumbnails.dc.html",
+      "title": "Reader — every page at once",
+      "x": 980,
+      "y": 11296,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderNoteCompose.dc.html",
+      "title": "Reader — writing a note",
+      "x": 1470,
+      "y": 11296,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderBookmarkName.dc.html",
+      "title": "Reader — naming a bookmark",
+      "x": 1960,
+      "y": 11296,
+      "w": 390,
+      "h": 844
+    },
+    {
       "file": "ReaderAnatomy.dc.html",
       "title": "Reader — chrome, lifecycle, commands",
       "x": 0,
@@ -411,6 +451,20 @@
       "y": 7918,
       "w": 880,
       "text": "The renderer owns the page; the app owns everything around it.\nZoom, panning and page rendering are native and are left alone — a second zoom engine over a renderer that already has one is two gesture recognisers fighting. What React Native adds is the chrome, the modes, and one goToPage every feature calls."
+    },
+    {
+      "id": "note-kept",
+      "x": 0,
+      "y": 11146,
+      "w": 880,
+      "text": "A kept passage is not drawn on the page, and the design does not pretend it is.\nreact-native-pdf reports selected text and no rectangles — onPageSingleTap hands back where a finger touched the view, not where the words sit on the page. There is nothing to anchor a highlight to, so the mark lives in this list instead. The schema keeps an optional rect for the day a renderer supplies one."
+    },
+    {
+      "id": "note-pages",
+      "x": 980,
+      "y": 11146,
+      "w": 380,
+      "text": "Every cell is a live renderer, not a cached image — nothing turns a PDF page into a bitmap on React Native 0.86, so the viewer that is already here draws them. The grid holds nine at a time and recycles the rest; past 1,200 pages the segment is absent rather than slow."
     },
     {
       "id": "note-covers",

@@ -43,17 +43,16 @@ export function ReaderChrome({
   title,
   page,
   pageCount,
-  hasOutline,
   canSearch,
   onBack,
-  onContents,
+  onNavigator,
   onSearch,
   isBookmarked,
   onToggleBookmark,
   onMore,
   onScrubTo,
   onOpenJump,
-  onOpenModes,
+  onOpenSettings,
   onStep,
   outline,
   uri,
@@ -65,10 +64,10 @@ export function ReaderChrome({
   page: number;
   /** `null` until the renderer has counted. The bar says `Page 4` until then. */
   pageCount: number | null;
-  hasOutline: boolean;
   canSearch: boolean;
   onBack: () => void;
-  onContents: () => void;
+  /** Contents, Bookmarks, Notes and Pages, all behind one button. */
+  onNavigator: () => void;
   onSearch: () => void;
   /** Whether the page currently on screen is one of the marked ones. */
   isBookmarked: boolean;
@@ -77,7 +76,7 @@ export function ReaderChrome({
   /** Committed on release, never during the drag. */
   onScrubTo: (page: number) => void;
   onOpenJump: () => void;
-  onOpenModes: () => void;
+  onOpenSettings: () => void;
   /** `+1` / `-1`, for the assistive-technology adjust actions on the track. */
   onStep: (by: 1 | -1) => void;
   /** Chapter starts, for the ticks and for naming the page under the thumb. */
@@ -131,17 +130,21 @@ export function ReaderChrome({
             {title}
           </Text>
 
-          {/* Only when the PDF actually declares one. A Contents button that
-              opens an empty sheet is a button that lies. */}
-          {hasOutline ? (
-            <Pressable
-              onPress={onContents}
-              accessibilityRole="button"
-              accessibilityLabel="Contents"
-              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
-              <Icon as={ListTree} size="lg" className="text-foreground" />
-            </Pressable>
-          ) : null}
+          {/* Always offered. It used to appear only when the PDF declared an
+              outline, on the reasoning that a Contents button opening an empty
+              sheet is a button that lies — but the sheet also holds the
+              bookmarks, and most PDFs declare no outline. So on most documents
+              a reader could mark a page from this very toolbar and then have no
+              way left to reach the list. Contents is one of four things behind
+              this button now, and an outline the file does not have is an empty
+              state inside it. */}
+          <Pressable
+            onPress={onNavigator}
+            accessibilityRole="button"
+            accessibilityLabel="Contents, bookmarks and notes"
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            <Icon as={ListTree} size="lg" className="text-foreground" />
+          </Pressable>
 
           {/* Searching inside reads the copy in the account, so a document
               that was never synced has nothing to search and says so by not
@@ -200,7 +203,7 @@ export function ReaderChrome({
             theme={theme}
             onScrubTo={onScrubTo}
             onOpenJump={onOpenJump}
-            onOpenModes={onOpenModes}
+            onOpenSettings={onOpenSettings}
             onStep={onStep}
           />
         </VStack>

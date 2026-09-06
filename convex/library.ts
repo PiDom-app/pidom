@@ -2,6 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from 'convex/serve
 import { ConvexError, v } from 'convex/values';
 
 import { internalMutation, mutation, query, type MutationCtx } from './_generated/server';
+import * as Annotations from './model/annotations';
 import { requireUser } from './model/auth';
 import * as Library from './model/library';
 import * as Processing from './model/processing';
@@ -376,6 +377,54 @@ export const setProcessed = mutation({
 });
 
 /**
+ * Records a table of contents the *reader* found, without touching anything else.
+ *
+ * Deliberately not `setProcessed`, which is the probe's call and writes the
+ * processing state beside the outline. The reader is in no position to judge
+ * that state — it has rendered the document, which says nothing about whether a
+ * cover was ever made — so a document sitting at `partial` for want of a cover
+ * would be promoted to `ready` by somebody opening it.
+ *
+ * It exists because the renderer hands `tableContents` back on every load and
+ * the reader used to drop it. The outline was read once, at import, so a
+ * document imported before outlines existed, or one whose probe failed, had a
+ * Contents list in its file that this app would never see however many times it
+ * was opened.
+ *
+ * Same bucket as `setProcessed`: it is the same write, from a different caller.
+ * The entries are client-supplied data out of a file Pidom did not write, so
+ * they go through the identical bounds — `setOutline` caps the count, cleans
+ * every title and clamps every page against the document's own `pageCount`.
+ */
+export const recordOutline = mutation({
+  args: {
+    documentId: v.id('documents'),
+    outline: v.array(Processing.outlineEntryValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'setProcessed');
+
+    if (args.outline.length > OUTLINE_ENTRY_MAX) {
+      throw new ConvexError({
+        code: 'INVALID',
+        message: `A table of contents is limited to ${OUTLINE_ENTRY_MAX} entries.`,
+      });
+    }
+    // Empty is refused rather than stored. `setOutline` reads an empty array as
+    // "this file has no contents" and deletes the row — which is right when the
+    // probe says it, and wrong here: a load that reported nothing may simply
+    // have been a load of a document whose outline is already recorded.
+    if (args.outline.length === 0) {
+      return null;
+    }
+    await Processing.setOutline(ctx, user, args.documentId, args.outline);
+    return null;
+  },
+});
+
+/**
  * Runs the pipeline again for one document.
  *
  * The device half is the client's to redo — it holds the file — so this is only
@@ -504,6 +553,101 @@ export const removeBookmark = mutation({
     const user = await requireUser(ctx);
     await limit(ctx, user, 'bookmark');
     await Library.removeBookmark(ctx, user, args.documentId, args.currentPage);
+    return null;
+  },
+});
+
+/**
+ * Gives a marked page a name, or clears the one it has.
+ *
+ * Separate from `addBookmark` even though that one also renames, because this
+ * refuses when the page is not marked. Folding them together would make naming
+ * a bookmark a second way of creating one, and the reader's long press would
+ * silently mark a page they only meant to label.
+ */
+export const renameBookmark = mutation({
+  args: {
+    documentId: v.id('documents'),
+    currentPage: v.number(),
+    /** Empty clears the name. The keyboard bounds it at `BOOKMARK_LABEL_MAX`. */
+    label: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'bookmark');
+    await Library.renameBookmark(ctx, user, args.documentId, args.currentPage, args.label);
+    return null;
+  },
+});
+
+/* ── notes ──────────────────────────────────────────────────────────── */
+
+/**
+ * Every passage and note kept in one document, in page order.
+ *
+ * Owner-checked on the document before a row is read, exactly as `bookmarks`
+ * is: an id the caller does not own answers `FORBIDDEN` rather than an empty
+ * list, because an empty list would say the document exists.
+ */
+export const annotations = query({
+  args: { documentId: v.id('documents') },
+  returns: v.array(Annotations.annotationValidator),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    return await Annotations.annotationsFor(ctx, user, args.documentId);
+  },
+});
+
+/**
+ * Keeps a passage, or writes a note against a page.
+ *
+ * `text` is the document's own words, arriving from a selection the renderer
+ * reported. It is bounded and cleaned server-side like every other string here
+ * — a PDF is a file somebody else wrote, and a selection out of one is that
+ * file's bytes coming back through the client.
+ */
+export const addAnnotation = mutation({
+  args: {
+    documentId: v.id('documents'),
+    currentPage: v.number(),
+    kind: v.union(v.literal('passage'), v.literal('note')),
+    text: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  returns: v.id('documentAnnotations'),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'annotation');
+    return await Annotations.add(ctx, user, {
+      documentId: args.documentId,
+      page: args.currentPage,
+      kind: args.kind,
+      ...(args.text === undefined ? {} : { text: args.text }),
+      ...(args.note === undefined ? {} : { note: args.note }),
+    });
+  },
+});
+
+/** Changes what the reader wrote. The kept passage itself is never editable. */
+export const updateAnnotation = mutation({
+  args: { annotationId: v.id('documentAnnotations'), note: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'annotation');
+    await Annotations.update(ctx, user, args.annotationId, args.note);
+    return null;
+  },
+});
+
+export const removeAnnotation = mutation({
+  args: { annotationId: v.id('documentAnnotations') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'annotation');
+    await Annotations.remove(ctx, user, args.annotationId);
     return null;
   },
 });

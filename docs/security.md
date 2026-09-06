@@ -198,7 +198,42 @@ rebuilt, never the string the document supplied.
 
 Selected text is document content, so it is bounded by `PAGE_TEXT_MAX` — the
 same number a page of extracted text gets — before it reaches the clipboard, and
-it is never logged, not even its length. `enableTextSelection` had been on the
+it is never logged, not even its length. A **kept** passage takes the tighter
+bound, `ANNOTATION_TEXT_MAX` at a quarter of it: a clipboard holds a page for a
+moment and a row in a list holds one until somebody deletes it. The server
+re-checks both, because a client bound is a convenience and not a control.
+
+A note is the same content by a different route, and `documentAnnotations`
+carries it under the rules every other owned table follows: the client never
+names an owner, every read is owner-checked on the *document* before a row is
+touched — so an id the caller does not own answers `FORBIDDEN` rather than an
+empty list, which would have said the document exists — and a write that names
+an annotation checks the annotation **and** the document behind it, so a row
+cannot outlive the ownership it was created under. Writes spend a token bucket
+of their own, and the per-document ceiling in `limits.ts` is the harder bound
+the bucket exists to keep anybody from reaching quickly.
+
+### A debug probe that shipped
+
+`reader-canvas.tsx` carried a block marked `TEMP DIAGNOSTIC` that ran on every
+load of the two-page mode. It wrote the page count and the first six entries of
+the document's table of contents into `Paths.cache/toc-probe.json` — the
+reader's own document content, in a file nothing ever deleted, on every open. It
+had presumably answered a question about `tableContents` once and then stayed.
+
+It is gone, and the argument it lost to is the one this whole section makes: a
+selection is bounded before it reaches a clipboard and never logged, and an
+outline is the same file's words. Nothing about a diagnostic makes the content
+in it different content.
+
+The fourth argument it was printing is now used rather than dumped.
+`library.recordOutline` writes it when the row has none — a document imported
+before outlines existed, or one whose probe failed, had a Contents list in its
+file that this app would never see however many times somebody opened it. It is
+a separate mutation from `setProcessed` deliberately: that one writes the
+processing state beside the outline, and a reader who has rendered a document
+knows nothing about whether a cover was ever made for it, so routing through it
+would promote a `partial` document to `ready` for being opened. `enableTextSelection` had been on the
 whole time as the package's default, which meant iOS readers could already
 select and share text with nothing here knowing; it is now stated rather than
 inherited.

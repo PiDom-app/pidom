@@ -16,10 +16,16 @@ import { VStack } from '@/components/ui/vstack';
 import { COLLECTION_NAME_MAX } from '@convex/model/limits';
 
 /**
- * One text field behind a confirmation. Naming and renaming collections.
+ * One text field behind a confirmation. Naming collections, and bookmarks.
  *
- * `maxLength` is the server's own constant, so the keyboard stops a long name
- * rather than a round trip coming back as an error.
+ * `maxLength` is always the server's own constant, so the keyboard stops a long
+ * name rather than a round trip coming back as an error. It is a prop because
+ * the two callers have different ceilings, not because it is a style choice.
+ *
+ * `allowEmpty` is the difference between naming a thing and renaming one. A
+ * collection has to be called something. A bookmark does not — clearing the box
+ * and saving is how a reader takes a name back off one, and the server reads an
+ * empty string as exactly that.
  */
 export function NameDialog({
   isOpen,
@@ -27,6 +33,8 @@ export function NameDialog({
   label,
   placeholder,
   initialValue = '',
+  maxLength = COLLECTION_NAME_MAX,
+  allowEmpty = false,
   onClose,
   onSubmit,
 }: {
@@ -35,6 +43,10 @@ export function NameDialog({
   label: string;
   placeholder?: string;
   initialValue?: string;
+  /** The server's bound for this field, so the keyboard enforces it. */
+  maxLength?: number;
+  /** Whether an empty value is a save rather than a disabled button. */
+  allowEmpty?: boolean;
   onClose: () => void;
   onSubmit: (value: string) => Promise<boolean>;
 }) {
@@ -47,7 +59,7 @@ export function NameDialog({
     }
   }, [isOpen, initialValue]);
 
-  const canSave = value.trim() !== '' && !saving;
+  const canSave = (allowEmpty || value.trim() !== '') && !saving;
 
   async function save() {
     if (!canSave) {
@@ -82,7 +94,7 @@ export function NameDialog({
               <InputField
                 value={value}
                 onChangeText={setValue}
-                maxLength={COLLECTION_NAME_MAX}
+                maxLength={maxLength}
                 autoFocus
                 placeholder={placeholder}
                 onSubmitEditing={() => void save()}
