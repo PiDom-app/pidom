@@ -195,7 +195,17 @@ export function ReaderCanvas({
           onError={onError}
           // Only the left pane reports position. Two renderers answering the
           // same question is two answers to reconcile for no extra information.
-          onLoadComplete={(count) => onLoadComplete(count)}
+          onLoadComplete={(count, _p, _sz, toc) => {
+            // TEMP DIAGNOSTIC
+            void (async () => {
+              const FS = await import('expo-file-system');
+              const f = new FS.File(FS.Paths.cache, 'toc-probe.json');
+              try { f.delete(); } catch {}
+              f.create({ overwrite: true, intermediates: true });
+              f.write(JSON.stringify({ count, toc: (toc ?? []).slice(0, 6) }));
+            })();
+            onLoadComplete(count);
+          }}
           onPageChanged={(current) => onPageChanged(current)}
           onLoadProgress={onLoadProgress}
           style={style}

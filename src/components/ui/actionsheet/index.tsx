@@ -63,15 +63,22 @@ export const UIActionsheet = createActionsheet({
 });
 
 const actionsheetStyle = tva({
-  // `justify-end` is what makes this a *bottom* sheet. A full-height flex column
-  // with no justification starts at `flex-start`, so the content was rendering
-  // against the top of the screen — see `alert-dialog`, which says
-  // `justify-center` for exactly the same reason.
-  base: 'w-full h-full justify-end items-center web:pointer-events-none',
+  // Deliberately no `justify-*`. Unlike `alert-dialog`, this overlay does not
+  // position its content with flex: the creator wraps the sheet in a
+  // full-height `Animated.View` and slides it down by
+  // `containerHeight - sheetHeight`, so the sheet is already pinned to the
+  // bottom by a transform. A `justify-end` here would be a no-op at best —
+  // the wrapper fills the overlay, so there is no free space to justify.
+  base: 'w-full h-full web:pointer-events-none',
 });
 
 const actionsheetContentStyle = tva({
-  base: 'items-center rounded-t-lg p-4 bg-background web:pointer-events-auto web:select-none border-t border-border dark:border-border/10 max-h-[80vh] pb-safe',
+  // `w-full` is load-bearing. The sheet is the one child of the creator's
+  // wrapper that declares no width, and `items-center` below centres whatever
+  // it contains — so without an explicit width every row inside shrink-wraps
+  // to its own content and a `flex-1` label (flex-basis 0) measures to nothing.
+  // That is what collapsed the Contents list to a column of ellipses.
+  base: 'w-full items-center rounded-t-lg p-4 bg-background web:pointer-events-auto web:select-none border-t border-border dark:border-border/10 max-h-[80vh] pb-safe',
 });
 
 const actionsheetItemStyle = tva({
@@ -235,14 +242,13 @@ const ActionsheetContent = React.forwardRef<
   IActionsheetContentProps
 >(function ActionsheetContent({ className, ...props }, ref) {
   return (
+    // No `initial` / `animate` / `exit` here. The creator already gives the
+    // sheet a slide-up — from `windowHeight` to `containerHeight - sheetHeight`
+    // — and it spreads the caller's props *after* its own, so any `animate`
+    // passed from here wins. An `animate={{ y: 0 }}` therefore did not add an
+    // animation, it moved the resting position to the top of the overlay: the
+    // sheet opened against the status bar instead of the bottom of the screen.
     <UIActionsheet.Content
-      // A bottom sheet arrives from the bottom. Without these the content is a
-      // `Motion.View` with nothing to animate, so it simply appeared — and the
-      // backdrop faded around it, which is what made the two look out of step.
-      initial={{ y: 500 }}
-      animate={{ y: 0 }}
-      exit={{ y: 500 }}
-      transition={{ type: 'spring', damping: 20, stiffness: 260 }}
       className={actionsheetContentStyle({
         class: className,
       })}
