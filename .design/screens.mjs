@@ -525,6 +525,16 @@ screens['home-processing'] = (() => {
  * control that reflows into two lines a step up the accessibility scale is
  * worse than one that slides.
  */
+function navHeader(c, { glyph, title, subtitle, trailing }) {
+  let o = rect(0, 0, W, H, c.bg);
+  o += icon('arrowLeft', PAD, 46, 22, c.fg, 2);
+  o += icon(glyph, PAD + 34, 48, 18, c.fgMuted);
+  o += text(PAD + 62, 55, title, { size: 15, fill: c.fg, weight: 600 });
+  o += text(PAD + 62, 75, subtitle, { size: 12, fill: c.fgSubtle });
+  o += text(W - PAD, 55, trailing, { size: 12, fill: c.fgSubtle, anchor: 'end' });
+  return o;
+}
+
 function navTabs(c, active, y, { bookmarks = 0, notes = 0 } = {}) {
   const labels = [
     ['contents', 'Contents'],
@@ -554,28 +564,16 @@ screens['contents'] = (() => {
     ['Anchors', 152, 1], ['The Science of Availability', 168, 1],
     ['Part III · Overconfidence', 235, 0],
   ];
-  const sheetH = 26 + 62 + 50 + entries.length * 44 + 28;
-  const top = H - sheetH;
+  // A screen. It was a sheet, and a sheet as tall as its content moved the
+  // segmented control every time the segment changed — see build.mjs.
+  let o = navHeader(c, {
+    glyph: 'listTree',
+    title: 'Contents',
+    subtitle: d.t,
+    trailing: '38 entries',
+  });
 
-  // The page underneath, dimmed by the backdrop the sheet carries.
-  let o = rect(0, 0, W, H, c.page);
-  o += text(40, 84, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.1 });
-  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
-  for (let i = 0; i < 14; i++) {
-    o += rect(40, 142 + i * 14, (i % 7 === 6 ? 160 : W - 80), 2, c.pageRule, 1);
-  }
-  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
-
-  o += rect(0, top, W, sheetH, c.elevated, R);
-  o += rect(0, top + sheetH - 12, W, 12, c.elevated);
-  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
-
-  let y = top + 26;
-  o += icon('listTree', PAD, y + 8, 18, c.fgMuted);
-  o += text(PAD + 30, y + 16, 'Contents', { size: 15, fill: c.fg, weight: 600 });
-  o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
-  o += text(W - PAD, y + 16, '38 entries', { size: 12, fill: c.fgSubtle, anchor: 'end' });
-  y += 62;
+  let y = 100;
   o += navTabs(c, 'contents', y, { bookmarks: 5, notes: 3 });
   y += 50;
   o += rect(0, y - 8, W, 1, c.hairline);
@@ -591,6 +589,7 @@ screens['contents'] = (() => {
     });
     o += text(W - PAD, y + 27, String(page), { size: 12, fill: current ? c.primary : c.fgSubtle, anchor: 'end' });
     y += 44;
+    if (y > H) break;
   }
   return svg(o, { bg: c.bg });
 })();
@@ -809,28 +808,11 @@ screens['reader-notes'] = (() => {
     [null, 'The small-numbers argument starts here, not in the chapter named after it.', 142],
     ['“…an anchoring index of 55%, which is about what most of these experiments produce.”', null, 152],
   ];
-  const rowH = (quote, note) => (quote && note ? 76 : quote ? 58 : 58);
-  const sheetH = 26 + 62 + 50 + rows.reduce((n, [q, note]) => n + rowH(q, note), 0) + 28;
-  const top = H - sheetH;
+  const rowH = (quote, note) => (quote && note ? 78 : 60);
 
-  let o = rect(0, 0, W, H, c.page);
-  o += text(40, 84, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.1 });
-  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
-  for (let i = 0; i < 14; i++) {
-    o += rect(40, 142 + i * 14, (i % 7 === 6 ? 160 : W - 80), 2, c.pageRule, 1);
-  }
-  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
+  let o = navHeader(c, { glyph: 'highlighter', title: 'Notes', subtitle: d.t, trailing: '3' });
 
-  o += rect(0, top, W, sheetH, c.elevated, R);
-  o += rect(0, top + sheetH - 12, W, 12, c.elevated);
-  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
-
-  let y = top + 26;
-  o += icon('highlighter', PAD, y + 8, 18, c.fgMuted);
-  o += text(PAD + 30, y + 16, 'Notes', { size: 15, fill: c.fg, weight: 600 });
-  o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
-  o += text(W - PAD, y + 16, '3', { size: 12, fill: c.fgSubtle, anchor: 'end' });
-  y += 62;
+  let y = 100;
   o += navTabs(c, 'notes', y, { bookmarks: 5, notes: 3 });
   y += 50;
   o += rect(0, y - 8, W, 1, c.hairline);
@@ -838,20 +820,26 @@ screens['reader-notes'] = (() => {
   for (const [quote, note, page] of rows) {
     const h = rowH(quote, note);
     const current = page === 142;
+    // The row is one surface, delete button included. It used to be painted on
+    // the tappable half only, which cut a notch out of the highlight.
     if (current) o += rect(0, y, W, h, c.hover);
-    // The rule down the left is the whole of the mark.
-    o += rect(PAD, y + 14, 2, h - 28, c.primary, 1);
+    // No rule down the left. It stood in for a mark that cannot exist on the
+    // page, and a stripe on every row is a decoration none of them earns — the
+    // quotation marks already say whose words these are.
     const body = quote ?? note;
-    o += block(PAD + 14, y + 26, body, {
+    o += block(PAD, y + 26, body, {
       size: 14, fill: quote ? c.fg : c.fgMuted,
-      width: W - PAD * 2 - 14 - 34, lines: 2, lh: 19,
+      width: W - PAD * 2 - 60, lines: 2, lh: 19,
     });
     if (quote && note) {
-      o += block(PAD + 14, y + 66, note, {
-        size: 12, fill: c.fgSubtle, width: W - PAD * 2 - 14 - 34, lines: 1, lh: 16,
+      o += block(PAD, y + 66, note, {
+        size: 12, fill: c.fgSubtle, width: W - PAD * 2 - 60, lines: 1, lh: 16,
       });
     }
-    o += text(W - PAD, y + 26, String(page), { size: 12, fill: current ? c.primary : c.fgSubtle, anchor: 'end' });
+    o += text(W - PAD - 30, y + 26, String(page), {
+      size: 12, fill: current ? c.primary : c.fgSubtle, anchor: 'end',
+    });
+    o += icon('trash', W - PAD - 16, y + h / 2 - 8, 16, c.fgSubtle);
     y += h;
   }
   return svg(o, { bg: c.bg });
@@ -869,28 +857,15 @@ screens['reader-thumbnails'] = (() => {
   const c = D;
   const d = doc('Thinking,');
   const CW = 98, CH = 139, GAP = 12;
-  const grid = [[140, 141, 142], [143, 144, 145]];
-  const sheetH = 26 + 62 + 50 + 14 + grid.length * (CH + 22) + 14;
-  const top = H - sheetH;
+  const grid = [[140, 141, 142], [143, 144, 145], [146, 147, 148], [149, 150, 151]];
+  let o = navHeader(c, {
+    glyph: 'grid',
+    title: 'Pages',
+    subtitle: d.t,
+    trailing: `142 of ${d.p}`,
+  });
 
-  let o = rect(0, 0, W, H, c.page);
-  o += text(40, 84, 'PART II · HEURISTICS AND BIASES', { size: 9, fill: '#8f8d88', ls: 1.1 });
-  o += text(40, 116, 'The Law of Small Numbers', { size: 15, fill: c.pageInk, weight: 700 });
-  for (let i = 0; i < 14; i++) {
-    o += rect(40, 142 + i * 14, (i % 7 === 6 ? 160 : W - 80), 2, c.pageRule, 1);
-  }
-  o += rect(0, 0, W, H, 'rgba(0,0,0,.62)');
-
-  o += rect(0, top, W, sheetH, c.elevated, R);
-  o += rect(0, top + sheetH - 12, W, 12, c.elevated);
-  o += rect(W / 2 - 18, top + 10, 36, 4, c.borderStrong, 2);
-
-  let y = top + 26;
-  o += icon('grid', PAD, y + 8, 18, c.fgMuted);
-  o += text(PAD + 30, y + 16, 'Pages', { size: 15, fill: c.fg, weight: 600 });
-  o += text(PAD + 30, y + 36, d.t, { size: 12, fill: c.fgSubtle });
-  o += text(W - PAD, y + 16, `142 of ${d.p}`, { size: 12, fill: c.fgSubtle, anchor: 'end' });
-  y += 62;
+  let y = 100;
   o += navTabs(c, 'pages', y, { bookmarks: 5, notes: 3 });
   y += 50;
   o += rect(0, y - 8, W, 1, c.hairline);

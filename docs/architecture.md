@@ -156,6 +156,15 @@ prompt, the link prompt, the selection bar and the document's action sheet stay
 outside it: those are opened by the renderer or by the library, and can
 legitimately sit over one of the others.
 
+**Text selection is iOS only, and that is the renderer rather than a bug here.**
+`react-native-pdf`'s Android view manager accepts sixteen props and
+`enableTextSelection` is not among them; there is no selection code in its
+Android sources at all, so the prop is silently ignored and a long press on a
+page does nothing. The iOS side is PDFKit and does support it. That is why
+keeping a passage is an iOS path and writing a note is on both — the capability
+does not exist on one platform, and a feature reachable on half the installs
+would be worse than one that is honest about where the words come from.
+
 A mode change **remounts** the canvas rather than changing props on it. Layout
 props reach the native view directly, and an Android `PdfView` is not built to
 reflow from scrolling to paged in place; a reload on an explicit menu tap is the
@@ -230,21 +239,39 @@ optimistic update, which bookmarks do not: a bookmark's feedback is an icon that
 fills before a thumb leaves the glass, while a kept passage puts a row in a list
 the reader is about to open.
 
-**Contents, Bookmarks, Notes and Pages share one sheet**, because they answer the
-same question — where in this document do I want to be. That sheet used to be
-gated on the document declaring an outline, on both of its entry points, and
-most PDFs declare none: a reader could mark a page from the toolbar, watch the
-icon fill, and have no way left to reach the list. Contents is one of four
-segments now, and an outline the file does not have is an empty state rather
-than a locked door.
+**Contents, Bookmarks, Notes and Pages share one screen**, because they answer
+the same question — where in this document do I want to be. It used to be gated
+on the document declaring an outline, on both of its entry points, and most PDFs
+declare none: a reader could mark a page from the toolbar, watch the icon fill,
+and have no way left to reach the list. Contents is one of four segments now,
+and an outline the file does not have is an empty state rather than a locked
+door.
 
-**Pages is the document as pictures**, three columns of live single-page
-renderers — the same `PagePreview` the scrubber mounts under a finger, because
-nothing turns a PDF page into a bitmap on React Native 0.86. That is why the
-grid is virtualised rather than mapped: a screen holds nine of these and the list
-recycles the rest, and four hundred mounted at once is four hundred native
-document handles. Past `THUMBNAIL_PAGE_MAX` the segment is absent rather than
-slow, and the scrubber still reaches any page in one drag.
+**A screen and not a sheet**, and that was learned on a device. It was an
+`Actionsheet`, which is as tall as its content — so moving from Contents (355
+rows) to Bookmarks (one row) shrank it by two thirds, the segmented control
+moved down with it, and the next tap landed on the backdrop and dismissed the
+whole thing. A control must not hang off a box whose height is the reader's
+data. Pushing costs nothing here: the stack keeps the reader mounted
+underneath, so going back is not reopening a 400-page document, and a screen
+cannot return a value so the chosen page is left in `reader-store` and picked up
+on focus.
+
+Writing a note is a screen for the same reason plus one: a dialog holding a
+keyboard on a phone is a box with four visible lines in it, and a note is prose.
+What is left as a sheet is the short fixed lists — a page number, three reading
+modes, four settings — where the height never surprises anybody.
+
+**Pages is the document as pictures**, three columns, and the cells are **images
+rather than renderers**. They were renderers first, one `<Pdf singlePage>` per
+cell, which is nine native document handles over the same file for one screen:
+measured on a device that took eight seconds to paint and every scroll paid it
+again. A page is now rendered once by a single off-screen viewer into
+`library/<profile>/pages/<document>/<n>.jpg` and read back with `expo-image`, so
+the same screen fills in about two seconds and the second visit is immediate.
+Only what is on screen is ever rendered, so a 433-page book costs the dozen
+pages somebody actually looked at. Past `THUMBNAIL_PAGE_MAX` the segment is
+absent rather than slow, and the scrubber still reaches any page in one drag.
 
 **Selection was already on.** `enableTextSelection` defaults to `true` in
 `react-native-pdf`, so an iOS reader could select text and reach the system menu

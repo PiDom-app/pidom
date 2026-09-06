@@ -1290,13 +1290,21 @@ function navTabs(c, active, { bookmarks = 0, notes = 0 } = {}) {
     </div>`;
 }
 
-/** The navigator's shell: the drag handle, the heading, the segments, the rule. */
-function navigatorSheet(c, { glyph, title, subtitle, trailing = '', active, counts, body }) {
-  return `<div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding-bottom:28px">
-    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
-    <div style="display:flex;align-items:center;gap:12px;padding:10px ${PAD}px 14px">
-      ${icon(glyph, 18, c.fgMuted)}
-      <div style="flex:1;min-width:0">
+/**
+ * The navigator's shell — a **screen**, not a sheet.
+ *
+ * It was a sheet, and using it on a device showed why that was wrong: a sheet is
+ * as tall as its content, so moving from Contents (355 rows) to Bookmarks (one
+ * row) shrank it by two thirds and took the segmented control down with it. The
+ * next tap landed on the backdrop and dismissed the whole thing. A control does
+ * not hang off a box whose height is the reader's data.
+ */
+function navigatorPage(c, { glyph, title, subtitle, trailing = '', active, counts, body }) {
+  return `<div style="position:absolute;inset:0;background:${c.bg}">
+    <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px">
+      ${icon('arrowLeft', 22, c.fg, 2)}
+      <div style="margin-left:10px;flex:0 0 auto">${icon(glyph, 18, c.fgMuted)}</div>
+      <div style="flex:1;min-width:0;margin-left:10px">
         <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">${title}</div>
         <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>
       </div>
@@ -1332,9 +1340,8 @@ function readerBookmarks() {
 
   return dc({
     w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
-  ${dimmedPage()}
-  ${navigatorSheet(c, {
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${navigatorPage(c, {
     glyph: 'bookmark', title: 'Bookmarks', subtitle: doc.t,
     trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">5</span>`,
     active: 'bookmarks', counts: { bookmarks: 5, notes: 3 },
@@ -1382,9 +1389,8 @@ function readerNotes() {
 
   return dc({
     w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
-  ${dimmedPage()}
-  ${navigatorSheet(c, {
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${navigatorPage(c, {
     glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
     trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">3</span>`,
     active: 'notes', counts: { bookmarks: 5, notes: 3 },
@@ -1411,9 +1417,8 @@ function readerNotesEmpty() {
 
   return dc({
     w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
-  ${dimmedPage()}
-  ${navigatorSheet(c, {
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${navigatorPage(c, {
     glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
     active: 'notes', counts: { bookmarks: 5, notes: 0 },
     body: `<div style="padding:44px ${PAD}px 24px;text-align:center">
@@ -1463,9 +1468,8 @@ function readerThumbnails() {
 
   return dc({
     w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
-  ${dimmedPage()}
-  ${navigatorSheet(c, {
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${navigatorPage(c, {
     glyph: 'grid', title: 'Pages', subtitle: doc.t,
     trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">142 of ${doc.p}</span>`,
     active: 'pages', counts: { bookmarks: 5, notes: 3 },
@@ -1481,38 +1485,43 @@ function readerThumbnails() {
 /**
  * Writing a note.
  *
- * The passage sits above the field, quoted and uneditable: the document's words
- * and the reader's are different things and a single box would blur them. When
- * the note is written from the overflow rather than from a selection — which is
- * the whole of the Android path, since that renderer has no selection — the
- * quote is absent and the page number is the anchor.
+ * A **screen**, not a dialog. A dialog holding a keyboard on a phone is a box
+ * with about four visible lines in it, and a note is prose — so the field gets
+ * the room, and Keep sits in the header where a screen's primary action goes.
+ *
+ * The passage is shown and is not editable: `text` is the document's own words,
+ * and a field that let a reader rewrite them would turn a quotation into a
+ * paraphrase nothing downstream could tell apart from one. When the note is
+ * written from the overflow rather than from a selection — which is the whole
+ * of the Android path, since that renderer has no selection — the quote is
+ * absent and the page number is the anchor.
  */
 function readerNoteCompose() {
   const c = DARK;
   return dc({
     w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
-  ${dimmedPage()}
-  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 ${PAD}px">
-    <div style="border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border};padding:20px">
-      <div style="font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">Write a note</div>
-      <div style="margin-top:4px;font-size:13px;color:${c.fgSubtle}" class="tnum">Page 142</div>
-      <div style="margin-top:14px;display:flex;gap:10px">
-        <div style="width:2px;border-radius:1px;background:${c.borderStrong};flex:0 0 auto"></div>
-        <div style="flex:1;font-size:13px;line-height:18px;color:${c.fgMuted}" class="c2 pretty">&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;</div>
-      </div>
-      <div style="margin-top:14px;font-size:12px;color:${c.fgSubtle}">Note</div>
-      <div style="margin-top:6px;min-height:88px;padding:11px 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
-        <span style="font-size:15px;line-height:21px;color:${c.fg}">His own summary. Quote this one.</span>
-      </div>
-      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
-        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
-          <span style="font-size:14px;font-weight:500;color:${c.fg}">Cancel</span>
-        </div>
-        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary}">
-          <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Keep</span>
-        </div>
-      </div>
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <div style="flex:1;min-width:0;margin-left:10px">
+      <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Write a note</div>
+      <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}" class="tnum">Page 142</div>
+    </div>
+    <div style="height:34px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary};flex:0 0 auto">
+      <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Keep</span>
+    </div>
+  </div>
+
+  <div style="padding:8px ${PAD}px 0">
+    <div style="font-size:12px;color:${c.fgSubtle}">From the page</div>
+    <div style="margin-top:8px;display:flex;gap:10px">
+      <div style="width:2px;border-radius:1px;background:${c.borderStrong};flex:0 0 auto"></div>
+      <div style="flex:1;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;</div>
+    </div>
+
+    <div style="margin-top:20px;font-size:12px;color:${c.fgSubtle}">Note</div>
+    <div style="margin-top:8px;min-height:160px;padding:11px 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+      <span style="font-size:15px;line-height:22px;color:${c.fg}">His own summary. Quote this one.</span>
     </div>
   </div>
 </div>`,
@@ -1522,47 +1531,38 @@ function readerNoteCompose() {
 /**
  * Naming a bookmark.
  *
- * The same dialog `NameDialog` gives a collection, because it is the same act.
- * `maxLength` is `BOOKMARK_LABEL_MAX` so the keyboard stops a long name rather
- * than a round trip coming back as an error.
+ * The same screen, with one line instead of several. `maxLength` is
+ * `BOOKMARK_LABEL_MAX` so the keyboard stops a long name rather than a round
+ * trip coming back as an error, and clearing the field is how a reader takes a
+ * name back off — which is the line under it.
  */
 function readerBookmarkName() {
   const c = DARK;
   return dc({
     w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
-  ${dimmedPage()}
-  <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 ${PAD}px">
-    <div style="border-radius:${R};background:${c.elevated};box-shadow:inset 0 0 0 1px ${c.border};padding:20px">
-      <div style="font-size:17px;font-weight:700;letter-spacing:-.015em;color:${c.fg}">Name this bookmark</div>
-      <div style="margin-top:8px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Page 152 on its own says where. A name says why you stopped there.</div>
-      <div style="margin-top:16px;font-size:12px;color:${c.fgSubtle}">Name</div>
-      <div style="margin-top:6px;height:44px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
-        <span style="font-size:15px;color:${c.fg}">Anchors</span>
-      </div>
-      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
-        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
-          <span style="font-size:14px;font-weight:500;color:${c.fg}">Cancel</span>
-        </div>
-        <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary}">
-          <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Save</span>
-        </div>
-      </div>
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <div style="flex:1;min-width:0;margin-left:10px">
+      <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Name this bookmark</div>
+      <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}" class="tnum">Page 152</div>
     </div>
+    <div style="height:34px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary};flex:0 0 auto">
+      <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Save</span>
+    </div>
+  </div>
+
+  <div style="padding:8px ${PAD}px 0">
+    <div style="font-size:12px;color:${c.fgSubtle}">Name</div>
+    <div style="margin-top:8px;height:44px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
+      <span style="font-size:15px;color:${c.fg}">Anchors</span>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:${c.fgSubtle}">Clearing this takes the name off again.</div>
   </div>
 </div>`,
   });
 }
 
-/**
- * A layer over the page.
- *
- * Not an inversion. `react-native-pdf` cannot invert a page, and a dark reading
- * treatment is a different feature from a dark application — so the switch is
- * phrased the right way round: on means the document renders as it was
- * authored, and turning it off is a reader deciding they would rather have a
- * dimmer page than a faithful one.
- */
 function readerTint() {
   const c = DARK;
   const doc = byTitle('Thinking,');
@@ -2470,12 +2470,12 @@ const canvas = {
     { file: 'ReaderFailed.dc.html', title: 'Reader — this file will not open', x: 3920, y: 8068, w: 390, h: 844 },
     { file: 'ReaderLink.dc.html', title: 'Reader — a link in the document', x: 4410, y: 8068, w: 390, h: 844 },
     { file: 'ReaderFind.dc.html', title: 'Reader — find in this document', x: 0, y: 10332, w: 390, h: 844 },
-    { file: 'ReaderBookmarks.dc.html', title: 'Reader — the pages you marked', x: 490, y: 10332, w: 390, h: 844 },
+    { file: 'ReaderBookmarks.dc.html', title: 'Navigator — the pages you marked', x: 490, y: 10332, w: 390, h: 844 },
     { file: 'ReaderTint.dc.html', title: 'Reader — a layer over the page', x: 980, y: 10332, w: 390, h: 844 },
     { file: 'ReaderSelection.dc.html', title: 'Reader — text you selected', x: 1470, y: 10332, w: 390, h: 844 },
-    { file: 'ReaderNotes.dc.html', title: 'Reader — passages and notes you kept', x: 0, y: 11296, w: 390, h: 844 },
-    { file: 'ReaderNotesEmpty.dc.html', title: 'Reader — nothing kept yet', x: 490, y: 11296, w: 390, h: 844 },
-    { file: 'ReaderThumbnails.dc.html', title: 'Reader — every page at once', x: 980, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderNotes.dc.html', title: 'Navigator — passages and notes you kept', x: 0, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderNotesEmpty.dc.html', title: 'Navigator — nothing kept yet', x: 490, y: 11296, w: 390, h: 844 },
+    { file: 'ReaderThumbnails.dc.html', title: 'Navigator — every page at once', x: 980, y: 11296, w: 390, h: 844 },
     { file: 'ReaderNoteCompose.dc.html', title: 'Reader — writing a note', x: 1470, y: 11296, w: 390, h: 844 },
     { file: 'ReaderBookmarkName.dc.html', title: 'Reader — naming a bookmark', x: 1960, y: 11296, w: 390, h: 844 },
     { file: 'ReaderAnatomy.dc.html', title: 'Reader — chrome, lifecycle, commands', x: 0, y: 9032, w: 900, h: 1180 },
@@ -2488,8 +2488,8 @@ const canvas = {
     { id: 'note-text', x: 2940, y: 6114, w: 380, text: 'Searching inside a document reads the copy in your account, not the file on this phone \u2014 it is the one thing the server can see. A local-only document is absent from these results and says so.' },
     { id: 'note-find', x: 0, y: 10182, w: 880, text: 'Finding inside a document is the search that already existed, asked a narrower question.\nThe page text is extracted for every synced document and mirrored into the phone\u2019s own index, and both were already scoped by document \u2014 so find works with no connection, and the reader never leaves the page to use it.' },
     { id: 'note-reader', x: 0, y: 7918, w: 880, text: 'The renderer owns the page; the app owns everything around it.\nZoom, panning and page rendering are native and are left alone — a second zoom engine over a renderer that already has one is two gesture recognisers fighting. What React Native adds is the chrome, the modes, and one goToPage every feature calls.' },
-    { id: 'note-kept', x: 0, y: 11146, w: 880, text: 'A kept passage is not drawn on the page, and the design does not pretend it is.\nreact-native-pdf reports selected text and no rectangles \u2014 onPageSingleTap hands back where a finger touched the view, not where the words sit on the page. There is nothing to anchor a highlight to, so the mark lives in this list instead. The schema keeps an optional rect for the day a renderer supplies one.' },
-    { id: 'note-pages', x: 980, y: 11146, w: 380, text: 'Every cell is a live renderer, not a cached image \u2014 nothing turns a PDF page into a bitmap on React Native 0.86, so the viewer that is already here draws them. The grid holds nine at a time and recycles the rest; past 1,200 pages the segment is absent rather than slow.' },
+    { id: 'note-kept', x: 0, y: 11146, w: 880, text: 'Four answers to one question, on a screen rather than in a sheet.\nA sheet is as tall as its content, so moving from Contents (355 rows) to Bookmarks (one) shrank it by two thirds and took the segmented control down with it \u2014 the next tap landed on the backdrop and dismissed it. A control does not hang off a box whose height is the reader\u2019s data.\nAnd nothing is drawn on the page: react-native-pdf reports selected text and no rectangles, so the mark lives in this list where it can be accurate.' },
+    { id: 'note-pages', x: 980, y: 11146, w: 380, text: 'Each cell is an image, not a renderer. Nine live <Pdf> views over one file took eight seconds to paint a screen, measured on a device. A page is rendered once by a single off-screen viewer, kept on disk, and read back \u2014 so the same screen fills in about two seconds and the second visit is immediate. Past 1,200 pages the segment is absent rather than slow.' },
     { id: 'note-covers', x: 1960, y: 2360, w: 300, text: 'No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library.' },
   ],
   launch: { view: 'canvas' },

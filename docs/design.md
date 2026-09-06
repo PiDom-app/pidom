@@ -35,6 +35,24 @@ The type scale needed one addition for the same reason: gluestack's `Text` and
 default scale does not define. `--text-2xs` is now in `global.css` at 10px,
 which is the metadata line under a document tile.
 
+## The bold-text trap
+
+`plugins/with-text-measurement-fix.js` neutralises Android's
+`fontWeightAdjustment`, because React Native measures text with the unadjusted
+typeface and clips whatever the bump adds — "Contents" renders as "Content",
+"Search your library" as "Search your".
+
+Its guard used to be "if the marker is already in `MainActivity.kt`, do
+nothing", which made the override **unupgradable**. The first version of the fix
+used `applyOverrideConfiguration`, that version does not work, and every
+prebuild after it saw its own marker and left it in place — so a device with
+Bold text on kept losing the last word of every label in a build whose source
+contained the working fix. The plugin replaces its own block now.
+
+If labels start losing a character, check
+`adb shell settings get secure font_weight_adjustment` before looking at the
+layout.
+
 `web.output` is `single`, not `static`. Expo's static rendering runs the tree
 through `react-native-web` in Node, which the NativeWind v5 preview currently
 breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.

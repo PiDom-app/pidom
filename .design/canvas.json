@@ -330,7 +330,7 @@
     },
     {
       "file": "ReaderBookmarks.dc.html",
-      "title": "Reader — the pages you marked",
+      "title": "Navigator — the pages you marked",
       "x": 490,
       "y": 10332,
       "w": 390,
@@ -354,7 +354,7 @@
     },
     {
       "file": "ReaderNotes.dc.html",
-      "title": "Reader — passages and notes you kept",
+      "title": "Navigator — passages and notes you kept",
       "x": 0,
       "y": 11296,
       "w": 390,
@@ -362,7 +362,7 @@
     },
     {
       "file": "ReaderNotesEmpty.dc.html",
-      "title": "Reader — nothing kept yet",
+      "title": "Navigator — nothing kept yet",
       "x": 490,
       "y": 11296,
       "w": 390,
@@ -370,7 +370,7 @@
     },
     {
       "file": "ReaderThumbnails.dc.html",
-      "title": "Reader — every page at once",
+      "title": "Navigator — every page at once",
       "x": 980,
       "y": 11296,
       "w": 390,
@@ -457,14 +457,14 @@
       "x": 0,
       "y": 11146,
       "w": 880,
-      "text": "A kept passage is not drawn on the page, and the design does not pretend it is.\nreact-native-pdf reports selected text and no rectangles — onPageSingleTap hands back where a finger touched the view, not where the words sit on the page. There is nothing to anchor a highlight to, so the mark lives in this list instead. The schema keeps an optional rect for the day a renderer supplies one."
+      "text": "Four answers to one question, on a screen rather than in a sheet.\nA sheet is as tall as its content, so moving from Contents (355 rows) to Bookmarks (one) shrank it by two thirds and took the segmented control down with it — the next tap landed on the backdrop and dismissed it. A control does not hang off a box whose height is the reader’s data.\nAnd nothing is drawn on the page: react-native-pdf reports selected text and no rectangles, so the mark lives in this list where it can be accurate."
     },
     {
       "id": "note-pages",
       "x": 980,
       "y": 11146,
       "w": 380,
-      "text": "Every cell is a live renderer, not a cached image — nothing turns a PDF page into a bitmap on React Native 0.86, so the viewer that is already here draws them. The grid holds nine at a time and recycles the rest; past 1,200 pages the segment is absent rather than slow."
+      "text": "Each cell is an image, not a renderer. Nine live <Pdf> views over one file took eight seconds to paint a screen, measured on a device. A page is rendered once by a single off-screen viewer, kept on disk, and read back — so the same screen fills in about two seconds and the second visit is immediate. Past 1,200 pages the segment is absent rather than slow."
     },
     {
       "id": "note-covers",
