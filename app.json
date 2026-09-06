@@ -82,7 +82,8 @@
         {
           "initialOrientation": "DEFAULT"
         }
-      ]
+      ],
+      "./plugins/with-text-measurement-fix"
     ],
     "experiments": {
       "typedRoutes": true,

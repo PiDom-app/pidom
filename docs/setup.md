@@ -150,6 +150,32 @@ Note that this library takes `webClientId` as a plain string — there is no
 `autoDetect` value, whatever you may read about it. That belongs to the separate
 Nitro rewrite, not to this package.
 
+### Android "Bold text" and clipped labels
+
+If every label on the device is missing its last word — `Sign out` rendered as
+`Sign`, an email without its `.com` — the cause is Settings → Accessibility →
+Display size and text → **Bold text**. Android 12 added
+`Configuration.fontWeightAdjustment`, which that toggle sets to 300 and the
+system adds to every font weight at *render* time. React Native measures text
+with the unadjusted typeface, so each string is laid out narrower than it draws
+and the overflow is clipped, silently and with no ellipsis. It is an old React
+Native bug rather than anything in this app:
+[facebook/react-native#21729](https://github.com/react/react-native/issues/21729).
+
+Confirm it in one command before assuming a layout bug:
+
+```bash
+adb shell settings get secure font_weight_adjustment   # 300 = Bold text is on
+```
+
+`plugins/with-text-measurement-fix.js` neutralises the adjustment for this app.
+The trade-off is stated in the plugin: somebody who turned Bold text on will not
+get bolder text here, which is a real cost — and still better than losing the end
+of every sentence, since a reader who cannot read thin text cannot read a
+truncated one either. The app's own `font-semibold` and `font-bold` are
+unaffected; only the system-wide bump is dropped. Remove the plugin from
+`app.json` and re-run `npx expo prebuild` to get the system behaviour back.
+
 ## Scripts
 
 | | |
