@@ -226,8 +226,8 @@ export function SearchInsideScreen() {
                     className="flex-1 font-semibold text-foreground">
                     {item.title}
                   </Text>
-                  <Text size="2xs" style={{ lineHeight: 14 }} className="text-fg-subtle">
-                    {`PG ${item.page}`}
+                  <Text size="2xs" className="text-fg-subtle">
+                    {`page ${item.page}`}
                   </Text>
                 </HStack>
                 <Text size="xs" numberOfLines={2} className="mt-1 text-fg-muted">

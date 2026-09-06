@@ -355,9 +355,17 @@
    * `text-2xs`, which Tailwind's default scale does not define — so the utility
    * resolved to nothing and the smallest text in the app rendered at whatever
    * it inherited. 10px is the metadata line under a document tile.
+   *
+   * The line height is a **unitless ratio**, which is how Tailwind's own scale
+   * writes every other size (`--text-xs--line-height` is `calc(1 / 0.75)`) and
+   * the only form the native engine reads correctly. Written as a length it is
+   * taken as a multiplier instead: `0.8125rem` gave a 10px word an 85pt line
+   * box, which is what opened the enormous gaps between search results — each
+   * "page 132" label was 144px tall next to a 26px title. Keep the division
+   * visible so the two halves stay in step: 13px of line on a 10px font.
    */
   --text-2xs: 0.625rem;
-  --text-2xs--line-height: 0.8125rem;
+  --text-2xs--line-height: calc(0.8125 / 0.625);
 
   /*
    * Every corner is 6px. `full` is reserved for avatars and status dots.
