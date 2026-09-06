@@ -91,29 +91,50 @@ export function ImportScreen() {
     }
   }, [picking, adopt, incoming, incomingName]);
 
-  // Staging is cleaned up by `useImportFlow`'s unmount cleanup, which catches
-  // the swipe-to-dismiss this button does not.
-  const cancel = useCallback(() => router.back(), [router]);
+  /**
+   * Leaving this screen, however it ends.
+   *
+   * Staging is cleaned up by `useImportFlow`'s unmount cleanup, which catches
+   * the swipe-to-dismiss the cancel button does not.
+   *
+   * `back()` only when there is something behind this screen. Opening a PDF
+   * from another app cold-launches straight onto `/import` —
+   * `useIncomingDocument` pushes it from the app layout as the first
+   * navigation there is — so the stack can be one entry deep. `GO_BACK` is
+   * then handled by nobody, which the router reports as "The action 'GO_BACK'
+   * was not handled by any navigator", and the reader is left sitting on a
+   * screen that has finished its job with no way off it.
+   *
+   * The library is the right place to land rather than a no-op: the document
+   * they just imported is in it.
+   */
+  const leave = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  }, [router]);
 
   // The reader dismissed the system sheet, or the import finished. There is
   // nothing left for this screen to be.
   useEffect(() => {
     if (stage === 'cancelled' || stage === 'done') {
-      router.back();
+      leave();
     }
-  }, [stage, router]);
+  }, [stage, leave]);
 
   const oversize = picked !== null && picked.byteSize > CLOUD_BYTE_MAX;
   const committing = stage === 'saving';
 
   if (stage === 'refused' && refusal !== null) {
-    return <Refused reason={refusal} onChoose={() => void picking()} onCancel={cancel} />;
+    return <Refused reason={refusal} onChoose={() => void picking()} onCancel={leave} />;
   }
 
   return (
     <Screen edges={['top', 'bottom']}>
       <VStack className="flex-1">
-        <ImportHeader onCancel={cancel} disabled={committing} />
+        <ImportHeader onCancel={leave} disabled={committing} />
 
         <VStack className="flex-1 px-6">
           <Box className="mt-6 items-center">
