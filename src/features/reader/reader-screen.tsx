@@ -78,8 +78,9 @@ export function ReaderScreen() {
   );
   const document: LibraryDocument | undefined = found?.[0];
 
-  // Only for the scrubber's chapter ticks, and only once there is an outline to
-  // ask for — the Contents sheet subscribes separately when it opens.
+  // The scrubber's chapter ticks *and* the Contents sheet read this one
+  // subscription. The sheet used to open its own, which meant a round trip
+  // before it could draw anything the reader could use.
   const outline = useQuery(
     api.library.outline,
     ready && documentId !== undefined && document?.hasOutline === true ? { documentId } : 'skip',
@@ -492,7 +493,11 @@ export function ReaderScreen() {
       />
 
       <ContentsSheet
-        documentId={documentId}
+        // `[]` rather than `undefined` when the file declares no contents at
+        // all: `undefined` is the sheet's "still loading" state, and a document
+        // with no outline is finished, not pending. It should land on the empty
+        // state that offers search, not on a spinner that never resolves.
+        entries={document.hasOutline === true ? outline : []}
         title={document.title}
         currentPage={session.page}
         bookmarks={bookmarks}

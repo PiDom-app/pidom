@@ -1,6 +1,6 @@
-import { useQuery } from 'convex/react';
 import { Bookmark, ListTree, TextSearch, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Actionsheet,
@@ -8,6 +8,7 @@ import {
   ActionsheetContent,
   ActionsheetDragIndicator,
   ActionsheetDragIndicatorWrapper,
+  ActionsheetFlatList,
   ActionsheetItem,
   ActionsheetItemText,
 } from '@/components/ui/actionsheet';
@@ -17,15 +18,11 @@ import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
-import { ScrollView } from '@/components/ui/scroll-view';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { api } from '@convex/_generated/api';
-import type { Id } from '@convex/_generated/dataModel';
 
-import { useLibraryStatus } from '../library/data/use-library-status';
-import { lastStartingBefore } from './outline';
+import { lastStartingBefore, type OutlineEntry } from './outline';
 import type { Bookmark as BookmarkRow } from './use-bookmarks';
 
 /**
@@ -42,7 +39,7 @@ import type { Bookmark as BookmarkRow } from './use-bookmarks';
  * 390px sheet is four characters of title.
  */
 export function ContentsSheet({
-  documentId,
+  entries,
   title,
   currentPage,
   bookmarks,
@@ -52,7 +49,14 @@ export function ContentsSheet({
   onJump,
   onSearch,
 }: {
-  documentId: Id<'documents'>;
+  /**
+   * The document's table of contents, or `undefined` while it is still being
+   * read. Passed in rather than fetched here: the reader already subscribes to
+   * this exact query for the scrubber's chapter ticks, so opening the sheet on
+   * its own subscription meant waiting out a second round trip for an answer
+   * the screen behind it had already been handed.
+   */
+  entries: readonly OutlineEntry[] | undefined;
   /** The document's title, for the line under the heading. */
   title: string;
   /** Where the reader is, so the entry they are inside is the one marked. */
@@ -67,10 +71,7 @@ export function ContentsSheet({
   /** Offered when there is no outline — searching still works. */
   onSearch: () => void;
 }) {
-  const { ready } = useLibraryStatus();
-  // Skipped while closed, so opening a document does not subscribe to a list
-  // nobody has asked for. See `useLibraryStatus` for why `ready` gates it.
-  const entries = useQuery(api.library.outline, ready && isOpen ? { documentId } : 'skip');
+  const listMax = useWindowDimensions().height * LIST_SHARE;
 
   // The entry the reader is *inside*, which is the last one that starts at or
   // before the current page — not the one whose number happens to match. A
@@ -146,16 +147,30 @@ export function ContentsSheet({
         ) : entries.length === 0 ? (
           <Empty onSearch={onSearch} />
         ) : (
-          // Capped at 60% of the screen so the sheet never swallows the page
-          // behind it — the reader is choosing where to go in a document they
-          // can still see.
-          <ScrollView className="w-full" style={LIST}>
-            <VStack className="w-full pt-1">
-              {entries.map((entry, index) => (
+          // A `FlatList`, not a mapped `ScrollView`. This list runs to
+          // `OUTLINE_ENTRY_MAX` — 355 rows in the book this was found on — and
+          // building every one of them before the sheet could show is what
+          // made Contents take a visible pause to open. The list windows them
+          // instead, so the sheet appears on the first frame.
+          <ActionsheetFlatList
+            // Width and height in the *same* `style` object, and deliberately
+            // not a `w-full` class. Passing `style` alongside `className`
+            // replaces the class-derived styles rather than merging with them,
+            // so the old `className="w-full" style={{ maxHeight }}` silently
+            // lost its width — see `LIST_CONTENT` for what that then did to
+            // every row.
+            style={{ width: '100%', maxHeight: listMax }}
+            contentContainerStyle={LIST_CONTENT}
+            data={entries as OutlineEntry[]}
+            keyExtractor={(item, index) =>
+              // The index is part of the key because a PDF can, and does,
+              // declare the same title on the same page twice.
+              `${(item as OutlineEntry).page}-${(item as OutlineEntry).title}-${index}`
+            }
+            renderItem={({ item, index }: { item: unknown; index: number }) => {
+              const entry = item as OutlineEntry;
+              return (
                 <Pressable
-                  // The index is part of the key because a PDF can, and does,
-                  // declare the same title on the same page twice.
-                  key={`${entry.page}-${entry.title}-${index}`}
                   onPress={() => {
                     onJump(entry.page);
                     onClose();
@@ -165,11 +180,11 @@ export function ContentsSheet({
                   accessibilityLabel={`${entry.title}, page ${entry.page}`}
                   className={
                     index === here
-                      ? 'bg-hover px-6 py-3'
-                      : 'px-6 py-3 data-[active=true]:bg-hover'
+                      ? 'w-full bg-hover px-6 py-3'
+                      : 'w-full px-6 py-3 data-[active=true]:bg-hover'
                   }
                   style={{ paddingLeft: 24 + entry.depth * 18 }}>
-                  <HStack className="items-center" space="md">
+                  <HStack className="w-full items-center" space="md">
                     <Text
                       size={entry.depth === 0 ? 'md' : 'sm'}
                       numberOfLines={1}
@@ -185,9 +200,9 @@ export function ContentsSheet({
                     </Text>
                   </HStack>
                 </Pressable>
-              ))}
-            </VStack>
-          </ScrollView>
+              );
+            }}
+          />
         )}
       </ActionsheetContent>
     </Actionsheet>
@@ -260,6 +275,7 @@ function Bookmarks({
   onClose: () => void;
   onRemove: (page: number) => void;
 }) {
+  const listMax = useWindowDimensions().height * LIST_SHARE;
   if (bookmarks.length === 0) {
     return (
       <VStack className="w-full items-center px-10 py-11">
@@ -274,10 +290,15 @@ function Bookmarks({
     );
   }
   return (
-    <ScrollView className="w-full" style={LIST}>
-      <VStack className="w-full pt-1">
-        {bookmarks.map((row) => (
-          <HStack key={row.id} className="items-center">
+    <ActionsheetFlatList
+      style={{ width: '100%', maxHeight: listMax }}
+      contentContainerStyle={LIST_CONTENT}
+      data={bookmarks as BookmarkRow[]}
+      keyExtractor={(item) => (item as BookmarkRow).id}
+      renderItem={({ item }: { item: unknown }) => {
+        const row = item as BookmarkRow;
+        return (
+          <HStack className="w-full items-center">
             <Pressable
               onPress={() => {
                 onJump(row.page);
@@ -290,7 +311,7 @@ function Bookmarks({
                   ? 'flex-1 bg-hover py-3 pl-6'
                   : 'flex-1 py-3 pl-6 data-[active=true]:bg-hover'
               }>
-              <HStack className="items-center" space="md">
+              <HStack className="w-full items-center" space="md">
                 <Text
                   size="md"
                   numberOfLines={1}
@@ -312,11 +333,35 @@ function Bookmarks({
               <Icon as={Trash2} size="sm" className="text-fg-subtle" />
             </Pressable>
           </HStack>
-        ))}
-      </VStack>
-    </ScrollView>
+        );
+      }}
+    />
   );
 }
 
-/** Six-tenths of a 844pt screen, rounded to something a designer would pick. */
-const LIST = { maxHeight: 480 } as const;
+/**
+ * How tall the list may get, as a share of *this* screen.
+ *
+ * It used to be a flat 480pt picked off a 844pt phone. On a shorter screen
+ * that plus the header and the tabs came to more than the sheet's own
+ * `max-h-[80vh]`, and the bottom of the list fell off the bottom of the
+ * display. A fraction cannot overflow a screen it was measured from.
+ */
+const LIST_SHARE = 0.5;
+
+/**
+ * A definite width for the list's content container.
+ *
+ * This is half the fix for the collapsed rows, and it is not cosmetic. A
+ * vertical scroller sizes its content container to its content, so that
+ * container's own width is indefinite — and `w-full` on a row inside it is a
+ * percentage of nothing, which Yoga resolves to `auto`. Every row then
+ * shrink-wrapped around a `flex-1` title, whose flex-basis is 0, so the title
+ * measured to nothing and rendered as a single ellipsis: the whole Contents
+ * list came out as a column of "Fore…", "Pref…", "…".
+ *
+ * The other half is that the scroller itself must have a definite width for
+ * this percentage to resolve against — hence the explicit `width` in its
+ * `style` rather than a `w-full` class.
+ */
+const LIST_CONTENT = { width: '100%' } as const;

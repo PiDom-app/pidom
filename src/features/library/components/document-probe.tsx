@@ -139,7 +139,20 @@ export function DocumentProbe({
         <Pdf
           source={{ uri: pdfUri }}
           page={1}
-          singlePage
+          // **Not `singlePage`.** It reads well — one page is all this needs to
+          // draw — but on Android it calls `configurator.pages(0)`, and the
+          // viewer then reports the length of *that* list as the document's
+          // page count. So `onLoadComplete` handed back `1` for every PDF ever
+          // imported: a 433-page book probed as one page long, and `flatten`
+          // clamped all 355 of its contents entries to page 1, because it
+          // clamps against the count it is given. The cloud text pass corrected
+          // `pageCount` afterwards, which is why the count looked right while
+          // every Contents row still said page 1.
+          //
+          // `scrollEnabled={false}` holds the view on page 1 for the snapshot,
+          // which is the part `singlePage` was actually wanted for. The host
+          // View is `pointerEvents="none"`, so nothing can scroll it anyway.
+          scrollEnabled={false}
           scale={1}
           style={CANVAS}
           trustAllCerts={false}
