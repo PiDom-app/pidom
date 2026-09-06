@@ -32,13 +32,32 @@ const { withMainActivity } = require('expo/config-plugins');
  */
 const MARKER = 'pidom:font-weight-adjustment';
 
+/**
+ * `attachBaseContext`, not `applyOverrideConfiguration`.
+ *
+ * The tidier-looking hook does not work here. The framework hands
+ * `applyOverrideConfiguration` the activity's *own* override configuration,
+ * which for a plain fullscreen activity is empty — the bold-text bump lives in
+ * the global configuration it gets merged into, so writing the field on the
+ * override never reached the configuration the resources are built from.
+ * `dumpsys activity activities` showed the activity still reporting
+ * `fontWeightAdjustment=300` with the override in place, and text still lost
+ * its last word.
+ *
+ * Rebuilding the base context is the form that holds: it replaces the
+ * configuration the Activity's `Resources` are created from, before any View
+ * in it has resolved a typeface.
+ */
 const OVERRIDE = `
   // ${MARKER}
-  override fun applyOverrideConfiguration(overrideConfiguration: android.content.res.Configuration?) {
-    if (overrideConfiguration != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      overrideConfiguration.fontWeightAdjustment = 0
+  override fun attachBaseContext(newBase: android.content.Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      val config = android.content.res.Configuration(newBase.resources.configuration)
+      config.fontWeightAdjustment = 0
+      super.attachBaseContext(newBase.createConfigurationContext(config))
+    } else {
+      super.attachBaseContext(newBase)
     }
-    super.applyOverrideConfiguration(overrideConfiguration)
   }
 `;
 

@@ -14,6 +14,7 @@ import { styled } from '../styled-shim';
 import React from 'react';
 import {
   FlatList,
+  Keyboard,
   Pressable,
   PressableProps,
   ScrollView,
@@ -237,10 +238,50 @@ const Actionsheet = React.forwardRef<
   );
 });
 
+/**
+ * Lifts the sheet clear of the software keyboard.
+ *
+ * The sheet is positioned by a transform — `containerHeight - sheetHeight` —
+ * against an overlay that stays the full height of the screen when the
+ * keyboard opens. So a sheet with a field in it (Go to page, the collection
+ * name) sat exactly where it always sits, which is underneath the keyboard:
+ * the field the sheet exists to offer was the part covered up.
+ *
+ * A spacer rather than padding, because it has to change the *measured*
+ * height. The sheet's bottom is pinned to the bottom of the overlay, so
+ * growing it by the keyboard's height moves its top up by the same amount and
+ * leaves the content resting exactly on top of the keyboard. Padding through
+ * `style` would have done the same arithmetic, but passing `style` to a
+ * `className`'d component replaces the class styles rather than merging with
+ * them, and the sheet's whole appearance is in those classes.
+ *
+ * Zero-height while the keyboard is down, so sheets without a field are
+ * unaffected.
+ */
+function KeyboardSpacer() {
+  const [height, setHeight] = React.useState(0);
+
+  React.useEffect(() => {
+    // `Did`, not `Will`: Android only ever emits the `Did` pair, and the
+    // measurement is the point — a height that arrives before the keyboard has
+    // finished opening is the wrong height.
+    const shown = Keyboard.addListener('keyboardDidShow', (event) => {
+      setHeight(event.endCoordinates.height);
+    });
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setHeight(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+
+  return height === 0 ? null : <View style={{ height }} />;
+}
+
 const ActionsheetContent = React.forwardRef<
   React.ComponentRef<typeof UIActionsheet.Content>,
   IActionsheetContentProps
->(function ActionsheetContent({ className, ...props }, ref) {
+>(function ActionsheetContent({ className, children, ...props }, ref) {
   return (
     // No `initial` / `animate` / `exit` here. The creator already gives the
     // sheet a slide-up — from `windowHeight` to `containerHeight - sheetHeight`
@@ -253,8 +294,10 @@ const ActionsheetContent = React.forwardRef<
         class: className,
       })}
       ref={ref}
-      {...props}
-    />
+      {...props}>
+      {children}
+      <KeyboardSpacer />
+    </UIActionsheet.Content>
   );
 });
 
