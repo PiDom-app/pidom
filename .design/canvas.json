@@ -133,8 +133,8 @@
       "title": "Where a document is",
       "x": 0,
       "y": 4344,
-      "w": 900,
-      "h": 560
+      "w": 1024,
+      "h": 600
     },
     {
       "file": "TileAnatomy.dc.html",
@@ -407,6 +407,86 @@
       "y": 9032,
       "w": 1024,
       "h": 768
+    },
+    {
+      "file": "OfflineIdentity.dc.html",
+      "title": "Home — opened with no connection",
+      "x": 0,
+      "y": 12260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SyncActivity.dc.html",
+      "title": "Sync — what is waiting",
+      "x": 490,
+      "y": 12260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SyncActivityFailed.dc.html",
+      "title": "Sync — a change that would not go",
+      "x": 980,
+      "y": 12260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AccountSync.dc.html",
+      "title": "Account — with sync",
+      "x": 1470,
+      "y": 12260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportOffline.dc.html",
+      "title": "Import — with no connection",
+      "x": 1960,
+      "y": 12260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ImportNoSpace.dc.html",
+      "title": "Import — not enough room",
+      "x": 2450,
+      "y": 12260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "LocalFirst.dc.html",
+      "title": "Where a read and a write go",
+      "x": 0,
+      "y": 13224,
+      "w": 900,
+      "h": 620
+    },
+    {
+      "file": "SyncPipeline.dc.html",
+      "title": "The outbox",
+      "x": 1000,
+      "y": 13224,
+      "w": 1024,
+      "h": 700
+    },
+    {
+      "file": "DeviceStorage.dc.html",
+      "title": "On this device",
+      "x": 0,
+      "y": 14180,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DeviceStorageTight.dc.html",
+      "title": "On this device — running out, and unencrypted",
+      "x": 490,
+      "y": 14180,
+      "w": 390,
+      "h": 844
     }
   ],
   "annotations": [
@@ -467,11 +547,32 @@
       "text": "Each cell is an image, not a renderer. Nine live <Pdf> views over one file took eight seconds to paint a screen, measured on a device. A page is rendered once by a single off-screen viewer, kept on disk, and read back — so the same screen fills in about two seconds and the second visit is immediate. Past 1,200 pages the segment is absent rather than slow."
     },
     {
+      "id": "note-offline-first",
+      "x": 0,
+      "y": 12110,
+      "w": 880,
+      "text": "Offline is not a mode this app enters.\nThe local database and the files beside it are the first source for every ordinary read, and the account is what the device converges with afterwards — so none of these screens is a degraded one. The only thing that changes with no connection is a line saying so and a queue quietly filling up."
+    },
+    {
+      "id": "note-outbox",
+      "x": 1000,
+      "y": 13074,
+      "w": 1024,
+      "text": "One queue row per thing, not per change. That is what makes two hundred page turns one message, and it is also why the values are read off the row at the moment of sending rather than captured when the reader acted — the account is told where somebody ended up, not replayed through every page they passed."
+    },
+    {
       "id": "note-covers",
       "x": 1960,
       "y": 2360,
       "w": 300,
       "text": "No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library."
+    },
+    {
+      "id": "note-device-storage",
+      "x": 0,
+      "y": 14030,
+      "w": 880,
+      "text": "The screen the refusal always assumed.\nAn import with no room says to remove a download or two, and until now nothing said which ones were large — the account’s Storage section reported what was in the account, which is the other half.\nEvery row says what removing it costs. A document in the account comes back on a tap; a document that is only here does not come back at all. Same gesture, two consequences, so the row says which before the reader commits. And no covers: this is the one library surface where a document is a quantity rather than something to open."
     }
   ],
   "launch": {

@@ -9,13 +9,18 @@ import { Directory, File, Paths } from 'expo-file-system';
  * Documents/library/<profile id>/pages/<document id>/<page>.jpg
  * ```
  *
- * **The filename is the Convex document id.** The name the reader picked the
- * file under never becomes a path segment, so a PDF called
+ * **The filename is the document id.** The name the reader picked the file
+ * under never becomes a path segment, so a PDF called
  * `../../../shared_prefs/auth.xml` is a title and nothing else. That closes
  * traversal and collision by construction, rather than by sanitising a hostile
- * string and hoping the sanitiser is complete. The ordering that makes it work:
- * `library.importDocument` mints the id first, and only then is the file moved
- * into place — see `./import.ts`.
+ * string and hoping the sanitiser is complete.
+ *
+ * The id used to come from Convex, which is what made importing with no
+ * connection impossible: the server minted it and the id was the filename, so
+ * there was nothing to name the file until a round trip returned. The device
+ * mints it now — see `repository/ids.ts` — in the same alphabet and the same
+ * length, so every document already filed under a Convex id keeps the name it
+ * has and nothing on any existing phone is renamed.
  *
  * **The directory is the profile id**, and that is not tidiness. Two accounts
  * sharing one folder is a data-loss bug: the home screen reconciles local files
@@ -32,9 +37,10 @@ const PAGES = 'pages';
 const STAGING = 'pidom-import';
 
 /**
- * Convex ids are lowercase alphanumerics. Checked rather than assumed, for both
- * segments, because "the id is safe" should be an assertion in the code and not
- * a belief about somebody else's id format.
+ * Ids are lowercase alphanumerics, whether this device minted them or Convex
+ * did. Checked rather than assumed, for both segments, because "the id is safe"
+ * should be an assertion in the code and not a belief about somebody else's id
+ * format.
  */
 const SAFE_ID = /^[a-z0-9]+$/i;
 
@@ -174,6 +180,28 @@ export function copyCoverFrom(profileId: string, fromId: string, toId: string): 
  * the OS wanted some space back is the cost this exists to avoid. They go when
  * the document goes.
  */
+/**
+ * Drops a document's cover.
+ *
+ * This did not exist, and its absence was a real leak: `deleteDocument` cleaned
+ * the PDF, the page thumbnails, the mirrored text and the stored password, and
+ * left the cover behind — so a library emptied and refilled a few times
+ * accumulated a folder of pictures of books that were no longer anywhere. Every
+ * path that drops a document now goes through `local/sweep.ts`, which calls
+ * this.
+ */
+export function forgetCover(profileId: string, documentId: string): void {
+  try {
+    const file = coverFile(profileId, documentId);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // A cover is regenerable. Failing to remove one is not worth a word to the
+    // reader, and definitely not worth failing a delete over.
+  }
+}
+
 export function pagesDirectory(profileId: string, documentId: string): Directory {
   return new Directory(libraryDirectory(profileId), PAGES, checked(documentId));
 }

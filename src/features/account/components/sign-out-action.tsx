@@ -16,7 +16,7 @@ import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/session-provider';
-import { useLibraryCacheStore } from '@/stores/library-cache-store';
+import { closeDatabase } from '@/features/library/local/db';
 
 /**
  * Sign out, behind a confirmation.
@@ -28,7 +28,6 @@ import { useLibraryCacheStore } from '@/stores/library-cache-store';
  */
 export function SignOutAction() {
   const { signOut } = useSession();
-  const clearLibraryCache = useLibraryCacheStore((state) => state.clear);
   const [open, setOpen] = useState(false);
 
   return (
@@ -67,15 +66,17 @@ export function SignOutAction() {
               variant="destructive"
               size="sm"
               onPress={() => {
-                // The offline copy of the library is document titles the reader
-                // chose, sitting in AsyncStorage. It is scoped to a profile id
-                // so the next account cannot read it, but there is no reason to
-                // leave it on the device after a deliberate sign-out.
+                // The handle on this account's database is closed, so nothing
+                // of one reader's library stays open into the next one's
+                // session. The file is left where it is, encrypted, under a key
+                // in this device's keychain.
                 //
-                // The PDFs themselves stay. They live under this account's own
-                // directory, nothing else can reach them, and deleting a
-                // reader's documents is not what "sign out" means.
-                clearLibraryCache();
+                // Nothing is deleted. The PDFs and their database live under
+                // this account's own profile id, nothing else can reach them,
+                // and removing a reader's documents is not what "sign out"
+                // means — it is what "delete" means, and there is a different
+                // button for that.
+                void closeDatabase();
 
                 // The dialog closes with the screen it sits on: the router
                 // swaps to the sign-in stack as soon as the session clears.

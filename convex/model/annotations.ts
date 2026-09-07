@@ -1,8 +1,10 @@
+import type { PaginationOptions, PaginationResult } from 'convex/server';
 import { v } from 'convex/values';
 
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { assertOwner } from './auth';
+import { annotationByOpId, clientClock, isLocalId, isStale } from './sync';
 import {
   ANNOTATIONS_PER_DOCUMENT,
   ANNOTATION_NOTE_MAX,
@@ -91,27 +93,28 @@ function toPublicAnnotation(row: Doc<'documentAnnotations'>): PublicAnnotation {
   };
 }
 
-/* ── reads ──────────────────────────────────────────────────────────── */
-
 /**
- * Everything kept in one document, in page order.
+ * The same shape with the document named, for the reconcile.
  *
- * Page order rather than newest-first because the list is a way of moving
- * through a book: somebody stepping through their own marks is going forwards,
- * and a list ordered by when they made them puts chapter nine above chapter two.
+ * `annotationValidator` leaves `documentId` out because every read of it is
+ * already scoped to one document — the list in the reader. A device rebuilding
+ * its whole library reads them all at once and has to know which book each one
+ * belongs to.
  */
-export async function annotationsFor(
-  ctx: QueryCtx | MutationCtx,
-  owner: Doc<'users'>,
-  documentId: Id<'documents'>,
-): Promise<PublicAnnotation[]> {
-  await requireDocument(ctx, owner, documentId);
-  const rows = await ctx.db
-    .query('documentAnnotations')
-    .withIndex('by_document', (q) => q.eq('documentId', documentId))
-    .take(ANNOTATIONS_PER_DOCUMENT);
-  return rows.map(toPublicAnnotation);
-}
+export const ownedAnnotationValidator = v.object({
+  id: v.id('documentAnnotations'),
+  documentId: v.id('documents'),
+  page: v.number(),
+  kind: v.union(v.literal('passage'), v.literal('note')),
+  text: v.union(v.string(), v.null()),
+  note: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+export type OwnedAnnotation = PublicAnnotation & { documentId: Id<'documents'> };
+
+/* ── reads ──────────────────────────────────────────────────────────── */
 
 /* ── writes ─────────────────────────────────────────────────────────── */
 
@@ -138,9 +141,17 @@ async function requireAnnotation(
 /**
  * Keeps a passage, or writes a note against a page.
  *
- * Not idempotent, and deliberately unlike `addBookmark`: a bookmark is a page
- * and a page can only be marked once, while two passages from the same page are
- * two different sentences. Nothing here dedupes.
+ * **Idempotent on the device's own id, and nothing else.** Two passages kept
+ * from the same page are two different sentences, so there is no natural key
+ * here the way there is for a bookmark — which is why this used to dedupe
+ * nothing at all, and why that was right while every call came from somebody
+ * tapping Keep.
+ *
+ * It is wrong once the call can be queued. A create whose reply is lost after
+ * it committed is delivered again, and without the lookup below the reader ends
+ * up with the same passage in their list twice with no way to tell which is
+ * which. `clientOpId` is the id the device already filed the note under, so the
+ * second delivery finds the first and returns it.
  */
 export async function add(
   ctx: MutationCtx,
@@ -151,8 +162,20 @@ export async function add(
     kind: 'passage' | 'note';
     text?: string;
     note?: string;
+    clientOpId?: string;
+    clientUpdatedAt?: number;
   },
 ): Promise<Id<'documentAnnotations'>> {
+  if (input.clientOpId !== undefined) {
+    if (!isLocalId(input.clientOpId)) {
+      invalid('That note id is not one Pidom writes.');
+    }
+    const existing = await annotationByOpId(ctx, owner, input.clientOpId);
+    if (existing !== null) {
+      return existing._id;
+    }
+  }
+
   const doc = await requireDocument(ctx, owner, input.documentId);
 
   // Clamped against the document, like every other page number that crosses
@@ -193,6 +216,8 @@ export async function add(
     kind: input.kind,
     ...(text === undefined ? {} : { text }),
     ...(note === undefined ? {} : { note }),
+    ...(input.clientOpId === undefined ? {} : { clientOpId: input.clientOpId }),
+    ...clientClock(input.clientUpdatedAt),
     createdAt: now,
     updatedAt: now,
   });
@@ -214,8 +239,16 @@ export async function update(
   owner: Doc<'users'>,
   annotationId: Id<'documentAnnotations'>,
   note: string,
+  clientUpdatedAt: number | undefined,
 ): Promise<void> {
   const row = await requireAnnotation(ctx, owner, annotationId);
+
+  // An edit that has already been overtaken. Dropped rather than refused: the
+  // client has nothing to retry and nothing has gone wrong.
+  if (isStale(row.clientUpdatedAt, clientUpdatedAt)) {
+    return;
+  }
+
   const cleaned = cleanOptionalText(note, ANNOTATION_NOTE_MAX, 'A note');
 
   // A passage can lose its note and remain a passage. A note that loses its
@@ -226,17 +259,35 @@ export async function update(
 
   await ctx.db.patch('documentAnnotations', row._id, {
     note: cleaned,
+    ...clientClock(clientUpdatedAt),
     updatedAt: Date.now(),
   });
 }
 
-/** Deletes one. Silent when it is already gone — the list asked, not told. */
+/**
+ * Deletes one, and is genuinely silent when it is already gone.
+ *
+ * It said it was silent and it was not: `requireAnnotation` calls `assertOwner`,
+ * which reports "no such row" and "not yours" identically as `FORBIDDEN` — so a
+ * second delivery of the same delete threw. That was invisible while the only
+ * caller was a list waiting for an answer, and it is a queue that never drains
+ * once the caller is an outbox: the operation fails, is retried, fails again,
+ * for ever, over a note that is already deleted.
+ *
+ * The row is looked up directly instead. An id that names nothing answers
+ * nothing; an id that names somebody else's note still answers `FORBIDDEN`,
+ * because that check has not moved.
+ */
 export async function remove(
   ctx: MutationCtx,
   owner: Doc<'users'>,
   annotationId: Id<'documentAnnotations'>,
 ): Promise<void> {
-  const row = await requireAnnotation(ctx, owner, annotationId);
+  const row = await ctx.db.get('documentAnnotations', annotationId);
+  if (row === null) {
+    return;
+  }
+  assertOwner(row, owner);
   await ctx.db.delete('documentAnnotations', row._id);
 }
 
@@ -261,4 +312,27 @@ export async function deleteAll(ctx: MutationCtx, documentId: Id<'documents'>): 
   for (const row of rows) {
     await ctx.db.delete('documentAnnotations', row._id);
   }
+}
+
+/**
+ * Every note in the account, a page at a time.
+ *
+ * The annotation half of the reconcile in `model/library.ts`. Ordered by
+ * creation through `by_owner`, which is enough to resume from — a device that
+ * is interrupted keeps the cursor and asks for the rest later.
+ */
+export async function allForOwner(
+  ctx: QueryCtx,
+  ownerId: Id<'users'>,
+  paginationOpts: PaginationOptions,
+): Promise<PaginationResult<OwnedAnnotation>> {
+  const page = await ctx.db
+    .query('documentAnnotations')
+    .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
+    .paginate(paginationOpts);
+
+  return {
+    ...page,
+    page: page.page.map((row) => ({ ...toPublicAnnotation(row), documentId: row.documentId })),
+  };
 }

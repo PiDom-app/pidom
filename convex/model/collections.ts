@@ -1,7 +1,10 @@
+import type { PaginationOptions, PaginationResult } from 'convex/server';
+
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { assertOwner } from './auth';
 import { COLLECTION_NAME_MAX, RAIL_LIMIT, cleanText, invalid } from './limits';
+import { clientClock, collectionByOpId, isLocalId, isStale } from './sync';
 
 /** How many collections the picker lists, and so how many ticks it can show. */
 const PICKER_LIMIT = RAIL_LIMIT * 4;
@@ -28,16 +31,37 @@ export async function requireCollection(
   return collection;
 }
 
+/**
+ * A new collection.
+ *
+ * Idempotent on `clientOpId` for the reason `Annotations.add` is: two
+ * collections may legitimately share a name, so there is no natural key, and a
+ * queued create whose reply was lost would otherwise produce two folders called
+ * Contracts with half the documents in each.
+ */
 export async function create(
   ctx: MutationCtx,
   owner: Doc<'users'>,
   name: string,
+  options: { clientOpId?: string; clientUpdatedAt?: number } = {},
 ): Promise<Id<'collections'>> {
+  if (options.clientOpId !== undefined) {
+    if (!isLocalId(options.clientOpId)) {
+      invalid('That collection id is not one Pidom writes.');
+    }
+    const existing = await collectionByOpId(ctx, owner, options.clientOpId);
+    if (existing !== null) {
+      return existing._id;
+    }
+  }
+
   const now = Date.now();
   return await ctx.db.insert('collections', {
     ownerId: owner._id,
     name: cleanText(name, COLLECTION_NAME_MAX, 'Collection name'),
     documentCount: 0,
+    ...(options.clientOpId === undefined ? {} : { clientOpId: options.clientOpId }),
+    ...clientClock(options.clientUpdatedAt),
     createdAt: now,
     updatedAt: now,
   });
@@ -48,10 +72,15 @@ export async function rename(
   owner: Doc<'users'>,
   collectionId: Id<'collections'>,
   name: string,
+  clientUpdatedAt: number | undefined,
 ): Promise<void> {
   const collection = await requireCollection(ctx, owner, collectionId);
+  if (isStale(collection.clientUpdatedAt, clientUpdatedAt)) {
+    return;
+  }
   await ctx.db.patch('collections', collection._id, {
     name: cleanText(name, COLLECTION_NAME_MAX, 'Collection name'),
+    ...clientClock(clientUpdatedAt),
     updatedAt: Date.now(),
   });
 }
@@ -153,23 +182,30 @@ export async function removeDocument(
 }
 
 /**
- * Which of the caller's collections a document is in. Backs the action sheet.
+ * Every membership row the caller owns, a page at a time.
  *
- * Capped at the number of collections the picker can list, because a tick on a
- * collection the sheet does not render is a tick nobody sees. This is a read
- * path rather than a cascade, so it takes rather than collects.
+ * Reads `by_owner`, which is the denormalised `ownerId` finally being used for
+ * something other than an ownership check. Paginated because membership is the
+ * one table here that grows with the product of two others.
  */
-export async function collectionIdsFor(
+export async function membershipPage(
   ctx: QueryCtx,
-  owner: Doc<'users'>,
-  documentId: Id<'documents'>,
-): Promise<Id<'collections'>[]> {
-  const memberships = await ctx.db
+  ownerId: Id<'users'>,
+  paginationOpts: PaginationOptions,
+): Promise<
+  PaginationResult<{ collectionId: Id<'collections'>; documentId: Id<'documents'>; addedAt: number }>
+> {
+  const page = await ctx.db
     .query('collectionDocuments')
-    .withIndex('by_document', (q) => q.eq('documentId', documentId))
-    .take(PICKER_LIMIT);
+    .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
+    .paginate(paginationOpts);
 
-  return memberships
-    .filter((membership) => membership.ownerId === owner._id)
-    .map((membership) => membership.collectionId);
+  return {
+    ...page,
+    page: page.page.map((row) => ({
+      collectionId: row.collectionId,
+      documentId: row.documentId,
+      addedAt: row.addedAt,
+    })),
+  };
 }

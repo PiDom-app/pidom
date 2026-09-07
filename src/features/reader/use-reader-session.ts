@@ -1,13 +1,14 @@
-import { useMutation } from 'convex/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { api } from '@convex/_generated/api';
-import type { Id } from '@convex/_generated/dataModel';
 import type { ReadingMode } from '@convex/model/library';
 import { PROGRESS_DEBOUNCE_MS, PROGRESS_JUMP_PAGES } from '@convex/model/limits';
 import { log } from '@/lib/logger';
 import { useReaderStore } from '@/stores/reader-store';
+
+import { database } from '../library/local/db';
+import * as Documents from '../library/local/repository/documents';
+import * as Queue from '../library/local/repository/queue';
 
 const SCOPE = 'reader-session';
 
@@ -17,7 +18,7 @@ const SCOPE = 'reader-session';
  * ```
  * onPageChanged ─► component state          immediately, it draws the bar
  *               ─► reader store             immediately, it survives a crash
- *               ─► api.library.recordProgress  debounced, and on the way out
+ *               ─► the local database + outbox  debounced, and on the way out
  * ```
  *
  * The middle line is the one that is new. Position used to land only on unmount
@@ -60,13 +61,12 @@ export function useReaderSession({
   requestedPage,
   storedPageCount,
 }: {
-  documentId: Id<'documents'> | undefined;
+  documentId: string | undefined;
   profileId: string | null;
   storedPage: number | null;
   requestedPage: number | null;
   storedPageCount: number | null;
 }): ReaderSession {
-  const recordProgress = useMutation(api.library.recordProgress);
   const rememberPage = useReaderStore((state) => state.rememberPage);
   const hydrated = useReaderStore((state) => state.hydrated);
 
@@ -89,7 +89,7 @@ export function useReaderSession({
    *
    * `force` is what opening a document uses. Without it this skips when nothing
    * has moved — which is right for the debounce and was wrong for everything
-   * else: `lastOpenedAt` is written *only* by `recordProgress`, and Continue
+   * else: `lastOpenedAt` is written *only* by this flush, and Continue
    * Reading both filters and sorts on it. So somebody who opened a book, read
    * the page they resumed on, and left never entered the rail the whole reader
    * exists to feed. Opening now writes once, unconditionally.
@@ -112,29 +112,51 @@ export function useReaderSession({
       }
       syncedPageRef.current = pageRef.current;
       modeRef.current = undefined;
-      recordProgress({
-        documentId,
-        currentPage: pageRef.current,
-        ...(pageCountRef.current === null ? {} : { pageCount: pageCountRef.current }),
-        ...(mode === undefined ? {} : { readingMode: mode }),
-      }).catch((error: unknown) => {
-        // Losing a page position is not worth interrupting somebody who is
-        // reading. The next flush sends the newer number anyway, so a failed
-        // page costs nothing but the gap — which is why `syncedPageRef` is not
-        // rolled back: rolling it back would retry a stale page over a fresh one.
-        //
-        // That reasoning does not transfer to the mode. There is no newer mode
-        // coming — it changes only when the reader changes it — so a mode
-        // switched with no connection would be lost from the one field the
-        // reader is told follows the document to their other devices. It goes
-        // back in the ref to ride the next flush.
-        if (mode !== undefined && modeRef.current === undefined) {
-          modeRef.current = mode;
+
+      const page = pageRef.current;
+      const pageCount = pageCountRef.current;
+
+      void (async () => {
+        try {
+          if (profileId === null) {
+            return;
+          }
+          const db = await database(profileId);
+          if (db === null) {
+            return;
+          }
+
+          await Documents.patchLocal(db, documentId, {
+            currentPage: page,
+            ...(pageCount === null ? {} : { pageCount, progress: Math.min(1, page / pageCount) }),
+            ...(mode === undefined ? {} : { readingMode: mode }),
+            lastOpenedAt: Date.now(),
+          });
+
+          // One queue row per document however many times this runs, so a book
+          // read cover to cover offline is one message rather than four hundred
+          // — and the values are read off the row when it is finally sent, so
+          // the account is told where the reader ended up rather than replayed
+          // through every page they passed.
+          await Queue.enqueue(db, 'document', documentId, 'update', [
+            'currentPage',
+            'progress',
+            'lastOpenedAt',
+            ...(mode === undefined ? [] : ['readingMode']),
+          ]);
+        } catch (error) {
+          // The device's own copy in `reader-store` was written on the page
+          // turn itself and is untouched, so a failure here costs the account's
+          // copy and not the reader's place. The mode goes back in the ref for
+          // the next flush, because unlike a page there is no newer one coming.
+          if (mode !== undefined && modeRef.current === undefined) {
+            modeRef.current = mode;
+          }
+          log.debug(SCOPE, 'could not save the position', error);
         }
-        log.debug(SCOPE, 'could not save the position', error);
-      });
+      })();
     },
-    [documentId, recordProgress],
+    [documentId, profileId],
   );
 
   /** Restarts the quiet timer. Reading is a stream of these; one write is not. */

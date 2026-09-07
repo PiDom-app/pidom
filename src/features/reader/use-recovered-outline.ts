@@ -1,15 +1,17 @@
-import { useMutation } from 'convex/react';
 import { useCallback, useRef } from 'react';
 import type { TableContent } from 'react-native-pdf';
 
-import { api } from '@convex/_generated/api';
-import type { Id } from '@convex/_generated/dataModel';
 import { OUTLINE_DEPTH_MAX, OUTLINE_ENTRY_MAX } from '@convex/model/limits';
 import { log } from '@/lib/logger';
 
+import { useLibraryStatus } from '../library/data/use-library-status';
+import { database } from '../library/local/db';
+import * as Documents from '../library/local/repository/documents';
+import * as Queue from '../library/local/repository/queue';
+
 const SCOPE = 'reader-outline';
 
-/** One line of the Contents list, flattened. Matches the Convex wire shape. */
+/** One line of the Contents list, flattened. The same shape everywhere. */
 type OutlineEntry = { title: string; page: number; depth: number };
 
 /**
@@ -46,13 +48,13 @@ export function useRecoveredOutline({
   hasOutline,
   stored,
 }: {
-  documentId: Id<'documents'> | undefined;
+  documentId: string | undefined;
   /** What the row says today. `undefined` on a document that has never said. */
   hasOutline: boolean | undefined;
   /** The stored entries, or `undefined` while they are still being read. */
   stored: readonly OutlineEntry[] | undefined;
 }) {
-  const record = useMutation(api.library.recordOutline);
+  const { profileId } = useLibraryStatus();
   const sent = useRef(false);
 
   return useCallback(
@@ -74,11 +76,24 @@ export function useRecoveredOutline({
         return;
       }
       sent.current = true;
-      record({ documentId, outline: entries }).catch((error: unknown) => {
-        log.debug(SCOPE, 'could not record the outline this load found', error);
-      });
+      void (async () => {
+        try {
+          if (profileId === null) {
+            return;
+          }
+          const db = await database(profileId);
+          if (db === null) {
+            return;
+          }
+          await Documents.saveOutline(db, documentId, entries);
+          await Documents.patchLocal(db, documentId, { hasOutline: true });
+          await Queue.enqueue(db, 'document', documentId, 'update', ['hasOutline']);
+        } catch (error) {
+          log.debug(SCOPE, 'could not record the outline this load found', error);
+        }
+      })();
     },
-    [documentId, hasOutline, stored, record],
+    [documentId, profileId, hasOutline, stored],
   );
 }
 

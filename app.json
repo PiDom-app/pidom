@@ -74,6 +74,13 @@
       ],
       "@react-native-google-signin/google-signin",
       "expo-secure-store",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true,
+          "useSQLCipher": true
+        }
+      ],
       "expo-sharing",
       "@config-plugins/react-native-blob-util",
       "@config-plugins/react-native-pdf",

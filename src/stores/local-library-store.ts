@@ -1,27 +1,31 @@
 import { create } from 'zustand';
 
+import { database } from '@/features/library/local/db';
+import { reconcileFiles } from '@/features/library/local/repository/files';
 import { documentIdFromName, ensureLibraryDirectory } from '@/features/library/local/paths';
 import { log } from '@/lib/logger';
 
 const SCOPE = 'local-library';
 
 /**
- * Which documents this device actually holds.
+ * The filesystem scan, and a fast copy of its answer.
  *
- * The server cannot answer this, and a field on the Convex row claiming to
- * would be wrong the moment a reader clears app storage. So the filesystem is
- * scanned once at launch and the answer is kept here, where a rail of twelve
- * tiles can read it synchronously — twelve `File.exists` calls per render would
- * put the filesystem on the render path.
+ * **The truth is `documentFiles` in the local database**, not this store. That
+ * is where a download's verification, a corrupt file and a removal are all
+ * recorded, and it is what the tiles read through the document row. What lives
+ * here is the scan itself — the once-per-launch pass that makes the table agree
+ * with the disk — plus an in-memory set for the few callers that need the
+ * answer synchronously outside a query.
  *
- * Not persisted. `AsyncStorage` would only ever be a stale copy of something a
- * single `directory.list()` answers in milliseconds.
+ * Not persisted, and now for a second reason as well as the original: it is a
+ * cache of a cache. `AsyncStorage` would only ever be a stale copy of something
+ * a single `directory.list()` answers in milliseconds.
  */
 
 type LocalLibraryState = {
-  /** Document ids with a file on disk. */
+  /** Document ids with a file on disk, as of the last scan. */
   ids: ReadonlySet<string>;
-  /** False until the first scan finishes. Rails hold their offline badge until then. */
+  /** False until the first scan finishes. */
   scanned: boolean;
   /** The account the set belongs to, so a stale one is never read as current. */
   profileId: string | null;
@@ -52,9 +56,10 @@ export const useLocalLibraryStore = create<LocalLibraryState>()((set) => ({
   bumpCoverEpoch: () => set((state) => ({ coverEpoch: state.coverEpoch + 1 })),
 
   scan: async (profileId) => {
+    const found = new Map<string, number>();
+
     try {
       const entries = ensureLibraryDirectory(profileId).list();
-      const ids = new Set<string>();
 
       for (const entry of entries) {
         // Directories are skipped outright — `covers/` lives here too, and a
@@ -62,22 +67,33 @@ export const useLocalLibraryStore = create<LocalLibraryState>()((set) => ({
         if (!('size' in entry)) {
           continue;
         }
-        // Anything that is not `<convex id>.pdf` was not written by this app.
-        // Ignored rather than deleted: a file we did not create is not ours to
-        // remove.
+        // Anything that is not `<id>.pdf` was not written by this app. Ignored
+        // rather than deleted: a file we did not create is not ours to remove.
         const id = documentIdFromName(entry.name);
         if (id !== null) {
-          ids.add(id);
+          found.set(id, entry.size ?? 0);
         }
       }
-
-      set({ ids, scanned: true, profileId });
     } catch (error) {
       // A failed scan means every document reads as "not on this device",
       // which is wrong but safe — it disables opening rather than opening
-      // something that is not there.
-      log.error(SCOPE, 'could not read the library directory', error);
+      // something that is not there. The table is deliberately left alone in
+      // that case rather than being told everything is gone.
+      log.error(SCOPE, 'could not read the library directory');
+      log.debug(SCOPE, 'scan failed', error);
       set({ ids: new Set<string>(), scanned: true, profileId });
+      return;
+    }
+
+    set({ ids: new Set(found.keys()), scanned: true, profileId });
+
+    try {
+      const db = await database(profileId);
+      if (db !== null) {
+        await reconcileFiles(db, found);
+      }
+    } catch (error) {
+      log.debug(SCOPE, 'could not record what is on disk', error);
     }
   },
 

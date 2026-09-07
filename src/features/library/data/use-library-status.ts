@@ -1,8 +1,8 @@
-import NetInfo from '@react-native-community/netinfo';
 import { useConvexConnectionState } from 'convex/react';
-import { useSyncExternalStore } from 'react';
 
+import { useSession } from '@/features/auth/session-provider';
 import { useProfile } from '@/features/auth/use-profile';
+import { useHasNetwork } from '@/lib/connectivity';
 
 /**
  * Whether it is safe to ask the server for owned data, and whether the server
@@ -19,6 +19,10 @@ import { useProfile } from '@/features/auth/use-profile';
  * no row". That would hide a genuine failure — a token that verifies against a
  * profile that vanished — behind an empty library, on every function. The gate
  * belongs on the caller.
+ *
+ * It reads `verified` rather than `profile !== null` for the same reason:
+ * `useProfile` now answers from the device before Convex has said anything, and
+ * a profile id remembered on this phone is not a token Convex has checked.
  */
 export type LibraryStatus = {
   /** The profile row exists. Owner-scoped queries may run. */
@@ -34,78 +38,35 @@ export type LibraryStatus = {
    * them apart.
    */
   hasNetwork: boolean;
-  /** The signed-in profile's id, which scopes the offline cache. */
+  /**
+   * The reader is signed in on a remembered account rather than a verified one.
+   *
+   * Distinct again from both of the above: there may be a perfectly good
+   * network and a perfectly healthy backend, and this device still has no token
+   * because Google could not be reached at launch. Nothing owner-scoped will
+   * answer until it can, and the one line on the home screen that says so is
+   * the only place this surfaces.
+   */
+  offlineIdentity: boolean;
+  /** The signed-in profile's id, which scopes everything the device holds. */
   profileId: string | null;
 };
 
 export function useLibraryStatus(): LibraryStatus {
-  const { profile } = useProfile();
+  const { profile, verified } = useProfile();
+  const { offline: offlineIdentity } = useSession();
   const connection = useConvexConnectionState();
   const hasNetwork = useHasNetwork();
 
   return {
-    ready: profile !== null,
+    ready: verified,
     // `hasEverConnected` is what keeps a cold launch from flashing "offline"
     // during the second it takes the socket to open: before the first
-    // connection there is nothing to have lost.
-    offline: connection.hasEverConnected && !connection.isWebSocketConnected,
+    // connection there is nothing to have lost. An identity that never
+    // verified never opened a socket either, so it is offline by definition.
+    offline: offlineIdentity || (connection.hasEverConnected && !connection.isWebSocketConnected),
     hasNetwork,
+    offlineIdentity,
     profileId: profile?.id ?? null,
   };
-}
-
-/**
- * The device's own view of connectivity, from one listener.
- *
- * `useSyncExternalStore` over a module-scoped subscription rather than an
- * effect per caller: `useLibraryStatus` is used by the home hook, the actions
- * hook, both library screens, the collection picker and the action sheet, and
- * an effect would open that many native `NetInfo` listeners for one boolean.
- * This opens exactly one however many components read it.
- *
- * Optimistic until the first answer. `NetInfo` takes a moment on Android, and
- * assuming no network in that window would put an offline notice on a screen
- * that is about to load perfectly well.
- */
-let hasNetwork = true;
-const listeners = new Set<() => void>();
-let stopNative: (() => void) | null = null;
-
-function subscribe(onStoreChange: () => void): () => void {
-  listeners.add(onStoreChange);
-
-  // The native listener opens on the first subscriber and closes on the last,
-  // so a signed-out app holds none. The unsubscribe lives at module scope
-  // rather than in this closure: held per-subscriber, the first component to
-  // unmount would tear down the listener every other one is still reading.
-  if (stopNative === null) {
-    stopNative = NetInfo.addEventListener((state) => {
-      // `isInternetReachable` stays `null` until the reachability probe
-      // answers, and reading that as "no internet" makes the notice flap.
-      // `isConnected` is the stable half.
-      const next = state.isConnected === true;
-      if (next !== hasNetwork) {
-        hasNetwork = next;
-        for (const listener of listeners) {
-          listener();
-        }
-      }
-    });
-  }
-
-  return () => {
-    listeners.delete(onStoreChange);
-    if (listeners.size === 0) {
-      stopNative?.();
-      stopNative = null;
-    }
-  };
-}
-
-function useHasNetwork(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => hasNetwork,
-    () => true,
-  );
 }

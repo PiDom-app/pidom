@@ -63,9 +63,23 @@ access control — the backend checks stand on their own.
 ## Rate limits
 
 Per-user write limiting is `@convex-dev/rate-limiter`, configured in
-`convex/model/rateLimits.ts`. It sits in front of `importDocument`,
-`uploadUrl`, `downloadUrl`, `reprocess`, `setProcessed`, `recordProgress`, `bookmark` and
-collection creation.
+`convex/model/rateLimits.ts`. **Every public mutation now spends a bucket**,
+which is a stronger claim than this page could make before: `importDocument`,
+`uploadUrl`, `downloadUrl`, `reprocess`, `setProcessed`, `recordProgress`,
+`bookmark`, `annotation`, `attachUpload`, `removeDocument`, `editDocument`,
+`editCollection`, collection creation — and the last two holdouts,
+`users.ensureProfile` and `r2.syncMetadata`.
+
+Those two were not holes; both are ownership-bound. They were simply unmetered,
+and each does real work. `syncMetadata` schedules an R2 HEAD and a component
+write per call against a bucket Pidom is billed for. `ensureProfile` is the more
+interesting one: it is the only mutation reachable with nothing but a verified
+Google token, because every other write needs the profile row that this call
+creates. Its bucket is therefore spent *after* the row exists rather than
+before — `limit` is keyed on the profile's id, and on a first sign-in there is
+no profile to key on. So an account's very first call is always allowed and
+every call after it is metered, which is the right way round: refusing the first
+one would refuse the account.
 
 `recordProgress` is the newest and is there because the reader changed shape.
 It used to be called once, on the way out of a document, and is now called on a
@@ -323,6 +337,36 @@ The mirrored copy follows the file. `deleteDocument` and `removeDownload` both
 call `forgetLocally`, because a delete that leaves the reader's document text in
 a database on their phone is a delete that did not happen. So does a reader who
 stops syncing: no cloud copy means no extraction, and nothing left to mirror.
+
+### That database is encrypted, conditionally
+
+It is worth saying which half of that is a guarantee. The database holds the
+reader's titles, their notes, and the full text of every document they have
+synced, so it is opened under **SQLCipher**: `PRAGMA key` is the first statement
+on the connection, and the key is 256 bits from the platform's own generator,
+kept in `expo-secure-store` under `WHEN_UNLOCKED_THIS_DEVICE_ONLY` and never
+derived from anything a person types. It is a raw key rather than a passphrase,
+so there is no KDF to get wrong. `app.json` turns the cipher on through the
+`expo-sqlite` config plugin (`useSQLCipher`), which is a **build** flag.
+
+Which is the caveat. A build made without it opens the same file unencrypted,
+and SQLite will not complain — `PRAGMA key` on a plain build is accepted and
+ignored. So the cipher is verified rather than assumed: `PRAGMA cipher_version`
+is read back at open, and `databaseEncrypted()` reports the answer.
+
+That function used to have no callers. It reported the one thing on this page
+that a reader would want to know about their own phone, to a log nobody reads,
+and the app carried on storing their documents' text in the clear. It is on the
+`/storage` screen now, as a line saying this build cannot encrypt the library.
+The alternative — refusing to keep anything locally — was considered and
+rejected: a build misconfiguration would silently cost the reader the entire
+offline library, which is a worse failure than an honest one.
+
+The PDFs themselves are **not** encrypted, and that is not an oversight. They
+are handed to `react-native-pdf` as a `file://` URI, so a key would have to be
+given to a native renderer that has no way to take one. What protects them is
+the platform: application-private storage under a per-profile directory. The
+database is the part that could be encrypted, so it is.
 
 The nightly collector for the cloud side is worth a line here rather than only in
 the architecture: its first version scanned the head of `documentPages` for

@@ -73,6 +73,15 @@ export function messageOf(error: unknown, fallback: string): string {
   }
 }
 
+/** How long the server asked a caller to wait, in milliseconds, or `null`. */
+export function retryAfterOf(error: unknown): number | null {
+  if (!(error instanceof ConvexError)) {
+    return null;
+  }
+  const data = error.data as ErrorPayload | undefined;
+  return typeof data?.retryAfter === 'number' ? data.retryAfter : null;
+}
+
 /** Milliseconds as a person would say them. Rounded up, so it is never early. */
 function describe(ms: number): string {
   const seconds = Math.ceil(ms / 1000);

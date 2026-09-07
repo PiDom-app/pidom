@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import { useLocalLibraryStore } from '@/stores/local-library-store';
-
 import type { LibraryDocument } from './types';
 
 /**
@@ -27,14 +25,12 @@ import type { LibraryDocument } from './types';
  * PDF, and a document that lives only in the account has nothing here to read.
  */
 export function usePendingProbe(documents: LibraryDocument[]): LibraryDocument | null {
-  const localIds = useLocalLibraryStore((state) => state.ids);
-
   return useMemo(() => {
     // Oldest first: a document that has been waiting through two launches
     // should not queue behind one imported a moment ago.
     let oldest: LibraryDocument | null = null;
     for (const document of documents) {
-      if (document.processing !== 'probing' || !localIds.has(document.id)) {
+      if (document.processing !== 'probing' || document.fileState !== 'available') {
         continue;
       }
       if (oldest === null || document.createdAt < oldest.createdAt) {
@@ -42,5 +38,5 @@ export function usePendingProbe(documents: LibraryDocument[]): LibraryDocument |
       }
     }
     return oldest;
-  }, [documents, localIds]);
+  }, [documents]);
 }

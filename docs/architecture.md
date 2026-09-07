@@ -92,25 +92,53 @@ it. That is one of the four things the nightly job sweeps; see **Maintenance**.
 ## Offline
 
 The empty state promises documents are "readable with no connection", so the
-library that finds them has to be too. Convex keeps query results in memory and
-has no on-device persistence — a cold launch in aeroplane mode leaves `useQuery`
-at `undefined` forever — so `src/stores/library-cache-store.ts` keeps the last
-home payload in `AsyncStorage`, scoped to a profile id, and the screen renders
-it under a quiet "as of" line when the socket is down. Sign-out clears it: those
-are titles the reader chose.
+library that finds them has to be too. That used to be a **cache**: the last
+home payload in `AsyncStorage`, rendered under an "as of" line when the socket
+was down. A cache is the wrong shape for this. It answers one screen's question,
+goes stale, has nothing to say about a document the reader imported while it was
+the only thing available, and cannot be written to at all.
 
-With no cache to fall back on the screen says so rather than spinning, and it
-says one of two different things. `useConvexConnectionState` answers whether the
-backend is reachable; `NetInfo` answers whether there is a network at all. An
-interface can be up while Convex is not — a captive portal, a DNS failure, an
-incident — and telling a reader on good wifi to check their connection sends
-them to fix something that is not broken.
+So the device has its own database. `src/features/library/local/` is an
+`expo-sqlite` database per profile — ten tables, versioned through
+`PRAGMA user_version`, encrypted with SQLCipher under a 256-bit key that
+`expo-secure-store` holds — and it is the **first** source for every ordinary
+read. Home, the all-library screen, a collection, the reader, the navigator and
+find-in-document all read SQLite. None of them waits on Convex, and none of them
+behaves differently with the radio off.
 
-Import is the one action that cannot be queued: the server mints the id and the
-id is the filename, so there is nothing to name the file until the round trip
-returns. It refuses with a reason. Favourite, rename and delete name a document
-that already exists, so Convex queueing them until it reconnects is exactly
-right, and they are left alone.
+That is the difference between offline-capable and offline-first, and it is
+worth being precise about which one this is: the network can disappear before
+the reader opens Home, while they are on page 438, while they are adding a
+bookmark, or immediately after they write a note, and not one of those actions
+needs it back.
+
+The account is what the device converges **with**, afterwards. Every local write
+also enqueues a row in `syncQueue`, and `src/features/library/sync/` drains it
+when there is a connection, then reads the account back and makes the device
+agree — including working out what another phone deleted, which it does by
+noticing an absence rather than by reading a tombstone.
+
+`documentFiles` is the table that has no counterpart in the account, and
+deliberately: `state` is `missing`, `downloading`, `available`, `corrupt`,
+`deleting` or `deleted`, and only the device can honestly say which. A field on
+the server saying a document is "downloaded" would be a stale flag on the one
+screen whose job is to say what opens offline. `/storage` is where a reader
+reads that table back — what the library takes up here, largest first, and
+whether removing any given document costs a download or destroys the only copy.
+
+The two questions a screen still asks about the network are separate.
+`useConvexConnectionState` answers whether the backend is reachable; `NetInfo`
+answers whether there is a network at all. An interface can be up while Convex
+is not — a captive portal, a DNS failure, an incident — and telling a reader on
+good wifi to check their connection sends them to fix something that is not
+broken.
+
+**Import is no longer the exception.** It used to be the one action that could
+not be queued, because the server minted the id and the id is the filename. The
+device mints it now — `repository/ids.ts`, a dash-stripped UUID, in the shape a
+Convex id takes — so a PDF imported in aeroplane mode is a real document in a
+real library, and `importDocument` carries that `localId` so a retry after a
+dropped reply returns the same row instead of making a second one.
 
 The upload itself is **not** awaited. Committing an import writes the row, moves
 the file and the cover, and closes the screen; the upload runs on with the tile
@@ -571,9 +599,14 @@ src/
   features/      one folder per capability — auth, account, library
     library/
       components/  the screen, and the one tile every surface draws
-      data/        hooks over Convex, plus the wire types and error codes
-      local/       the device half: paths, the picker, validation, transfers,
-                   and the phone's own FTS5 index of document text
+      data/        hooks the screens read, over the local database first and
+                   Convex second, plus the wire types and error codes
+      local/       the device half, and the source of truth for reading: the
+                   SQLCipher database and its migrations, a repository per
+                   entity, the outbox table, paths, the picker, validation,
+                   transfers, free space, and the phone's own FTS5 index
+      sync/        the outbox drained, the account read back, and what each
+                   answer from it means for an operation
       import/      the import screen and the order its steps happen in
       all/         everything behind "View all"
       collection/  one collection
@@ -585,10 +618,11 @@ src/
   components/
     ui/          gluestack primitives, vendored by the CLI
     brand/       the Pidom mark
-  stores/        zustand — theme, which documents are on this device, what is
-                 transferring, the offline copy of the library, and the page
-                 the reader is on between two writes to the account
-  lib/           env, jwt, logger
+  stores/        zustand, and only for state worth losing — theme, which
+                 documents are on this device, what is transferring, how far
+                 behind the account is, and the page the reader is on between
+                 two writes to it. Anything durable is in SQLite.
+  lib/           env, jwt, connectivity, logger
 .design/         the design canvas: one .dc.html per artboard, and the
                  generator that writes them
 ```

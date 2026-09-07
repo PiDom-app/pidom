@@ -1,5 +1,5 @@
 import { FlashList } from "@shopify/flash-list";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import type { SQLiteDatabase } from "expo-sqlite";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowUpDown,
@@ -25,12 +25,12 @@ import { Menu, MenuItem, MenuItemLabel } from "@/components/ui/menu";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
-import { api } from "@convex/_generated/api";
 import { SEARCH_TERM_MAX } from "@convex/model/limits";
-import { useLocalLibraryStore } from "@/stores/local-library-store";
 
 import { DocumentActions } from "../components/document-actions";
 import { DocumentRow, DocumentTile } from "../components/document-tile";
+import * as Documents from "../local/repository/documents";
+import { useLocalQuery } from "../local/use-local-query";
 import type { LibraryDocument } from "../data/types";
 import { useCoverSync } from "../data/use-cover-sync";
 import { useLibraryActions } from "../data/use-library-actions";
@@ -46,14 +46,22 @@ import { useLibraryStatus } from "../data/use-library-status";
  * and returns pages of wildly uneven size. When a filter is on, the sort
  * control says so instead of lying about what it did.
  *
- * "On this device" is the fourth chip and the odd one out: it filters what the
- * page already returned, because the filesystem cannot be an index on the
- * server.
+ * "On this device" is the fourth chip and no longer the odd one out. It used to
+ * thin a page the server had already returned, because the filesystem could not
+ * be an index there; now every one of these reads the device's own database, so
+ * it is a predicate like the rest — and the whole screen, search included, works
+ * with no connection.
  */
 
 type Sort = "recent" | "opened" | "title";
-type Filter = "all" | "favorites" | "finished";
+type Filter = "all" | "favorites" | "finished" | "device";
 type Mode = "grid" | "list";
+
+/** How many rows a page asks for. */
+const PAGE = 24;
+
+/** What this screen is built from. A write to anything else is not its business. */
+const TABLES = ["documents", "documentFiles"] as const;
 
 const SORT_LABELS: Record<Sort, string> = {
   recent: "Recently added",
@@ -92,61 +100,64 @@ export function AllLibraryScreen() {
 
   const [term, setTerm] = useState("");
   const [sort, setSort] = useState<Sort>("recent");
-  const [chip, setChip] = useState<Filter | "device">("all");
+  const [chip, setChip] = useState<Filter>("all");
   const [mode, setMode] = useState<Mode>("grid");
   const [acting, setActing] = useState<LibraryDocument | null>(null);
 
-  const { ready } = useLibraryStatus();
+  const { profileId } = useLibraryStatus();
   const { fetchDocument } = useLibraryActions();
   const { width } = useWindowDimensions();
   const tileWidth = gridTileWidth(width);
-  const localIds = useLocalLibraryStore((state) => state.ids);
 
-  // Typing should not fire a query per keystroke. `useDeferredValue` lets the
-  // field stay responsive while the results catch up on their own.
+  // Typing should not read the database per keystroke. `useDeferredValue` lets
+  // the field stay responsive while the results catch up on their own.
   const searchTerm = useDeferredValue(term.trim());
   const searching = searchTerm !== "";
 
-  const filter: Filter = chip === "device" ? "all" : chip;
+  /**
+   * One page at a time, from this device.
+   *
+   * `usePaginatedQuery` against the account is gone, and with it the awkwardness
+   * it caused: "on this device" was the one filter the server could not apply,
+   * so a page was fetched and then thinned locally, which returned pages of
+   * wildly uneven length and could hand back an empty screen with more to come.
+   * Here it is one predicate like the others, and the whole screen works with no
+   * connection.
+   */
+  const [limit, setLimit] = useState(PAGE);
 
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.library.list,
-    ready && !searching ? { sort, filter } : "skip",
-    { initialNumItems: 24 },
+  const read = useCallback(
+    async (db: SQLiteDatabase) =>
+      searching
+        ? await Documents.searchTitles(db, searchTerm, limit)
+        : await Documents.listDocuments(db, { sort, filter: chip, limit, offset: 0 }),
+    [searching, searchTerm, sort, chip, limit],
   );
 
-  const searchResults = useQuery(
-    api.library.search,
-    ready && searching ? { term: searchTerm } : "skip",
-  );
+  const { data, loading } = useLocalQuery(profileId, TABLES, read);
+  const documents = useMemo(() => data ?? [], [data]);
 
-  const documents = useMemo(() => {
-    const source: LibraryDocument[] = searching
-      ? (searchResults ?? [])
-      : results;
-    // The one filter the server cannot apply: whether this phone holds the file.
-    return chip === "device"
-      ? source.filter((doc) => localIds.has(doc.id))
-      : source;
-  }, [searching, searchResults, results, chip, localIds]);
+  const loadMore = useCallback(() => {
+    // A page that came back short is the end of the library. Asking for another
+    // would be a read that answers with the same rows.
+    if (documents.length >= limit) {
+      setLimit((current) => current + PAGE);
+    }
+  }, [documents.length, limit]);
 
   useCoverSync(documents);
-
-  const loading = searching
-    ? searchResults === undefined
-    : status === "LoadingFirstPage";
 
   const openDocument = useCallback(
     (document: LibraryDocument) => {
       // Same rule as home: a tap on something the account has and this phone
       // does not means fetch it. Anything here opens.
-      if (!localIds.has(document.id) && document.isSynced) {
-        void fetchDocument(document.id);
+      if (document.fileState !== "available" && document.isSynced) {
+        void fetchDocument(document);
         return;
       }
       router.push({ pathname: "/reader", params: { id: document.id } });
     },
-    [localIds, fetchDocument, router],
+    [fetchDocument, router],
   );
 
   return (
@@ -275,13 +286,10 @@ export function AllLibraryScreen() {
           )}
           contentContainerStyle={GRID_PADDING}
           onEndReached={() => {
-            if (!searching && status === "CanLoadMore") {
-              loadMore(24);
+            if (!searching) {
+              loadMore();
             }
           }}
-          ListFooterComponent={
-            status === "LoadingMore" ? <LoadingMore /> : null
-          }
           showsVerticalScrollIndicator={false}
         />
       ) : (
@@ -300,13 +308,10 @@ export function AllLibraryScreen() {
           contentContainerStyle={LIST_PADDING}
           ItemSeparatorComponent={RowRule}
           onEndReached={() => {
-            if (!searching && status === "CanLoadMore") {
-              loadMore(24);
+            if (!searching) {
+              loadMore();
             }
           }}
-          ListFooterComponent={
-            status === "LoadingMore" ? <LoadingMore /> : null
-          }
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -426,13 +431,6 @@ function RowRule() {
   return <Box className="ml-[82px] h-px bg-hairline" />;
 }
 
-function LoadingMore() {
-  return (
-    <Center className="py-6">
-      <Spinner size="small" />
-    </Center>
-  );
-}
 
 const GRID_PADDING = {
   paddingHorizontal: 24,

@@ -41,8 +41,8 @@ import { r2 } from './r2';
  * different moments at once. One query is one consistent snapshot.
  *
  * The "on this device" rail is deliberately absent: the server cannot know what
- * is on a phone's disk. The device scans its own library directory and asks
- * `byIds` for the metadata.
+ * is on a phone's disk. The device answers that one from its own database,
+ * where `documentFiles.state` records what it verified after a scan.
  */
 export const home = query({
   args: {},
@@ -76,51 +76,43 @@ export const home = query({
 });
 
 /**
- * Metadata for documents the device holds on disk.
+ * Everything the account owns, for a device rebuilding its own copy of it.
  *
- * The ids come from a filesystem scan, so they are the one place a client
- * supplies identifiers it did not receive from a previous query. Ids the caller
- * does not own come back missing rather than as an error — see the note on
- * `Library.byIds`.
- */
-export const byIds = query({
-  args: { ids: v.array(v.id('documents')) },
-  returns: v.array(Library.publicDocumentValidator),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const docs = await Library.byIds(ctx, user._id, args.ids);
-    return docs.map(Library.toPublicDocument);
-  },
-});
-
-/**
- * One page of the all-library screen.
+ * Three queries rather than one, because the three tables page independently
+ * and a device that is interrupted halfway through the documents should not
+ * have to start the notes again. The client stores a cursor per query and
+ * resumes.
  *
- * This used to be the only function here without a `returns` validator, because
- * `PaginationResult` carries optional cursor-splitting fields that let the
- * platform change how it pages, and writing them out by hand would have pinned
- * the function to one version of that shape. `paginationResultValidator` is the
- * answer to exactly that: it derives the wrapper from the item validator, so the
- * split fields stay the platform's business and the `page` array is still
- * checked element by element.
+ * These are the only reads in the app with no screen behind them. They exist
+ * for `src/features/library/sync/engine.ts`, which runs when a connection comes
+ * back and diffs what the account holds against what the phone does —
+ * including working out what was deleted on another device, which it does by
+ * noticing the absence rather than by reading a tombstone.
  */
-export const list = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    sort: Library.sortValidator,
-    filter: Library.filterValidator,
-  },
+export const snapshot = query({
+  args: { paginationOpts: paginationOptsValidator },
   returns: paginationResultValidator(Library.publicDocumentValidator),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    const page = await Library.listPage(
-      ctx,
-      user._id,
-      args.paginationOpts,
-      args.sort,
-      args.filter,
-    );
-    return { ...page, page: page.page.map(Library.toPublicDocument) };
+    return await Library.snapshot(ctx, user._id, args.paginationOpts);
+  },
+});
+
+export const allBookmarks = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(Library.ownedBookmarkValidator),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    return await Library.allBookmarks(ctx, user._id, args.paginationOpts);
+  },
+});
+
+export const allAnnotations = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(Annotations.ownedAnnotationValidator),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    return await Annotations.allForOwner(ctx, user._id, args.paginationOpts);
   },
 });
 
@@ -173,38 +165,16 @@ export const usage = query({
   },
 });
 
-export const search = query({
-  args: { term: v.string() },
-  returns: v.array(Library.publicDocumentValidator),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const docs = await Library.searchTitles(ctx, user._id, args.term);
-    return docs.map(Library.toPublicDocument);
-  },
-});
-
 /**
- * A document the caller already has with this fingerprint.
+ * A document's table of contents, flattened. Empty when it has none.
  *
- * Asked once per import, before anything is written, so the reader is told
- * before they commit rather than after they have two copies. `null` is the
- * ordinary answer and not an error.
- *
- * A query rather than part of `importDocument`, because the decision is the
- * reader's: they may genuinely want a second copy — a marked-up version of the
- * same paper is a different document to a person.
+ * Read by `sync/engine.ts` during a reconcile, not by a screen. The outline is
+ * produced on whichever device imported the file — one `<Pdf>` load answers the
+ * page count, the cover and the contents together — and pushed up with
+ * `setProcessed`. A second phone that only ever *downloaded* the document has
+ * never run that probe, so without this the account would hold a contents list
+ * the reader could not reach from the device they were reading on.
  */
-export const findByFingerprint = query({
-  args: { fingerprint: v.string() },
-  returns: v.union(v.null(), Library.publicDocumentValidator),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const doc = await Library.findByFingerprint(ctx, user._id, args.fingerprint);
-    return doc === null ? null : Library.toPublicDocument(doc);
-  },
-});
-
-/** A document's table of contents, flattened. Empty when it has none. */
 export const outline = query({
   args: { documentId: v.id('documents') },
   returns: v.array(Processing.outlineEntryValidator),
@@ -311,6 +281,21 @@ export const importDocument = mutation({
     pageCount: v.optional(v.number()),
     /** `<byteSize>-<sha256 of both ends>`, checked for shape server-side. */
     fingerprint: v.optional(v.string()),
+    /**
+     * The id the device already gave this document, and filed the PDF under.
+     *
+     * Sending it is what makes the import safe to queue: delivered twice, this
+     * returns the row it made the first time rather than a second document.
+     */
+    localId: v.optional(v.string()),
+    /**
+     * The device's clock when the reader made this change.
+     *
+     * Absent from an older client, which is applied unconditionally as it
+     * always was. Present from one with an outbox, and then compared against
+     * what is stored before the patch lands — see `model/sync.ts`.
+     */
+    clientUpdatedAt: v.optional(v.number()),
   },
   returns: v.id('documents'),
   handler: async (ctx, args) => {
@@ -377,54 +362,6 @@ export const setProcessed = mutation({
 });
 
 /**
- * Records a table of contents the *reader* found, without touching anything else.
- *
- * Deliberately not `setProcessed`, which is the probe's call and writes the
- * processing state beside the outline. The reader is in no position to judge
- * that state — it has rendered the document, which says nothing about whether a
- * cover was ever made — so a document sitting at `partial` for want of a cover
- * would be promoted to `ready` by somebody opening it.
- *
- * It exists because the renderer hands `tableContents` back on every load and
- * the reader used to drop it. The outline was read once, at import, so a
- * document imported before outlines existed, or one whose probe failed, had a
- * Contents list in its file that this app would never see however many times it
- * was opened.
- *
- * Same bucket as `setProcessed`: it is the same write, from a different caller.
- * The entries are client-supplied data out of a file Pidom did not write, so
- * they go through the identical bounds — `setOutline` caps the count, cleans
- * every title and clamps every page against the document's own `pageCount`.
- */
-export const recordOutline = mutation({
-  args: {
-    documentId: v.id('documents'),
-    outline: v.array(Processing.outlineEntryValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    await limit(ctx, user, 'setProcessed');
-
-    if (args.outline.length > OUTLINE_ENTRY_MAX) {
-      throw new ConvexError({
-        code: 'INVALID',
-        message: `A table of contents is limited to ${OUTLINE_ENTRY_MAX} entries.`,
-      });
-    }
-    // Empty is refused rather than stored. `setOutline` reads an empty array as
-    // "this file has no contents" and deletes the row — which is right when the
-    // probe says it, and wrong here: a load that reported nothing may simply
-    // have been a load of a document whose outline is already recorded.
-    if (args.outline.length === 0) {
-      return null;
-    }
-    await Processing.setOutline(ctx, user, args.documentId, args.outline);
-    return null;
-  },
-});
-
-/**
  * Runs the pipeline again for one document.
  *
  * The device half is the client's to redo — it holds the file — so this is only
@@ -456,11 +393,24 @@ export const reprocess = mutation({
 });
 
 export const setFavorite = mutation({
-  args: { documentId: v.id('documents'), isFavorite: v.boolean() },
+  args: {
+    documentId: v.id('documents'),
+    isFavorite: v.boolean(),
+    /**
+     * The device's clock when the reader made this change.
+     *
+     * Absent from an older client, which is applied unconditionally as it
+     * always was. Present from one with an outbox, and then compared against
+     * what is stored before the patch lands — see `model/sync.ts`.
+     */
+    clientUpdatedAt: v.optional(v.number()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await Library.setFavorite(ctx, user, args.documentId, args.isFavorite);
+    // Metered now that it can arrive in a flush rather than only under a thumb.
+    await limit(ctx, user, 'editDocument');
+    await Library.setFavorite(ctx, user, args.documentId, args.isFavorite, args.clientUpdatedAt);
     return null;
   },
 });
@@ -473,11 +423,20 @@ export const rename = mutation({
     // was. The rename sheet always sends both, so there is one path here
     // instead of a partial-update path beside it.
     author: v.optional(v.string()),
+    /**
+     * The device's clock when the reader made this change.
+     *
+     * Absent from an older client, which is applied unconditionally as it
+     * always was. Present from one with an outbox, and then compared against
+     * what is stored before the patch lands — see `model/sync.ts`.
+     */
+    clientUpdatedAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await Library.rename(ctx, user, args.documentId, args.title, args.author);
+    await limit(ctx, user, 'editDocument');
+    await Library.rename(ctx, user, args.documentId, args.title, args.author, args.clientUpdatedAt);
     return null;
   },
 });
@@ -496,6 +455,14 @@ export const recordProgress = mutation({
     pageCount: v.optional(v.number()),
     isFinished: v.optional(v.boolean()),
     readingMode: v.optional(Library.readingModeValidator),
+    /**
+     * The device's clock when the reader made this change.
+     *
+     * Absent from an older client, which is applied unconditionally as it
+     * always was. Present from one with an outbox, and then compared against
+     * what is stored before the patch lands — see `model/sync.ts`.
+     */
+    clientUpdatedAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -510,22 +477,6 @@ export const recordProgress = mutation({
 });
 
 /* ── bookmarks ──────────────────────────────────────────────────────── */
-
-/**
- * Every page marked in one document.
- *
- * Owner-checked on the document before a bookmark row is read, so an id the
- * caller does not own answers `FORBIDDEN` rather than an empty list — an empty
- * list would say the document exists.
- */
-export const bookmarks = query({
-  args: { documentId: v.id('documents') },
-  returns: v.array(Library.bookmarkValidator),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    return await Library.bookmarksFor(ctx, user, args.documentId);
-  },
-});
 
 export const addBookmark = mutation({
   args: {
@@ -571,33 +522,32 @@ export const renameBookmark = mutation({
     currentPage: v.number(),
     /** Empty clears the name. The keyboard bounds it at `BOOKMARK_LABEL_MAX`. */
     label: v.string(),
+    /**
+     * The device's clock when the reader made this change.
+     *
+     * Absent from an older client, which is applied unconditionally as it
+     * always was. Present from one with an outbox, and then compared against
+     * what is stored before the patch lands — see `model/sync.ts`.
+     */
+    clientUpdatedAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'bookmark');
-    await Library.renameBookmark(ctx, user, args.documentId, args.currentPage, args.label);
+    await Library.renameBookmark(
+      ctx,
+      user,
+      args.documentId,
+      args.currentPage,
+      args.label,
+      args.clientUpdatedAt,
+    );
     return null;
   },
 });
 
 /* ── notes ──────────────────────────────────────────────────────────── */
-
-/**
- * Every passage and note kept in one document, in page order.
- *
- * Owner-checked on the document before a row is read, exactly as `bookmarks`
- * is: an id the caller does not own answers `FORBIDDEN` rather than an empty
- * list, because an empty list would say the document exists.
- */
-export const annotations = query({
-  args: { documentId: v.id('documents') },
-  returns: v.array(Annotations.annotationValidator),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    return await Annotations.annotationsFor(ctx, user, args.documentId);
-  },
-});
 
 /**
  * Keeps a passage, or writes a note against a page.
@@ -614,6 +564,15 @@ export const addAnnotation = mutation({
     kind: v.union(v.literal('passage'), v.literal('note')),
     text: v.optional(v.string()),
     note: v.optional(v.string()),
+    /**
+     * The id the device already filed this note under.
+     *
+     * Two passages from one page are two different sentences, so there is no
+     * natural key here — this is the only thing that makes a queued create safe
+     * to deliver twice.
+     */
+    clientOpId: v.optional(v.string()),
+    clientUpdatedAt: v.optional(v.number()),
   },
   returns: v.id('documentAnnotations'),
   handler: async (ctx, args) => {
@@ -625,18 +584,24 @@ export const addAnnotation = mutation({
       kind: args.kind,
       ...(args.text === undefined ? {} : { text: args.text }),
       ...(args.note === undefined ? {} : { note: args.note }),
+      ...(args.clientOpId === undefined ? {} : { clientOpId: args.clientOpId }),
+      ...(args.clientUpdatedAt === undefined ? {} : { clientUpdatedAt: args.clientUpdatedAt }),
     });
   },
 });
 
 /** Changes what the reader wrote. The kept passage itself is never editable. */
 export const updateAnnotation = mutation({
-  args: { annotationId: v.id('documentAnnotations'), note: v.string() },
+  args: {
+    annotationId: v.id('documentAnnotations'),
+    note: v.string(),
+    clientUpdatedAt: v.optional(v.number()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'annotation');
-    await Annotations.update(ctx, user, args.annotationId, args.note);
+    await Annotations.update(ctx, user, args.annotationId, args.note, args.clientUpdatedAt);
     return null;
   },
 });

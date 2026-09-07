@@ -162,6 +162,41 @@ export default defineSchema({
      */
     fingerprint: v.optional(v.string()),
 
+    /**
+     * The importing device's own id for this document.
+     *
+     * The device mints an id before it copies the file, because the id is the
+     * filename and a phone in aeroplane mode has no way to ask for one. This
+     * column is what makes that safe to send: `importDocument` looks the id up
+     * first and returns the existing row rather than inserting a second one, so
+     * an outbox that delivers the same create twice — a reply lost on the way
+     * back, an app killed between the write and the acknowledgement — produces
+     * one document rather than two.
+     *
+     * It doubles as the mapping between the two vocabularies, which is why
+     * there is no table for that. Optional because every document imported
+     * before the device minted its own ids has none, and those are matched on
+     * `_id` instead — the device adopted the Convex id as its local one, so for
+     * them the two are the same string.
+     */
+    localId: v.optional(v.string()),
+
+    /**
+     * The device's clock when it last changed this row.
+     *
+     * Sent with every write that overwrites rather than accumulates, and
+     * compared before the patch is applied. Without it an operation queued at
+     * nine in the morning and delivered at five in the afternoon stamps the
+     * server clock and silently wins against a position written from another
+     * device an hour earlier — the reader loses a chapter to a phone that spent
+     * the day in a bag.
+     *
+     * Optional, and a write that carries none is applied unconditionally: that
+     * is what every mutation did before this existed, and an older client is
+     * not wrong, only less careful.
+     */
+    clientUpdatedAt: v.optional(v.number()),
+
     /** 1-based, and clamped against `pageCount` server-side on every write. */
     currentPage: v.number(),
     /** 0..1. Stored rather than derived so a rail can sort and render on it. */
@@ -244,6 +279,14 @@ export default defineSchema({
     // fingerprints existed sort first under a missing value and are never
     // looked up, because the query always names a fingerprint.
     .index('by_owner_and_fingerprint', ['ownerId', 'fingerprint'])
+    // "Is this the document that phone already sent me?", asked once per queued
+    // create. An index rather than a scan because a client that retries an
+    // import is a client whose connection is already bad enough.
+    .index('by_owner_and_local', ['ownerId', 'localId'])
+    // The reconcile a device runs when it comes back: everything the account
+    // owns, oldest change first, paged. There was no way to ask this before —
+    // `by_owner` sorts on creation and a device wants to know what *moved*.
+    .index('by_owner_and_updated', ['ownerId', 'updatedAt'])
     .index('by_owner_and_opened', ['ownerId', 'lastOpenedAt'])
     .index('by_owner_and_title', ['ownerId', 'title'])
     // `ownerId` as a filter field is what keeps one reader's search out of
@@ -390,12 +433,28 @@ export default defineSchema({
     /** What the reader called it. Absent means the page number speaks for it. */
     label: v.optional(v.string()),
     createdAt: v.number(),
+    /**
+     * When the row last changed, which it had no way of saying.
+     *
+     * A bookmark was write-once apart from its label, so nothing needed this
+     * until a device had to ask "what has moved since I was last online". It is
+     * optional because every bookmark made before now has no answer, and those
+     * fall back to `createdAt`.
+     */
+    updatedAt: v.optional(v.number()),
+    /** See `documents.clientUpdatedAt`. Guards the rename against a stale one. */
+    clientUpdatedAt: v.optional(v.number()),
   })
     // "Is this page already marked?" — one lookup rather than a scan, and the
     // toggle in the reader asks it on every page turn.
     .index('by_document_and_page', ['documentId', 'page'])
     // The list, in the order they were made.
-    .index('by_document', ['documentId', 'createdAt']),
+    .index('by_document', ['documentId', 'createdAt'])
+    // Every mark in the account, for a device rebuilding its own copy. The
+    // denormalised `ownerId` was already here for the ownership check; this is
+    // the index that makes it answerable in one query rather than one per
+    // document.
+    .index('by_owner', ['ownerId', 'createdAt']),
 
   /**
    * A passage kept out of a document, or a note written about a page of it.
@@ -455,6 +514,18 @@ export default defineSchema({
       }),
     ),
 
+    /**
+     * The id the device gave this note before the account had one.
+     *
+     * `Annotations.add` is the one create in this backend that was documented
+     * as deliberately not idempotent, which was correct while every call came
+     * from a person tapping a button. An outbox that can deliver the same
+     * operation twice makes that a duplicated note, so the device's own id is
+     * recorded and looked up first.
+     */
+    clientOpId: v.optional(v.string()),
+    /** See `documents.clientUpdatedAt`. Guards an edit against a stale one. */
+    clientUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -463,7 +534,12 @@ export default defineSchema({
     .index('by_document', ['documentId', 'page'])
     // The count and the delete cascade, which do not care about page order.
     // Two orders need two indexes; the guidelines are explicit about it.
-    .index('by_document_and_created', ['documentId', 'createdAt']),
+    .index('by_document_and_created', ['documentId', 'createdAt'])
+    // "Have I already stored this one?" — the idempotency lookup, once per
+    // queued create.
+    .index('by_owner_and_op', ['ownerId', 'clientOpId'])
+    // Every note in the account, for a device rebuilding its own copy.
+    .index('by_owner', ['ownerId', 'createdAt']),
 
   /**
    * A named group of documents. It owns no files and duplicates no document —
@@ -479,9 +555,15 @@ export default defineSchema({
      * only writers.
      */
     documentCount: v.number(),
+    /** The id the device gave it. See `documentAnnotations.clientOpId`. */
+    clientOpId: v.optional(v.string()),
+    /** See `documents.clientUpdatedAt`. Guards a rename against a stale one. */
+    clientUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_owner', ['ownerId']),
+  })
+    .index('by_owner', ['ownerId'])
+    .index('by_owner_and_op', ['ownerId', 'clientOpId']),
 
   /** Membership. The relationship, and nothing else. */
   collectionDocuments: defineTable({
@@ -496,5 +578,9 @@ export default defineSchema({
     // The cascade when a document is deleted.
     .index('by_document', ['documentId'])
     // "Is it already in?" — one lookup rather than a scan of the collection.
-    .index('by_collection_and_document', ['collectionId', 'documentId']),
+    .index('by_collection_and_document', ['collectionId', 'documentId'])
+    // The whole relation, for a device rebuilding its copy of the library. The
+    // denormalised `ownerId` was already here for the ownership check; this is
+    // what makes it answerable in one paged query rather than one per folder.
+    .index('by_owner', ['ownerId', 'addedAt']),
 });

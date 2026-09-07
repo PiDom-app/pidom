@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { findUser, getIdentity, requireIdentity } from './model/auth';
+import { limit } from './model/rateLimits';
 import { publicProfileValidator, toPublicProfile, upsertFromIdentity } from './model/users';
 
 /**
@@ -42,6 +43,13 @@ export const me = query({
  *
  * The client calls this once per authenticated launch. It is idempotent, so a
  * retry after a dropped connection costs a write and nothing else.
+ *
+ * The bucket is spent *after* the row exists rather than before, and that order
+ * is the whole difficulty: `limit` is keyed on the profile's id, and on a first
+ * sign-in there is no profile to key on. So the write happens, then the token is
+ * spent — which means the very first call of a new account is always allowed and
+ * every call after it is metered. That is the right way round. Refusing the
+ * first one would refuse the account itself.
  */
 export const ensureProfile = mutation({
   args: {},
@@ -49,6 +57,7 @@ export const ensureProfile = mutation({
   handler: async (ctx) => {
     const identity = await requireIdentity(ctx);
     const user = await upsertFromIdentity(ctx, identity);
+    await limit(ctx, user, 'ensureProfile');
     return toPublicProfile(user);
   },
 });

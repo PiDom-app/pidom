@@ -42,9 +42,15 @@ export function useCoverSync(documents: readonly LibraryDocument[]): void {
     if (profileId === null) {
       return '';
     }
+    // Both ids, joined: the account is asked by the id it knows, and the file
+    // is written under the one this device files everything under. A document
+    // the account has never met has no cover to fetch and is not in this list.
     return documents
-      .filter((doc) => doc.hasCover && localCoverUri(profileId, doc.id) === null)
-      .map((doc) => doc.id)
+      .filter(
+        (doc) =>
+          doc.hasCover && doc.remoteId !== null && localCoverUri(profileId, doc.id) === null,
+      )
+      .map((doc) => `${doc.id}:${doc.remoteId ?? ''}`)
       .join(',');
     // `coverEpoch` is the subscription to a filesystem React cannot watch: it
     // changes when covers land, which is exactly when this list shrinks.
@@ -63,12 +69,16 @@ export function useCoverSync(documents: readonly LibraryDocument[]): void {
       // start is a burst nobody asked for, and covers are not urgent. It also
       // means one signed URL is in flight at a time rather than twelve, each
       // with five minutes of life.
-      for (const id of wanted.split(',')) {
+      for (const pair of wanted.split(',')) {
         if (cancelled) {
           return;
         }
+        const [id, remoteId] = pair.split(':');
+        if (id === undefined || remoteId === undefined || remoteId === '') {
+          continue;
+        }
         const url = await downloadUrl({
-          documentId: id as Id<'documents'>,
+          documentId: remoteId as Id<'documents'>,
           what: 'cover',
         }).catch(() => null);
         if (url !== null && (await downloadCover(profileId, id, url))) {

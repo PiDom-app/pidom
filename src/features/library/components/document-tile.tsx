@@ -8,7 +8,6 @@ import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { useIsOnThisDevice } from '@/stores/local-library-store';
 import { useTransfer } from '@/stores/transfer-store';
 
 import type { LibraryDocument, Placement } from '../data/types';
@@ -40,6 +39,11 @@ function glyphFor(document: LibraryDocument, placement: Placement) {
       return CloudDownload;
     case 'local-only':
       return Smartphone;
+    // The file is here and does not open. The same glyph as a failed probe,
+    // because from the reader's side it is the same sentence: this one will not
+    // open, and there is something to try.
+    case 'unreadable':
+      return TriangleAlert;
     case 'here':
     case 'transferring':
       return null;
@@ -71,10 +75,13 @@ export function DocumentTile({
   onPress: (document: LibraryDocument) => void;
   onLongPress: (document: LibraryDocument) => void;
 }) {
-  const onThisDevice = useIsOnThisDevice(document.id);
+  // `fileState` on the row is what says whether this one opens, and it is the
+  // only thing that does: it is written after a download has been checked, not
+  // from a flag the account set. The scan store is no longer consulted here.
+  const onThisDevice = document.fileState === 'available';
   const transfer = useTransfer(document.id);
-  const placement = placementOf(document, { onThisDevice, transferring: transfer !== null });
-  const meta = metaLineFor(document, { onThisDevice, showProgress, transfer });
+  const placement = placementOf(document, { transferring: transfer !== null });
+  const meta = metaLineFor(document, { showProgress, transfer });
   const glyph = glyphFor(document, placement);
 
   // One meaning at a time in the same 2px. A transfer's bar is the transfer,
@@ -161,10 +168,10 @@ export function DocumentRow({
   onPress: (document: LibraryDocument) => void;
   onLongPress: (document: LibraryDocument) => void;
 }) {
-  const onThisDevice = useIsOnThisDevice(document.id);
+  const onThisDevice = document.fileState === 'available';
   const transfer = useTransfer(document.id);
-  const placement = placementOf(document, { onThisDevice, transferring: transfer !== null });
-  const meta = metaLineFor(document, { onThisDevice, showProgress: true, transfer });
+  const placement = placementOf(document, { transferring: transfer !== null });
+  const meta = metaLineFor(document, { showProgress: true, transfer });
   const glyph = glyphFor(document, placement);
 
   return (
