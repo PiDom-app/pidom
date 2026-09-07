@@ -1,5 +1,7 @@
-import { CloudOff, RefreshCw, WifiOff } from 'lucide-react-native';
+import { CloudOff, Lock, RefreshCw, ShieldAlert, WifiOff } from 'lucide-react-native';
 import React from 'react';
+
+import type { DatabaseFault } from '../local/db';
 
 import { Button, ButtonText } from '@/components/ui/button';
 import { Center } from '@/components/ui/center';
@@ -56,6 +58,52 @@ export function OfflineState({
         <Button variant="outline" size="lg" onPress={onRetry} className="mt-2 h-11">
           <ButtonText>Try again</ButtonText>
         </Button>
+      </VStack>
+    </Center>
+  );
+}
+
+/**
+ * There is no library on this device, and it is not because there are no
+ * documents.
+ *
+ * The state that has to exist once the database can refuse to open. Without it
+ * a device whose library cannot be read falls through to the empty state and
+ * invites the reader to import their first document — which is a claim about
+ * their account that this phone is in no position to make, and the one wrong
+ * thing an empty screen can say.
+ *
+ * `no-cipher` is a build fault rather than anything the reader did, so it says
+ * what is true — their documents are safe, this copy of the app is the problem
+ * — without asking them to fix it.
+ */
+export function LibraryUnavailable({ fault }: { fault: DatabaseFault }) {
+  const headline =
+    fault === 'no-cipher'
+      ? 'This build cannot store your library'
+      : fault === 'no-keychain'
+        ? 'Locked'
+        : 'Rebuilding your library';
+
+  const body =
+    fault === 'no-cipher'
+      ? 'Pidom encrypts the library it keeps on your phone, and this build was made without the encryption. Rather than store your documents in the clear, it is not storing them at all. Nothing is lost — everything is still in your account.'
+      : fault === 'no-keychain'
+        ? 'This device would not hand over the key to your library. Unlock the phone and open Pidom again; nothing has been lost.'
+        : 'The copy on this device could not be opened, so it is being built again from your account.';
+
+  return (
+    <Center className="flex-1 px-10">
+      <VStack className="items-center" space="lg">
+        <Icon as={fault === 'no-keychain' ? Lock : ShieldAlert} size="xl" className="h-10 w-10 text-fg-subtle" />
+        <VStack className="items-center" space="sm">
+          <Heading size="lg" className="text-center text-foreground">
+            {headline}
+          </Heading>
+          <Text size="sm" className="max-w-[286px] text-center text-muted-foreground">
+            {body}
+          </Text>
+        </VStack>
       </VStack>
     </Center>
   );

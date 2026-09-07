@@ -21,6 +21,7 @@ import { useHome } from '../data/use-home';
 import { useLibraryActions } from '../data/use-library-actions';
 import { useLibraryStatus } from '../data/use-library-status';
 import { usePendingProbe } from '../data/use-pending-probe';
+import { databaseFault } from '../local/db';
 import { documentFile } from '../local/paths';
 import { COLLECTION_TILE_HEIGHT, CollectionTile } from './collection-tile';
 import { DocumentActions } from './document-actions';
@@ -29,7 +30,7 @@ import { DocumentProbe, type ProbeResult } from './document-probe';
 import { DocumentTile, tileHeight } from './document-tile';
 import { EmptyLibrary } from './empty-library';
 import { LibraryHeader } from './library-header';
-import { OfflineState, SyncNotice } from './library-notice';
+import { LibraryUnavailable, OfflineState, SyncNotice } from './library-notice';
 import { LibrarySkeleton } from './library-skeleton';
 import { SectionRail } from './section-rail';
 
@@ -93,6 +94,10 @@ export function LibraryScreen() {
   const photoUrl = account?.photoUrl ?? profile?.pictureUrl ?? null;
 
   const { profileId } = useLibraryStatus();
+
+  // Read once the local query has settled, because that is what opens the
+  // database and therefore what discovers a fault.
+  const fault = loading ? null : databaseFault();
 
   const openDocument = useCallback(
     (document: LibraryDocument) => {
@@ -161,6 +166,20 @@ export function LibraryScreen() {
       onOpenSearch={() => router.push({ pathname: '/library', params: { focus: 'search' } })}
     />
   );
+
+  // Before every other empty-looking branch, because it is the one that is not
+  // about the library at all: the database would not open, so this device knows
+  // nothing rather than knowing there is nothing. Falling through to
+  // `EmptyLibrary` here would invite somebody to import their first document on
+  // top of a library they already have.
+  if (!loading && fault !== null) {
+    return (
+      <Screen>
+        {header}
+        <LibraryUnavailable fault={fault} />
+      </Screen>
+    );
+  }
 
   // Nothing here, and no reason yet to believe that is the truth: this device
   // has never finished a sync and cannot reach the account to try. Saying "no
