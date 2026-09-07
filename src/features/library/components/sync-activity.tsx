@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
+  CloudCheck,
   CloudDownload,
   CloudOff,
   CloudUpload,
@@ -18,7 +19,6 @@ import {
 import React from 'react';
 
 import { Screen } from '@/components/layout/screen';
-import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Center } from '@/components/ui/center';
 import { HStack } from '@/components/ui/hstack';
@@ -71,7 +71,7 @@ export function SyncActivityScreen() {
         </Text>
       </HStack>
 
-      <ScrollView contentContainerClassName="pb-12">
+      <ScrollView className="flex-1" contentContainerClassName="grow pb-8">
         <Status
           phase={phase}
           offline={offline}
@@ -117,15 +117,26 @@ export function SyncActivityScreen() {
           </>
         ) : null}
 
+        {/* `flex-1` inside a `grow` content container, so an empty queue puts
+            this in the middle of what is left rather than jammed under the
+            status line with the rest of the screen blank beneath it. */}
         {quiet ? (
-          <Center className="px-10 pt-16">
-            <Text size="sm" className="max-w-[286px] text-center text-muted-foreground">
+          <Center className="flex-1 px-10 py-12">
+            <Icon as={CloudCheck} size="xl" className="h-9 w-9 text-fg-subtle" />
+            <Text size="sm" className="mt-4 max-w-[286px] text-center text-muted-foreground">
               Nothing is waiting. Everything you have changed on this device is in your account.
             </Text>
           </Center>
         ) : null}
+      </ScrollView>
 
-        <HStack className="items-center px-6 pt-6" space="sm">
+      {/* Outside the ScrollView on purpose. It used to scroll with the list,
+          which put the one control on the screen directly under the last row —
+          near the top when the queue was empty, and off the bottom when it was
+          long. A control whose position depends on how much work is queued is
+          a control nobody can build a habit around. */}
+      <VStack className="border-t border-hairline px-6 pb-2 pt-4" space="md">
+        <HStack className="items-center" space="sm">
           <Icon as={RefreshCw} size="xs" className="text-fg-subtle" />
           <Text size="xs" className="flex-1 text-fg-subtle">
             {lastSyncedAt === null
@@ -134,17 +145,15 @@ export function SyncActivityScreen() {
           </Text>
         </HStack>
 
-        <Box className="px-6 pt-5">
-          <Button
-            variant="outline"
-            size="lg"
-            onPress={() => void syncNow()}
-            isDisabled={offline}
-            className="h-11">
-            <ButtonText>Sync now</ButtonText>
-          </Button>
-        </Box>
-      </ScrollView>
+        <Button
+          variant="outline"
+          size="lg"
+          onPress={() => void syncNow()}
+          isDisabled={offline}
+          className="h-11">
+          <ButtonText>{offline ? 'Waiting for a connection' : 'Sync now'}</ButtonText>
+        </Button>
+      </VStack>
     </Screen>
   );
 }

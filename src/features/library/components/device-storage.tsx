@@ -25,7 +25,7 @@ import { VStack } from '@/components/ui/vstack';
 import { formatBytes } from '../data/types';
 import { useDeviceStorage, type StorageEntry } from '../data/use-device-storage';
 import { useLibraryActions } from '../data/use-library-actions';
-import { databaseEncrypted } from '../local/db';
+import { databaseFault } from '../local/db';
 import { HEADROOM_BYTES } from '../local/space';
 
 /**
@@ -51,6 +51,10 @@ export function DeviceStorageScreen() {
   const { entries, used, free, loading } = useDeviceStorage();
   const { removeDownload } = useLibraryActions();
   const [confirming, setConfirming] = useState<StorageEntry | null>(null);
+
+  // Read after the query has run, because that is what opens the database and
+  // therefore what discovers the fault.
+  const fault = loading ? null : databaseFault();
 
   // Below the headroom `space.ts` insists on, the next import of any size is
   // going to be refused. Saying so here is the difference between a reader
@@ -105,11 +109,17 @@ export function DeviceStorageScreen() {
           />
         ) : null}
 
-        {databaseEncrypted() ? null : (
+        {fault === null ? null : (
           <Notice
             glyph={Lock}
-            tone="text-fg-muted"
-            text="This build cannot encrypt the library on disk. Your documents and the text taken from them are stored in the clear on this device."
+            tone="text-destructive"
+            text={
+              fault === 'no-cipher'
+                ? 'This build cannot encrypt a library on disk, so Pidom is not keeping one. Your documents are still in your account and still open from this phone, but nothing is being stored here until the app is rebuilt with encryption turned on.'
+                : fault === 'no-keychain'
+                  ? 'This device would not hand over the key to its library. Unlock the phone and reopen Pidom; nothing has been lost.'
+                  : 'The library on this device could not be opened, so it is being rebuilt from your account.'
+            }
           />
         )}
 
