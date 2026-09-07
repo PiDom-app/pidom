@@ -1,4 +1,3 @@
-import { useMutation } from 'convex/react';
 import * as Sharing from 'expo-sharing';
 import {
   BookOpenCheck,
@@ -46,16 +45,14 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAppToast } from '@/components/feedback/use-app-toast';
-import { api } from '@convex/_generated/api';
 import { log } from '@/lib/logger';
-import { useIsOnThisDevice } from '@/stores/local-library-store';
 
 import type { LibraryDocument } from '../data/types';
 import { formatBytes, metaLineFor } from '../data/types';
-import { messageOf } from '../data/errors';
 import { useLibraryActions } from '../data/use-library-actions';
 import { useLibraryStatus } from '../data/use-library-status';
 import { documentFile } from '../local/paths';
+import { useCollectionActions } from '../data/use-collection-actions';
 import { CollectionPicker } from './collection-picker';
 import { DocumentCover } from './document-cover';
 import { DocumentDetails } from './document-details';
@@ -114,8 +111,7 @@ export function DocumentActions({
     recordProbe,
   } = useLibraryActions();
   const { profileId } = useLibraryStatus();
-  const createCollection = useMutation(api.collections.create);
-  const addToCollection = useMutation(api.collections.addDocument);
+  const { create: createCollection, addDocument: addToCollection } = useCollectionActions();
 
   /**
    * Creates a collection and puts this document in it, in one step.
@@ -124,23 +120,25 @@ export function DocumentActions({
    * inside it — this is that path without the intermediate sheet, for the
    * common case of filing something into a group that does not exist yet.
    */
-  async function createCollectionWith(
-    name: string,
-    documentId: Parameters<typeof addToCollection>[0]['documentId'],
-  ): Promise<boolean> {
-    try {
-      const collectionId = await createCollection({ name });
-      await addToCollection({ collectionId, documentId });
-      return true;
-    } catch (error) {
+  /**
+   * A new collection with this document already in it.
+   *
+   * Two local writes and two queue rows, and the id the second one needs is
+   * minted by the first — on this device, so there is no round trip between
+   * them and no window in which a collection exists with nothing in it.
+   */
+  async function createCollectionWith(name: string, documentId: string): Promise<boolean> {
+    const collectionId = await createCollection(name);
+    if (collectionId === null) {
       showToast({
         id: 'collection',
         tone: 'error',
         title: "Couldn't create the collection",
-        description: messageOf(error, 'Try again in a moment.'),
+        description: 'Something went wrong on this device. Try again.',
       });
       return false;
     }
+    return await addToCollection(collectionId, documentId);
   }
   const showToast = useAppToast();
 
@@ -162,7 +160,10 @@ export function DocumentActions({
 
   // Hooks cannot be called conditionally, so the id has to be a string either
   // way; an empty one is simply never on the device.
-  const onThisDevice = useIsOnThisDevice(document?.id ?? '');
+  // From the row rather than from the scan store: `fileState` is written after
+  // a download has been checked, and it is the only thing that knows the
+  // difference between a file that is here and one that is here and broken.
+  const onThisDevice = document?.fileState === 'available';
   const isOpen =
     document !== null &&
     !confirmingDelete &&
@@ -218,8 +219,8 @@ export function DocumentActions({
                   </Text>
                   <Text size="xs" numberOfLines={1} className="mt-0.5 text-fg-subtle">
                     {document.author === null
-                      ? metaLineFor(document, { onThisDevice, showProgress: true })
-                      : `${document.author} · ${metaLineFor(document, { onThisDevice, showProgress: true })}`}
+                      ? metaLineFor(document, { showProgress: true })
+                      : `${document.author} · ${metaLineFor(document, { showProgress: true })}`}
                   </Text>
                 </VStack>
               </HStack>
@@ -247,7 +248,7 @@ export function DocumentActions({
                 {!onThisDevice && document.isSynced ? (
                   <ActionsheetItem
                     onPress={() => {
-                      void fetchDocument(document.id);
+                      void fetchDocument(document);
                       onClose();
                     }}>
                     <ActionsheetIcon as={CloudDownload} className="text-fg-muted" />
@@ -263,9 +264,9 @@ export function DocumentActions({
                   <ActionsheetItem
                     onPress={() => {
                       if (document.isSynced) {
-                        void unsyncDocument(document.id);
+                        void unsyncDocument(document);
                       } else {
-                        void syncDocument(document.id, document.byteSize);
+                        void syncDocument(document);
                       }
                       onClose();
                     }}>

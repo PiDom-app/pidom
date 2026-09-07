@@ -25,7 +25,7 @@ import type { MutationCtx } from '../_generated/server';
  * Every number carries the reason for it, as in `./limits.ts`. A limit with no
  * reason gets raised the first time somebody hits it.
  */
-export const rateLimiter = new RateLimiter(components.rateLimiter, {
+const LIMITS = {
   /**
    * Importing. A row, a file move and a probe — cheap on the server, and the
    * bound is on the library filling with rows nobody asked for.
@@ -125,7 +125,63 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
    * out a library never meets it and low enough to stop a loop.
    */
   removeDocument: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
-});
+
+  /**
+   * Renaming a document, and favouriting one.
+   *
+   * These were the only unmetered public writes in the app, and that was
+   * defensible while every one of them was a thumb on a control. It is not now:
+   * a device that spent a day offline drains its outbox in one connection, and
+   * an unmetered mutation in that flush is an unmetered mutation in a loop.
+   *
+   * The capacity is a flush and the rate is a reader — forty in a burst covers
+   * emptying a queue after a long trip, and three hundred an hour is far past
+   * anything a person does by hand.
+   */
+  editDocument: { kind: 'token bucket', rate: 300, period: HOUR, capacity: 40 },
+
+  /**
+   * Renaming a collection, deleting one, and moving documents in and out.
+   *
+   * Unmetered for the same reason and now metered for the same one. Wider than
+   * `editDocument` because moving a dozen documents into a new collection is
+   * one gesture and a dozen mutations, and refusing the eleventh would be
+   * refusing something a reader plainly meant.
+   */
+  editCollection: { kind: 'token bucket', rate: 400, period: HOUR, capacity: 60 },
+
+  /**
+   * Establishing the profile row a verified token belongs to.
+   *
+   * Called once per launch and idempotent, so an honest caller spends one token
+   * a session and the bucket is invisible to them. What it stops is the loop:
+   * `ensureProfile` is the one mutation reachable with nothing but a verified
+   * Google token — every other write needs a profile that this call creates —
+   * so it was the only door into the deployment that a token alone opened, and
+   * it writes a row.
+   *
+   * Generous, because a reader who reinstalls, signs out and signs back in, or
+   * force-quits repeatedly is doing something real.
+   */
+  ensureProfile: { kind: 'token bucket', rate: 60, period: HOUR, capacity: 10 },
+
+  /**
+   * Reading an uploaded object's metadata back out of R2.
+   *
+   * The component's own `syncMetadata` is public because the client has to call
+   * it between the PUT and `attachUpload` — nothing else knows the upload
+   * finished. It is ownership-bound by the `onUpload` callback in `../r2.ts`,
+   * which is why this was not a hole; it was simply unmetered, and each call
+   * schedules an R2 HEAD and a component write against a bucket Pidom is billed
+   * for.
+   *
+   * Sized just above `attachUpload`, which follows it once per upload: a caller
+   * that reaches this limit has already been refused by that one.
+   */
+  syncMetadata: { kind: 'token bucket', rate: 80, period: HOUR, capacity: 20 },
+} as const;
+
+export const rateLimiter = new RateLimiter(components.rateLimiter, LIMITS);
 
 /**
  * Reads are deliberately absent, including search.
@@ -139,18 +195,15 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
 /** Thrown when an account has run out of a bucket. */
 export const RATE_LIMITED = 'RATE_LIMITED';
 
-type LimitName =
-  | 'import'
-  | 'uploadUrl'
-  | 'downloadUrl'
-  | 'reprocess'
-  | 'createCollection'
-  | 'setProcessed'
-  | 'recordProgress'
-  | 'bookmark'
-  | 'annotation'
-  | 'attachUpload'
-  | 'removeDocument';
+/**
+ * Derived from the buckets rather than written out beside them.
+ *
+ * It used to be a hand-kept union, which is a second list to update every time
+ * a limit is added — and the failure mode is the quiet one: a bucket that
+ * exists, is configured, and cannot be named by `limit()`, so the function it
+ * was written for stays unmetered and nothing says so.
+ */
+type LimitName = keyof typeof LIMITS;
 
 /**
  * Spends one token, or throws.

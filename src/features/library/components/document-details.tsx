@@ -14,7 +14,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { api } from '@convex/_generated/api';
-import { useIsOnThisDevice } from '@/stores/local-library-store';
+import type { Id } from '@convex/_generated/dataModel';
 
 import type { LibraryDocument } from '../data/types';
 import { useLibraryStatus } from '../data/use-library-status';
@@ -39,18 +39,24 @@ export function DocumentDetails({
   document: LibraryDocument | null;
   onClose: () => void;
 }) {
-  const onThisDevice = useIsOnThisDevice(document?.id ?? '');
+  const onThisDevice = document?.fileState === 'available';
   const { ready } = useLibraryStatus();
 
   // Only while the sheet is open, and only for a document whose text is
   // actually moving. A finished extraction has nothing left to watch, and a
   // subscription per opened sheet on a settled row is a socket for a constant.
+  //
+  // The one read on this screen that still goes to the account, and it has to:
+  // extraction happens there, over the copy in R2, and how far it has got is
+  // not a fact this device can hold. A document the account has never heard of
+  // has no job to watch either, which is what `remoteId` answers.
   const job = useQuery(
     api.library.processingStatus,
     ready &&
       document !== null &&
+      document.remoteId !== null &&
       (document.textStatus === 'queued' || document.textStatus === 'extracting')
-      ? { documentId: document.id }
+      ? { documentId: document.remoteId as Id<'documents'> }
       : 'skip',
   );
 

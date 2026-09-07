@@ -1,16 +1,13 @@
-import { useQuery } from 'convex/react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Box } from '@/components/ui/box';
 import { Center } from '@/components/ui/center';
 import { Spinner } from '@/components/ui/spinner';
-import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { ReadingMode } from '@convex/model/library';
 import { log } from '@/lib/logger';
 import { useReaderStore } from '@/stores/reader-store';
-import { useIsOnThisDevice } from '@/stores/local-library-store';
 import { useResolvedTheme } from '@/providers/theme-provider';
 
 import { DocumentActions } from '../library/components/document-actions';
@@ -33,6 +30,7 @@ import type { NavigatorSegment } from './reader-location';
 import { SelectionBar } from './selection-bar';
 import { useAnnotations } from './use-annotations';
 import { useBookmarks } from './use-bookmarks';
+import { useReaderDocument } from './use-reader-document';
 import { useRecoveredOutline } from './use-recovered-outline';
 import { ReaderFailed, ReaderMissing, ReaderOpening } from './reader-states';
 import { useReaderLayout } from './use-reader-layout';
@@ -95,27 +93,19 @@ const CLOSED: Overlay = { kind: 'none' };
 export function ReaderScreen() {
   const router = useRouter();
   const { id, page: requested } = useLocalSearchParams<{ id: string; page?: string }>();
-  const documentId = id as Id<'documents'> | undefined;
+  const documentId = id === undefined || id === '' ? undefined : id;
 
-  const { ready, profileId } = useLibraryStatus();
-  const onThisDevice = useIsOnThisDevice(documentId ?? '');
+  const { profileId } = useLibraryStatus();
   const theme = useResolvedTheme();
   const layout = useReaderLayout();
   const { fetchDocument } = useLibraryActions();
 
-  const found = useQuery(
-    api.library.byIds,
-    ready && documentId !== undefined ? { ids: [documentId] } : 'skip',
-  );
-  const document: LibraryDocument | undefined = found?.[0];
-
-  // The scrubber's chapter ticks *and* the Contents sheet read this one
-  // subscription. The sheet used to open its own, which meant a round trip
-  // before it could draw anything the reader could use.
-  const outline = useQuery(
-    api.library.outline,
-    ready && documentId !== undefined && document?.hasOutline === true ? { documentId } : 'skip',
-  );
+  /**
+   * The document and its contents, from this device. See the hook for what
+   * this replaced and why it matters more here than anywhere else.
+   */
+  const { document, outline, loading } = useReaderDocument(documentId);
+  const onThisDevice = document?.fileState === 'available';
 
   const canvas = useRef<ReaderCanvasRef>(null);
   const [phase, setPhase] = useState<Phase>('opening');
@@ -198,11 +188,11 @@ export function ReaderScreen() {
   // `bookmarks` is not read here any more — the list moved to the navigator —
   // but the subscription stays, because the toolbar's filled-or-not icon has to
   // know whether *this* page is marked on every page turn.
-  const { marked, toggle: toggleBookmark } = useBookmarks({ documentId, ready });
+  const { marked, toggle: toggleBookmark } = useBookmarks({ documentId });
 
   // Only `keep` is used here. The list, the edit and the delete live on the
   // navigator, which subscribes to the same query from its own screen.
-  const { keep } = useAnnotations({ documentId, ready });
+  const { keep } = useAnnotations({ documentId });
 
   // The renderer hands the document's own contents back on every load; this
   // keeps them when the row has none. See the hook for why it is that narrow.
@@ -215,7 +205,7 @@ export function ReaderScreen() {
   const find = useFindInDocument({
     documentId,
     profileId,
-    ready,
+    remoteId: document?.remoteId ?? null,
     isSynced: document?.isSynced ?? false,
     active: finding,
   });
@@ -343,10 +333,10 @@ export function ReaderScreen() {
     return <ReaderMissing />;
   }
 
-  // `documentFile` throws `UnsafeId` on anything that is not a Convex id, which
-  // a deep link can be. Caught here rather than in the route's error boundary,
-  // because "that is not a document" deserves a sentence rather than
-  // "something went wrong".
+  // `documentFile` throws `UnsafeId` on anything that is not an id this app
+  // writes, which a deep link can be. Caught here rather than in the route's
+  // error boundary, because "that is not a document" deserves a sentence rather
+  // than "something went wrong".
   let uri: string;
   try {
     uri = documentFile(profileId, documentId).uri;
@@ -361,12 +351,16 @@ export function ReaderScreen() {
   }
 
   if (document === undefined) {
-    return (
+    // The device answers in a frame, so this is the frame before it does — and
+    // then, if there is still nothing, a document that is not here at all.
+    return loading ? (
       <Box className="flex-1 bg-background">
         <Center className="flex-1">
           <Spinner />
         </Center>
       </Box>
+    ) : (
+      <ReaderMissing />
     );
   }
 
@@ -382,7 +376,7 @@ export function ReaderScreen() {
           setAttempt((n) => n + 1);
         }}
         onFetch={() => {
-          void fetchDocument(document.id);
+          void fetchDocument(document);
           router.back();
         }}
       />

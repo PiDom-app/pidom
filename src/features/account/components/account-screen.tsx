@@ -15,7 +15,11 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useProfile } from '@/features/auth/use-profile';
 import { useSession } from '@/features/auth/session-provider';
-import { StorageUsage } from '@/features/library/components/storage-usage';
+import {
+  DeviceStorageSummary,
+  StorageUsage,
+} from '@/features/library/components/storage-usage';
+import { SyncSummary } from '@/features/library/components/sync-summary';
 
 import { SignOutAction } from './sign-out-action';
 import { ThemeControl } from './theme-control';
@@ -90,8 +94,21 @@ export function AccountScreen() {
 
           <Divider className="bg-hairline" />
 
+          {/* Two rows, because they answer different questions: what the
+              account is holding, and what this phone is. A document can be in
+              one, the other, or both. Only the second has anywhere to go. */}
           <Section title="Storage">
             <StorageUsage />
+            <DeviceStorageSummary />
+          </Section>
+
+          <Divider className="bg-hairline" />
+
+          {/* Between Storage and Account, because it is a fact about the
+              library like Storage is — and because Account has to stay last:
+              signing out is the terminal, destructive row on this screen. */}
+          <Section title="Sync">
+            <SyncSummary />
           </Section>
 
           <Divider className="bg-hairline" />

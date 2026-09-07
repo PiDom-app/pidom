@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #6a59e8; } a:hover { color: #7a6af0; }
+    .c2, .c5 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    .c2 { -webkit-line-clamp: 2; } .c5 { -webkit-line-clamp: 5; }
+    .pretty { text-wrap: pretty; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width:390px;min-height:844px;background:#000000;overflow:hidden">
+<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0">
+    <span style="font-size:14px;color:#8f8d88">Cancel</span>
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:#e8e6e3">Add to library</span>
+    <span style="font-size:14px;color:transparent">Cancel</span>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 40px;text-align:center">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6e6c68" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01"/><path d="M10 16h.01"/></svg>
+    <div style="margin-top:20px;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.018em;color:#e8e6e3">Not enough room</div>
+    <div style="margin-top:8px;max-width:286px;font-size:14px;line-height:21px;color:#8f8d88" class="pretty">This document needs 317 MB and there is 184 MB free on this device. Nothing has been written, and your library is untouched.</div>
+    <div style="margin-top:24px;height:44px;display:flex;align-items:center;padding:0 20px;border-radius:6px;box-shadow:inset 0 0 0 1px #262523">
+      <span style="font-size:14px;font-weight:500;color:#e8e6e3">Manage storage</span>
+    </div>
+  </div>
+
+  <div style="padding:0 24px 34px">
+    <div style="font-size:12px;line-height:18px;color:#6e6c68;text-align:center" class="pretty">Asked before anything is copied. A phone filled to the last byte fails at everything at once a minute later, not at the thing that filled it.</div>
+  </div>
+</div>
+</div>
+</x-dc>
+
+</body>
+</html>

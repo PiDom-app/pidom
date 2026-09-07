@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { log } from '@/lib/logger';
-import { useLocalLibraryStore } from '@/stores/local-library-store';
 
 import { mirrorPages, mirroredIds } from '../local/text-index';
 import type { LibraryDocument } from './types';
@@ -45,7 +44,6 @@ const inFlight = new Set<string>();
 export function useTextMirror(documents: readonly LibraryDocument[]): void {
   const { profileId, offline } = useLibraryStatus();
   const convex = useConvex();
-  const localIds = useLocalLibraryStore((state) => state.ids);
   const [mirrored, setMirrored] = useState<ReadonlySet<string> | null>(null);
 
   // Read once per profile. It is a filesystem question, so React cannot watch
@@ -70,8 +68,13 @@ export function useTextMirror(documents: readonly LibraryDocument[]): void {
    * The ids still wanted, as a string.
    *
    * A string rather than an array so the effect compares by value: `documents`
-   * is a fresh Convex result on every unrelated change, and keying the effect on
-   * it would restart the mirror on every favourite toggle.
+   * is a fresh array on every unrelated change, and keying the effect on it
+   * would restart the mirror on every favourite toggle.
+   *
+   * Both ids, joined. The text is asked for by the id the account knows and
+   * written under the one this device uses; a document the account has never
+   * met has no text to mirror, and one whose file is not here would be a
+   * reader's data spent on a book they would still have to download.
    */
   const wanted = useMemo(() => {
     if (mirrored === null) {
@@ -80,11 +83,14 @@ export function useTextMirror(documents: readonly LibraryDocument[]): void {
     return documents
       .filter(
         (doc) =>
-          doc.textStatus === 'ready' && localIds.has(doc.id) && !mirrored.has(doc.id),
+          doc.textStatus === 'ready' &&
+          doc.remoteId !== null &&
+          doc.fileState === 'available' &&
+          !mirrored.has(doc.id),
       )
-      .map((doc) => doc.id)
+      .map((doc) => `${doc.id}:${doc.remoteId ?? ''}`)
       .join(',');
-  }, [documents, localIds, mirrored]);
+  }, [documents, mirrored]);
 
   useEffect(() => {
     if (wanted === '' || profileId === null || offline) {
@@ -93,9 +99,13 @@ export function useTextMirror(documents: readonly LibraryDocument[]): void {
 
     let cancelled = false;
     void (async () => {
-      for (const id of wanted.split(',')) {
+      for (const pair of wanted.split(',')) {
         if (cancelled) {
           return;
+        }
+        const [id, remoteId] = pair.split(':');
+        if (id === undefined || remoteId === undefined || remoteId === '') {
+          continue;
         }
         if (inFlight.has(id)) {
           continue;
@@ -110,7 +120,7 @@ export function useTextMirror(documents: readonly LibraryDocument[]): void {
           let after = 0;
           for (;;) {
             const batch = await convex.query(api.library.pagesOf, {
-              documentId: id as Id<'documents'>,
+              documentId: remoteId as Id<'documents'>,
               after,
             });
             pages.push(...batch.pages);

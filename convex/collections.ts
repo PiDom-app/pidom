@@ -1,3 +1,4 @@
+import { paginationOptsValidator, paginationResultValidator } from 'convex/server';
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
@@ -15,52 +16,6 @@ import { COLLECTION_COVER_LIMIT, RAIL_LIMIT } from './model/limits';
  * membership write names two ids and verifies ownership of both.
  */
 
-/** The documents in one collection. Backs the collection screen. */
-export const documents = query({
-  args: {
-    collectionId: v.id('collections'),
-    limit: v.optional(v.number()),
-  },
-  returns: v.object({
-    name: v.string(),
-    documentCount: v.number(),
-    documents: v.array(Library.publicDocumentValidator),
-  }),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    // `requireCollection` first, so a caller probing ids gets `FORBIDDEN`
-    // before any document is read rather than an empty list they could read
-    // something into.
-    const collection = await Collections.requireCollection(ctx, user, args.collectionId);
-
-    // The caller may ask for fewer, never more. An unbounded `limit` argument
-    // is an unbounded read with extra steps.
-    const limit = Math.min(args.limit ?? 60, 200);
-    const docs = await Library.documentsInCollection(ctx, user._id, collection._id, limit);
-
-    return {
-      name: collection.name,
-      documentCount: collection.documentCount,
-      documents: docs.map(Library.toPublicDocument),
-    };
-  },
-});
-
-/**
- * Which collections hold a given document.
- *
- * The action sheet needs it to show ticks rather than making the reader
- * remember where they already filed something.
- */
-export const forDocument = query({
-  args: { documentId: v.id('documents') },
-  returns: v.array(v.id('collections')),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    return await Collections.collectionIdsFor(ctx, user, args.documentId);
-  },
-});
-
 /**
  * Every collection, with the covers its tile draws.
  *
@@ -76,22 +31,62 @@ export const list = query({
   },
 });
 
+/**
+ * Every membership in the account, for the reconcile.
+ *
+ * A device rebuilding its own copy needs the whole relation, and asking
+ * `documents` once per collection is one query per folder for a screen that
+ * does not exist yet. Paginated because membership is the one table here that
+ * grows with the product of two others.
+ *
+ * Scoped by the denormalised `ownerId`, which is what that column has always
+ * been for — see the note on it in `convex/schema.ts`.
+ */
+export const membership = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(
+    v.object({
+      collectionId: v.id('collections'),
+      documentId: v.id('documents'),
+      addedAt: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const page = await Collections.membershipPage(ctx, user._id, args.paginationOpts);
+    return page;
+  },
+});
+
 export const create = mutation({
-  args: { name: v.string() },
+  args: {
+    name: v.string(),
+    /** The id the device already filed it under. See `model/sync.ts`. */
+    clientOpId: v.optional(v.string()),
+    clientUpdatedAt: v.optional(v.number()),
+  },
   returns: v.id('collections'),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'createCollection');
-    return await Collections.create(ctx, user, args.name);
+    return await Collections.create(ctx, user, args.name, {
+      ...(args.clientOpId === undefined ? {} : { clientOpId: args.clientOpId }),
+      ...(args.clientUpdatedAt === undefined ? {} : { clientUpdatedAt: args.clientUpdatedAt }),
+    });
   },
 });
 
 export const rename = mutation({
-  args: { collectionId: v.id('collections'), name: v.string() },
+  args: {
+    collectionId: v.id('collections'),
+    name: v.string(),
+    clientUpdatedAt: v.optional(v.number()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await Collections.rename(ctx, user, args.collectionId, args.name);
+    await limit(ctx, user, 'editCollection');
+    await Collections.rename(ctx, user, args.collectionId, args.name, args.clientUpdatedAt);
     return null;
   },
 });
@@ -102,6 +97,7 @@ export const remove = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await limit(ctx, user, 'editCollection');
     await Collections.remove(ctx, user, args.collectionId);
     return null;
   },
@@ -112,6 +108,7 @@ export const addDocument = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await limit(ctx, user, 'editCollection');
     await Collections.addDocument(ctx, user, args.collectionId, args.documentId);
     return null;
   },
@@ -122,6 +119,7 @@ export const removeDocument = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await limit(ctx, user, 'editCollection');
     await Collections.removeDocument(ctx, user, args.collectionId, args.documentId);
     return null;
   },

@@ -2,17 +2,31 @@ import { Stack } from 'expo-router';
 import React from 'react';
 
 import { useEnsureProfile } from '@/features/auth/use-profile';
+import { useLibrarySync } from '@/features/library/data/use-library-sync';
+import { useSyncIntents } from '@/features/library/data/use-sync-intents';
 import { useIncomingDocument } from '@/features/library/import/use-incoming-document';
 import { useLocalLibrary } from '@/features/library/local/use-local-library';
+import { useSyncEngine } from '@/features/library/sync/use-sync-engine';
 
 /**
  * The authenticated shell.
  *
  * The profile row is created here, once, rather than in each screen: this
  * layout is mounted for exactly as long as the reader is signed in, which is
- * the lifetime the bootstrap should have. Scanning the device for local PDFs
- * has the same lifetime, and so does listening for a document another app hands
- * over, so all three happen here.
+ * the lifetime the bootstrap should have. Everything else mounted here has the
+ * same lifetime and the same shape — a background concern with no screen of its
+ * own:
+ *
+ *   useEnsureProfile    the account row, on a first sign-in
+ *   useLocalLibrary     the filesystem scan, into `documentFiles`
+ *   useLibrarySync      one live subscription, upserted into the local database
+ *   useSyncEngine       the outbox: drain, then reconcile
+ *   useSyncIntents      uploads asked for when there was nothing to upload to
+ *   useIncomingDocument a PDF handed over by another app
+ *
+ * None of them returns anything and no screen waits for any of them. That is
+ * the whole architecture: the screens read the device, and these keep the
+ * device and the account in step behind them.
  *
  * A plain stack. `index` is home, `library` is everything behind "View all",
  * `collection` is one group, `search` looks inside documents rather than at
@@ -25,6 +39,9 @@ import { useLocalLibrary } from '@/features/library/local/use-local-library';
 export default function AppLayout() {
   useEnsureProfile();
   useLocalLibrary();
+  useLibrarySync();
+  useSyncEngine();
+  useSyncIntents();
   // A PDF opened from another app. Here rather than on a screen, because a
   // document can arrive while the reader is anywhere — and only here, because a
   // file handed over while signed out has no account to go into.
@@ -45,6 +62,10 @@ export default function AppLayout() {
       <Stack.Screen name="collection" />
       <Stack.Screen name="search" />
       <Stack.Screen name="account" />
+      {/* What is waiting to reach the account, and anything that will not go. */}
+      <Stack.Screen name="sync" />
+      {/* What the library takes up here, and what removing any of it costs. */}
+      <Stack.Screen name="storage" />
     </Stack>
   );
 }

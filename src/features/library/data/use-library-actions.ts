@@ -1,60 +1,58 @@
-import { useMutation } from 'convex/react';
+import { useConvex, useMutation } from 'convex/react';
 import { useCallback } from 'react';
 
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { CLOUD_BYTE_MAX } from '@convex/model/limits';
 import { useAppToast } from '@/components/feedback/use-app-toast';
-import { useSession } from '@/features/auth/session-provider';
 import { log } from '@/lib/logger';
 import { useLocalLibraryStore } from '@/stores/local-library-store';
 import { useTransferStore } from '@/stores/transfer-store';
 
 import type { OutlineEntry } from '../components/document-probe';
-import { removeLocally } from '../local/import';
-import {
-  coverFile,
-  documentFile,
-  forgetPageThumbnails,
-  keepCover,
-  localCoverUri,
-} from '../local/paths';
-import { forgetPassword } from '@/features/reader/document-password';
-import { useReaderStore } from '@/stores/reader-store';
-import { forgetLocally } from '../local/text-index';
-import { downloadCover, downloadDocument, uploadFile } from '../local/transfer';
-import type { LibraryDocument } from './types';
+import { database } from '../local/db';
+import { coverFile, documentFile, keepCover, localCoverUri } from '../local/paths';
+import * as Documents from '../local/repository/documents';
+import * as Files from '../local/repository/files';
+import * as Queue from '../local/repository/queue';
+import { sweepDocument } from '../local/sweep';
+import { BadDownload, downloadCover, downloadDocument, uploadFile } from '../local/transfer';
 import { messageOf } from './errors';
+import type { LibraryDocument } from './types';
 import { useLibraryStatus } from './use-library-status';
 
 const SCOPE = 'library-actions';
 
 /**
- * Every write the library can make, with the local half attached.
+ * Every write the library can make.
  *
- * Deleting and syncing each touch two things that can fail independently — a
- * Convex row or a stored blob, and a file on disk — and the ordering and
- * cleanup for both live here rather than in whichever component had the button.
+ * **Local first, always.** Each of these commits to the device's own database
+ * and puts one row in the outbox; the account is told when there is a
+ * connection. Nothing here awaits a mutation, and nothing here fails because
+ * the reader is in a tunnel — which is what every one of them used to do, with
+ * a toast saying so.
  *
- * Import is the exception and lives in `../import/use-import-flow.ts`, because
- * it has a screen's worth of state in front of it rather than a single call.
+ * The exceptions are the two that move bytes, and they are exceptions for a
+ * reason rather than an oversight. `library.uploadUrl` deletes whatever is at
+ * the key before it signs a new URL, so replaying an upload would destroy the
+ * copy in the account while the row went on claiming there was one — see
+ * `sync/operations.ts`. A transfer is therefore live, foreground and once; a
+ * reader who asks for one with no connection has the intention recorded on the
+ * row, and `use-sync-intents.ts` performs it when there is one.
+ *
+ * Import is elsewhere, in `../import/use-import-flow.ts`, because it has a
+ * screen's worth of state in front of it rather than a single call.
  */
 export function useLibraryActions() {
-  const importDocument = useMutation(api.library.importDocument);
-  const removeDocument = useMutation(api.library.remove);
-  const setFavorite = useMutation(api.library.setFavorite);
-  const renameDocument = useMutation(api.library.rename);
+  const client = useConvex();
   const uploadUrl = useMutation(api.library.uploadUrl);
   const downloadUrl = useMutation(api.library.downloadUrl);
   const syncMetadata = useMutation(api.r2.syncMetadata);
   const attachUpload = useMutation(api.library.attachUpload);
   const detachUpload = useMutation(api.library.detachUpload);
-  const recordProgress = useMutation(api.library.recordProgress);
   const reprocessDocument = useMutation(api.library.reprocess);
-  const setProcessed = useMutation(api.library.setProcessed);
 
   const { offline, hasNetwork, profileId } = useLibraryStatus();
-  const { fetchIdToken } = useSession();
   const markPresent = useLocalLibraryStore((state) => state.markPresent);
   const markAbsent = useLocalLibraryStore((state) => state.markAbsent);
   const bumpCoverEpoch = useLocalLibraryStore((state) => state.bumpCoverEpoch);
@@ -64,123 +62,123 @@ export function useLibraryActions() {
   const showToast = useAppToast();
 
   /**
-   * Deletes the row, then the file.
+   * Deletes it here, and tells the account later.
    *
-   * That order, and not the other one: a file deleted before a failed mutation
-   * is gone from a document the library still lists, which is the one outcome
-   * with no way back. A row deleted before a failed unlink leaves a stray file,
-   * which the next scan simply ignores.
+   * The order that used to matter — row first, then file, so a failed mutation
+   * could not strip a document the library still listed — is not a question any
+   * more. There is one write, it is local, and it cannot half-succeed: the row
+   * is marked deleted, the outbox is told, and the files go. If the account is
+   * never reachable again the reader has still deleted their document, which is
+   * what they asked for.
    */
   const deleteDocument = useCallback(
-    async (documentId: Id<'documents'>): Promise<boolean> => {
+    async (documentId: string): Promise<boolean> => {
       if (profileId === null) {
         return false;
       }
       try {
-        await removeDocument({ documentId });
+        const db = await database(profileId);
+        if (db === null) {
+          return false;
+        }
+
+        await Documents.softDelete(db, documentId);
+        const outcome = await Queue.enqueue(db, 'document', documentId, 'remove');
+
+        // Its marks, notes and memberships all cascade at the account, so
+        // sending their operations first is work the cascade is about to undo
+        // — and half of them would come back `FORBIDDEN` from a document that
+        // is no longer there.
+        await Queue.dropOperationsFor(db, 'annotation', await annotationIdsOf(db, documentId));
+
+        sweepDocument(profileId, documentId, 'document');
+        markAbsent(documentId);
+
+        // A document the account never heard of leaves nothing behind to tell
+        // it about.
+        if (outcome === 'annihilated') {
+          await Documents.purge(db, documentId);
+        }
+        return true;
       } catch (error) {
         showToast({
           id: 'delete',
           tone: 'error',
           title: "Couldn't delete",
-          description: messageOf(error, 'Try again in a moment.'),
+          description: 'Something went wrong on this device. Try again.',
         });
+        log.debug(SCOPE, 'delete failed', error);
         return false;
       }
-
-      removeLocally(profileId, documentId);
-      // The mirrored text goes with the file it describes. It is the reader's
-      // own document content sitting in a database on this phone, and a delete
-      // that leaves it behind is a delete that did not happen.
-      void forgetLocally(profileId, documentId);
-      // Same rule for what the reader left behind: the page they got to, and
-      // the password if they asked this phone to remember one. A credential
-      // outliving the document it unlocks is a credential nothing will ever
-      // come back for.
-      useReaderStore.getState().forgetPage(documentId);
-      void forgetPassword(documentId);
-      // And the pictures of its pages, for the same reason as the text: a
-      // rendered page is the document's content, and it has no business
-      // outliving the document.
-      forgetPageThumbnails(profileId, documentId);
-      markAbsent(documentId);
-      return true;
     },
-    [profileId, removeDocument, markAbsent, showToast],
+    [profileId, markAbsent, showToast],
   );
 
   const toggleFavorite = useCallback(
-    async (documentId: Id<'documents'>, isFavorite: boolean) => {
-      try {
-        await setFavorite({ documentId, isFavorite });
-      } catch (error) {
-        showToast({
-          id: 'favourite',
-          tone: 'error',
-          title: "Couldn't update",
-          description: messageOf(error, 'Try again in a moment.'),
-        });
-      }
+    async (documentId: string, isFavorite: boolean): Promise<boolean> => {
+      return await patch(profileId, documentId, { isFavorite }, ['isFavorite']);
     },
-    [setFavorite, showToast],
+    [profileId],
   );
 
   const rename = useCallback(
-    async (documentId: Id<'documents'>, title: string, author: string) => {
-      try {
-        await renameDocument({ documentId, title, author });
-        return true;
-      } catch (error) {
-        showToast({
-          id: 'rename',
-          tone: 'error',
-          title: "Couldn't rename",
-          description: messageOf(error, 'Try again in a moment.'),
-        });
-        return false;
-      }
+    async (documentId: string, title: string, author?: string): Promise<boolean> => {
+      return await patch(
+        profileId,
+        documentId,
+        { title, author: author ?? null },
+        ['title', 'author'],
+      );
     },
-    [renameDocument, showToast],
+    [profileId],
   );
 
   /**
-   * Puts a document's PDF, and its cover, in the account.
+   * Marks a document read or unread.
    *
-   * Three requests by design: `generateUploadUrl`, a POST straight to storage,
-   * then `attachUpload`. Nothing in the middle request is under the server's
-   * control, which is exactly why the third one recomputes the key and re-reads
-   * the object's size, type and digest from R2 before linking it.
-   *
-   * The cover goes second and its failure is survivable — the tinted fallback
-   * is a working state, and losing a document over a thumbnail would not be.
+   * Finishing jumps to the last page, because a book marked finished at page 12
+   * would come back saying it was 4% read. **Unmarking leaves the page alone** —
+   * unread means "not done with it", not "never opened", and sending somebody
+   * who marked a book finished at 40% back to page one throws away a real
+   * position with no undo.
    */
-  const syncDocument = useCallback(
-    async (documentId: Id<'documents'>, byteSize: number): Promise<boolean> => {
+  const setFinished = useCallback(
+    async (document: LibraryDocument, isFinished: boolean): Promise<boolean> => {
+      const currentPage = isFinished
+        ? (document.pageCount ?? document.currentPage)
+        : document.currentPage;
+      const progress =
+        document.pageCount === null || document.pageCount === 0
+          ? document.progress
+          : Math.min(1, currentPage / document.pageCount);
+
+      return await patch(
+        profileId,
+        document.id,
+        { isFinished, currentPage, progress },
+        ['isFinished', 'currentPage', 'progress'],
+      );
+    },
+    [profileId],
+  );
+
+  /**
+   * The three requests, run once and in the foreground.
+   *
+   * Separate from `syncDocument` because `use-sync-intents.ts` calls it too:
+   * an upload asked for with no connection is recorded on the row, and that
+   * hook performs it when there is one.
+   */
+  const performUpload = useCallback(
+    async (remoteId: string, localId: string): Promise<boolean> => {
       if (profileId === null) {
         return false;
       }
-      if (offline) {
-        showToast({
-          id: 'sync',
-          tone: 'error',
-          title: hasNetwork ? "Can't reach Pidom" : "You're offline",
-          description: 'Syncing needs a connection.',
-        });
-        return false;
-      }
-      if (byteSize > CLOUD_BYTE_MAX) {
-        showToast({
-          id: 'sync',
-          tone: 'error',
-          title: 'Too large to sync',
-          description: `Documents over ${Math.round(CLOUD_BYTE_MAX / 1024 / 1024)} MB stay on the device that imported them.`,
-        });
-        return false;
-      }
+      const documentId = remoteId as Id<'documents'>;
 
-      startTransfer(documentId, 'upload');
+      startTransfer(localId, 'upload');
       try {
-        const pdf = documentFile(profileId, documentId);
+        const pdf = documentFile(profileId, localId);
         if (!pdf.exists) {
           showToast({ id: 'sync', tone: 'error', title: 'That document is not on this device' });
           return false;
@@ -188,7 +186,7 @@ export function useLibraryActions() {
 
         const target = await uploadUrl({ documentId, what: 'document' });
         await uploadFile(pdf, target.url, 'application/pdf', ({ sent, total }) =>
-          reportProgress(documentId, sent, total),
+          reportProgress(localId, sent, total),
         );
         // The component records the object's size, type and digest from R2.
         // `attachUpload` reads them back to decide whether to link it, so this
@@ -196,7 +194,7 @@ export function useLibraryActions() {
         await syncMetadata({ key: target.key });
 
         let coverStorageKey: string | undefined;
-        const cover = coverFile(profileId, documentId);
+        const cover = coverFile(profileId, localId);
         if (cover.exists) {
           try {
             const coverTarget = await uploadUrl({ documentId, what: 'cover' });
@@ -214,6 +212,8 @@ export function useLibraryActions() {
           storageKey: target.key,
           ...(coverStorageKey === undefined ? {} : { coverStorageKey }),
         });
+
+        await patch(profileId, localId, { syncIntent: null }, []);
         return true;
       } catch (error) {
         showToast({
@@ -224,13 +224,11 @@ export function useLibraryActions() {
         });
         return false;
       } finally {
-        finishTransfer(documentId);
+        finishTransfer(localId);
       }
     },
     [
       profileId,
-      offline,
-      hasNetwork,
       uploadUrl,
       syncMetadata,
       attachUpload,
@@ -242,73 +240,77 @@ export function useLibraryActions() {
   );
 
   /**
+   * Puts a document's PDF, and its cover, in the account.
+   *
+   * Three requests by design: `uploadUrl`, a PUT straight to storage, then
+   * `attachUpload`. Nothing in the middle request is under the server's
+   * control, which is exactly why the third one recomputes the key and re-reads
+   * the object's size, type and digest from R2 before linking it.
+   *
+   * With no connection this records the intention on the row instead and
+   * answers yes. The reader asked for a cloud copy; they will have one. What
+   * they will not have is a queued `uploadUrl` waiting to delete the object it
+   * is about to replace, in an app that may be killed in between.
+   */
+  const syncDocument = useCallback(
+    async (document: LibraryDocument): Promise<boolean> => {
+      if (profileId === null) {
+        return false;
+      }
+      if (document.byteSize > CLOUD_BYTE_MAX) {
+        showToast({
+          id: 'sync',
+          tone: 'error',
+          title: 'Too large to sync',
+          description: `Documents over ${Math.round(CLOUD_BYTE_MAX / 1024 / 1024)} MB stay on the device that imported them.`,
+        });
+        return false;
+      }
+
+      if (offline || document.remoteId === null) {
+        await patch(profileId, document.id, { syncIntent: 'upload' }, []);
+        showToast({
+          id: 'sync',
+          tone: 'info',
+          title: 'Will sync when you are back online',
+          description: 'It stays fully readable on this device in the meantime.',
+        });
+        return true;
+      }
+
+      return await performUpload(document.remoteId, document.id);
+    },
+    [profileId, offline, performUpload, showToast],
+  );
+
+  /**
    * Frees the local copy of a synced document.
    *
    * Only ever offered for a document that is *both* here and in the account —
    * see the guard in `document-actions.tsx`. Doing this to a local-only
    * document would be a delete with no confirmation and no way back.
    *
-   * No mutation: the row already knows the account still has it, and whether
-   * this phone does is not the server's to record.
+   * Nothing is sent: the row already knows the account still has it, and
+   * whether this phone does is not the server's to record.
    */
   const removeDownload = useCallback(
-    (documentId: Id<'documents'>): boolean => {
+    async (documentId: string): Promise<boolean> => {
       if (profileId === null) {
         return false;
       }
-      removeLocally(profileId, documentId);
-      // Offline search is for documents that open offline, and this one no
-      // longer does. It mirrors again if the reader downloads it back.
-      void forgetLocally(profileId, documentId);
       // The password goes with the file; the page does not. The document is
       // still in the account and still has a position worth keeping, and the
       // copy that comes back may not even be encrypted the same way.
-      void forgetPassword(documentId);
-      // The thumbnails were rendered from the file that has just gone. They
-      // would be re-rendered from the copy that comes back, and keeping stale
-      // pictures of a document this phone no longer holds is the same mistake
-      // as keeping its text.
-      forgetPageThumbnails(profileId, documentId);
+      sweepDocument(profileId, documentId, 'download');
       markAbsent(documentId);
+
+      const db = await database(profileId);
+      if (db !== null) {
+        await Files.setState(db, documentId, 'missing');
+      }
       return true;
     },
     [profileId, markAbsent],
-  );
-
-  /**
-   * Marks a document read or unread.
-   *
-   * Through `recordProgress`, which is also what the reader calls: one path
-   * writes reading state, and it clamps and derives on the server.
-   *
-   * Finishing jumps to the last page, because a book marked finished at page 12
-   * would come back saying it was 4% read. **Unmarking leaves the page alone** —
-   * unread means "not done with it", not "never opened", and sending somebody
-   * who marked a book finished at 40% back to page one throws away a real
-   * position with no undo.
-   */
-  const setFinished = useCallback(
-    async (document: LibraryDocument, isFinished: boolean): Promise<boolean> => {
-      try {
-        await recordProgress({
-          documentId: document.id,
-          currentPage: isFinished
-            ? (document.pageCount ?? document.currentPage)
-            : document.currentPage,
-          isFinished,
-        });
-        return true;
-      } catch (error) {
-        showToast({
-          id: 'finished',
-          tone: 'error',
-          title: "Couldn't update",
-          description: messageOf(error, 'Try again in a moment.'),
-        });
-        return false;
-      }
-    },
-    [recordProgress, showToast],
   );
 
   /**
@@ -320,18 +322,20 @@ export function useLibraryActions() {
    * through `recordProbe` below. The **cloud** half is one mutation, and only a
    * synced document has one to run.
    *
-   * Both are offered together because a reader tapping Reprocess is not
-   * thinking about which half failed.
+   * The cloud half is the one write in this file that is not queued, and that
+   * is deliberate: reprocessing cancels a running extraction and starts
+   * another, so a queued one that arrived twice would be two more runs of a
+   * Node action over a 32 MB file. It is offered when there is a connection and
+   * skipped when there is not; the device half runs either way, which is the
+   * half a reader tapping Reprocess can actually see.
    */
   const reprocess = useCallback(
     async (document: LibraryDocument): Promise<boolean> => {
-      if (!document.isSynced) {
-        // Nothing in the account to re-read. The device half still runs, and
-        // the caller has already started it.
+      if (!document.isSynced || document.remoteId === null || offline) {
         return true;
       }
       try {
-        await reprocessDocument({ documentId: document.id });
+        await reprocessDocument({ documentId: document.remoteId as Id<'documents'> });
         return true;
       } catch (error) {
         showToast({
@@ -343,7 +347,7 @@ export function useLibraryActions() {
         return false;
       }
     },
-    [reprocessDocument, showToast],
+    [offline, reprocessDocument, showToast],
   );
 
   /**
@@ -355,51 +359,67 @@ export function useLibraryActions() {
    */
   const recordProbe = useCallback(
     async (
-      documentId: Id<'documents'>,
+      documentId: string,
       probe:
         | { ok: true; cover: string | null; pageCount: number; outline: OutlineEntry[] }
         | { ok: false; reason: 'encrypted' | 'unreadable' },
     ): Promise<void> => {
+      if (profileId === null) {
+        return;
+      }
+      const db = await database(profileId);
+      if (db === null) {
+        return;
+      }
+
       if (!probe.ok) {
-        await setProcessed({
-          documentId,
+        await Documents.patchLocal(db, documentId, {
           processing: 'failed',
-          error: probe.reason === 'encrypted' ? 'ENCRYPTED' : 'UNREADABLE',
-        }).catch(() => undefined);
+          processingError: probe.reason === 'encrypted' ? 'ENCRYPTED' : 'UNREADABLE',
+        });
+        await Queue.enqueue(db, 'document', documentId, 'update', ['processing']);
         return;
       }
 
       // The cover is written before the row is told, so a tile that turns
       // `ready` has a cover behind it rather than one arriving a moment later.
-      const coverKept =
-        probe.cover !== null && profileId !== null
-          ? keepCover(profileId, documentId, probe.cover)
-          : false;
+      const coverKept = probe.cover !== null && keepCover(profileId, documentId, probe.cover);
       if (coverKept) {
+        await Files.setCoverState(db, documentId, 'available');
         bumpCoverEpoch();
       }
 
-      await setProcessed({
-        documentId,
+      await Documents.patchLocal(db, documentId, {
         processing: coverKept ? 'ready' : 'partial',
+        processingError: null,
         pageCount: probe.pageCount,
-        // Always, empty included. Sending it only when non-empty meant a
-        // reprocess could never *remove* a table of contents — a document whose
-        // file no longer declares one kept the old entries and its Contents
-        // button opened a list from a previous version of the file.
-        outline: probe.outline,
-      }).catch((error: unknown) => {
-        log.debug(SCOPE, 'could not record what the probe found', error);
+        hasOutline: probe.outline.length > 0,
       });
+      // Always, empty included. Storing it only when non-empty meant a
+      // reprocess could never *remove* a table of contents — a document whose
+      // file no longer declares one kept the old entries and its Contents
+      // button opened a list from a previous version of the file.
+      await Documents.saveOutline(db, documentId, probe.outline);
+      await Queue.enqueue(db, 'document', documentId, 'update', [
+        'processing',
+        'pageCount',
+        'hasOutline',
+      ]);
     },
-    [profileId, setProcessed, bumpCoverEpoch],
+    [profileId, bumpCoverEpoch],
   );
 
   /** Removes the account's copy. The file on this device stays put. */
   const unsyncDocument = useCallback(
-    async (documentId: Id<'documents'>): Promise<boolean> => {
+    async (document: LibraryDocument): Promise<boolean> => {
+      if (document.remoteId === null) {
+        return true;
+      }
       try {
-        await detachUpload({ documentId });
+        await detachUpload({ documentId: document.remoteId as Id<'documents'> });
+        if (profileId !== null) {
+          await patch(profileId, document.id, { syncIntent: null }, []);
+        }
         return true;
       } catch (error) {
         showToast({
@@ -411,52 +431,95 @@ export function useLibraryActions() {
         return false;
       }
     },
-    [detachUpload, showToast],
+    [profileId, detachUpload, showToast],
   );
 
   /**
    * Fetches a synced document onto this device.
    *
-   * Through the authenticated route, with the same Google ID token every query
-   * carries. `fetchIdToken` is the one seam a credential leaves the session
-   * through, and it refreshes on the way out if the current one is near expiry.
+   * Takes the document rather than its id, because the bytes that arrive have
+   * to be checked against something: the size the account recorded, and the
+   * fingerprint if it has one. A download that finished is not the same fact as
+   * a document that opens — see `downloadDocument`.
    */
   const fetchDocument = useCallback(
-    async (documentId: Id<'documents'>): Promise<boolean> => {
-      if (profileId === null) {
+    async (document: LibraryDocument): Promise<boolean> => {
+      if (profileId === null || document.remoteId === null) {
         return false;
       }
-      startTransfer(documentId, 'download');
+      const documentId = document.remoteId as Id<'documents'>;
+      const db = await database(profileId);
+
+      startTransfer(document.id, 'download');
+      if (db !== null) {
+        await Files.setState(db, document.id, 'downloading', { expectedBytes: document.byteSize });
+      }
+
       try {
         const url = await downloadUrl({ documentId, what: 'document' });
         if (url === null) {
           showToast({ id: 'download', tone: 'error', title: 'That document is not in your account' });
+          if (db !== null) {
+            await Files.setState(db, document.id, 'missing');
+          }
           return false;
         }
 
-        await downloadDocument(profileId, documentId, url, ({ sent, total }) =>
-          reportProgress(documentId, sent, total),
+        await downloadDocument(
+          profileId,
+          document.id,
+          url,
+          { byteSize: document.byteSize, fingerprint: document.fingerprint },
+          ({ sent, total }) => reportProgress(document.id, sent, total),
         );
-        markPresent(documentId);
+
+        if (db !== null) {
+          await Files.setState(db, document.id, 'available', {
+            localBytes: document.byteSize,
+            expectedBytes: document.byteSize,
+          });
+        }
+        markPresent(document.id);
 
         // Best effort, and after the document: a cover is worth a round trip
         // but never worth blocking the thing the reader asked for.
-        if (localCoverUri(profileId, documentId) === null) {
-          void downloadUrl({ documentId, what: 'cover' }).then((coverUrl) =>
-            coverUrl === null ? undefined : downloadCover(profileId, documentId, coverUrl),
-          );
+        if (localCoverUri(profileId, document.id) === null) {
+          void downloadUrl({ documentId, what: 'cover' }).then(async (coverUrl) => {
+            if (coverUrl === null) {
+              return;
+            }
+            if (await downloadCover(profileId, document.id, coverUrl)) {
+              bumpCoverEpoch();
+              if (db !== null) {
+                await Files.setCoverState(db, document.id, 'available');
+              }
+            }
+          });
         }
         return true;
       } catch (error) {
+        // A file that arrived and is not the document is a different state from
+        // one that never arrived, and the tile offers a different thing for it.
+        const broken = error instanceof BadDownload && error.reason !== 'no-space';
+        if (db !== null) {
+          await Files.setState(db, document.id, broken ? 'corrupt' : 'missing', {
+            failure: error instanceof BadDownload ? error.reason : null,
+          });
+        }
         showToast({
           id: 'download',
           tone: 'error',
-          title: "Couldn't download",
-          description: messageOf(error, 'Check your connection and try again.'),
+          title: broken ? "That download didn't arrive whole" : "Couldn't download",
+          description:
+            error instanceof BadDownload && error.reason === 'no-space'
+              ? 'There is not enough room on this device.'
+              : broken
+                ? 'Nothing was kept. Try again when you have a steadier connection.'
+                : messageOf(error, 'Check your connection and try again.'),
         });
         return false;
       } finally {
-        finishTransfer(documentId);
+        finishTransfer(document.id);
       }
     },
     [
@@ -466,6 +529,7 @@ export function useLibraryActions() {
       reportProgress,
       finishTransfer,
       markPresent,
+      bumpCoverEpoch,
       showToast,
     ],
   );
@@ -474,12 +538,56 @@ export function useLibraryActions() {
     deleteDocument,
     toggleFavorite,
     rename,
-    syncDocument,
-    unsyncDocument,
-    fetchDocument,
-    removeDownload,
     setFinished,
+    syncDocument,
+    performUpload,
+    removeDownload,
     reprocess,
     recordProbe,
+    unsyncDocument,
+    fetchDocument,
+    offline,
+    hasNetwork,
+    client,
   };
+}
+
+/** One local patch plus one queue row. Every simple write in this file is this. */
+async function patch(
+  profileId: string | null,
+  documentId: string,
+  fields: Documents.DocumentPatch,
+  changed: string[],
+): Promise<boolean> {
+  if (profileId === null) {
+    return false;
+  }
+  try {
+    const db = await database(profileId);
+    if (db === null) {
+      return false;
+    }
+    await Documents.patchLocal(db, documentId, fields);
+    if (changed.length > 0) {
+      await Queue.enqueue(db, 'document', documentId, 'update', changed);
+    }
+    return true;
+  } catch (error) {
+    log.debug(SCOPE, 'a local write failed', error);
+    return false;
+  }
+}
+
+async function annotationIdsOf(
+  db: Awaited<ReturnType<typeof database>>,
+  documentId: string,
+): Promise<string[]> {
+  if (db === null) {
+    return [];
+  }
+  const rows = await db.getAllAsync<{ id: string }>(
+    'SELECT id FROM annotations WHERE documentId = ?',
+    documentId,
+  );
+  return rows.map((row) => row.id);
 }

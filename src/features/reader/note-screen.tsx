@@ -13,10 +13,8 @@ import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import type { Id } from '@convex/_generated/dataModel';
 import { ANNOTATION_NOTE_MAX, BOOKMARK_LABEL_MAX } from '@convex/model/limits';
 
-import { useLibraryStatus } from '../library/data/use-library-status';
 import { useAnnotations } from './use-annotations';
 import { useBookmarks } from './use-bookmarks';
 
@@ -39,7 +37,6 @@ import { useBookmarks } from './use-bookmarks';
  */
 export function NoteScreen() {
   const router = useRouter();
-  const { ready } = useLibraryStatus();
   const params = useLocalSearchParams<{
     id: string;
     kind?: string;
@@ -49,22 +46,22 @@ export function NoteScreen() {
     annotationId?: string;
   }>();
 
-  const documentId = params.id as Id<'documents'> | undefined;
+  const documentId = params.id === undefined || params.id === '' ? undefined : params.id;
   const kind = params.kind === 'bookmark' ? 'bookmark' : 'note';
   const page = Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1);
   const passage = params.passage ?? null;
   const annotationId =
     params.annotationId === undefined
       ? null
-      : (params.annotationId as Id<'documentAnnotations'>);
+      : params.annotationId;
 
   // The initialiser, not an effect: re-seeding on every render would fight the
   // reader's next keystroke, and the route is remounted per composition anyway.
   const [value, setValue] = useState(() => params.value ?? '');
   const [saving, setSaving] = useState(false);
 
-  const { keep, rewrite } = useAnnotations({ documentId, ready });
-  const { rename } = useBookmarks({ documentId, ready });
+  const { keep, rewrite } = useAnnotations({ documentId });
+  const { rename } = useBookmarks({ documentId });
 
   const limit = kind === 'bookmark' ? BOOKMARK_LABEL_MAX : ANNOTATION_NOTE_MAX;
   // A bookmark can lose its name — clearing the box is how you get back to a

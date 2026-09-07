@@ -14,7 +14,6 @@ import { useProfile } from '@/features/auth/use-profile';
 import { useSession } from '@/features/auth/session-provider';
 import { themeColors } from '@/design/tokens';
 import { useResolvedTheme } from '@/providers/theme-provider';
-import { useLocalLibraryStore } from '@/stores/local-library-store';
 
 import type { LibraryCollection, LibraryDocument } from '../data/types';
 import type { HomeSection } from '../data/use-home';
@@ -30,7 +29,7 @@ import { DocumentProbe, type ProbeResult } from './document-probe';
 import { DocumentTile, tileHeight } from './document-tile';
 import { EmptyLibrary } from './empty-library';
 import { LibraryHeader } from './library-header';
-import { OfflineState, StaleNotice } from './library-notice';
+import { OfflineState, SyncNotice } from './library-notice';
 import { LibrarySkeleton } from './library-skeleton';
 import { SectionRail } from './section-rail';
 
@@ -56,8 +55,18 @@ export function LibraryScreen() {
   const { profile } = useProfile();
   const theme = useResolvedTheme();
 
-  const { sections, loading, isEmpty, offline, stale, staleAt, hasNetwork, refreshing, refresh } =
-    useHome();
+  const {
+    sections,
+    loading,
+    isEmpty,
+    offline,
+    offlineIdentity,
+    neverSynced,
+    lastSyncedAt,
+    hasNetwork,
+    refreshing,
+    refresh,
+  } = useHome();
   const { fetchDocument, recordProbe } = useLibraryActions();
 
   /**
@@ -83,20 +92,21 @@ export function LibraryScreen() {
   const email = account?.email ?? profile?.email ?? null;
   const photoUrl = account?.photoUrl ?? profile?.pictureUrl ?? null;
 
-  const localIds = useLocalLibraryStore((state) => state.ids);
   const { profileId } = useLibraryStatus();
 
   const openDocument = useCallback(
     (document: LibraryDocument) => {
-      // A document the account has and this phone does not: the tap means
-      // "get it", which is the one thing it can mean.
-      if (!localIds.has(document.id) && document.isSynced) {
-        void fetchDocument(document.id);
+      // Two taps mean "get it" rather than "open it": a document the account
+      // has and this phone does not, and one whose file is here and would not
+      // open. The second is why this is `fileState` rather than a presence
+      // check — a corrupt file is present, and opening it shows nothing.
+      if (document.fileState !== 'available' && document.isSynced) {
+        void fetchDocument(document);
         return;
       }
       router.push({ pathname: '/reader', params: { id: document.id } });
     },
-    [localIds, fetchDocument, router],
+    [fetchDocument, router],
   );
 
   const openCollection = useCallback(
@@ -152,10 +162,11 @@ export function LibraryScreen() {
     />
   );
 
-  // Nothing to show and nothing coming. Without this the screen is a skeleton
-  // that never resolves, on the one screen whose promise is that documents stay
-  // readable with no connection.
-  if (loading && offline) {
+  // Nothing here, and no reason yet to believe that is the truth: this device
+  // has never finished a sync and cannot reach the account to try. Saying "no
+  // documents" would be a claim about somebody's library that nothing on this
+  // phone can support.
+  if (!loading && isEmpty && neverSynced && offline) {
     return (
       <Screen>
         {header}
@@ -192,8 +203,13 @@ export function LibraryScreen() {
         ListHeaderComponent={
           <>
             {header}
-            {stale && staleAt !== null ? (
-              <StaleNotice savedAt={staleAt} hasNetwork={hasNetwork} onRetry={() => void refresh()} />
+            {offline ? (
+              <SyncNotice
+                offlineIdentity={offlineIdentity}
+                hasNetwork={hasNetwork}
+                lastSyncedAt={lastSyncedAt}
+                onRetry={() => void refresh()}
+              />
             ) : null}
           </>
         }

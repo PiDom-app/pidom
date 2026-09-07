@@ -49,13 +49,14 @@ export type FindState = {
 export function useFindInDocument({
   documentId,
   profileId,
-  ready,
+  remoteId,
   isSynced,
   active,
 }: {
-  documentId: Id<'documents'> | undefined;
+  documentId: string | undefined;
   profileId: string | null;
-  ready: boolean;
+  /** The account's id, once it has one. Absent on a document it has not met. */
+  remoteId: string | null;
   /** Only a synced document has text on the server. */
   isSynced: boolean;
   /** False while the bar is closed, so nothing subscribes. */
@@ -72,13 +73,15 @@ export function useFindInDocument({
 
   const online = useQuery(
     api.library.searchInside,
-    ready && active && enough && documentId !== undefined && isSynced
-      ? { term: trimmed, documentId }
+    active && enough && remoteId !== null && isSynced
+      ? { term: trimmed, documentId: remoteId as Id<'documents'> }
       : 'skip',
   );
 
-  // The mirror. Runs whatever the connection is doing: it is the same rows the
-  // server would return, and having them already is the point of the mirror.
+  // The mirror, and the primary. It runs whatever the connection is doing,
+  // because it is on this phone and answers in a frame; the account's copy is
+  // a wider net over pages this device has not mirrored yet, and it is welcome
+  // when it arrives.
   useEffect(() => {
     if (!active || !enough || profileId === null || documentId === undefined) {
       setLocal(null);

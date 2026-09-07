@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from 'convex/react';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, MoreHorizontal, Pencil, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
@@ -25,11 +25,11 @@ import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAppToast } from '@/components/feedback/use-app-toast';
-import { api } from '@convex/_generated/api';
-import type { Id } from '@convex/_generated/dataModel';
-import { useLocalLibraryStore } from '@/stores/local-library-store';
 
 import { DocumentActions } from '../components/document-actions';
+import * as Collections from '../local/repository/collections';
+import { useLocalQuery } from '../local/use-local-query';
+import { useCollectionActions } from '../data/use-collection-actions';
 import { useCoverSync } from '../data/use-cover-sync';
 import { useLibraryActions } from '../data/use-library-actions';
 import { DocumentTile } from '../components/document-tile';
@@ -45,21 +45,39 @@ import { messageOf } from '../data/errors';
  * `documentCount`; the "on this device" number beside it is counted here,
  * because it is a fact about the phone rather than about the collection.
  */
+/** How many documents one collection shows. The same cap the account applies. */
+const COLLECTION_LIMIT = 200;
+
+/** What this screen is built from. */
+const TABLES = ['documents', 'documentFiles', 'collections', 'collectionDocuments'] as const;
+
 export function CollectionScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const collectionId = id as Id<'collections'> | undefined;
+  const collectionId = id === undefined || id === '' ? null : id;
 
-  const { ready } = useLibraryStatus();
+  const { profileId } = useLibraryStatus();
   const { fetchDocument } = useLibraryActions();
-  const data = useQuery(
-    api.collections.documents,
-    ready && collectionId !== undefined ? { collectionId } : 'skip',
+  const { renameCollection, removeCollection } = useCollectionActions();
+
+  const read = useCallback(
+    async (db: SQLiteDatabase) => {
+      if (collectionId === null) {
+        return null;
+      }
+      const collection = await Collections.collectionById(db, collectionId);
+      if (collection === null) {
+        return null;
+      }
+      return {
+        collection,
+        documents: await Collections.documentsIn(db, collectionId, COLLECTION_LIMIT),
+      };
+    },
+    [collectionId],
   );
 
-  const renameCollection = useMutation(api.collections.rename);
-  const removeCollection = useMutation(api.collections.remove);
-  const localIds = useLocalLibraryStore((state) => state.ids);
+  const { data, loading } = useLocalQuery(profileId, TABLES, read);
   const showToast = useAppToast();
 
   useCoverSync(data?.documents ?? EMPTY);
@@ -70,18 +88,20 @@ export function CollectionScreen() {
   // account, and opens what is here. Long press is always the sheet.
   const openDocument = useCallback(
     (document: LibraryDocument) => {
-      if (!localIds.has(document.id) && document.isSynced) {
-        void fetchDocument(document.id);
+      // Two taps mean "get it": a document only the account has, and one whose
+      // file is here and would not open.
+      if (document.fileState !== 'available' && document.isSynced) {
+        void fetchDocument(document);
         return;
       }
       router.push({ pathname: '/reader', params: { id: document.id } });
     },
-    [localIds, fetchDocument, router],
+    [fetchDocument, router],
   );
   const [renaming, setRenaming] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  if (collectionId === undefined) {
+  if (collectionId === null) {
     return (
       <Screen>
         <Center className="flex-1 px-10">
@@ -93,7 +113,9 @@ export function CollectionScreen() {
     );
   }
 
-  const onDevice = (data?.documents ?? []).filter((doc) => localIds.has(doc.id)).length;
+  const onDevice = (data?.documents ?? []).filter(
+    (doc) => doc.fileState === 'available',
+  ).length;
 
   return (
     <Screen>
@@ -108,11 +130,13 @@ export function CollectionScreen() {
 
         <VStack className="flex-1 pt-0.5">
           <Heading size="lg" numberOfLines={1} className="text-foreground">
-            {data?.name ?? ' '}
+            {data?.collection.name ?? ' '}
           </Heading>
-          {data === undefined ? null : (
+          {data === null ? null : (
             <Text size="xs" className="mt-0.5 text-fg-subtle">
-              {data.documentCount === 1 ? '1 document' : `${data.documentCount} documents`}
+              {data.collection.documentCount === 1
+                ? '1 document'
+                : `${data.collection.documentCount} documents`}
               {onDevice > 0 ? ` · ${onDevice} on this device` : ''}
             </Text>
           )}
@@ -145,11 +169,11 @@ export function CollectionScreen() {
         </Menu>
       </HStack>
 
-      {data === undefined ? (
+      {loading ? (
         <Center className="flex-1">
           <Spinner />
         </Center>
-      ) : data.documents.length === 0 ? (
+      ) : (data?.documents ?? EMPTY).length === 0 ? (
         <Center className="flex-1 px-10">
           <Text size="sm" className="text-center text-fg-subtle">
             Nothing in this collection yet. Long-press a document to file it here.
@@ -158,7 +182,7 @@ export function CollectionScreen() {
       ) : (
         <FlashList
           style={FILL}
-          data={data.documents}
+          data={data?.documents ?? EMPTY}
           numColumns={3}
           keyExtractor={(document) => document.id}
           renderItem={({ item }) => (
@@ -183,11 +207,11 @@ export function CollectionScreen() {
         isOpen={renaming}
         title="Rename collection"
         label="Name"
-        initialValue={data?.name ?? ''}
+        initialValue={data?.collection.name ?? ''}
         onClose={() => setRenaming(false)}
         onSubmit={async (name) => {
           try {
-            await renameCollection({ collectionId, name });
+            await renameCollection(collectionId, name);
             return true;
           } catch (error) {
             showToast({
@@ -226,7 +250,7 @@ export function CollectionScreen() {
               size="sm"
               onPress={() => {
                 setConfirmingDelete(false);
-                void removeCollection({ collectionId })
+                void removeCollection(collectionId)
                   .then(() => router.back())
                   .catch((error: unknown) => {
                     showToast({

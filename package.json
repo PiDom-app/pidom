@@ -66,13 +66,17 @@
   "devDependencies": {
     "@config-plugins/react-native-blob-util": "^14.0.2",
     "@config-plugins/react-native-pdf": "^14.0.2",
+    "@edge-runtime/vm": "^5.0.0",
     "@react-native-community/cli": "latest",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "~19.2.2",
+    "convex-test": "^0.0.56",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
     "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   },
   "scripts": {
     "start": "expo start",
@@ -81,7 +85,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/pidom.tsbuildinfo",
-    "convex": "convex dev"
+    "convex": "convex dev",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "allowScripts": {
     "esbuild@0.27.0": true

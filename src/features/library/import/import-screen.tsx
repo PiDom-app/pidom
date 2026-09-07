@@ -1,5 +1,6 @@
+import { Paths } from 'expo-file-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CloudUpload, Copy, FileX, Info, Lock, Smartphone } from 'lucide-react-native';
+import { CloudUpload, Copy, FileX, HardDrive, Info, Lock, Smartphone } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef } from 'react';
 
 import { Screen } from '@/components/layout/screen';
@@ -49,12 +50,14 @@ export function ImportScreen() {
     picking,
     stage,
     refusal,
+    spaceNeeded,
     duplicate,
     title,
     author,
     sync,
     canSync,
     syncBlockedBecause,
+    syncDeferredBecause,
     setTitle,
     setAuthor,
     setSync,
@@ -128,7 +131,14 @@ export function ImportScreen() {
   const committing = stage === 'saving';
 
   if (stage === 'refused' && refusal !== null) {
-    return <Refused reason={refusal} onChoose={() => void picking()} onCancel={leave} />;
+    return (
+      <Refused
+        reason={refusal}
+        spaceNeeded={spaceNeeded}
+        onChoose={() => void picking()}
+        onCancel={leave}
+      />
+    );
   }
 
   return (
@@ -219,6 +229,14 @@ export function ImportScreen() {
                 {syncBlockedBecause ??
                   'Keeps a copy in your account so your other phones can download it, and lets Pidom search inside it.'}
               </Text>
+              {/* A note, not a refusal: the switch works and the copy will be
+                  made. A reader who turns something on is owed the truth about
+                  when it happens. */}
+              {syncDeferredBecause === null ? null : (
+                <Text size="xs" className="mt-1.5 text-fg-subtle">
+                  {syncDeferredBecause}
+                </Text>
+              )}
             </VStack>
             <Switch
               value={sync}
@@ -277,14 +295,18 @@ function metaFor(picked: { byteSize: number; pageCount: number | null; outline: 
  */
 function Refused({
   reason,
+  spaceNeeded,
   onChoose,
   onCancel,
 }: {
   reason: Refusal;
+  /** The size of the file that would not fit, on a `no-space` refusal. */
+  spaceNeeded: number | null;
   onChoose: () => void;
   onCancel: () => void;
 }) {
   const encrypted = reason === 'encrypted';
+  const full = reason === 'no-space';
   const copy = {
     encrypted: {
       title: 'This PDF has a password',
@@ -302,6 +324,15 @@ function Refused({
       title: "That file is empty",
       body: 'There are no bytes in it to read. If it came from a download, it may not have finished.',
     },
+    'no-space': {
+      title: 'Not enough room',
+      body:
+        spaceNeeded === null
+          ? 'There is not enough free space on this device for this document.'
+          : `This document needs ${formatBytes(spaceNeeded)} and there is ${formatBytes(
+              Paths.availableDiskSpace,
+            )} free on this device. Removing a download or two makes room.`,
+    },
   }[reason];
 
   return (
@@ -311,7 +342,7 @@ function Refused({
 
         <Center className="flex-1 px-10">
           <Icon
-            as={encrypted ? Lock : FileX}
+            as={full ? HardDrive : encrypted ? Lock : FileX}
             size="xl"
             className="text-fg-subtle"
           />

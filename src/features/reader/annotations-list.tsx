@@ -8,7 +8,6 @@ import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import type { Id } from '@convex/_generated/dataModel';
 
 import type { Annotation } from './use-annotations';
 
@@ -45,7 +44,7 @@ export function AnnotationsList({
   currentPage: number;
   onJump: (page: number) => void;
   onEdit: (annotation: Annotation) => void;
-  onRemove: (id: Id<'documentAnnotations'>) => void;
+  onRemove: (id: string) => void;
   /** The empty state's only exit, and the whole Android path. */
   onWriteNote: () => void;
 }) {

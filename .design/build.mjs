@@ -90,6 +90,13 @@ const icons = {
   notebookPen: '<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
   chevronUp: '<path d="m18 15-6-6-6 6"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
+  wifiOff: '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
+  database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  arrowDown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  hardDrive: '<path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01"/><path d="M10 16h.01"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
 };
 const icon = (name, size, color, sw = 1.75) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block">${icons[name]}</svg>`;
@@ -500,17 +507,17 @@ function offlineStates() {
     w: 390, h: 1180, bg: c.bg,
     body: `${header(c)}
 ${searchTrigger(c)}
-${notice(icon('cloudOff', 13, c.fgSubtle, 2), 'Showing your library as of 2 hours ago')}
+${notice(icon('cloudOff', 13, c.fgSubtle, 2), 'Your account has not answered for 2 hours. Everything here is on this device.')}
 ${rail('Continue reading', [t('Thinking,', { showProgress: true }), t('The Design of', { showProgress: true }), t('Convex Backend', { showProgress: true }), t('Designing Data', { showProgress: true })], c)}
 ${rail('On this device', [t('Annual Report'), t('Lease Agreement'), t('Convex Backend'), t('The Pragmatic')], c)}
 <div style="margin-top:40px;height:1px;background:${c.hairline}"></div>
 <div style="padding:40px ${PAD}px 0;text-align:center">
-  <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">And with no cache to fall back on</div>
+  <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">And on a phone that has nothing yet</div>
 </div>
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 40px 0;text-align:center">
   ${icon('cloudOff', 40, c.fgSubtle, 1.5)}
   <div style="margin-top:20px;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.018em;color:${c.fg}">Can&#39;t reach Pidom</div>
-  <div style="margin-top:8px;max-width:286px;font-size:14px;line-height:21px;color:${c.fgMuted}" class="pretty">Your documents are safe on this device. Their titles and your place live in your account, and that is what needs a connection.</div>
+  <div style="margin-top:8px;max-width:286px;font-size:14px;line-height:21px;color:${c.fgMuted}" class="pretty">This phone has not finished its first sync, so there is nothing here to show yet. Your library is safe in your account and arrives when this device can reach it.</div>
   <div style="margin-top:24px;height:44px;display:flex;align-items:center;padding:0 20px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
     <span style="font-size:14px;font-weight:500;color:${c.fg}">Try again</span>
   </div>
@@ -690,12 +697,12 @@ function syncStates() {
     </div>`;
 
   return dc({
-    w: 900, h: 560, bg: c.bg,
+    w: 1024, h: 600, bg: c.bg,
     body: `<div style="padding:36px 40px">
   <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Where a document is</div>
-  <div style="margin-top:6px;max-width:660px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Four states, and the tile draws all four. A document can be on this phone, in the account but not here yet, arriving, or on this phone and nowhere else. The account and the device are separate facts, and the tile never conflates them.</div>
+  <div style="margin-top:6px;max-width:760px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Five states, and the tile draws all five. A document can be on this phone, in the account but not here yet, arriving, on this phone and nowhere else, or here and unreadable. The account and the device are separate facts, and the tile never conflates them — every one of these comes from the filesystem and from checking the bytes, never from a flag the account set.</div>
 
-  <div style="margin-top:34px;display:flex;gap:52px">
+  <div style="margin-top:34px;display:flex;gap:38px">
     ${state('On this device',
       tileWith(byTitle('Thinking,'), {
         cover: pageCover(byTitle('Thinking,')),
@@ -728,10 +735,20 @@ function syncStates() {
         glyph: icon('phone', 11, c.fgSubtle, 2),
       }),
       'Over the 100 MB sync limit, or the reader chose not to. Fully usable here.')}
+
+    ${state('Would not open',
+      tileWith(byTitle('Kubernetes'), {
+        cover: `<div style="opacity:.45">${pageCover(byTitle('Kubernetes'))}</div>`,
+        meta: 'Try again',
+        glyph: icon('alert', 11, c.fgMuted, 2),
+        dim: true,
+      }),
+      'It arrived, and it is not the document. Offers to fetch it again rather than opening to nothing.')}
   </div>
 
   <div style="margin-top:44px;height:1px;background:${c.hairline}"></div>
-  <div style="margin-top:24px;max-width:700px;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">Files live in Cloudflare R2, so the 100 MB limit is a product decision rather than a platform one. Downloads use a URL the server signs after checking ownership, valid for five minutes. The earlier limit was 20 MB and was Convex&#39;s: an HTTP action response is capped there on every plan, so anything larger would have uploaded and then never come back down.</div>
+  <div style="margin-top:24px;max-width:820px;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">Files live in Cloudflare R2, so the 100 MB limit is a product decision rather than a platform one. Downloads use a URL the server signs after checking ownership, valid for five minutes. The earlier limit was 20 MB and was Convex&#39;s: an HTTP action response is capped there on every plan, so anything larger would have uploaded and then never come back down.</div>
+  <div style="margin-top:14px;max-width:820px;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">A transfer that finished is not the same fact as a document that opens, which is what the fifth state is for. Bytes that arrive are checked against the size the account recorded, the first five bytes of a PDF, and the fingerprint taken at import — and a file that fails any of the three is deleted rather than left under a name the library reads as ready. Two further states, <span style="color:${c.fg}">deleting</span> and <span style="color:${c.fg}">deleted</span>, exist so a half-finished removal can be finished; neither is ever drawn.</div>
 </div>`,
   });
 }
@@ -2372,6 +2389,564 @@ function importIncoming() {
   });
 }
 
+/* ------------------------- offline-first ------------------------- */
+
+/**
+ * The strip that says the library is running on a remembered account.
+ *
+ * Deliberately the same shape as the stale notice beside it: full bleed, two
+ * hairlines, one sentence. A reader who launched in a tunnel is having an
+ * ordinary morning, not an incident.
+ */
+function identityNotice(c, glyph, text, trailing = true) {
+  return `<div style="margin-top:20px;display:flex;align-items:center;gap:8px;padding:10px ${PAD}px;background:${c.surface};box-shadow:inset 0 1px 0 ${c.hairline}, inset 0 -1px 0 ${c.hairline}">
+      ${glyph}<span style="flex:1;font-size:12px;color:${c.fgSubtle}" class="pretty">${text}</span>${trailing ? icon('refresh', 13, c.fgSubtle, 2) : ''}
+    </div>`;
+}
+
+function offlineIdentity() {
+  const c = DARK;
+  const t = (title, opts) => tile(byTitle(title), { dark: true, ...opts });
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `${header(c)}
+${searchTrigger(c)}
+${identityNotice(c, icon('wifiOff', 13, c.fgSubtle, 2), 'Opened with no connection. Everything here is on this device; your account catches up when there is one.', false)}
+${rail('Continue reading', [t('Thinking,', { showProgress: true }), t('The Design of', { showProgress: true }), t('Convex Backend', { showProgress: true }), t('Designing Data', { showProgress: true })], c)}
+${rail('On this device', [t('Annual Report'), t('Lease Agreement'), t('Convex Backend'), t('The Pragmatic')], c)}
+${rail('Recently added', [t('React Native Performance'), t('The Pragmatic'), t('Kubernetes'), t('Domain-Driven')], c)}`,
+  });
+}
+
+/** A row in the sync screen: what changed, and what it belongs to. */
+function syncRow(c, { title, detail, glyph, trailing = '' }) {
+  return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="margin-top:2px">${glyph}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}" class="c2">${title}</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${detail}</div>
+      </div>
+      ${trailing}
+    </div>`;
+}
+
+function syncLabel(c, text, top = 26) {
+  return `<div style="padding:${top}px ${PAD}px 9px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${text}</div>`;
+}
+
+function syncScreenShell(c, { status, body }) {
+  return `<div style="height:844px;display:flex;flex-direction:column;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:10px;padding:44px ${PAD}px 12px">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Sync</span>
+  </div>
+  ${status}
+  <div style="flex:1;overflow:hidden">${body}</div>
+</div>`;
+}
+
+function syncActivity() {
+  const c = DARK;
+
+  const status = `<div style="display:flex;align-items:flex-start;gap:12px;padding:6px ${PAD}px 18px">
+      ${icon('cloudUp', 19, c.primary)}
+      <div style="flex:1">
+        <div style="font-size:15px;color:${c.fg}">Sending 4 changes</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Everything below is already saved on this device. This is only your account catching up.</div>
+      </div>
+    </div>`;
+
+  const bar = (pct, label) => `<div style="width:104px;flex:0 0 auto">
+      <div style="font-size:11px;color:${c.fgSubtle};text-align:right" class="tnum">${label}</div>
+      <div style="margin-top:6px;height:2px;border-radius:${R};background:${c.border};overflow:hidden"><div style="width:${pct}%;height:100%;border-radius:${R};background:${c.primary}"></div></div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: syncScreenShell(c, {
+      status,
+      body: `${syncLabel(c, 'Waiting', 0)}
+${syncRow(c, {
+        glyph: icon('bookOpen', 15, c.fgMuted, 2),
+        title: 'Where you are in Thinking, Fast and Slow',
+        detail: 'Page 216. Two hundred page turns became one change to send.',
+      })}
+${syncRow(c, {
+        glyph: icon('notebookPen', 15, c.fgMuted, 2),
+        title: 'A note in Designing Data-Intensive Applications',
+        detail: 'Written on page 88, on the train.',
+      })}
+${syncRow(c, {
+        glyph: icon('heart', 15, c.fgMuted, 2),
+        title: 'Annual Report 2025 added to favourites',
+        detail: 'And renamed. Both go in one message.',
+      })}
+${syncRow(c, {
+        glyph: icon('filePlus', 15, c.fgMuted, 2),
+        title: 'Lease Agreement — 14 Kilimani Road',
+        detail: 'Imported here with no connection. Your account has not met it yet.',
+      })}
+${syncLabel(c, 'Moving now')}
+${syncRow(c, {
+        glyph: icon('cloudDown', 15, c.fgMuted, 2),
+        title: 'Sapiens: A Brief History of Humankind',
+        detail: 'Downloading to this device.',
+        trailing: bar(43, '2.9 of 6.8 MB'),
+      })}
+<div style="display:flex;align-items:center;gap:8px;padding:22px ${PAD}px 0">
+  ${icon('clock', 13, c.fgSubtle, 2)}
+  <span style="font-size:12px;color:${c.fgSubtle}">Last synced 2 minutes ago</span>
+</div>`,
+    }),
+  });
+}
+
+function syncActivityFailed() {
+  const c = DARK;
+
+  const action = (label, danger = false) => `<div style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${danger ? c.border : c.border}">
+      <span style="font-size:13px;font-weight:500;color:${danger ? c.fgMuted : c.fg}">${label}</span>
+    </div>`;
+
+  const status = `<div style="display:flex;align-items:flex-start;gap:12px;padding:6px ${PAD}px 18px">
+      ${icon('alert', 19, c.fgMuted)}
+      <div style="flex:1">
+        <div style="font-size:15px;color:${c.fg}">One change would not go</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">It is still here and still yours. Your account is the only thing that has not been told.</div>
+      </div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: syncScreenShell(c, {
+      status,
+      body: `${syncLabel(c, 'Would not go through', 0)}
+<div style="padding:14px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+  <div style="display:flex;align-items:flex-start;gap:12px">
+    <div style="margin-top:2px">${icon('notebookPen', 15, c.destructive, 2)}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}" class="c2">A note in Designing Data-Intensive Applications</div>
+      <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Your account would not accept it. Tried 8 times over 40 minutes.</div>
+    </div>
+  </div>
+  <div style="margin-top:12px;margin-left:27px;display:flex;gap:8px">
+    ${action('Try again')}
+    ${action('Discard', true)}
+  </div>
+</div>
+${syncLabel(c, 'Waiting')}
+${syncRow(c, {
+        glyph: icon('bookOpen', 15, c.fgMuted, 2),
+        title: 'Where you are in Thinking, Fast and Slow',
+        detail: 'Page 216.',
+      })}
+<div style="padding:22px ${PAD}px 0">
+  <div style="font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">Discarding drops the change from this queue. It does not undo anything in your library — the note stays on this phone, and simply never reaches your other devices.</div>
+</div>`,
+    }),
+  });
+}
+
+function accountSync() {
+  const c = DARK;
+
+  const label = (text) => `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${text}</div>`;
+  const infoRow = (title, hint) => `<div style="padding:12px 4px">
+      <div style="font-size:14px;color:${c.fg}">${title}</div>
+      <div style="margin-top:4px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${hint}</div>
+    </div>`;
+  const tapRow = (ic, title, hint) => `<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-radius:${R}">
+      ${icon(ic, 19, c.fgMuted)}
+      <div style="flex:1">
+        <div style="font-size:14px;color:${c.fg}">${title}</div>
+        <div style="margin-top:3px;font-size:12px;color:${c.fgSubtle}">${hint}</div>
+      </div>
+      ${icon('chevronRight', 16, c.fgSubtle, 2)}
+    </div>`;
+  const rule = `<div style="height:1px;background:${c.hairline};margin:20px 0"></div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;overflow:hidden">
+  <div style="display:flex;align-items:center;padding:44px 16px 8px">${icon('arrowLeft', 22, c.fg, 2)}</div>
+
+  <div style="padding:0 ${PAD}px 40px">
+    <div style="display:flex;flex-direction:column;align-items:center;padding-top:16px;gap:12px">
+      <div style="width:80px;height:80px;border-radius:9999px;background:${c.primary};display:flex;align-items:center;justify-content:center;font-size:29px;font-weight:600;color:${c.onPrimary}">EG</div>
+      <div style="text-align:center">
+        <div style="font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.018em;color:${c.fg}">Emmanuel Gichuhi</div>
+        <div style="margin-top:4px;font-size:14px;color:${c.fgMuted}">egichuhi580@gmail.com</div>
+      </div>
+    </div>
+
+    ${rule}
+    ${label('Appearance')}
+    <div style="margin-top:4px">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px">${icon('moon', 19, c.fgMuted)}<span style="flex:1;font-size:14px;color:${c.fg}">Dark</span>${icon('check', 17, c.primary, 2)}</div>
+    </div>
+
+    ${rule}
+    ${label('Storage')}
+    <div style="margin-top:4px">
+      ${infoRow('4 documents in your account', '18.4 MB synced, so any device can download them.')}
+      ${tapRow('hardDrive', '1.4 GB on this device', '11 documents. 8.2 GB free.')}
+    </div>
+
+    ${rule}
+    ${label('Sync')}
+    <div style="margin-top:4px">
+      ${tapRow('cloudUp', '4 changes waiting', 'Last synced 2 minutes ago')}
+    </div>
+
+    ${rule}
+    ${label('Account')}
+    <div style="margin-top:4px">${infoRow('Signed in with Google', 'Library created 3 March 2026')}</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 4px">${icon('logOut', 19, c.destructive)}<span style="font-size:14px;color:${c.destructive}">Sign out</span></div>
+  </div>
+</div>`,
+  });
+}
+
+function importOffline() {
+  const c = DARK;
+  const doc = byTitle('Lease Agreement');
+
+  const field = (labelText, value, muted = false) => `<div style="margin-top:18px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${labelText}</div>
+      <div style="margin-top:7px;height:44px;display:flex;align-items:center;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+        <span style="font-size:14px;color:${muted ? c.fgSubtle : c.fg}">${value}</span>
+      </div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:20px ${PAD}px 0">
+    <span style="font-size:14px;color:${c.fgMuted}">Cancel</span>
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Add to library</span>
+    <span style="font-size:14px;color:transparent">Cancel</span>
+  </div>
+
+  <div style="flex:1;padding:0 ${PAD}px;overflow:hidden">
+    <div style="display:flex;justify-content:center;margin-top:26px">${pageCover(doc, { w: 132 })}</div>
+
+    ${field('Title', doc.t)}
+    ${field('Author', 'Optional', true)}
+
+    <div style="margin-top:14px;display:flex;align-items:center;gap:6px">
+      ${icon('info', 12, c.fgSubtle, 2)}
+      <span style="font-size:12px;color:${c.fgSubtle}">PDF · 210 KB · 9 pages</span>
+    </div>
+
+    <div style="margin-top:22px;height:1px;background:${c.hairline}"></div>
+
+    <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 0">
+      ${icon('wifiOff', 19, c.fgDisabled)}
+      <div style="flex:1">
+        <div style="font-size:15px;color:${c.fgDisabled}">Available on all devices</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">There is no connection, so the copy for your other devices waits. This one is added here now and opens straight away.</div>
+      </div>
+      <div style="width:44px;height:26px;border-radius:9999px;background:${c.border};position:relative;flex:0 0 auto;margin-top:2px;opacity:.5">
+        <div style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:9999px;background:${c.fgDisabled}"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:0 ${PAD}px 34px">
+    <div style="height:48px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${c.primary}">
+      <span style="font-size:15px;font-weight:500;color:${c.onPrimary}">Add to library</span>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+function importNoSpace() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:20px ${PAD}px 0">
+    <span style="font-size:14px;color:${c.fgMuted}">Cancel</span>
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Add to library</span>
+    <span style="font-size:14px;color:transparent">Cancel</span>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 40px;text-align:center">
+    ${icon('hardDrive', 40, c.fgSubtle, 1.5)}
+    <div style="margin-top:20px;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.018em;color:${c.fg}">Not enough room</div>
+    <div style="margin-top:8px;max-width:286px;font-size:14px;line-height:21px;color:${c.fgMuted}" class="pretty">This document needs 317 MB and there is 184 MB free on this device. Nothing has been written, and your library is untouched.</div>
+    <div style="margin-top:24px;height:44px;display:flex;align-items:center;padding:0 20px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+      <span style="font-size:14px;font-weight:500;color:${c.fg}">Manage storage</span>
+    </div>
+  </div>
+
+  <div style="padding:0 ${PAD}px 34px">
+    <div style="font-size:12px;line-height:18px;color:${c.fgSubtle};text-align:center" class="pretty">Asked before anything is copied. A phone filled to the last byte fails at everything at once a minute later, not at the thing that filled it.</div>
+  </div>
+</div>`,
+  });
+}
+
+/* --------------------- documentation boards ---------------------- */
+
+function localFirst() {
+  const c = DARK;
+
+  const box = (title, lines, { tint = false } = {}) => `<div style="flex:1;min-width:0;border-radius:${R};padding:16px;box-shadow:inset 0 0 0 1px ${tint ? c.primary : c.border};background:${tint ? c.primaryTint : 'transparent'}">
+      <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}">${title}</div>
+      ${lines.map((line) => `<div style="margin-top:7px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${line}</div>`).join('')}
+    </div>`;
+
+  const arrow = `<div style="display:flex;align-items:center;padding:0 2px;flex:0 0 auto">${icon('arrowRight', 16, c.fgDisabled, 2)}</div>`;
+
+  return dc({
+    w: 900, h: 620, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Where a read and a write actually go</div>
+  <div style="margin-top:6px;max-width:700px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">The device is the first source, not the fallback. Nothing a reader does in the ordinary course of reading waits on a network, and the account is the layer the phone converges with afterwards.</div>
+
+  <div style="margin-top:30px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Opening page 438</div>
+  <div style="margin-top:12px;display:flex;align-items:stretch;gap:10px">
+    ${box('Tap a tile', ['The rail was drawn from rows in the local database. No query was in flight.'])}
+    ${arrow}
+    ${box('Look the document up', ['One indexed read on this phone. It answers in a frame.'], { tint: true })}
+    ${arrow}
+    ${box('Open the file', ['Documents/library/&lt;profile&gt;/&lt;id&gt;.pdf, verified when it arrived.'])}
+    ${arrow}
+    ${box('Restore the page', ['Kept on every page turn, so a force-quit costs a paragraph.'])}
+  </div>
+
+  <div style="margin-top:30px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Keeping a passage</div>
+  <div style="margin-top:12px;display:flex;align-items:stretch;gap:10px">
+    ${box('Tap Keep', ['The reader is finished the moment the row is written.'])}
+    ${arrow}
+    ${box('Write it down', ['One row in the local database, with this device&#39;s clock on it.'], { tint: true })}
+    ${arrow}
+    ${box('Put it in the outbox', ['One row per thing, so a hundred page turns are one message.'])}
+    ${arrow}
+    ${box('Tell the account, later', ['When there is a connection. Nothing on screen waited for this.'])}
+  </div>
+
+  <div style="margin-top:34px;height:1px;background:${c.hairline}"></div>
+  <div style="margin-top:22px;display:flex;gap:40px">
+    <div style="flex:1;display:flex;align-items:flex-start;gap:10px">
+      ${icon('database', 16, c.fgMuted, 2)}
+      <div style="font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty"><span style="color:${c.fg}">SQLite answers what.</span> Documents, marks, notes, collections, where you are, and what is queued. Encrypted, because it also holds the words of every synced document.</div>
+    </div>
+    <div style="flex:1;display:flex;align-items:flex-start;gap:10px">
+      ${icon('hardDrive', 16, c.fgMuted, 2)}
+      <div style="font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty"><span style="color:${c.fg}">The filesystem answers where.</span> The PDFs, their covers and their page pictures. Never in the database, and never in the cache directory, which the system may empty.</div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+function syncPipeline() {
+  const c = DARK;
+
+  const stage = (n, title, body) => `<div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:20px;height:20px;border-radius:9999px;background:${c.hover};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${c.fgMuted}">${n}</div>
+        <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}">${title}</div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">${body}</div>
+    </div>`;
+
+  const verdict = (code, ruling, why, tone) => `<div style="display:flex;align-items:flex-start;gap:14px;padding:13px 0;border-bottom:1px solid ${c.hairline}">
+      <div style="width:132px;flex:0 0 auto;font-size:12px;font-weight:600;letter-spacing:.02em;color:${tone}" class="tnum">${code}</div>
+      <div style="width:150px;flex:0 0 auto;font-size:12px;color:${c.fg}">${ruling}</div>
+      <div style="flex:1;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">${why}</div>
+    </div>`;
+
+  return dc({
+    w: 1024, h: 700, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">The outbox</div>
+  <div style="margin-top:6px;max-width:760px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">A durable queue in the same database as everything else, so a change survives a force-quit. The Convex client keeps its own queue in memory and has no way to persist it — which is why a favourite marked in a tunnel used to be gone by the next launch.</div>
+
+  <div style="margin-top:30px;display:flex;gap:34px">
+    ${stage(1, 'Write, then queue', 'The change lands in the local database first. One queue row per thing changed, named for the thing rather than the change.')}
+    ${stage(2, 'Coalesce by construction', 'Two hundred page turns collide on one row. What is recorded is which fields moved; the values are read off the row when it is finally sent.')}
+    ${stage(3, 'Send in order', 'Oldest first, one at a time. A note cannot be created before the document it is on, and the order the reader made them in is the order they land.')}
+    ${stage(4, 'Read the account back', 'Only once the queue is empty. Reconciling with work still waiting would overwrite the reader with a version that predates them.')}
+  </div>
+
+  <div style="margin-top:36px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">What an answer means</div>
+  <div style="margin-top:14px">
+    ${verdict('RATE_LIMITED', 'Wait exactly that long', 'The error carries how many milliseconds. Waiting is the instruction; counting it as a failed attempt would spend the retry budget on a queue behaving as designed.', c.fgMuted)}
+    ${verdict('FORBIDDEN on a delete', 'Done', 'Missing and not-yours are reported identically so that nobody can enumerate ids. On a delete both readings end in the same place: there is nothing there. Retrying is retrying for ever.', c.ok)}
+    ${verdict('FORBIDDEN on a create', 'Drop it here too', 'A create cannot fail to find a row it is about to make, so this is the parent: the document was deleted on another phone, and the note goes with it.', c.fgMuted)}
+    ${verdict('INVALID', 'Stop, and say so', 'The account refused the content and will refuse it again. The only outcome worth a reader&#39;s attention, and the only one the sync screen shows.', c.destructive)}
+    ${verdict('Anything else', 'Back off and return', 'Doubling from four seconds with jitter, to five minutes, eight times — so fifty operations that failed on one dropped socket do not all come back at once.', c.fgMuted)}
+  </div>
+
+  <div style="margin-top:26px;display:flex;align-items:flex-start;gap:10px;max-width:820px">
+    ${icon('alert', 15, c.fgMuted, 2)}
+    <div style="font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">Transfers are not in this queue. <span style="color:${c.fg}">library.uploadUrl</span> deletes whatever is at the key before it signs a new URL, so replaying it against an already-synced document destroys the copy in the account while the row goes on claiming there is one. Asking for a cloud copy offline records an intention; the bytes move in the foreground, once, when there is a connection.</div>
+  </div>
+</div>`,
+  });
+}
+
+/* ── on this device ─────────────────────────────────────────────────── */
+
+/**
+ * What the library takes up on this phone, and what removing any of it costs.
+ *
+ * The screen `space.ts` has always assumed. Refusing an import says "remove a
+ * download or two and try again", which is advice with nowhere to act on it —
+ * no surface said which downloads were large, and the account's Storage section
+ * reported only what was in the *account*.
+ *
+ * The distinction every row carries is the one that matters: a document in the
+ * account comes back on a tap, and a document that is only here does not come
+ * back at all. Same gesture, two different consequences, so the row says which
+ * before the reader commits rather than after.
+ */
+function deviceStorageScreen(c, { free, used, rows, notices = '' }) {
+  return `<div style="height:844px;display:flex;flex-direction:column;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:10px;padding:44px ${PAD}px 12px">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">On this device</span>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;gap:12px;padding:6px ${PAD}px 18px">
+    ${icon('hardDrive', 19, c.primary)}
+    <div style="flex:1">
+      <div style="font-size:15px;color:${c.fg}" class="tnum">${used}</div>
+      <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${free}</div>
+    </div>
+  </div>
+${notices}
+  <div style="flex:1;overflow:hidden">${rows}</div>
+</div>`;
+}
+
+/**
+ * One document, its size, and what removing it would mean.
+ *
+ * No cover. This is the one library surface where the document is a quantity
+ * rather than a thing to open — the reader is deciding what to lose, and a
+ * column of covers would sell them each one back.
+ */
+function storageRow(c, { title, detail, size, recoverable }) {
+  return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="margin-top:2px">${icon(recoverable ? 'cloudCheck' : 'phone', 15, recoverable ? c.fgMuted : c.destructive, 2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}" class="c2">${title}</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${recoverable ? c.fgSubtle : c.destructive}" class="pretty">${detail}</div>
+      </div>
+      <div style="flex:0 0 auto;text-align:right">
+        <div style="font-size:12px;color:${c.fgMuted}" class="tnum">${size}</div>
+        <div style="margin-top:5px;font-size:12px;color:${c.primary}">Remove</div>
+      </div>
+    </div>`;
+}
+
+/** A quiet line above the list. Never a banner: nothing here is an emergency. */
+function storageNotice(c, glyph, text, tone) {
+  return `  <div style="display:flex;align-items:flex-start;gap:10px;padding:0 ${PAD}px 18px">
+    ${icon(glyph, 15, tone, 2)}
+    <div style="flex:1;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${text}</div>
+  </div>
+`;
+}
+
+function deviceStorage() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: deviceStorageScreen(c, {
+      used: '1.4 GB across 11 documents',
+      free: '8.2 GB free on this device. Largest first.',
+      rows: `${storageRow(c, {
+        title: 'Designing Data-Intensive Applications',
+        detail: 'In your account. Removing it here downloads again in a tap.',
+        size: '12.4 MB',
+        recoverable: true,
+      })}
+${storageRow(c, {
+        title: 'Sapiens: A Brief History of Humankind',
+        detail: 'In your account. Removing it here downloads again in a tap.',
+        size: '6.8 MB',
+        recoverable: true,
+      })}
+${storageRow(c, {
+        title: 'Lease Agreement — 14 Kilimani Road',
+        detail: 'On this phone only. Removing it deletes it for good.',
+        size: '4.6 MB',
+        recoverable: false,
+      })}
+${storageRow(c, {
+        title: 'Thinking, Fast and Slow',
+        detail: 'In your account. Removing it here downloads again in a tap.',
+        size: '4.1 MB',
+        recoverable: true,
+      })}
+${storageRow(c, {
+        title: 'React Native Performance Notes',
+        detail: 'On this phone only. Removing it deletes it for good.',
+        size: '380 KB',
+        recoverable: false,
+      })}`,
+    }),
+  });
+}
+
+/**
+ * The same screen with the two things a reader should be told about a device.
+ *
+ * Running out of room, and a build that cannot encrypt what it stores. Both are
+ * facts about this phone rather than about the library, which is why they sit
+ * here and not on Home — and both are lines rather than dialogs, because
+ * neither is something to interrupt somebody's reading over.
+ */
+function deviceStorageTight() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: deviceStorageScreen(c, {
+      used: '11.8 GB across 74 documents',
+      free: '412 MB free on this device. Largest first.',
+      notices:
+        storageNotice(
+          c,
+          'alert',
+          'There is not much room left. An import larger than about 350&nbsp;MB will be refused until you remove something.',
+          c.destructive,
+        ) +
+        storageNotice(
+          c,
+          'lock',
+          'This build cannot encrypt the library on disk. Your documents and their text are stored in the clear — see <span style="color:' +
+            c.fg +
+            '">docs/security.md</span>.',
+          c.fgMuted,
+        ),
+      rows: `${storageRow(c, {
+        title: 'The Complete Works — scanned, 1,340 pages',
+        detail: 'On this phone only. Removing it deletes it for good.',
+        size: '1.9 GB',
+        recoverable: false,
+      })}
+${storageRow(c, {
+        title: 'Designing Data-Intensive Applications',
+        detail: 'In your account. Removing it here downloads again in a tap.',
+        size: '12.4 MB',
+        recoverable: true,
+      })}
+${storageRow(c, {
+        title: 'Sapiens: A Brief History of Humankind',
+        detail: 'In your account. Removing it here downloads again in a tap.',
+        size: '6.8 MB',
+        recoverable: true,
+      })}`,
+    }),
+  });
+}
+
 const out = {
   'Main.dc.html': home(true),
   'HomeLight.dc.html': home(false),
@@ -2424,6 +2999,16 @@ const out = {
   'DocumentActionsFull.dc.html': documentActionsFull(),
   'TileAnatomy.dc.html': tileAnatomy(),
   'CoverSystem.dc.html': coverSystem(),
+  'OfflineIdentity.dc.html': offlineIdentity(),
+  'SyncActivity.dc.html': syncActivity(),
+  'SyncActivityFailed.dc.html': syncActivityFailed(),
+  'AccountSync.dc.html': accountSync(),
+  'ImportOffline.dc.html': importOffline(),
+  'ImportNoSpace.dc.html': importNoSpace(),
+  'LocalFirst.dc.html': localFirst(),
+  'SyncPipeline.dc.html': syncPipeline(),
+  'DeviceStorage.dc.html': deviceStorage(),
+  'DeviceStorageTight.dc.html': deviceStorageTight(),
 };
 for (const [name, html] of Object.entries(out)) { writeFileSync(new URL('./' + name, import.meta.url), html); }
 
@@ -2445,7 +3030,7 @@ const canvas = {
     { file: 'Reader.dc.html', title: 'Reader — controls shown', x: 3430, y: 3044, w: 390, h: 844 },
     { file: 'ReaderPlain.dc.html', title: 'Reader — reading', x: 3920, y: 3044, w: 390, h: 844 },
     { file: 'DocumentActionsFull.dc.html', title: 'Document actions — all of them', x: 4410, y: 3044, w: 390, h: 1044 },
-    { file: 'SyncStates.dc.html', title: 'Where a document is', x: 0, y: 4344, w: 900, h: 560 },
+    { file: 'SyncStates.dc.html', title: 'Where a document is', x: 0, y: 4344, w: 1024, h: 600 },
     { file: 'TileAnatomy.dc.html', title: 'Document tile — anatomy and states', x: 0, y: 5024, w: 900, h: 1100 },
     { file: 'CoverSystem.dc.html', title: 'Generated covers', x: 1000, y: 5024, w: 1360, h: 640 },
     { file: 'HomeProcessing.dc.html', title: 'Home — a document still processing', x: 0, y: 6264, w: 390, h: 844 },
@@ -2480,6 +3065,19 @@ const canvas = {
     { file: 'ReaderBookmarkName.dc.html', title: 'Reader — naming a bookmark', x: 1960, y: 11296, w: 390, h: 844 },
     { file: 'ReaderAnatomy.dc.html', title: 'Reader — chrome, lifecycle, commands', x: 0, y: 9032, w: 900, h: 1180 },
     { file: 'ReaderSpread.dc.html', title: 'Reader — two pages, landscape', x: 1000, y: 9032, w: 1024, h: 768 },
+
+    { file: 'OfflineIdentity.dc.html', title: 'Home — opened with no connection', x: 0, y: 12260, w: 390, h: 844 },
+    { file: 'SyncActivity.dc.html', title: 'Sync — what is waiting', x: 490, y: 12260, w: 390, h: 844 },
+    { file: 'SyncActivityFailed.dc.html', title: 'Sync — a change that would not go', x: 980, y: 12260, w: 390, h: 844 },
+    { file: 'AccountSync.dc.html', title: 'Account — with sync', x: 1470, y: 12260, w: 390, h: 844 },
+    { file: 'ImportOffline.dc.html', title: 'Import — with no connection', x: 1960, y: 12260, w: 390, h: 844 },
+    { file: 'ImportNoSpace.dc.html', title: 'Import — not enough room', x: 2450, y: 12260, w: 390, h: 844 },
+
+    { file: 'LocalFirst.dc.html', title: 'Where a read and a write go', x: 0, y: 13224, w: 900, h: 620 },
+    { file: 'SyncPipeline.dc.html', title: 'The outbox', x: 1000, y: 13224, w: 1024, h: 700 },
+
+    { file: 'DeviceStorage.dc.html', title: 'On this device', x: 0, y: 14180, w: 390, h: 844 },
+    { file: 'DeviceStorageTight.dc.html', title: 'On this device — running out, and unencrypted', x: 490, y: 14180, w: 390, h: 844 },
   ],
   annotations: [
     { id: 'note-boundary', x: 0, y: -150, w: 880, text: 'Convex owns metadata, the device owns the PDF.\nRendering this screen never touches a file. Every rail below is one query and one index scan; "On this device" is answered by the filesystem, not the server.' },
@@ -2490,7 +3088,10 @@ const canvas = {
     { id: 'note-reader', x: 0, y: 7918, w: 880, text: 'The renderer owns the page; the app owns everything around it.\nZoom, panning and page rendering are native and are left alone — a second zoom engine over a renderer that already has one is two gesture recognisers fighting. What React Native adds is the chrome, the modes, and one goToPage every feature calls.' },
     { id: 'note-kept', x: 0, y: 11146, w: 880, text: 'Four answers to one question, on a screen rather than in a sheet.\nA sheet is as tall as its content, so moving from Contents (355 rows) to Bookmarks (one) shrank it by two thirds and took the segmented control down with it \u2014 the next tap landed on the backdrop and dismissed it. A control does not hang off a box whose height is the reader\u2019s data.\nAnd nothing is drawn on the page: react-native-pdf reports selected text and no rectangles, so the mark lives in this list where it can be accurate.' },
     { id: 'note-pages', x: 980, y: 11146, w: 380, text: 'Each cell is an image, not a renderer. Nine live <Pdf> views over one file took eight seconds to paint a screen, measured on a device. A page is rendered once by a single off-screen viewer, kept on disk, and read back \u2014 so the same screen fills in about two seconds and the second visit is immediate. Past 1,200 pages the segment is absent rather than slow.' },
+    { id: 'note-offline-first', x: 0, y: 12110, w: 880, text: 'Offline is not a mode this app enters.\nThe local database and the files beside it are the first source for every ordinary read, and the account is what the device converges with afterwards \u2014 so none of these screens is a degraded one. The only thing that changes with no connection is a line saying so and a queue quietly filling up.' },
+    { id: 'note-outbox', x: 1000, y: 13074, w: 1024, text: 'One queue row per thing, not per change. That is what makes two hundred page turns one message, and it is also why the values are read off the row at the moment of sending rather than captured when the reader acted \u2014 the account is told where somebody ended up, not replayed through every page they passed.' },
     { id: 'note-covers', x: 1960, y: 2360, w: 300, text: 'No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library.' },
+    { id: 'note-device-storage', x: 0, y: 14030, w: 880, text: 'The screen the refusal always assumed.\nAn import with no room says to remove a download or two, and until now nothing said which ones were large — the account’s Storage section reported what was in the account, which is the other half.\nEvery row says what removing it costs. A document in the account comes back on a tap; a document that is only here does not come back at all. Same gesture, two consequences, so the row says which before the reader commits. And no covers: this is the one library surface where a document is a quantity rather than something to open.' },
   ],
   launch: { view: 'canvas' },
 };

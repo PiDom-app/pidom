@@ -1,5 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from 'convex/react';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, CloudOff, ScanText, Search, Smartphone } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -20,7 +21,7 @@ import { SEARCH_LIMIT, SEARCH_TERM_MAX } from '@convex/model/limits';
 import type { SearchHit } from '@convex/model/processing';
 
 import { useLibraryStatus } from '../data/use-library-status';
-import { useHome } from '../data/use-home';
+import { useLocalQuery } from '../local/use-local-query';
 import { localSearchAvailable, searchLocally } from '../local/text-index';
 
 /**
@@ -28,13 +29,33 @@ import { localSearchAvailable, searchLocally } from '../local/text-index';
  *
  * The library screen already searches titles, and that is a different question
  * with a different answer — so this is a second surface rather than a mode on
- * the first. It searches the text extracted from the copies in the account,
- * which is the only text the server can see.
+ * the first.
  *
- * **A local-only document is absent from these results**, and the screen says so
- * rather than leaving a reader to wonder where their book went. That sentence is
- * the whole reason this screen has a footer.
+ * **The device's own index is the primary now, not the fallback.** It used to
+ * branch: the account when the socket was up, this phone when it was not. Two
+ * paths, two shapes of answer, and the one that was exercised least was the one
+ * that ran when a reader most needed it. The local index answers every search
+ * and the account's answer is a wider net laid over it — the same rows, plus
+ * any pages this phone has not mirrored yet.
+ *
+ * **A local-only document is absent from both**, and the screen says so rather
+ * than leaving a reader to wonder where their book went: extraction reads the
+ * copy in the account, because that is the only copy a server can see. That
+ * sentence is the whole reason this screen has a footer.
  */
+/** A row from the device's own index, before a title is put on it. */
+type LocalHit = { documentId: string; page: number; snippet: string };
+
+/** What the title lookup is built from. */
+const CATALOGUE_TABLES = ['documents'] as const;
+
+/** Every document this device knows of, by both of its names. */
+async function readCatalogue(db: SQLiteDatabase) {
+  return await db.getAllAsync<{ id: string; remoteId: string | null; title: string }>(
+    'SELECT id, remoteId, title FROM documents WHERE deletedAt IS NULL',
+  );
+}
+
 export function SearchInsideScreen() {
   const router = useRouter();
   const { ready, offline, profileId } = useLibraryStatus();
@@ -42,7 +63,7 @@ export function SearchInsideScreen() {
     documentId?: string;
     term?: string;
   }>();
-  const scope = documentId === undefined ? undefined : (documentId as Id<'documents'>);
+  const scope = documentId === undefined || documentId === '' ? null : documentId;
 
   // Seeded once from the route, so arriving from the title search carries the
   // word the reader already typed. `useState`'s initialiser rather than an
@@ -54,77 +75,129 @@ export function SearchInsideScreen() {
   // everything and the answer is a page of noise.
   const long = trimmed.length >= 2;
 
+  /**
+   * Titles, from the device's own library.
+   *
+   * The local index stores none — they would be a second copy of something that
+   * changes on a rename — and the account's answer carries its own, under ids
+   * this device may file differently. One map, keyed both ways, so a hit from
+   * either index finds the title the reader would recognise.
+   */
+  const { data: catalogue } = useLocalQuery(profileId, CATALOGUE_TABLES, readCatalogue);
+  const titles = useMemo(() => {
+    const found = new Map<string, { id: string; title: string }>();
+    for (const row of catalogue ?? []) {
+      found.set(row.id, row);
+      if (row.remoteId !== null) {
+        found.set(row.remoteId, row);
+      }
+    }
+    return found;
+  }, [catalogue]);
+
+  /**
+   * The account's id for the document being searched, if it has one.
+   *
+   * A document imported on this phone and not yet synced has none, and would
+   * have nothing to search there anyway — extraction reads the copy in the
+   * account, which is the only copy a server can see.
+   */
+  const remoteScope = useMemo(
+    () =>
+      scope === null
+        ? null
+        : ((catalogue ?? []).find((row) => row.id === scope)?.remoteId ?? null),
+    [scope, catalogue],
+  );
+
+  /**
+   * The account's answer, when there is one.
+   *
+   * Scoped by the *account's* id for the document, which a document imported on
+   * this phone and not yet synced does not have — and would have nothing to
+   * search anyway, for the same reason it has no text status.
+   */
   const online = useQuery(
     api.library.searchInside,
-    ready && long && !offline
-      ? { term: trimmed, ...(scope === undefined ? {} : { documentId: scope }) }
+    ready && long && !offline && (scope === null || remoteScope !== null)
+      ? {
+          term: trimmed,
+          ...(remoteScope === null ? {} : { documentId: remoteScope as Id<'documents'> }),
+        }
       : 'skip',
   );
 
   /**
-   * The same search against the device's own index.
+   * The same search against the device's own index, always.
    *
-   * Runs only when Convex is not answering, which is the whole reason the local
-   * index exists — a book on this phone should be searchable on a plane. It is
-   * a mirror of what the server extracted, so it can only know about documents
-   * that were synced, extracted and then pulled down; `Unsearchable` below says
-   * so, and says it differently when this is the index that answered.
+   * A mirror of what the server extracted, so it can only know about documents
+   * that were synced, extracted and then pulled down here; the footer says so.
    */
-  const [local, setLocal] = useState<SearchHit[] | undefined>(undefined);
+  const [local, setLocal] = useState<LocalHit[] | undefined>(undefined);
   useEffect(() => {
-    if (!offline || !long || profileId === null) {
+    if (!long || profileId === null) {
       setLocal(undefined);
       return;
     }
     let cancelled = false;
-    setLocal(undefined);
-    void searchLocally(profileId, trimmed, scope ?? null, SEARCH_LIMIT).then((rows) => {
-      if (cancelled) {
-        return;
+    void searchLocally(profileId, trimmed, scope, SEARCH_LIMIT).then((rows) => {
+      if (!cancelled) {
+        setLocal(rows.map((row) => ({ documentId: row.documentId, page: row.page, snippet: row.snippet })));
       }
-      setLocal(
-        rows.map((row) => ({
-          documentId: row.documentId as Id<'documents'>,
-          // The local index stores no titles — they would be a second copy of
-          // something that changes on rename. Filled in below from the library.
-          title: '',
-          page: row.page,
-          snippet: row.snippet,
-        })),
-      );
     });
     return () => {
       cancelled = true;
     };
-  }, [offline, long, profileId, trimmed, scope]);
+  }, [long, profileId, trimmed, scope]);
 
-  // Titles for the local hits, from whatever the library already holds. The
-  // cached home payload survives a cold launch offline, which is the situation
-  // this whole path is for.
-  const { sections } = useHome();
-  const titles = useMemo(() => {
-    const found = new Map<string, string>();
-    for (const section of sections) {
-      if (section.kind === 'documents') {
-        for (const document of section.documents) {
-          found.set(document.id, document.title);
-        }
-      }
+  /**
+   * One list, from whichever indexes answered.
+   *
+   * Merged on the pair the reader can actually distinguish — a document and a
+   * page — so a page both found is one row rather than two. The account's
+   * snippet wins where they overlap: it searched the whole document rather than
+   * whatever this phone has mirrored so far.
+   */
+  const hits = useMemo<SearchHit[] | undefined>(() => {
+    if (!long) {
+      return undefined;
     }
-    return found;
-  }, [sections]);
+    if (local === undefined && online === undefined) {
+      return undefined;
+    }
 
-  const hits = useMemo(
-    () =>
-      offline
-        ? local?.map((hit) => ({ ...hit, title: titles.get(hit.documentId) ?? 'A document' }))
-        : online,
-    [offline, local, online, titles],
-  );
+    const merged = new Map<string, SearchHit>();
+
+    for (const hit of local ?? []) {
+      const known = titles.get(hit.documentId);
+      merged.set(`${known?.id ?? hit.documentId}:${hit.page}`, {
+        documentId: (known?.id ?? hit.documentId) as Id<'documents'>,
+        title: known?.title ?? 'A document',
+        page: hit.page,
+        snippet: hit.snippet,
+      });
+    }
+
+    for (const hit of online ?? []) {
+      const known = titles.get(hit.documentId);
+      merged.set(`${known?.id ?? hit.documentId}:${hit.page}`, {
+        ...hit,
+        documentId: (known?.id ?? hit.documentId) as Id<'documents'>,
+        title: known?.title ?? hit.title,
+      });
+    }
+
+    // In page order within a document, which is reading order. Both indexes
+    // return by relevance, and stepping through a book by relevance is not
+    // something a reader can follow.
+    return [...merged.values()].sort(
+      (a, b) => a.title.localeCompare(b.title) || a.page - b.page,
+    );
+  }, [long, local, online, titles]);
 
   // Only for a library-wide search. Searching inside one document the reader
   // picked needs no explanation of where their other documents are.
-  const usage = useQuery(api.library.usage, ready && scope === undefined ? {} : 'skip');
+  const usage = useQuery(api.library.usage, ready && scope === null ? {} : 'skip');
 
   const summary = useMemo(() => {
     if (hits === undefined || hits.length === 0) {
@@ -154,7 +227,7 @@ export function SearchInsideScreen() {
             value={term}
             onChangeText={setTerm}
             maxLength={SEARCH_TERM_MAX}
-            placeholder={scope === undefined ? 'Search inside your documents' : 'Search this document'}
+            placeholder={scope === null ? 'Search inside your documents' : 'Search this document'}
             autoFocus
             autoCorrect={false}
             returnKeyType="search"

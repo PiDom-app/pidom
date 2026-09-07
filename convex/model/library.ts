@@ -9,6 +9,7 @@ import type { MutationCtx, QueryCtx } from '../_generated/server';
 import * as Annotations from './annotations';
 import { assertOwner } from './auth';
 import * as Processing from './processing';
+import { clientClock, documentByLocalId, isLocalId, isStale, localIdField } from './sync';
 import { queueExtraction } from '../workflows/document';
 import {
   AUTHOR_MAX,
@@ -17,7 +18,6 @@ import {
   BYTE_SIZE_MAX,
   CLOUD_BYTE_MAX,
   COVER_BYTE_MAX,
-  IDS_MAX,
   MIME_TYPE_MAX,
   PAGE_DELETE_BUDGET,
   PAGE_COUNT_MAX,
@@ -93,6 +93,17 @@ export type PublicDocument = {
   /** What the file was called when it was picked, if that was recorded. */
   originalFileName: string | null;
   mimeType: string | null;
+  /**
+   * Enough of the file to recognise it again.
+   *
+   * On the wire now, where it used to be held back as "not a thing a rail
+   * needs". A rail still does not need it — a *download* does. The device
+   * checks what arrived against this before it will open it, because a
+   * transfer that finished is not the same fact as a document that opens, and
+   * without something to compare against the only alternative was to trust the
+   * bytes. It is the reader's own fact about their own file.
+   */
+  fingerprint: string | null;
 };
 
 export function toPublicDocument(doc: Doc<'documents'>): PublicDocument {
@@ -122,9 +133,10 @@ export function toPublicDocument(doc: Doc<'documents'>): PublicDocument {
     hasOutline: doc.hasOutline ?? false,
     originalFileName: doc.originalFileName ?? null,
     mimeType: doc.mimeType ?? null,
-    // `fingerprint` and `processingError` are deliberately absent. The first is
-    // a fact about a file on somebody's phone and the second is a code the
-    // client already has a sentence for; neither is a thing a rail needs.
+    fingerprint: doc.fingerprint ?? null,
+    // `processingError` is deliberately absent: it is a code the client already
+    // has a sentence for, and a backend string rendered straight into a screen
+    // is a backend string in a screenshot.
   };
 }
 
@@ -167,6 +179,7 @@ export const publicDocumentValidator = v.object({
   hasOutline: v.boolean(),
   originalFileName: v.union(v.string(), v.null()),
   mimeType: v.union(v.string(), v.null()),
+  fingerprint: v.union(v.string(), v.null()),
 });
 
 export type PublicCollection = {
@@ -185,33 +198,6 @@ export const publicCollectionValidator = v.object({
   coverDocumentIds: v.array(v.id('documents')),
   createdAt: v.number(),
 });
-
-/** The orderings the all-library screen offers, each backed by its own index. */
-export const sortValidator = v.union(
-  v.literal('recent'),
-  v.literal('opened'),
-  v.literal('title'),
-);
-export type LibrarySort = 'recent' | 'opened' | 'title';
-
-/**
- * The filters, each of which picks the index the page is read from.
- *
- * A filter and a sort cannot both choose the index, so a filter other than
- * `all` fixes the order to most-recently-opened and the sort control is hidden
- * — see `src/features/library/all/`. The alternative is a `.filter()` over a
- * sorted index, which returns pages of wildly uneven size and reads the whole
- * table to fill them.
- *
- * `on this device` is not here. It is answered by the filesystem, and the
- * client intersects it with what these return.
- */
-export const filterValidator = v.union(
-  v.literal('all'),
-  v.literal('favorites'),
-  v.literal('finished'),
-);
-export type LibraryFilter = 'all' | 'favorites' | 'finished';
 
 /* ── reads ──────────────────────────────────────────────────────────── */
 
@@ -273,33 +259,6 @@ export async function finished(
 }
 
 /**
- * Metadata for a set of ids the device found on its own disk.
- *
- * Ids the caller does not own are dropped silently rather than thrown on. The
- * reasoning is `assertOwner`'s: a caller who gets `FORBIDDEN` for one id and
- * `null` for another has learned which ids exist. Returning the same thing for
- * both teaches nothing.
- *
- * Order follows the caller's array, because the device already knows which of
- * its files it touched most recently and the server does not.
- */
-export async function byIds(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-  ids: Id<'documents'>[],
-): Promise<Doc<'documents'>[]> {
-  if (ids.length > IDS_MAX) {
-    invalid(`Cannot look up more than ${IDS_MAX} documents at once.`);
-  }
-
-  // De-duplicated so a repeated id cannot multiply the read cost.
-  const unique = [...new Set(ids)];
-  const found = await Promise.all(unique.map((id) => ctx.db.get('documents', id)));
-
-  return found.filter((doc): doc is Doc<'documents'> => doc !== null && doc.ownerId === ownerId);
-}
-
-/**
  * Every collection, with the covers its tile draws.
  *
  * `COLLECTION_LIMIT` collections each read `COLLECTION_COVER_LIMIT` membership
@@ -337,106 +296,6 @@ export async function collectionSummaries(
   );
 }
 
-/** Documents in one collection, newest membership first. */
-export async function documentsInCollection(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-  collectionId: Id<'collections'>,
-  limit: number,
-): Promise<Doc<'documents'>[]> {
-  const members = await ctx.db
-    .query('collectionDocuments')
-    .withIndex('by_collection', (q) => q.eq('collectionId', collectionId))
-    .order('desc')
-    .take(limit);
-
-  const docs = await Promise.all(members.map((m) => ctx.db.get('documents', m.documentId)));
-
-  // The ownership check is on the documents rather than the membership rows:
-  // both carry `ownerId`, and the document is the thing being returned.
-  return docs.filter((doc): doc is Doc<'documents'> => doc !== null && doc.ownerId === ownerId);
-}
-
-/**
- * Title search.
- *
- * `ownerId` as a filter on the search index is load-bearing — a search index
- * has no implicit scope, so without it one reader's query would range over
- * every library in the deployment.
- */
-export async function searchTitles(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-  term: string,
-): Promise<Doc<'documents'>[]> {
-  const trimmed = term.trim();
-  if (trimmed === '') {
-    return [];
-  }
-  if (trimmed.length > SEARCH_TERM_MAX) {
-    invalid(`Search terms are limited to ${SEARCH_TERM_MAX} characters.`);
-  }
-
-  return await ctx.db
-    .query('documents')
-    .withSearchIndex('search_title', (q) => q.search('title', trimmed).eq('ownerId', ownerId))
-    .take(SEARCH_LIMIT);
-}
-
-/**
- * One page of the all-library screen.
- *
- * The filter picks the index; the sort only applies when there is no filter,
- * for the reason on `filterValidator`. Every branch is an index scan — nothing
- * here reads a row it does not return.
- */
-export async function listPage(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-  paginationOpts: PaginationOptions,
-  sort: LibrarySort,
-  filter: LibraryFilter,
-): Promise<PaginationResult<Doc<'documents'>>> {
-  if (filter === 'favorites') {
-    return await ctx.db
-      .query('documents')
-      .withIndex('by_owner_and_favorite', (q) => q.eq('ownerId', ownerId).eq('isFavorite', true))
-      .order('desc')
-      .paginate(paginationOpts);
-  }
-
-  if (filter === 'finished') {
-    return await ctx.db
-      .query('documents')
-      .withIndex('by_owner_and_finished', (q) => q.eq('ownerId', ownerId).eq('isFinished', true))
-      .order('desc')
-      .paginate(paginationOpts);
-  }
-
-  if (sort === 'opened') {
-    return await ctx.db
-      .query('documents')
-      .withIndex('by_owner_and_opened', (q) => q.eq('ownerId', ownerId))
-      .order('desc')
-      .paginate(paginationOpts);
-  }
-
-  if (sort === 'title') {
-    // Ascending, because A-Z is what "sort by title" means to a reader.
-    return await ctx.db
-      .query('documents')
-      .withIndex('by_owner_and_title', (q) => q.eq('ownerId', ownerId))
-      .order('asc')
-      .paginate(paginationOpts);
-  }
-
-  return await ctx.db
-    .query('documents')
-    .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
-    .order('desc')
-    .paginate(paginationOpts);
-}
-
 /* ── writes ─────────────────────────────────────────────────────────── */
 
 export type ImportInput = {
@@ -455,21 +314,48 @@ export type ImportInput = {
   pageCount?: number;
   /** `<byteSize>-<sha256 of both ends>`. See the field's note in the schema. */
   fingerprint?: string;
+  /**
+   * The id the importing device already gave this document.
+   *
+   * Present from any client that mints its own — which is every client that can
+   * import with no connection, because the id is the filename. See
+   * `documents.localId`.
+   */
+  localId?: string;
+  /** The device's clock at the import. See `model/sync.ts`. */
+  clientUpdatedAt?: number;
 };
 
 /**
  * Records an imported PDF and returns the row.
  *
- * The id this mints becomes the local filename, so the row exists before the
- * file does. `src/features/library/local/import.ts` deletes it again if the
- * copy into the library directory fails — a row with no file would otherwise
- * read as permanently "not on this device".
+ * **Idempotent on `localId`, and that is what makes it safe to queue.** The
+ * device writes the document to its own database and puts a create in its
+ * outbox; if the reply to that create is lost after this mutation committed —
+ * a socket that dropped between the write and the acknowledgement, an app the
+ * system killed — the operation is delivered again. Without the lookup below
+ * that is a second row, a second copy in the account, and a library with the
+ * same book in it twice.
+ *
+ * Returning the existing id rather than refusing is deliberate: the client
+ * asked for this document to exist and it does, which is the outcome it wanted.
+ * A refusal would leave the operation stuck in a queue that can never drain.
  */
 export async function importDocument(
   ctx: MutationCtx,
   owner: Doc<'users'>,
   input: ImportInput,
 ): Promise<Id<'documents'>> {
+  if (input.localId !== undefined) {
+    if (!isLocalId(input.localId)) {
+      invalid('That document id is not one Pidom writes.');
+    }
+    const existing = await documentByLocalId(ctx, owner, input.localId);
+    if (existing !== null) {
+      return existing._id;
+    }
+  }
+
   const title = cleanText(input.title, TITLE_MAX, 'Title');
   const author = cleanOptionalText(input.author, AUTHOR_MAX, 'Author');
   // Through the same normaliser as a title, because it arrives from the same
@@ -502,6 +388,8 @@ export async function importDocument(
     ...(mimeType === undefined ? {} : { mimeType }),
     ...(pageCount === undefined ? {} : { pageCount }),
     ...(input.fingerprint === undefined ? {} : { fingerprint: cleanFingerprint(input.fingerprint) }),
+    ...localIdField(input.localId),
+    ...clientClock(input.clientUpdatedAt),
     byteSize: Math.round(input.byteSize),
     // A page count means the probe finished before the reader committed, which
     // is the usual case — the cover renders while they are reading the title.
@@ -530,26 +418,6 @@ function cleanFingerprint(value: string): string {
     invalid('That file fingerprint is not one Pidom writes.');
   }
   return value;
-}
-
-/**
- * The caller's document with this fingerprint, if they already have one.
- *
- * Asked once per import, against an index rather than by scanning the library.
- * The answer is a whole document rather than a boolean because the import
- * screen offers to open it, which needs its title and its id.
- */
-export async function findByFingerprint(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-  fingerprint: string,
-): Promise<Doc<'documents'> | null> {
-  return await ctx.db
-    .query('documents')
-    .withIndex('by_owner_and_fingerprint', (q) =>
-      q.eq('ownerId', ownerId).eq('fingerprint', fingerprint),
-    )
-    .first();
 }
 
 /**
@@ -629,6 +497,15 @@ export type ProgressInput = {
    * leaves whatever is stored alone, which is what an ordinary page turn means.
    */
   readingMode?: ReadingMode;
+  /**
+   * The device's clock when the reader was on this page.
+   *
+   * Position is the write most likely to arrive late — it is the one a reader
+   * makes hundreds of times, often with no connection, and the one a queue
+   * therefore delivers in a burst hours afterwards. Without this the phone that
+   * spent the day in a bag wins, because it arrives last.
+   */
+  clientUpdatedAt?: number;
 };
 
 export async function recordProgress(
@@ -637,6 +514,12 @@ export async function recordProgress(
   input: ProgressInput,
 ): Promise<void> {
   const doc = await requireDocument(ctx, owner, input.documentId);
+
+  // Dropped rather than refused. The client asked for a position that has since
+  // been overtaken; there is nothing for it to retry and nothing gone wrong.
+  if (isStale(doc.clientUpdatedAt, input.clientUpdatedAt)) {
+    return;
+  }
 
   const pageCount =
     input.pageCount === undefined
@@ -653,9 +536,83 @@ export async function recordProgress(
     // Spread rather than assigned: an explicit `undefined` in a patch deletes
     // the field, and a page turn must not clear a mode the reader chose.
     ...(input.readingMode === undefined ? {} : { readingMode: input.readingMode }),
+    ...clientClock(input.clientUpdatedAt),
     lastOpenedAt: Date.now(),
     updatedAt: Date.now(),
   });
+}
+
+/* ── the reconcile ──────────────────────────────────────────────────── */
+
+/**
+ * Everything the account owns, a page at a time, oldest change first.
+ *
+ * This is what a device reads when it comes back from being offline, and it
+ * exists because none of the reads beside it can answer the question. `home`
+ * returns six rails of twelve, `list` is ordered for a screen rather than for a
+ * diff, and `byIds` caps at two hundred ids the caller has to already know. A
+ * device rebuilding its own copy of a library needs all of it, in an order it
+ * can resume from.
+ *
+ * Ordered by `updatedAt` rather than by creation, because a reconcile that is
+ * interrupted halfway has to be able to continue — and because the client stores
+ * the cursor and pages the rest of it later.
+ *
+ * **Deletions are found by their absence.** There are no tombstones in this
+ * schema, deliberately: a device holds the ids it knows about, pages this, and
+ * treats anything it holds that the account did not return as deleted
+ * elsewhere. That costs a full read per reconcile and needs no second table
+ * whose rows have to be expired by a cron. It is the right trade for a personal
+ * library and the wrong one for a shared one, which is a line worth knowing
+ * before this ever becomes the latter.
+ */
+export async function snapshot(
+  ctx: QueryCtx,
+  ownerId: Id<'users'>,
+  paginationOpts: PaginationOptions,
+): Promise<PaginationResult<PublicDocument>> {
+  const page = await ctx.db
+    .query('documents')
+    .withIndex('by_owner_and_updated', (q) => q.eq('ownerId', ownerId))
+    .paginate(paginationOpts);
+
+  return { ...page, page: page.page.map(toPublicDocument) };
+}
+
+/** Every mark in the account. The bookmark half of the same reconcile. */
+export const ownedBookmarkValidator = v.object({
+  documentId: v.id('documents'),
+  page: v.number(),
+  label: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+});
+
+export type OwnedBookmark = {
+  documentId: Id<'documents'>;
+  page: number;
+  label: string | null;
+  createdAt: number;
+};
+
+export async function allBookmarks(
+  ctx: QueryCtx,
+  ownerId: Id<'users'>,
+  paginationOpts: PaginationOptions,
+): Promise<PaginationResult<OwnedBookmark>> {
+  const page = await ctx.db
+    .query('documentBookmarks')
+    .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
+    .paginate(paginationOpts);
+
+  return {
+    ...page,
+    page: page.page.map((row) => ({
+      documentId: row.documentId,
+      page: row.page,
+      label: row.label ?? null,
+      createdAt: row.createdAt,
+    })),
+  };
 }
 
 /* ── bookmarks ──────────────────────────────────────────────────────── */
@@ -684,26 +641,6 @@ function toPublicBookmark(row: Doc<'documentBookmarks'>): PublicBookmark {
     // `ownerId` and `documentId` are deliberately absent: the caller asked for
     // one document's bookmarks and already knows both.
   };
-}
-
-/**
- * Every page marked in one document, oldest first.
- *
- * Ownership is checked on the *document*, not on the bookmark rows, so a caller
- * probing ids gets `FORBIDDEN` before a single row is read — the same rule the
- * outline and the page text follow.
- */
-export async function bookmarksFor(
-  ctx: QueryCtx | MutationCtx,
-  owner: Doc<'users'>,
-  documentId: Id<'documents'>,
-): Promise<PublicBookmark[]> {
-  await requireDocument(ctx, owner, documentId);
-  const rows = await ctx.db
-    .query('documentBookmarks')
-    .withIndex('by_document', (q) => q.eq('documentId', documentId))
-    .take(BOOKMARKS_PER_DOCUMENT);
-  return rows.map(toPublicBookmark);
 }
 
 /**
@@ -755,6 +692,7 @@ export async function addBookmark(
     page,
     ...(label === undefined ? {} : { label }),
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   });
 }
 
@@ -787,9 +725,15 @@ export async function removeBookmark(
  * calls.
  *
  * An empty name clears the field rather than storing a blank one, which is what
- * a reader clearing the box and saving means. Refused rather than created when
- * the page is not marked: naming a bookmark that does not exist would be a
- * second, quieter way of making one.
+ * a reader clearing the box and saving means. It never *creates* a bookmark —
+ * naming one that does not exist would be a second, quieter way of making one.
+ *
+ * **Silent when the page is not marked, rather than refused.** It used to throw
+ * `INVALID`, which was right when the only caller was somebody holding a row in
+ * a list. It is wrong now that a rename can be queued: a reader who names a
+ * bookmark and then removes it before the phone finds a signal would leave a
+ * terminal failure in their outbox for an intention they had already changed
+ * their mind about.
  */
 export async function renameBookmark(
   ctx: MutationCtx,
@@ -797,6 +741,7 @@ export async function renameBookmark(
   documentId: Id<'documents'>,
   page: number,
   label: string,
+  clientUpdatedAt: number | undefined,
 ): Promise<void> {
   const doc = await requireDocument(ctx, owner, documentId);
   const existing = await ctx.db
@@ -805,13 +750,15 @@ export async function renameBookmark(
       q.eq('documentId', doc._id).eq('page', Math.round(page)),
     )
     .unique();
-  if (existing === null) {
-    invalid('That page is not bookmarked.');
+  if (existing === null || isStale(existing.clientUpdatedAt, clientUpdatedAt)) {
+    return;
   }
   await ctx.db.patch('documentBookmarks', existing._id, {
     // Explicit `undefined` deletes the field, which is the intent here and one
     // of the few places in this file that is true.
     label: cleanOptionalText(label, BOOKMARK_LABEL_MAX, 'A bookmark name'),
+    ...clientClock(clientUpdatedAt),
+    updatedAt: Date.now(),
   });
 }
 
@@ -831,9 +778,17 @@ export async function setFavorite(
   owner: Doc<'users'>,
   documentId: Id<'documents'>,
   isFavorite: boolean,
+  clientUpdatedAt: number | undefined,
 ): Promise<void> {
   const doc = await requireDocument(ctx, owner, documentId);
-  await ctx.db.patch('documents', doc._id, { isFavorite, updatedAt: Date.now() });
+  if (isStale(doc.clientUpdatedAt, clientUpdatedAt)) {
+    return;
+  }
+  await ctx.db.patch('documents', doc._id, {
+    isFavorite,
+    ...clientClock(clientUpdatedAt),
+    updatedAt: Date.now(),
+  });
 }
 
 export async function rename(
@@ -842,13 +797,18 @@ export async function rename(
   documentId: Id<'documents'>,
   title: string,
   author: string | undefined,
+  clientUpdatedAt: number | undefined,
 ): Promise<void> {
   const doc = await requireDocument(ctx, owner, documentId);
+  if (isStale(doc.clientUpdatedAt, clientUpdatedAt)) {
+    return;
+  }
   await ctx.db.patch('documents', doc._id, {
     title: cleanText(title, TITLE_MAX, 'Title'),
     // `null` from the client means "clear it"; Convex spells that `undefined`
     // in a patch, which is the one place an explicit `undefined` is wanted.
     author: cleanOptionalText(author, AUTHOR_MAX, 'Author'),
+    ...clientClock(clientUpdatedAt),
     updatedAt: Date.now(),
   });
 }

@@ -1,6 +1,6 @@
-import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
-
 import { log } from '@/lib/logger';
+
+import { database, localSearchAvailable } from './db';
 
 const SCOPE = 'local-search';
 
@@ -10,8 +10,9 @@ const SCOPE = 'local-search';
  * This is the *second* index, and it answers a question the Convex one cannot:
  * what does this document say, with no connection. Convex's search index is
  * reactive, cross-device and always current; this one is on the phone and works
- * in aeroplane mode. Neither replaces the other, and the search screen picks
- * between them by whether the backend is answering.
+ * in aeroplane mode. Neither replaces the other — the search screen reads this
+ * one first, because it is the one that is always there, and widens to Convex
+ * when the backend is answering.
  *
  * **It is a mirror, not a second extractor**, and that is not a shortcut —
  * `react-native-pdf` has no text API at all, so the device physically cannot
@@ -19,76 +20,23 @@ const SCOPE = 'local-search';
  * out of the R2 copy, so a document has local text exactly when it has been
  * synced, extracted, and then mirrored down here once.
  *
- * One database per profile, for the reason the library directory is per profile:
- * these are the words of somebody's documents, and two accounts sharing one file
- * is the kind of bug that is only ever discovered by the wrong person.
- *
- * FTS5 rather than `LIKE`. `expo-sqlite` compiles it in on both platforms unless
- * `expo.sqlite.enableFTS` is set to `false`, which nothing here sets — but the
- * `CREATE VIRTUAL TABLE` below is still the proof rather than the assumption,
- * and a build without it disables local search instead of failing to launch.
+ * The `pages` table lives in the profile's own database beside the library
+ * rather than in a file of its own. It used to be separate and unencrypted;
+ * `migrations.ts` carries the old one across on first open and deletes it,
+ * because a plaintext copy of somebody's books sitting next to an encrypted one
+ * makes the encryption decorative.
  */
 
 /**
- * Convex ids are lowercase alphanumerics, and this becomes a filename. Checked
- * for the same reason `paths.ts` checks it: "the id is safe" should be an
- * assertion in the code, not a belief about somebody else's id format.
+ * Ids become filenames elsewhere in this feature. Checked here too, for the
+ * same reason `paths.ts` checks them: "the id is safe" should be an assertion
+ * in the code, not a belief about somebody else's id format.
  */
 const SAFE_ID = /^[a-z0-9]+$/i;
 
 type Row = { documentId: string; page: number; snippet: string };
 
-let open: { profileId: string; db: SQLiteDatabase } | null = null;
-/** Null until the first open decides. False disables local search entirely. */
-let available: boolean | null = null;
-
-/**
- * The database for one profile, creating it on first use.
- *
- * Cached, because opening is the expensive part and the search screen asks per
- * keystroke. A different profile closes the previous handle rather than keeping
- * two open — signing out should leave nothing of one reader's text reachable.
- */
-async function database(profileId: string): Promise<SQLiteDatabase | null> {
-  if (available === false || !SAFE_ID.test(profileId)) {
-    return null;
-  }
-  if (open !== null && open.profileId === profileId) {
-    return open.db;
-  }
-
-  if (open !== null) {
-    await open.db.closeAsync().catch(() => undefined);
-    open = null;
-  }
-
-  try {
-    const db = await openDatabaseAsync(`pidom-text-${profileId}.db`);
-    // `content=''` makes this a contentless table: FTS5 keeps its index and not
-    // a second copy of the text. The page number and document id ride along
-    // UNINDEXED, which stores them without tokenising them — a page number is
-    // not something anyone searches for.
-    await db.execAsync(
-      `CREATE VIRTUAL TABLE IF NOT EXISTS pages
-       USING fts5(text, documentId UNINDEXED, page UNINDEXED, tokenize = 'unicode61');`,
-    );
-    available = true;
-    open = { profileId, db };
-    return db;
-  } catch (error) {
-    // A build without FTS5. Local search is off; everything else works, and the
-    // search screen falls back to asking Convex.
-    log.error(SCOPE, 'no local text index on this build');
-    log.debug(SCOPE, 'could not open the index', error);
-    available = false;
-    return null;
-  }
-}
-
-/** Whether local search can answer at all on this build. */
-export function localSearchAvailable(): boolean {
-  return available !== false;
-}
+export { localSearchAvailable };
 
 /**
  * Replaces a document's mirrored text.
@@ -103,17 +51,19 @@ export async function mirrorPages(
   pages: { page: number; text: string }[],
 ): Promise<void> {
   const db = await database(profileId);
-  if (db === null || !SAFE_ID.test(documentId)) {
+  if (db === null || !localSearchAvailable() || !SAFE_ID.test(documentId)) {
     return;
   }
 
   try {
-    // One transaction, because a half-written document is worse than an absent
-    // one: it answers searches with part of a book and no way to tell.
-    await db.withTransactionAsync(async () => {
-      await db.runAsync('DELETE FROM pages WHERE documentId = ?', documentId);
+    // Exclusive, because a half-written document is worse than an absent one:
+    // it answers searches with part of a book and no way to tell. The ordinary
+    // transaction is documented as letting outside queries interleave, and a
+    // search running mid-write is exactly that.
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      await txn.runAsync('DELETE FROM pages WHERE documentId = ?', documentId);
       for (const entry of pages) {
-        await db.runAsync('INSERT INTO pages (text, documentId, page) VALUES (?, ?, ?)', [
+        await txn.runAsync('INSERT INTO pages (text, documentId, page) VALUES (?, ?, ?)', [
           entry.text,
           documentId,
           entry.page,
@@ -128,7 +78,7 @@ export async function mirrorPages(
 /** Which documents already have their text here, so the mirror runs once each. */
 export async function mirroredIds(profileId: string): Promise<Set<string>> {
   const db = await database(profileId);
-  if (db === null) {
+  if (db === null || !localSearchAvailable()) {
     return new Set();
   }
   try {
@@ -158,7 +108,7 @@ export async function searchLocally(
 ): Promise<Row[]> {
   const db = await database(profileId);
   const trimmed = term.trim();
-  if (db === null || trimmed === '') {
+  if (db === null || !localSearchAvailable() || trimmed === '') {
     return [];
   }
 
@@ -187,7 +137,7 @@ export async function searchLocally(
 /** Drops a document's text. Called wherever the local file is dropped. */
 export async function forgetLocally(profileId: string, documentId: string): Promise<void> {
   const db = await database(profileId);
-  if (db === null || !SAFE_ID.test(documentId)) {
+  if (db === null || !localSearchAvailable() || !SAFE_ID.test(documentId)) {
     return;
   }
   try {

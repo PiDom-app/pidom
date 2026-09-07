@@ -1,4 +1,3 @@
-import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -22,8 +21,6 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { api } from '@convex/_generated/api';
-import type { Id } from '@convex/_generated/dataModel';
 import { THUMBNAIL_PAGE_MAX } from '@convex/model/limits';
 import { useResolvedTheme } from '@/providers/theme-provider';
 import { useReaderStore } from '@/stores/reader-store';
@@ -36,6 +33,7 @@ import { ContentsList } from './contents-list';
 import { PageGrid } from './page-grid';
 import type { NavigatorSegment } from './reader-location';
 import type { OutlineEntry } from './outline';
+import { useReaderDocument } from './use-reader-document';
 import { useAnnotations } from './use-annotations';
 import { useBookmarks, type Bookmark as BookmarkRow } from './use-bookmarks';
 
@@ -65,9 +63,9 @@ import { useBookmarks, type Bookmark as BookmarkRow } from './use-bookmarks';
 export function NavigatorScreen() {
   const router = useRouter();
   const theme = useResolvedTheme();
-  const { ready, profileId } = useLibraryStatus();
+  const { profileId } = useLibraryStatus();
   const params = useLocalSearchParams<{ id: string; page?: string; segment?: string }>();
-  const documentId = params.id as Id<'documents'> | undefined;
+  const documentId = params.id === undefined || params.id === '' ? undefined : params.id;
 
   const currentPage = Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1);
   // `null` until the reader taps a chip. The segment shown is derived from
@@ -78,19 +76,12 @@ export function NavigatorScreen() {
 
   const requestJump = useReaderStore((state) => state.requestJump);
 
-  const found = useQuery(
-    api.library.byIds,
-    ready && documentId !== undefined ? { ids: [documentId] } : 'skip',
-  );
-  const document = found?.[0];
+  // The same read the reader below it is drawn from, so moving between the two
+  // never shows a different answer while a subscription catches up.
+  const { document, outline } = useReaderDocument(documentId);
 
-  const outline = useQuery(
-    api.library.outline,
-    ready && documentId !== undefined && document?.hasOutline === true ? { documentId } : 'skip',
-  );
-
-  const { bookmarks, toggle: toggleBookmark } = useBookmarks({ documentId, ready });
-  const { annotations, forget } = useAnnotations({ documentId, ready });
+  const { bookmarks, toggle: toggleBookmark } = useBookmarks({ documentId });
+  const { annotations, forget } = useAnnotations({ documentId });
 
   // Only Pages needs it, and only to render a page of an encrypted document.
   const [password, setPassword] = useState<string | undefined>(undefined);

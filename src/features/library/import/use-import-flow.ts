@@ -1,8 +1,5 @@
-import { useConvex, useMutation } from 'convex/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { api } from '@convex/_generated/api';
-import type { Id } from '@convex/_generated/dataModel';
 import { CLOUD_BYTE_MAX, TITLE_MAX } from '@convex/model/limits';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { log } from '@/lib/logger';
@@ -10,9 +7,13 @@ import { useLocalLibraryStore } from '@/stores/local-library-store';
 
 import type { OutlineEntry, ProbeResult } from '../components/document-probe';
 import type { LibraryDocument } from '../data/types';
-import { messageOf } from '../data/errors';
-import { useLibraryActions } from '../data/use-library-actions';
 import { useLibraryStatus } from '../data/use-library-status';
+import { database } from '../local/db';
+import { mintId } from '../local/repository/ids';
+import * as Documents from '../local/repository/documents';
+import * as Files from '../local/repository/files';
+import * as Queue from '../local/repository/queue';
+import { roomFor } from '../local/space';
 import {
   discardStaged,
   pickPdf,
@@ -85,15 +86,10 @@ export type ImportStage =
   | 'refused';
 
 /** Why a file was refused, in the terms the screen renders a sentence from. */
-export type Refusal = 'not-a-pdf' | 'encrypted' | 'unreadable' | 'no-size';
+export type Refusal = 'not-a-pdf' | 'encrypted' | 'unreadable' | 'no-size' | 'no-space';
 
 export function useImportFlow() {
   const { offline, hasNetwork, profileId } = useLibraryStatus();
-  const { syncDocument } = useLibraryActions();
-  const convex = useConvex();
-  const importDocument = useMutation(api.library.importDocument);
-  const setProcessed = useMutation(api.library.setProcessed);
-  const removeDocument = useMutation(api.library.remove);
   const markPresent = useLocalLibraryStore((state) => state.markPresent);
   const showToast = useAppToast();
 
@@ -113,13 +109,25 @@ export function useImportFlow() {
   const [picked, setPicked] = useState<PickedFile | null>(null);
   const [stage, setStage] = useState<ImportStage>('idle');
   const [refusal, setRefusal] = useState<Refusal | null>(null);
+  /** How big the file was that would not fit. Only set with a `no-space` refusal. */
+  const [spaceNeeded, setSpaceNeeded] = useState<number | null>(null);
   const [duplicate, setDuplicate] = useState<LibraryDocument | null>(null);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [sync, setSync] = useState(true);
 
   const oversize = picked !== null && picked.byteSize > CLOUD_BYTE_MAX;
-  const canSync = !offline && !oversize;
+
+  /**
+   * Whether the copy for other devices can be asked for at all.
+   *
+   * Only the size decides now. Being offline used to force this off, because
+   * the upload had to happen inside the import and there was nothing to hold
+   * the intention: a reader in a tunnel was told no and had to remember to come
+   * back. The intention is recorded on the row instead, and performed when
+   * there is a connection.
+   */
+  const canSync = !oversize;
 
   /**
    * Why the toggle is off, when it is off, in the reader's terms.
@@ -129,11 +137,21 @@ export function useImportFlow() {
    */
   const syncBlockedBecause = oversize
     ? `Over the ${Math.round(CLOUD_BYTE_MAX / 1024 / 1024)} MB sync limit, so this one stays on this phone. It still opens here with no connection.`
-    : offline
-      ? hasNetwork
-        ? 'Syncing needs Pidom to be reachable. You can add it now and sync later.'
-        : 'Syncing needs a connection. You can add it now and sync later.'
-      : null;
+    : null;
+
+  /**
+   * A note beside an available toggle, when there is no connection.
+   *
+   * Not a refusal — the switch works and the copy will be made. It is here
+   * because a reader who turns something on is owed the truth about when it
+   * happens.
+   */
+  const syncDeferredBecause =
+    !offline || oversize
+      ? null
+      : hasNetwork
+        ? 'Pidom is not reachable right now, so the copy for your other devices is made when it is.'
+        : 'There is no connection right now, so the copy for your other devices is made when there is one.';
 
   /**
    * Fingerprints the staged file and asks whether the account already has it.
@@ -156,11 +174,18 @@ export function useImportFlow() {
         current === null || current.uri !== uri ? current : { ...current, fingerprint },
       );
 
-      // A one-shot read rather than `useQuery`. The answer is needed once, at a
-      // moment this function already owns, and a subscription would keep a
-      // socket open on a question that cannot change while the screen is up.
+      // Asked of this device rather than of the account, which is both faster
+      // and the only version that works in a tunnel — the local database holds
+      // every document the account does, so the answer is the same one.
       try {
-        const existing = await convex.query(api.library.findByFingerprint, { fingerprint });
+        if (profileId === null) {
+          return;
+        }
+        const db = await database(profileId);
+        if (db === null) {
+          return;
+        }
+        const existing = await Documents.findByFingerprint(db, fingerprint);
         if (stagedRef.current?.pdf === uri) {
           setDuplicate(existing);
         }
@@ -169,7 +194,7 @@ export function useImportFlow() {
         log.debug(SCOPE, 'could not check for a duplicate', error);
       }
     },
-    [convex],
+    [profileId],
   );
 
   const picking = useCallback(async () => {
@@ -260,6 +285,17 @@ export function useImportFlow() {
         return;
       }
 
+      // Asked here rather than at the commit, because here is where nothing has
+      // been written yet and the reader has not typed a title into a screen
+      // that was always going to refuse them.
+      if (!roomFor(size).ok) {
+        discardStaged(uri);
+        setSpaceNeeded(size);
+        setRefusal('no-space');
+        setStage('refused');
+        return;
+      }
+
       const fileName = name ?? 'Document.pdf';
       setTitle(titleFromFilename(fileName).slice(0, TITLE_MAX));
       setPicked({
@@ -306,27 +342,61 @@ export function useImportFlow() {
     );
   }, []);
 
+  /**
+   * Adds the document to this device, and tells the account afterwards.
+   *
+   * **This is the change that makes importing possible with no connection.**
+   * The id used to come from `library.importDocument` and the id is the
+   * filename, so there was nothing to name the file until a round trip
+   * returned — which is why import was the one action that could not be queued
+   * and had to refuse. The device mints it now.
+   *
+   * The file moves before the row is written, which is the reverse of the old
+   * order and better for the same reason the old order was chosen: whichever
+   * of the two can fail should go first. A move that fails leaves nothing
+   * behind at all, where a row written first would need taking back.
+   */
   const commit = useCallback(async () => {
     if (picked === null || profileId === null || title.trim() === '') {
       return;
     }
 
     setStage('saving');
-    let created: Id<'documents'> | null = null;
+    let created: string | null = null;
 
     try {
-      const documentId = await importDocument({
-        title: title.trim(),
-        ...(author.trim() === '' ? {} : { author: author.trim() }),
-        byteSize: picked.byteSize,
-        originalFileName: picked.originalFileName,
-        ...(picked.mimeType === null ? {} : { mimeType: picked.mimeType }),
-        ...(picked.pageCount === null ? {} : { pageCount: picked.pageCount }),
-        ...(picked.fingerprint === null ? {} : { fingerprint: picked.fingerprint }),
-      });
+      const space = roomFor(picked.byteSize);
+      if (!space.ok) {
+        showToast({
+          id: 'import',
+          tone: 'error',
+          title: 'Not enough room',
+          description: space.message,
+        });
+        setStage('ready');
+        return;
+      }
+
+      const db = await database(profileId);
+      if (db === null) {
+        throw new Error('The local library is not available.');
+      }
+
+      const documentId = mintId();
       created = documentId;
 
       storeLocally(profileId, documentId, picked.uri);
+
+      await Documents.insertLocal(db, {
+        id: documentId,
+        title: title.trim(),
+        author: author.trim() === '' ? null : author.trim(),
+        pageCount: picked.pageCount,
+        byteSize: picked.byteSize,
+        fingerprint: picked.fingerprint,
+        originalFileName: picked.originalFileName,
+        mimeType: picked.mimeType,
+      });
 
       // The cover was rendered before there was an id to name it after, so it
       // moves into place now. Its failure is survivable: the tinted fallback is
@@ -340,6 +410,14 @@ export function useImportFlow() {
         // file is the whole of the work the probe is still doing, and it is the
         // one import where the answer is known before the question finishes.
         coverKept = copyCoverFrom(profileId, duplicate.id, documentId);
+      }
+
+      await Files.setState(db, documentId, 'available', {
+        localBytes: picked.byteSize,
+        expectedBytes: picked.byteSize,
+      });
+      if (coverKept) {
+        await Files.setCoverState(db, documentId, 'available');
       }
 
       markPresent(documentId);
@@ -362,29 +440,37 @@ export function useImportFlow() {
        * also what recovers a probe killed by the app going to the background.
        */
       const probed = picked.pageCount !== null;
-      void setProcessed({
-        documentId,
-        processing: probed ? (coverKept ? 'ready' : 'partial') : 'probing',
-        ...(probed ? { pageCount: picked.pageCount ?? undefined } : {}),
-        // Always sent once the probe has reported, empty included: an absent
+      if (probed) {
+        await Documents.patchLocal(db, documentId, {
+          processing: coverKept ? 'ready' : 'partial',
+          hasOutline: picked.outline.length > 0,
+        });
+        // Always stored once the probe has reported, empty included: an absent
         // outline has to be able to clear a previous one.
-        ...(probed ? { outline: picked.outline } : {}),
-      }).catch((error: unknown) => {
-        log.debug(SCOPE, 'could not record what the probe found', error);
-      });
+        await Documents.saveOutline(db, documentId, picked.outline);
+      }
+
+      // One row in the outbox, carrying the whole document. It is a create
+      // rather than an update however many times the row is edited afterwards,
+      // because the account has still never seen it.
+      await Queue.enqueue(db, 'document', documentId, 'create');
     } catch (error) {
       if (created !== null) {
-        // The row exists and the file does not. Take the row back rather than
-        // leave a document that can never be opened or explained.
+        // Whatever landed, take it back. There is no half-imported state worth
+        // keeping, and nothing has been sent anywhere to undo.
         removeLocally(profileId, created);
-        await removeDocument({ documentId: created }).catch(() => undefined);
+        const db = await database(profileId);
+        if (db !== null) {
+          await Documents.purge(db, created).catch(() => undefined);
+        }
       }
       showToast({
         id: 'import',
         tone: 'error',
         title: "Couldn't add the document",
-        description: messageOf(error, 'There may not be enough space on this device.'),
+        description: 'Something went wrong writing it to this device. Try again.',
       });
+      log.debug(SCOPE, 'import failed', error);
       setStage('ready');
       return;
     }
@@ -394,13 +480,17 @@ export function useImportFlow() {
     // an assertion is a claim about control flow that survives an edit and a
     // condition is not.
     if (created !== null && sync && canSync) {
-      // Deliberately not awaited. A 100 MB upload over slow data is minutes the
-      // reader would spend on a screen with a Cancel they cannot use; the tile
-      // draws the progress from `useTransferStore` and the document is already
-      // fully usable here either way. A failure raises its own toast and leaves
-      // a local-only document behind, which is the same state as choosing not
-      // to sync and needs no rollback.
-      void syncDocument(created, picked.byteSize);
+      // Deliberately not awaited, and deliberately an intention rather than an
+      // upload. The account has not met this document yet — its create is still
+      // in the queue — so there is no id to upload against and nothing to
+      // upload to. `use-sync-intents.ts` performs it once the create lands,
+      // which is also what happens when the reader was offline. A 100 MB upload
+      // over slow data is minutes nobody should spend on a screen whose Cancel
+      // no longer means anything.
+      const db = await database(profileId);
+      if (db !== null) {
+        await Documents.patchLocal(db, created, { syncIntent: 'upload' });
+      }
     }
 
     setStage('done');
@@ -412,11 +502,7 @@ export function useImportFlow() {
     sync,
     canSync,
     duplicate,
-    importDocument,
-    setProcessed,
-    removeDocument,
     markPresent,
-    syncDocument,
     showToast,
   ]);
 
@@ -449,6 +535,8 @@ export function useImportFlow() {
     sync,
     canSync,
     syncBlockedBecause,
+    syncDeferredBecause,
+    spaceNeeded,
     setTitle,
     setAuthor,
     setSync,

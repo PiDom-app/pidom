@@ -29,14 +29,6 @@ export const COLLECTION_LIMIT = 12;
 /** Covers in a collection tile's mosaic. */
 export const COLLECTION_COVER_LIMIT = 4;
 
-/**
- * Ids `library.byIds` will answer for in one call.
- *
- * The device sends the ids it holds on disk. A library larger than this pages
- * through the all-library screen rather than asking for everything at once.
- */
-export const IDS_MAX = 200;
-
 /** Search results. Convex scans at most 1024 documents per search query anyway. */
 export const SEARCH_LIMIT = 25;
 /** Terms past this are noise; Convex caps a search expression at 16 words. */

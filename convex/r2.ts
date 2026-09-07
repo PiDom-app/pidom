@@ -4,6 +4,7 @@ import { components } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import { assertOwner, requireUser } from './model/auth';
 import { coverKey, documentIdOf, pdfKey } from './model/library';
+import { limit } from './model/rateLimits';
 
 /**
  * The bucket, and the one function the client is allowed to call on it.
@@ -58,5 +59,10 @@ export const { syncMetadata } = r2.clientApi<DataModel>({
     if (key !== pdfKey(user._id, doc._id) && key !== coverKey(user._id, doc._id)) {
       assertOwner(null, user);
     }
+    // Metered last, so a caller naming somebody else's key is refused on
+    // ownership rather than on a bucket — a `RATE_LIMITED` answer where
+    // `FORBIDDEN` belongs would tell them the key was otherwise acceptable.
+    // Every ownership check above is a read; this is the only write.
+    await limit(ctx, user, 'syncMetadata');
   },
 });

@@ -112,8 +112,13 @@ your phone where you left off on your tablet.
 - **Search inside** every document you have synced, and go straight to the page
   — with no connection too, from a copy of the text kept on the phone.
 - **Open a PDF from anywhere.** Files, Drive, Mail: "Open with → Pidom".
-- **Read offline.** Documents live on the device; the library stays legible
-  without a connection, from a cached copy of the last answer.
+- **Read offline — properly.** Not a fallback mode. The device has its own
+  encrypted database and the library is read from it first, so Home, the reader,
+  your notes and your place in a book never wait on a network. Import a PDF in
+  aeroplane mode and it is a real document in a real library. Changes queue up
+  in an outbox and reach your account when there is a connection.
+- **See what it costs you.** Every document on the phone, largest first, and
+  whether removing one costs a download or destroys your only copy.
 - **Sync what is worth syncing.** Per document, up to 100 MB, to Cloudflare R2
   behind a signed URL that expires in five minutes.
 - **Read it the way you want.** One long scroll, one page at a time, or two
