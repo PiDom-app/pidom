@@ -251,7 +251,7 @@ export function SearchInsideScreen() {
       ) : null}
 
       {summary === null ? null : (
-        <Text size="2xs" className="px-6 pt-4 uppercase tracking-wider text-fg-subtle">
+        <Text size="2xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
           {summary}
         </Text>
       )}

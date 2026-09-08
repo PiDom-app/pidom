@@ -244,7 +244,7 @@ function Status({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text size="2xs" className="px-6 pt-6 pb-2 uppercase tracking-wider text-fg-subtle">
+    <Text size="2xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
       {children}
     </Text>
   );
