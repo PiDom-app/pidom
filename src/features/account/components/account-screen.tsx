@@ -39,20 +39,26 @@ import { ThemeControl } from './theme-control';
 /**
  * A labelled run of rows. Separated by a rule, not boxed in a card.
  *
- * The label sits clear of its rows rather than 4px above them: at `xs` the
- * heading read as part of the first row instead of as a heading over the group,
- * and a section of two rows looked like one four-line paragraph. Rows inside a
- * section separate themselves with a hairline — the same way every other list
- * in the app does — rather than with more whitespace, which is what stops two
- * stacked rows running together.
+ * **The spacing is the whole of this component, and it was wrong.** The label
+ * sat in a `space="md"` stack inside a `space="2xl"` one, so every section
+ * boundary cost about 57dp of nothing: a gap under the last row, a divider, and
+ * another gap before the next heading. On a 720px phone that is a third of the
+ * screen spent on four headings, and it read as a screen still loading.
+ *
+ * The rhythm here is the one `search-inside-screen.tsx` uses for its results,
+ * because that is the densest list in the app and nobody has ever called it
+ * cramped: rows at `py-3.5` separated by a hairline, and nothing else between
+ * them. A heading needs air above it and almost none below — it belongs to the
+ * rows under it, not to the divider over it — so the label carries `pt-5 pb-1.5`
+ * and the group closes with `pb-3` before the next rule.
  */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <VStack space="md">
-      <Text size="xs" className="uppercase tracking-wider text-fg-subtle">
+    <VStack>
+      <Text size="xs" className="pt-5 pb-1.5 uppercase tracking-wider text-fg-subtle">
         {title}
       </Text>
-      <VStack>{children}</VStack>
+      <VStack className="pb-3">{children}</VStack>
     </VStack>
   );
 }
@@ -97,9 +103,9 @@ export function AccountScreen() {
         </Pressable>
       </HStack>
 
-      <ScrollView contentContainerClassName="px-6 pb-12">
-        <VStack space="2xl">
-          <VStack className="items-center pt-4" space="md">
+      <ScrollView contentContainerClassName="px-6 pb-10">
+        <VStack>
+          <VStack className="items-center pt-2 pb-6" space="md">
             {/* gluestack v5's Avatar has no size variant — it is fixed at
                 h-12 w-12, so the profile header sizes it through className. */}
             <Avatar className="h-20 w-20">

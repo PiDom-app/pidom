@@ -149,7 +149,7 @@ export function ProfileScreen() {
           </VStack>
         </Section>
 
-        <Divider className="mx-6 mt-4 bg-hairline" />
+        <Divider className="mx-6 mt-3 bg-hairline" />
 
         <Section title="Photo">
           <HStack className="items-center px-6 py-3" space="lg">
@@ -171,7 +171,7 @@ export function ProfileScreen() {
           </HStack>
         </Section>
 
-        <Divider className="mx-6 mt-4 bg-hairline" />
+        <Divider className="mx-6 mt-3 bg-hairline" />
 
         <Section title="Account">
           <HStack className="items-center px-6 py-3" space="lg">

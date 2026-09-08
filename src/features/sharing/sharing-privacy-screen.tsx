@@ -133,7 +133,7 @@ export function SharingPrivacyScreen() {
           />
         </Section>
 
-        <Divider className="mt-4 bg-hairline" />
+        <Divider className="mt-3 bg-hairline" />
 
         <Section title="What I share out">
           <Toggle
@@ -156,7 +156,7 @@ export function SharingPrivacyScreen() {
           />
         </Section>
 
-        <Divider className="mt-4 bg-hairline" />
+        <Divider className="mt-3 bg-hairline" />
 
         <Section title="Groups">
           <Toggle

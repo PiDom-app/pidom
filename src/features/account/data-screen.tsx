@@ -137,7 +137,7 @@ export function DataScreen() {
           </HStack>
         </Section>
 
-        <Divider className="mx-6 mt-4 bg-hairline" />
+        <Divider className="mx-6 mt-3 bg-hairline" />
 
         <Section title="Storage">
           <Pressable
@@ -171,7 +171,7 @@ export function DataScreen() {
           </Pressable>
         </Section>
 
-        <Divider className="mx-6 mt-4 bg-hairline" />
+        <Divider className="mx-6 mt-3 bg-hairline" />
 
         <Section title="Account">
           <Pressable
