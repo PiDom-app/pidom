@@ -124,6 +124,7 @@ export async function wantsPush(
   userId: Id<'users'>,
   kind: EventKind,
   now: number,
+  groupId?: Id<'groups'>,
 ): Promise<boolean> {
   const settings = await notificationsOf(ctx, userId);
   if (!settings.allow) {
@@ -131,6 +132,19 @@ export async function wantsPush(
   }
   if (settings[switchFor(kind)] !== true) {
     return false;
+  }
+  // **This member's own answer about this group**, which is a narrower question
+  // than the account-wide "tell me about group activity" switch above. A reader
+  // in a busy group and a quiet one wants to hear about them differently, and
+  // the alternative — turning group activity off entirely — silences both.
+  if (groupId !== undefined) {
+    const membership = await ctx.db
+      .query('groupMembers')
+      .withIndex('by_group_and_user', (q) => q.eq('groupId', groupId).eq('userId', userId))
+      .unique();
+    if (membership?.muted === true) {
+      return false;
+    }
   }
   return !inQuietHours(settings, now);
 }

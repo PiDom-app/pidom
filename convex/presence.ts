@@ -6,6 +6,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/s
 import type { Doc, Id } from './_generated/dataModel';
 import { AuthError, requireUser } from './model/auth';
 import { accessOf } from './model/access';
+import * as Groups from './model/groups';
 import { PRESENCE_INTERVAL_MIN_MS, PRESENCE_INTERVAL_MS } from './model/limits';
 import { limit } from './model/rateLimits';
 import { sharingOf } from './model/settings';
@@ -150,8 +151,19 @@ export const heartbeat = mutation({
     // A document room is the narrower question, so it takes both answers. A
     // group room asks only the general one: being listed as a member who is
     // around says nothing about what anybody is reading.
+    // A group can also decide the question for its own room: a study group that
+    // wants to see who is around and a department that does not are different
+    // rooms, and that is not something each member should have to answer.
+    const groupShowsPresence =
+      room.kind === 'group'
+        ? Groups.settingsOf(
+            (await ctx.db.get('groups', room.groupId)) ?? refuse(),
+          ).showPresence
+        : true;
+
     const visible =
       settings.showOnlineStatus &&
+      groupShowsPresence &&
       (room.kind === 'group' || settings.showReadingActivity);
 
     if (!visible) {

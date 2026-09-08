@@ -28,6 +28,7 @@ import { NameDialog } from '@/features/library/components/name-dialog';
 import { useLibraryStatus } from '@/features/library/data/use-library-status';
 
 import { ConfirmDialog } from './components/confirm-dialog';
+import { GroupSettings } from './components/group-settings';
 import { PersonRow, Tag } from './components/person-row';
 import { ProfileSheet } from './components/profile-sheet';
 import { Empty, ListSkeleton, Notice, ScreenHeader, Segments } from './components/segments';
@@ -265,52 +266,15 @@ export function GroupScreen() {
             </VStack>
           )
         ) : (
-          <VStack className="pt-2">
-            <Pressable
-              onPress={() => setRenaming(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Rename this group"
-              className="px-6 py-3 data-[active=true]:bg-hover"
-              disabled={!canAdminister}>
-              <HStack className="items-center" space="md">
-                <VStack className="flex-1">
-                  <Text size="md" className="text-foreground">
-                    Name
-                  </Text>
-                </VStack>
-                <Text size="sm" className="text-fg-subtle">
-                  {group.name}
-                </Text>
-                {canAdminister ? <Icon as={ChevronRight} size="sm" className="text-fg-subtle" /> : null}
-              </HStack>
-            </Pressable>
-
-            <Box className="mx-6 my-2 h-px bg-hairline" />
-
-            <Pressable
-              onPress={() => setLeaving(true)}
-              accessibilityRole="button"
-              accessibilityLabel={group.role === 'owner' ? 'Delete this group' : 'Leave this group'}
-              className="px-6 py-3 data-[active=true]:bg-hover">
-              <HStack className="items-center" space="md">
-                <Icon
-                  as={group.role === 'owner' ? Trash2 : LogOut}
-                  size="lg"
-                  className="text-destructive"
-                />
-                <VStack className="flex-1">
-                  <Text size="md" className="text-destructive">
-                    {group.role === 'owner' ? 'Delete this group' : 'Leave this group'}
-                  </Text>
-                  <Text size="xs" className="mt-0.5 text-fg-subtle">
-                    {group.role === 'owner'
-                      ? `Everybody loses access to the ${documents.length} ${documents.length === 1 ? 'document' : 'documents'} shared here.`
-                      : `You lose access to the ${documents.length} ${documents.length === 1 ? 'document' : 'documents'} shared here.`}
-                  </Text>
-                </VStack>
-              </HStack>
-            </Pressable>
-          </VStack>
+          <GroupSettings
+            remoteId={remoteId}
+            isOwner={group.role === 'owner'}
+            canAdminister={canAdminister}
+            documentCount={documents.length}
+            currentName={group.name}
+            onRename={() => setRenaming(true)}
+            onLeave={() => setLeaving(true)}
+          />
         )}
       </ScrollView>
 

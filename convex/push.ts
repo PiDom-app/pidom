@@ -86,7 +86,11 @@ export async function dispatch(ctx: MutationCtx, eventId: Id<'shareEvents'>): Pr
   if (event === null) {
     return;
   }
-  if (!(await Notifications.wantsPush(ctx, event.userId, event.kind, Date.now()))) {
+  // The event carries the group it is about when it is about one, so a member
+  // who muted that group is skipped without touching their account-wide switch.
+  if (
+    !(await Notifications.wantsPush(ctx, event.userId, event.kind, Date.now(), event.groupId))
+  ) {
     return;
   }
 

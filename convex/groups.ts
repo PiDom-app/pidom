@@ -37,9 +37,9 @@ export const detail = query({
   }),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    const { group, role } = await Groups.requireMember(ctx, user, args.groupId);
+    const { group, role, muted } = await Groups.requireMember(ctx, user, args.groupId);
     return {
-      group: Groups.toPublicGroup(group, role),
+      group: Groups.toPublicGroup(group, role, muted),
       members: await Groups.membersOf(ctx, group),
     };
   },
@@ -138,6 +138,56 @@ export const setRole = mutation({
     const user = await requireUser(ctx);
     await limit(ctx, user, 'editGroup');
     await Groups.setRole(ctx, user, args.groupId, args.userId, args.role);
+    return null;
+  },
+});
+
+/**
+ * The group's own settings. Owner or admin.
+ *
+ * One mutation for seven values rather than seven mutations, because they are
+ * one screen and they share a bucket. Each is enforced somewhere real:
+ * `whoCanAdd` in `Groups.addMember`, `whoCanShare` and the two defaults in
+ * `Sharing.create`, `showMemberHandles` in `Groups.membersOf`, `showPresence`
+ * in `presence.heartbeat`. A switch wired to nothing is worse than no switch.
+ */
+export const updateSettings = mutation({
+  args: {
+    groupId: v.id('groups'),
+    description: v.optional(v.string()),
+    whoCanAdd: v.optional(
+      v.union(v.literal('owner'), v.literal('admins'), v.literal('members')),
+    ),
+    whoCanShare: v.optional(v.union(v.literal('admins'), v.literal('members'))),
+    defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
+    defaultCanDownload: v.optional(v.boolean()),
+    showMemberHandles: v.optional(v.boolean()),
+    showPresence: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'editGroup');
+    const { groupId, ...patch } = args;
+    await Groups.updateSettings(ctx, user, groupId, patch);
+    return null;
+  },
+});
+
+/**
+ * Mute this group, for the caller and nobody else.
+ *
+ * Any member, not just an administrator: it decides what reaches their phone
+ * rather than anything about the group. `editSettings` rather than `editGroup`
+ * for the same reason — it is a preference, and it is metered like one.
+ */
+export const setMuted = mutation({
+  args: { groupId: v.id('groups'), muted: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'editSettings');
+    await Groups.setMuted(ctx, user, args.groupId, args.muted);
     return null;
   },
 });

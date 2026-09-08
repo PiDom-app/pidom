@@ -11,6 +11,7 @@ import {
   requireResharable,
 } from './access';
 import { type PublicProfile, profileOf } from './discovery';
+import * as Groups from './groups';
 import {
   ANNOTATIONS_PER_DOCUMENT,
   SHARES_PER_DOCUMENT,
@@ -207,6 +208,32 @@ export type CreateInput = {
  *     asked for, including for the owner, so there is one path rather than two
  *     that can drift.
  */
+/**
+ * What a group allows, applied to what the sender asked for.
+ *
+ * A ceiling rather than a default: asking for `annotator` in a group set to
+ * `viewer` gets `viewer`, the same way `clampToCeiling` treats a resharer's own
+ * grant. Reading a missing group as "no opinion" would make a deleted group
+ * more permissive than a live one, so it refuses instead — and the caller has
+ * already proved membership by the time this runs.
+ */
+async function withinGroup(
+  ctx: MutationCtx,
+  groupId: Id<'groups'>,
+  input: CreateInput,
+): Promise<{ role: 'viewer' | 'annotator'; canDownload: boolean; canReshare: boolean }> {
+  const group = await ctx.db.get('groups', groupId);
+  if (group === null) {
+    refuse();
+  }
+  const settings = Groups.settingsOf(group);
+  return {
+    role: settings.defaultRole === 'viewer' ? 'viewer' : input.role,
+    canDownload: settings.defaultCanDownload && input.canDownload,
+    canReshare: input.canReshare,
+  };
+}
+
 export async function create(
   ctx: MutationCtx,
   user: Doc<'users'>,
@@ -233,10 +260,18 @@ export async function create(
     }
   }
 
-  const granted = clampToCeiling(
-    { role: input.role, canDownload: input.canDownload, canReshare: input.canReshare },
-    ceiling,
-  );
+  // **A group's own ceiling, applied before the resharer's.** `defaultRole` and
+  // `defaultCanDownload` are the group saying what a document dropped into it
+  // may be — a reading list that never wants copies leaving is a setting rather
+  // than a thing every member has to remember on every share. `clampToCeiling`
+  // still runs on top of it, so a reshare can never grant more than the
+  // resharer holds whatever a group says.
+  const wanted =
+    input.subject === 'group'
+      ? await withinGroup(ctx, requireGroupId(input), input)
+      : { role: input.role, canDownload: input.canDownload, canReshare: input.canReshare };
+
+  const granted = clampToCeiling(wanted, ceiling);
   const message = cleanOptionalText(input.message, SHARE_MESSAGE_MAX, 'Message');
   const now = Date.now();
 
@@ -280,6 +315,23 @@ export async function create(
       .withIndex('by_group_and_user', (q) => q.eq('groupId', groupId).eq('userId', user._id))
       .unique();
     if (membership === null) {
+      refuse();
+    }
+
+    // **`whoCanShare`.** Being in a group is permission to read what is in it,
+    // which is not the same as permission to put something there — a reading
+    // list somebody curates and a group anybody can drop a file into are
+    // different things, and the difference is one setting.
+    const group = await ctx.db.get('groups', groupId);
+    if (group === null) {
+      refuse();
+    }
+    const settings = Groups.settingsOf(group);
+    const mayShare =
+      settings.whoCanShare === 'members' ||
+      group.ownerId === user._id ||
+      membership.role === 'admin';
+    if (!mayShare) {
       refuse();
     }
   }

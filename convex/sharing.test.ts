@@ -11,7 +11,7 @@ import { describe, expect, test } from 'vitest';
 
 import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { DISPLAY_NAME_MAX } from './model/limits';
+import { DISPLAY_NAME_MAX, GROUP_DESCRIPTION_MAX } from './model/limits';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -1297,5 +1297,188 @@ describe('deleting an account', () => {
     await expect(t.mutation(api.account.deleteAccount, {})).rejects.toThrow();
     expect(await t.run(async (ctx) => await ctx.db.get('users', ownerId))).not.toBeNull();
     void owner;
+  });
+});
+
+/* ── what a group decides ───────────────────────────────────────────── */
+
+describe('group settings', () => {
+  test('whoCanAdd narrows who may bring somebody in', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    const friendId = await userIdOf(t, FRIEND);
+    const strangerId = await userIdOf(t, await signedIn(t, STRANGER).then(() => STRANGER));
+
+    await owner.mutation(api.groups.addMember, { groupId, userId: friendId });
+
+    // A plain member cannot add anybody by default.
+    await expect(
+      friend.mutation(api.groups.addMember, { groupId, userId: strangerId }),
+    ).rejects.toThrow();
+
+    await owner.mutation(api.groups.updateSettings, { groupId, whoCanAdd: 'members' });
+    await friend.mutation(api.groups.addMember, { groupId, userId: strangerId });
+    expect((await owner.query(api.groups.detail, { groupId })).group.memberCount).toBe(3);
+
+    // And narrower than an admin, which is the point of the third value.
+    await owner.mutation(api.groups.setRole, { groupId, userId: friendId, role: 'admin' });
+    await owner.mutation(api.groups.updateSettings, { groupId, whoCanAdd: 'owner' });
+    await owner.mutation(api.groups.removeMember, { groupId, userId: strangerId });
+    await expect(
+      friend.mutation(api.groups.addMember, { groupId, userId: strangerId }),
+    ).rejects.toThrow();
+  });
+
+  test('whoCanShare stops a member putting a document in', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+
+    const theirs = await aSyncedDocument(t, friend, 'theirs');
+    await owner.mutation(api.groups.updateSettings, { groupId, whoCanShare: 'admins' });
+
+    await expect(
+      friend.mutation(api.sharing.createShare, {
+        documentId: theirs,
+        subject: 'group',
+        groupId,
+        role: 'viewer',
+        canDownload: false,
+        canReshare: false,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('the group ceiling clamps what a share into it may grant', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+
+    // The group says read-only and no copies, whatever the sender asks for.
+    await owner.mutation(api.groups.updateSettings, {
+      groupId,
+      defaultRole: 'viewer',
+      defaultCanDownload: false,
+    });
+    await owner.mutation(api.sharing.createShare, {
+      documentId,
+      subject: 'group',
+      groupId,
+      role: 'annotator',
+      canDownload: true,
+      canReshare: false,
+    });
+
+    const seen = await inboxEntry(friend, (share) => share.document?.id === documentId);
+    expect(seen?.role).toBe('viewer');
+    expect(seen?.canDownload).toBe(false);
+
+    // And the annotate refusal is real, not just a label.
+    await expect(
+      friend.mutation(api.library.addAnnotation, {
+        documentId,
+        currentPage: 3,
+        kind: 'note',
+        note: 'not allowed',
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('showMemberHandles withholds the handle and keeps the name', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    await friend.mutation(api.settings.setHandle, { handle: 'afriend' });
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    const friendId = await userIdOf(t, FRIEND);
+    await owner.mutation(api.groups.addMember, { groupId, userId: friendId });
+
+    const before = await owner.query(api.groups.detail, { groupId });
+    expect(before.members.find((m) => m.profile?.id === friendId)?.profile?.handle).toBe('afriend');
+
+    await owner.mutation(api.groups.updateSettings, { groupId, showMemberHandles: false });
+
+    const after = await owner.query(api.groups.detail, { groupId });
+    const member = after.members.find((m) => m.profile?.id === friendId);
+    expect(member?.profile?.handle).toBeNull();
+    // The name is what the list is for, and it stays.
+    expect(member?.profile?.displayName).toBe(FRIEND.name);
+  });
+
+  test('showPresence keeps members out of the group room', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    const friendId = await userIdOf(t, FRIEND);
+    await owner.mutation(api.groups.addMember, { groupId, userId: friendId });
+
+    await owner.mutation(api.groups.updateSettings, { groupId, showPresence: false });
+    await friend.mutation(api.presence.heartbeat, {
+      roomId: `group:${groupId}`,
+      userId: friendId,
+      sessionId: 'grouped',
+      interval: 10_000,
+    });
+
+    const inRoom = await owner.query(api.presence.inRoom, { roomId: `group:${groupId}` });
+    expect(inRoom.some((person) => person.id === friendId && person.online)).toBe(false);
+  });
+
+  test('muting is one member’s own answer, not the group’s', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+
+    // A plain member may mute, and it changes nothing for anybody else.
+    await friend.mutation(api.groups.setMuted, { groupId, muted: true });
+
+    expect((await friend.query(api.groups.detail, { groupId })).group.muted).toBe(true);
+    expect((await owner.query(api.groups.detail, { groupId })).group.muted).toBe(false);
+  });
+
+  test('cannot be changed by a member who is not an administrator', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+
+    await expect(
+      friend.mutation(api.groups.updateSettings, { groupId, whoCanAdd: 'members' }),
+    ).rejects.toThrow();
+  });
+
+  test('a description is bounded and can be cleared', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+
+    await expect(
+      owner.mutation(api.groups.updateSettings, {
+        groupId,
+        description: 'd'.repeat(GROUP_DESCRIPTION_MAX + 1),
+      }),
+    ).rejects.toThrow();
+
+    await owner.mutation(api.groups.updateSettings, { groupId, description: '  Tuesdays  ' });
+    expect((await owner.query(api.groups.detail, { groupId })).group.settings.description).toBe(
+      'Tuesdays',
+    );
+
+    await owner.mutation(api.groups.updateSettings, { groupId, description: '' });
+    expect(
+      (await owner.query(api.groups.detail, { groupId })).group.settings.description,
+    ).toBeNull();
   });
 });

@@ -392,23 +392,36 @@ export async function importLegacyText(db: SQLiteDatabase, profileId: string): P
   const path = `${String(defaultDatabaseDirectory)}/pidom-text-${profileId}.db`;
 
   try {
+    // **`ATTACH` creates the file when it is not there**, which is the ordinary
+    // case: a fresh install has no previous index. So this used to attach an
+    // empty database, fail on `no such table: legacy.pages`, log the throw, and
+    // leave a 0-byte `pidom-text-<profile>.db` behind for ever — one of the
+    // stray files found in the SQLite directory on a real device.
+    //
+    // Asking `legacy.sqlite_master` first makes "there was nothing to carry"
+    // the quiet, ordinary answer it always was, and the file goes either way:
+    // drained, or created by this very statement and never wanted.
     await db.runAsync("ATTACH DATABASE ? AS legacy KEY ''", path);
     try {
-      await db.execAsync(
-        `INSERT INTO pages (text, documentId, page)
-         SELECT text, documentId, page FROM legacy.pages;`,
+      const table = await db.getFirstAsync<{ name: string }>(
+        "SELECT name FROM legacy.sqlite_master WHERE type = 'table' AND name = 'pages'",
       );
-      log.debug(SCOPE, 'carried the previous text index across');
+      if (table !== null) {
+        await db.execAsync(
+          `INSERT INTO pages (text, documentId, page)
+           SELECT text, documentId, page FROM legacy.pages;`,
+        );
+        log.debug(SCOPE, 'carried the previous text index across');
+      }
     } finally {
       await db.execAsync('DETACH DATABASE legacy');
     }
 
     await deleteDatabaseAsync(`pidom-text-${profileId}.db`).catch(() => undefined);
   } catch (error) {
-    // There was nothing to carry — the ordinary case on a fresh install — or
-    // the old file is unreadable. Either way the mirror will refill it, so this
+    // A genuinely unreadable old file. The mirror refills the index, so this
     // must not stop the database opening.
-    log.debug(SCOPE, 'no previous text index to carry across', error);
+    log.debug(SCOPE, 'could not read the previous text index', error);
   }
 
   await db.runAsync("INSERT OR REPLACE INTO meta (key, value) VALUES ('legacyTextImported', ?)", [

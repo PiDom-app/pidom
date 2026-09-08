@@ -6,6 +6,7 @@ import { AuthError } from './auth';
 import {
   GROUPS_PER_OWNER,
   GROUP_MEMBER_MAX,
+  GROUP_DESCRIPTION_MAX,
   GROUP_NAME_MAX,
   SHARE_LIST_LIMIT,
   cleanText,
@@ -30,15 +31,71 @@ import { clientClock, isStale } from './sync';
  * administer and nobody can delete.
  */
 
+export type GroupSettings = {
+  description: string | null;
+  whoCanAdd: 'owner' | 'admins' | 'members';
+  whoCanShare: 'admins' | 'members';
+  defaultRole: 'viewer' | 'annotator';
+  defaultCanDownload: boolean;
+  showMemberHandles: boolean;
+  showPresence: boolean;
+};
+
+/**
+ * What a group is, when nobody has changed anything.
+ *
+ * In code rather than written into every row, for the reason
+ * `model/settings.ts` gives at length: a default that lives in a row has to be
+ * backfilled onto every existing group when it changes.
+ *
+ * The one that is not the permissive option is `whoCanAdd`. Membership decides
+ * what somebody can open, so a group where every member can add strangers is a
+ * group whose owner has lost track of who can read their documents.
+ */
+export const GROUP_DEFAULTS: GroupSettings = {
+  description: null,
+  whoCanAdd: 'admins',
+  whoCanShare: 'members',
+  defaultRole: 'viewer',
+  defaultCanDownload: false,
+  showMemberHandles: true,
+  showPresence: true,
+};
+
+export function settingsOf(group: Doc<'groups'>): GroupSettings {
+  return {
+    description: group.description ?? GROUP_DEFAULTS.description,
+    whoCanAdd: group.whoCanAdd ?? GROUP_DEFAULTS.whoCanAdd,
+    whoCanShare: group.whoCanShare ?? GROUP_DEFAULTS.whoCanShare,
+    defaultRole: group.defaultRole ?? GROUP_DEFAULTS.defaultRole,
+    defaultCanDownload: group.defaultCanDownload ?? GROUP_DEFAULTS.defaultCanDownload,
+    showMemberHandles: group.showMemberHandles ?? GROUP_DEFAULTS.showMemberHandles,
+    showPresence: group.showPresence ?? GROUP_DEFAULTS.showPresence,
+  };
+}
+
 export type PublicGroup = {
   id: Id<'groups'>;
   name: string;
   memberCount: number;
   /** The caller's own standing in it. `null` for a group they can see but are not in. */
   role: 'owner' | 'admin' | 'member' | null;
+  /** This member's own answer about being told, not the group's. */
+  muted: boolean;
+  settings: GroupSettings;
   createdAt: number;
   updatedAt: number;
 };
+
+export const groupSettingsValidator = v.object({
+  description: v.union(v.string(), v.null()),
+  whoCanAdd: v.union(v.literal('owner'), v.literal('admins'), v.literal('members')),
+  whoCanShare: v.union(v.literal('admins'), v.literal('members')),
+  defaultRole: v.union(v.literal('viewer'), v.literal('annotator')),
+  defaultCanDownload: v.boolean(),
+  showMemberHandles: v.boolean(),
+  showPresence: v.boolean(),
+});
 
 export const publicGroupValidator = v.object({
   id: v.id('groups'),
@@ -50,6 +107,8 @@ export const publicGroupValidator = v.object({
     v.literal('member'),
     v.null(),
   ),
+  muted: v.boolean(),
+  settings: groupSettingsValidator,
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -94,7 +153,7 @@ export async function requireMember(
   ctx: QueryCtx | MutationCtx,
   user: Doc<'users'>,
   groupId: Id<'groups'>,
-): Promise<{ group: Doc<'groups'>; role: 'owner' | 'admin' | 'member' }> {
+): Promise<{ group: Doc<'groups'>; role: 'owner' | 'admin' | 'member'; muted: boolean }> {
   const group = await ctx.db.get('groups', groupId);
   if (group === null) {
     refuse();
@@ -103,7 +162,13 @@ export async function requireMember(
   if (role === null) {
     refuse();
   }
-  return { group, role };
+  // The caller's own membership row, for the one setting that lives on it. An
+  // owner who is somehow not a member of their own group still gets an answer.
+  const membership = await ctx.db
+    .query('groupMembers')
+    .withIndex('by_group_and_user', (q) => q.eq('groupId', groupId).eq('userId', user._id))
+    .unique();
+  return { group, role, muted: membership?.muted === true };
 }
 
 /** A group the caller can change. Owner or admin; a member is refused. */
@@ -122,12 +187,15 @@ export async function requireAdmin(
 export function toPublicGroup(
   group: Doc<'groups'>,
   role: 'owner' | 'admin' | 'member' | null,
+  muted = false,
 ): PublicGroup {
   return {
     id: group._id,
     name: group.name,
     memberCount: group.memberCount,
     role,
+    muted,
+    settings: settingsOf(group),
     createdAt: group.createdAt,
     updatedAt: group.updatedAt,
   };
@@ -264,7 +332,23 @@ export async function addMember(
   groupId: Id<'groups'>,
   userId: Id<'users'>,
 ): Promise<void> {
-  const group = await requireAdmin(ctx, user, groupId);
+  const group = await ctx.db.get('groups', groupId);
+  if (group === null) {
+    refuse();
+  }
+  // **`whoCanAdd`, and it is the reason this no longer just calls
+  // `requireAdmin`.** Membership decides what a person can open, so who may
+  // grant it is the group's narrowest setting. `members` widens the door;
+  // `owner` narrows it past what an admin can do, which is the point of having
+  // it at all.
+  const standing = await standingIn(ctx, user, group);
+  const mayAdd =
+    standing === 'owner' ||
+    (settingsOf(group).whoCanAdd === 'admins' && standing === 'admin') ||
+    (settingsOf(group).whoCanAdd === 'members' && standing !== null);
+  if (!mayAdd) {
+    refuse();
+  }
 
   const target = await ctx.db.get('users', userId);
   if (target === null) {
@@ -346,6 +430,74 @@ export async function removeMember(
 }
 
 /** Promotes or demotes. Owner only — an admin cannot make another admin. */
+/**
+ * Changes the group's own settings. Owner or admin.
+ *
+ * Every field optional, for the reason `settings.updateSharing` gives: a screen
+ * sends the switch that moved rather than the whole object, so two screens
+ * racing on one row disagree about one value instead of about all of them.
+ *
+ * `whoCanAdd` is the one an admin can change and then be bound by, which is
+ * deliberate — an admin narrowing it to `owner` is an admin giving up a power
+ * they hold, and that needs no special case.
+ */
+export async function updateSettings(
+  ctx: MutationCtx,
+  user: Doc<'users'>,
+  groupId: Id<'groups'>,
+  patch: {
+    description?: string;
+    whoCanAdd?: 'owner' | 'admins' | 'members';
+    whoCanShare?: 'admins' | 'members';
+    defaultRole?: 'viewer' | 'annotator';
+    defaultCanDownload?: boolean;
+    showMemberHandles?: boolean;
+    showPresence?: boolean;
+  },
+): Promise<void> {
+  await requireAdmin(ctx, user, groupId);
+
+  const written: Record<string, unknown> = { updatedAt: Date.now() };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) {
+      written[key] = value;
+    }
+  }
+  if (patch.description !== undefined) {
+    // Empty clears it rather than storing a blank line, the same way an empty
+    // display name goes back to the Google claim.
+    const trimmed = patch.description.trim();
+    written.description =
+      trimmed === '' ? undefined : cleanText(trimmed, GROUP_DESCRIPTION_MAX, 'description');
+  }
+
+  await ctx.db.patch('groups', groupId, written);
+}
+
+/**
+ * This member's own answer about being told about this group.
+ *
+ * Any member, including one who cannot change anything else about the group:
+ * it is a decision about their phone rather than about the group, which is why
+ * it lives on the membership row and not beside the settings above.
+ */
+export async function setMuted(
+  ctx: MutationCtx,
+  user: Doc<'users'>,
+  groupId: Id<'groups'>,
+  muted: boolean,
+): Promise<void> {
+  await requireMember(ctx, user, groupId);
+  const membership = await ctx.db
+    .query('groupMembers')
+    .withIndex('by_group_and_user', (q) => q.eq('groupId', groupId).eq('userId', user._id))
+    .unique();
+  if (membership === null) {
+    refuse();
+  }
+  await ctx.db.patch('groupMembers', membership._id, { muted });
+}
+
 export async function setRole(
   ctx: MutationCtx,
   user: Doc<'users'>,
@@ -385,7 +537,11 @@ export async function listForUser(
       continue;
     }
     out.push(
-      toPublicGroup(group, group.ownerId === user._id ? 'owner' : membership.role),
+      toPublicGroup(
+        group,
+        group.ownerId === user._id ? 'owner' : membership.role,
+        membership.muted === true,
+      ),
     );
   }
   return out.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -408,9 +564,16 @@ export async function membersOf(
     isOwner: boolean;
     addedAt: number;
   }[] = [];
+  // **`showMemberHandles`.** A group is the one place this deployment shows one
+  // account to another without either having searched for the other. The name
+  // and the face are what the list is for; the handle is the part somebody
+  // could use to find them again outside it, so it is the part a group can
+  // withhold.
+  const handles = settingsOf(group).showMemberHandles;
   for (const member of members) {
+    const profile = await profileOf(ctx, member.userId);
     out.push({
-      profile: await profileOf(ctx, member.userId),
+      profile: profile === null || handles ? profile : { ...profile, handle: null },
       role: member.role,
       isOwner: member.userId === group.ownerId,
       addedAt: member.addedAt,
