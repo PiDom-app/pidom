@@ -24,7 +24,9 @@ import type { Id } from '@convex/_generated/dataModel';
 
 import * as Collections from '../local/repository/collections';
 import * as Documents from '../local/repository/documents';
+import * as Groups from '../local/repository/groups';
 import * as Marks from '../local/repository/marks';
+import * as Shares from '../local/repository/shares';
 import type { QueuedOperation } from '../local/repository/queue';
 
 /**
@@ -72,6 +74,10 @@ export async function send(sender: Sender, operation: QueuedOperation): Promise<
       return await sendCollection(sender, operation);
     case 'membership':
       return await sendMembership(sender, operation);
+    case 'share':
+      return await sendShare(sender, operation);
+    case 'group':
+      return await sendGroup(sender, operation);
   }
 }
 
@@ -85,6 +91,29 @@ async function sendDocument(
   if (document === null) {
     // The row went away underneath the queue. There is nothing to send and
     // nothing wrong; the operation is finished.
+    return;
+  }
+
+  /**
+   * A document somebody else owns has nothing to send.
+   *
+   * Every mutation this function reaches for is owner-only and would come back
+   * `FORBIDDEN` — `library.rename`, `recordProgress`, `setFavorite`, `remove`.
+   * A recipient reading a shared textbook produces a `recordProgress` every
+   * fifteen seconds, so without this the outbox fills with operations that can
+   * never succeed and the sync screen fills with failures nobody can act on.
+   *
+   * And they *should* not be sent. `documents.currentPage` on the account is
+   * the owner's place in their own book; a recipient's position, their
+   * favourite flag and whether they have finished it are theirs, and they stay
+   * on the device that knows them. Deleting is the same: it removes the copy
+   * from this phone, which is all a recipient can remove — the grant is the
+   * owner's and stays until they take it back.
+   *
+   * Returning rather than throwing, so the operation is acknowledged and the
+   * row leaves the queue.
+   */
+  if (!document.ownedByMe) {
     return;
   }
 
@@ -370,4 +399,149 @@ async function sendMembership({ client, db }: Sender, operation: QueuedOperation
     return;
   }
   await client.mutation(api.collections.addDocument, args);
+}
+
+/* ── shares ─────────────────────────────────────────────────────────── */
+
+/**
+ * One grant, delivered.
+ *
+ * The shape follows every other create here — mint locally, queue, attach the
+ * account's id when it lands — with two differences worth naming.
+ *
+ * **A share depends on an upload, not just a row.** The account refuses to
+ * share a document with no cloud copy, because a permission that can never be
+ * exercised is worse than a refusal. So an outgoing share queued against a
+ * document that has not finished uploading is `NotYetSynced` and waits, exactly
+ * as an annotation waits for its document's create.
+ *
+ * **An incoming share is never created here.** The `create` branch is the
+ * sender's; a recipient's queue only ever carries `update`, which is their
+ * answer. There is no local path that invents a grant somebody else made.
+ */
+async function sendShare({ client, db }: Sender, operation: QueuedOperation): Promise<void> {
+  const share = await Shares.shareById(db, operation.entityId);
+  if (share === null) {
+    return;
+  }
+
+  if (operation.op === 'remove') {
+    if (share.remoteId !== null) {
+      await client.mutation(api.sharing.revokeShare, {
+        shareId: share.remoteId as Id<'documentShares'>,
+      });
+    }
+    return;
+  }
+
+  if (operation.op === 'create') {
+    if (share.documentId === null) {
+      return;
+    }
+    const document = await Documents.documentById(db, share.documentId);
+    // `documentId` on an outgoing share is the *local* id at this point,
+    // because the sender minted the row from their own library.
+    if (document === null) {
+      return;
+    }
+    if (document.remoteId === null) {
+      throw new NotYetSynced('That document');
+    }
+
+    const remoteId = await client.mutation(api.sharing.createShare, {
+      documentId: asDocumentId(document.remoteId),
+      subject: share.subject,
+      role: share.role,
+      canDownload: share.canDownload,
+      canReshare: share.canReshare,
+      clientOpId: share.id,
+      clientUpdatedAt: share.clientUpdatedAt,
+      ...(share.counterpartId === null
+        ? {}
+        : { recipientUserId: share.counterpartId as Id<'users'> }),
+      ...(share.groupId === null ? {} : { groupId: share.groupId as Id<'groups'> }),
+      ...(share.message === null ? {} : { message: share.message }),
+      ...(share.expiresAt === null ? {} : { expiresAt: share.expiresAt }),
+    });
+
+    await Shares.attachShareRemoteId(db, share.id, remoteId);
+    return;
+  }
+
+  if (share.remoteId === null) {
+    throw new NotYetSynced('That share');
+  }
+
+  // An update is one of two things, and which one is read off the row rather
+  // than carried in the queue: the recipient's answer, or the sender changing
+  // what somebody may do. They cannot both be pending on one row, because the
+  // two directions are two different rows.
+  if (share.direction === 'incoming') {
+    if (share.status === 'accepted' || share.status === 'declined') {
+      await client.mutation(api.sharing.respondToShare, {
+        shareId: share.remoteId as Id<'documentShares'>,
+        answer: share.status === 'accepted' ? 'accept' : 'decline',
+      });
+    }
+    return;
+  }
+
+  if (share.status === 'revoked') {
+    await client.mutation(api.sharing.revokeShare, {
+      shareId: share.remoteId as Id<'documentShares'>,
+    });
+    return;
+  }
+
+  await client.mutation(api.sharing.changePermission, {
+    shareId: share.remoteId as Id<'documentShares'>,
+    role: share.role,
+    canDownload: share.canDownload,
+    canReshare: share.canReshare,
+  });
+}
+
+/* ── groups ─────────────────────────────────────────────────────────── */
+
+/**
+ * A group, delivered.
+ *
+ * Only the group itself — its name and whether it exists. Membership is never
+ * queued: adding somebody to a group changes what *they* can open, and a device
+ * that invented memberships offline would be a device that decides who can read
+ * another person's documents while it has no way to check anything. Those calls
+ * go straight to the account and are refused when there is no connection, which
+ * is the honest answer.
+ */
+async function sendGroup({ client, db }: Sender, operation: QueuedOperation): Promise<void> {
+  const group = await Groups.groupById(db, operation.entityId);
+  if (group === null) {
+    return;
+  }
+
+  if (operation.op === 'remove') {
+    if (group.remoteId !== null) {
+      await client.mutation(api.groups.remove, { groupId: group.remoteId as Id<'groups'> });
+    }
+    return;
+  }
+
+  if (operation.op === 'create') {
+    const remoteId = await client.mutation(api.groups.create, {
+      name: group.name,
+      clientOpId: group.id,
+      clientUpdatedAt: Date.now(),
+    });
+    await Groups.attachGroupRemoteId(db, group.id, remoteId);
+    return;
+  }
+
+  if (group.remoteId === null) {
+    throw new NotYetSynced('That group');
+  }
+  await client.mutation(api.groups.rename, {
+    groupId: group.remoteId as Id<'groups'>,
+    name: group.name,
+    clientUpdatedAt: Date.now(),
+  });
 }

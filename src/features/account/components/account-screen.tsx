@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Bell, ChevronRight, Inbox, ShieldCheck, Users } from 'lucide-react-native';
 import React from 'react';
 
 import { Screen } from '@/components/layout/screen';
@@ -24,16 +24,30 @@ import { SyncSummary } from '@/features/library/components/sync-summary';
 import { SignOutAction } from './sign-out-action';
 import { ThemeControl } from './theme-control';
 
-/** A labelled run of rows. Separated by a rule, not boxed in a card. */
+/**
+ * A labelled run of rows. Separated by a rule, not boxed in a card.
+ *
+ * The label sits clear of its rows rather than 4px above them: at `xs` the
+ * heading read as part of the first row instead of as a heading over the group,
+ * and a section of two rows looked like one four-line paragraph. Rows inside a
+ * section separate themselves with a hairline — the same way every other list
+ * in the app does — rather than with more whitespace, which is what stops two
+ * stacked rows running together.
+ */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <VStack space="xs">
+    <VStack space="md">
       <Text size="xs" className="uppercase tracking-wider text-fg-subtle">
         {title}
       </Text>
-      {children}
+      <VStack>{children}</VStack>
     </VStack>
   );
+}
+
+/** A hairline between two rows of one section. Never above the first or below the last. */
+function RowRule() {
+  return <Divider className="bg-hairline" />;
 }
 
 export function AccountScreen() {
@@ -99,6 +113,7 @@ export function AccountScreen() {
               one, the other, or both. Only the second has anywhere to go. */}
           <Section title="Storage">
             <StorageUsage />
+            <RowRule />
             <DeviceStorageSummary />
           </Section>
 
@@ -109,6 +124,41 @@ export function AccountScreen() {
               signing out is the terminal, destructive row on this screen. */}
           <Section title="Sync">
             <SyncSummary />
+          </Section>
+
+          <Divider className="bg-hairline" />
+
+          {/* Before Account for the same reason Sync is: these are facts about
+              the library rather than about the identity, and signing out has to
+              stay the last row on the screen. */}
+          <Section title="Sharing">
+            <NavRow
+              glyph={Inbox}
+              title="Shared"
+              hint="Documents other people sent you, and what you sent them."
+              onPress={() => router.push('/shared')}
+            />
+            <RowRule />
+            <NavRow
+              glyph={Users}
+              title="Groups"
+              hint="Share with several people at once, and take it back the same way."
+              onPress={() => router.push('/groups')}
+            />
+            <RowRule />
+            <NavRow
+              glyph={ShieldCheck}
+              title="Sharing & privacy"
+              hint="Who can find you, and what a share of yours starts as."
+              onPress={() => router.push('/sharing-privacy')}
+            />
+            <RowRule />
+            <NavRow
+              glyph={Bell}
+              title="Notifications"
+              hint="What you are told about, and on which device."
+              onPress={() => router.push('/notification-settings')}
+            />
           </Section>
 
           <Divider className="bg-hairline" />
@@ -131,5 +181,45 @@ export function AccountScreen() {
         </VStack>
       </ScrollView>
     </Screen>
+  );
+}
+
+/**
+ * A row that goes somewhere.
+ *
+ * The same shape `storage-usage.tsx` and `sync-summary.tsx` already use — a
+ * leading glyph, a title, a hint, and a chevron — written once here because
+ * this screen now has four of them.
+ */
+function NavRow({
+  glyph,
+  title,
+  hint,
+  onPress,
+}: {
+  glyph: React.ComponentProps<typeof Icon>['as'];
+  title: string;
+  hint: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      className="rounded-md px-1 py-3 data-[active=true]:bg-hover">
+      <HStack className="items-center" space="md">
+        <Icon as={glyph} size="lg" className="text-fg-muted" />
+        <VStack className="flex-1" space="xs">
+          <Text size="sm" className="text-foreground">
+            {title}
+          </Text>
+          <Text size="xs" className="text-fg-subtle">
+            {hint}
+          </Text>
+        </VStack>
+        <Icon as={ChevronRight} size="sm" className="text-fg-subtle" />
+      </HStack>
+    </Pressable>
   );
 }

@@ -15,9 +15,12 @@ import {
   RefreshCw,
   RotateCcw,
   Share,
+  Share2,
   Smartphone,
   Trash2,
+  Users,
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 
 import {
@@ -98,6 +101,18 @@ export function DocumentActions({
    */
   onWriteNote?: () => void;
 }) {
+  const router = useRouter();
+  /**
+   * Whether this is the reader's own document.
+   *
+   * Four of the items below are the owner's — renaming, syncing, deleting, and
+   * managing who else can open it — and on a document that arrived under a
+   * grant every one of them would be refused by the account. They are absent
+   * rather than present and inert, which is the same choice made everywhere
+   * else in this sheet. Hiding them is a convenience; `requireDocument` on the
+   * server is the rule.
+   */
+  const mine = document?.ownedByMe ?? true;
   const {
     deleteDocument,
     toggleFavorite,
@@ -259,8 +274,10 @@ export function DocumentActions({
                 ) : null}
 
                 {/* Syncing needs the file here to upload. A document that is
-                    only in the account is already synced by definition. */}
-                {onThisDevice ? (
+                    only in the account is already synced by definition — and a
+                    document somebody else owns is theirs to sync, so the item
+                    is absent rather than present and refused. */}
+                {onThisDevice && mine ? (
                   <ActionsheetItem
                     onPress={() => {
                       if (document.isSynced) {
@@ -345,10 +362,12 @@ export function DocumentActions({
                   </ActionsheetItem>
                 ) : null}
 
-                <ActionsheetItem onPress={() => setRenaming(true)}>
-                  <ActionsheetIcon as={Pencil} className="text-fg-muted" />
-                  <ActionsheetItemText className="text-foreground">Rename</ActionsheetItemText>
-                </ActionsheetItem>
+                {mine ? (
+                  <ActionsheetItem onPress={() => setRenaming(true)}>
+                    <ActionsheetIcon as={Pencil} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">Rename</ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
 
                 {/* Offered when something the pipeline should have produced is
                     missing. A document that came out `ready` with its text
@@ -377,11 +396,50 @@ export function DocumentActions({
                   <ActionsheetItemText className="text-foreground">Details</ActionsheetItemText>
                 </ActionsheetItem>
 
+                {/* Two different acts, named differently.
+
+                    **Share with people** grants access: the document stays one
+                    row with one owner, and a recipient gets a permission that
+                    can be taken back. **Send a copy** hands the file itself to
+                    another application through the operating system's share
+                    sheet, and nothing about that copy is ever recallable. A
+                    single "Share" covering both would be one word for the
+                    difference this whole feature is built around.
+
+                    The first needs a copy in the account, because a recipient
+                    has nothing to fetch otherwise. The second needs the file on
+                    this device, because that is what it sends. */}
+                {document.isSynced ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      onClose();
+                      router.push({ pathname: '/share', params: { id: document.id } });
+                    }}>
+                    <ActionsheetIcon as={Share2} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      {mine ? 'Share with people' : 'Share it on'}
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {mine && document.isSynced ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      onClose();
+                      router.push({ pathname: '/access', params: { id: document.id } });
+                    }}>
+                    <ActionsheetIcon as={Users} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      Who can open this
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
                 {onThisDevice ? (
                   <ActionsheetItem onPress={() => void share()}>
                     <ActionsheetIcon as={Share} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">
-                      Share a copy
+                      Send a copy…
                     </ActionsheetItemText>
                   </ActionsheetItem>
                 ) : null}
@@ -390,7 +448,12 @@ export function DocumentActions({
 
                 <ActionsheetItem onPress={() => setConfirmingDelete(true)}>
                   <ActionsheetIcon as={Trash2} className="text-destructive" />
-                  <ActionsheetItemText className="text-destructive">Delete</ActionsheetItemText>
+                  <ActionsheetItemText className="text-destructive">
+                    {/* On somebody else's document this removes the copy from
+                        this phone, which is all it can remove. The grant is
+                        theirs and stays until they take it back. */}
+                    {mine ? 'Delete' : 'Remove from this device'}
+                  </ActionsheetItemText>
                 </ActionsheetItem>
               </VStack>
             </>

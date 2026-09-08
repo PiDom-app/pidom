@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #6a59e8; } a:hover { color: #7a6af0; }
+    .c2, .c5 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    .c2 { -webkit-line-clamp: 2; } .c5 { -webkit-line-clamp: 5; }
+    .pretty { text-wrap: pretty; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width:900px;min-height:720px;background:#000000;overflow:hidden">
+<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:#e8e6e3">Identity, membership, access</div>
+  <div style="margin-top:8px;max-width:640px;font-size:13px;line-height:20px;color:#8f8d88" class="pretty">Three separate things. Collapsing them into one "shared PDF" row is what makes a person leaving a group into a hundred rows somebody has to remember to delete.</div>
+
+  <div style="margin-top:30px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68;margin-bottom:12px">How a recipient is allowed in</div>
+    <div style="display:flex;align-items:stretch">
+      <div style="width:236px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">The document</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">One row, one owner, one object in R2. Sharing never copies it and never changes who owns it.</div>
+     </div>
+      <div style="display:flex;align-items:center;justify-content:center;width:44px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8f8d88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div style="width:236px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">A grant</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty"><b style="color:#e8e6e3">documentShares</b> — who, what role, can they download, can they share it on, and when it stops.</div>
+     </div>
+      <div style="display:flex;align-items:center;justify-content:center;width:44px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8f8d88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div style="width:236px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">Resolved on every read</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Owner first, then a direct grant, then a group the caller is in. Nothing is cached into a session.</div>
+     </div>
+    </div>
+  </div>
+
+  <div style="margin-top:34px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68;margin-bottom:12px">What removing access reaches</div>
+    <div style="display:flex;align-items:stretch;gap:18px">
+      <div style="width:250px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #3dc280">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#3dc280">Immediately</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Opening it again.</div><div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Downloading it again.</div><div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Their notes syncing to you.</div><div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Joining the presence room.</div>
+     </div>
+      <div style="width:250px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #eb5757">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#eb5757">Never</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">A copy already downloaded to their phone. It is a file on a disk you do not own, and no server can reach it.</div><div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">This is why downloading is off by default and asked for per share.</div>
+     </div>
+      <div style="width:250px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">Unchanged</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Your own document, your own file, your own notes. Removing access is a change to a grant and nothing else.</div>
+     </div>
+    </div>
+  </div>
+
+  <div style="margin-top:34px;padding-top:20px;border-top:1px solid #1c1b1a;display:flex;gap:36px">
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e8e6e3">The file still moves the same way</div>
+      <div style="margin-top:7px;font-size:12px;line-height:18px;color:#6e6c68" class="pretty">A recipient downloads through a signed R2 URL that lives for five minutes and is minted only after the grant is checked — the same mutation the owner's own devices use, with a different check in front of it. There is no permanent link, and no URL that outlives the permission it was issued under.</div>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e8e6e3">And it still reads offline</div>
+      <div style="margin-top:7px;font-size:12px;line-height:18px;color:#6e6c68" class="pretty">Once accepted and downloaded, a shared document is a row in this phone's database and a file beside it, like every other document. Opening it touches no network. That is the whole point of putting sharing above the local-first library rather than beside it.</div>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+
+</body>
+</html>

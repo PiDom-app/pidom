@@ -18,5 +18,20 @@ export default defineConfig({
     environment: 'edge-runtime',
     include: ['convex/**/*.test.ts'],
     server: { deps: { inline: ['convex-test'] } },
+    /**
+     * Credentials that authorise nothing.
+     *
+     * The R2 component refuses to construct without a bucket and a key pair,
+     * and `sharing.test.ts` asserts on both halves of the download rule — that
+     * a permitted recipient gets a URL and a refused one does not. Signing is
+     * local arithmetic, so these produce a well-formed URL against a bucket
+     * that does not exist, which is exactly as much as the assertion needs.
+     */
+    env: {
+      R2_BUCKET: 'pidom-test',
+      R2_ENDPOINT: 'https://test.r2.cloudflarestorage.com',
+      R2_ACCESS_KEY_ID: 'test-access-key-id',
+      R2_SECRET_ACCESS_KEY: 'test-secret-access-key',
+    },
   },
 });

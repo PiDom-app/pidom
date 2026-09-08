@@ -179,6 +179,102 @@ const LIMITS = {
    * that reaches this limit has already been refused by that one.
    */
   syncMetadata: { kind: 'token bucket', rate: 80, period: HOUR, capacity: 20 },
+
+  /* ── sharing ──────────────────────────────────────────────────────── */
+
+  /**
+   * Offering a document to somebody.
+   *
+   * The bucket that matters most in this group, because one call can reach two
+   * hundred people: a group share fans out to every member, and each of those
+   * is a row, an event and a push. The capacity is a session of deliberate
+   * sharing — picking four people for a document and doing it again for the
+   * next — and the rate is far past anything a person does by hand.
+   *
+   * It is spent once per `createShare` rather than once per recipient. The
+   * per-recipient bound is `SHARES_PER_DOCUMENT` and the fan-out's own paging;
+   * charging per recipient would refuse a group share on its own size, which
+   * is the one thing groups exist to make cheap.
+   */
+  createShare: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 20 },
+
+  /**
+   * Accepting or declining one.
+   *
+   * A tap, and idempotent after the first — a second accept on an accepted
+   * share changes nothing. Sized like a reader working through an inbox that
+   * filled up while they were away.
+   */
+  respondShare: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
+
+  /**
+   * Changing a permission, and removing access.
+   *
+   * Removing access is the expensive half: it deletes the recipient's
+   * annotations on the document and their pending events, so it is a bounded
+   * cascade rather than a patch. Wide enough that clearing everybody off a
+   * document never meets it.
+   */
+  editShare: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
+
+  /**
+   * A recipient fetching the file they were granted.
+   *
+   * Deliberately narrower than `downloadUrl`, which is the owner's own. That
+   * one is sized for a new phone pulling down a whole library, which is a thing
+   * an owner legitimately does; a recipient downloads the handful of documents
+   * somebody sent them. A wide bucket here would be a wide bucket on egress
+   * billed to the sender, spendable by anybody they ever shared with.
+   */
+  shareDownloadUrl: { kind: 'token bucket', rate: 60, period: HOUR, capacity: 15 },
+
+  /**
+   * Making a group, and adding or removing members.
+   *
+   * A membership write is one row, but it changes what its subject can open
+   * across every document the group holds — so the bound is on churn rather
+   * than on cost. Capacity is filling a new group in one sitting.
+   */
+  createGroup: { kind: 'token bucket', rate: 30, period: HOUR, capacity: 8 },
+  editGroup: { kind: 'token bucket', rate: 300, period: HOUR, capacity: 50 },
+
+  /**
+   * Registering a device for push.
+   *
+   * Called once per launch and idempotent on the token, so an honest caller
+   * spends one token a session. What it stops is a loop inserting rows in a
+   * table this deployment sends network requests from.
+   */
+  registerDevice: { kind: 'token bucket', rate: 60, period: HOUR, capacity: 10 },
+
+  /**
+   * Changing a sharing or notification preference.
+   *
+   * Every one of these is a switch somebody flipped. Generous, because a reader
+   * going through a settings screen once flips a dozen in a minute.
+   */
+  editSettings: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
+
+  /**
+   * Claiming a handle.
+   *
+   * The narrowest bucket here, and the only one that is narrow on purpose
+   * rather than by cost. A handle lookup is how one account is found by
+   * another, so an unmetered claim is an unmetered probe of which handles are
+   * taken — and taking a name is not something anybody does repeatedly.
+   */
+  setHandle: { kind: 'token bucket', rate: 6, period: HOUR, capacity: 3 },
+
+  /**
+   * Saying "still here" in a document or group room.
+   *
+   * A heartbeat is a mutation, and the client sends one every ten seconds per
+   * open room. Six an hour would be wrong and six hundred is the honest
+   * ceiling: 360 is one room held open continuously, and the capacity absorbs
+   * a reader moving between documents. Past that is a client with a broken
+   * interval, which is exactly what this exists to stop.
+   */
+  presence: { kind: 'token bucket', rate: 600, period: HOUR, capacity: 60 },
 } as const;
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, LIMITS);

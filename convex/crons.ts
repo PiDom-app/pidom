@@ -3,7 +3,7 @@ import { cronJobs } from 'convex/server';
 import { internal } from './_generated/api';
 
 /**
- * The one scheduled job, which queues three.
+ * The two scheduled jobs.
  *
  * Everything it repairs is the same shape of failure: a flow that died between
  * its requests. An R2 object whose `attachUpload` never arrived is referenced by
@@ -27,5 +27,23 @@ const crons = cronJobs();
 // API the Convex guidelines rule out, and a cron expression says the same thing
 // without the indirection.
 crons.cron('nightly maintenance', '0 3 * * *', internal.maintenance.nightly, {});
+
+/**
+ * The second job, and the one that is not maintenance.
+ *
+ * Everything the nightly run repairs is waste. This ends somebody's access, so
+ * it runs every fifteen minutes.
+ *
+ * It is not the enforcement. `Access.grants` compares the clock on every
+ * resolution, so anybody who asks after a share has lapsed is refused there and
+ * then. What this adds is the write — a Convex query is not re-run because time
+ * advanced, so a screen that subscribed while a share was live goes on
+ * rendering it until something it read changes, and `status` is that something.
+ *
+ * Fifteen minutes is the width of that window, and the reason it is not an
+ * hour. It cannot be zero: the refusing mutation cannot mark the row on its way
+ * past, because a mutation that throws rolls back its own writes.
+ */
+crons.cron('expire shares', '*/15 * * * *', internal.maintenance.expireShares, {});
 
 export default crons;

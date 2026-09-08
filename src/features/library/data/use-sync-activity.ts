@@ -6,7 +6,9 @@ import { useTransferStore, type Transfer } from '@/stores/transfer-store';
 
 import { database } from '../local/db';
 import * as Collections from '../local/repository/collections';
+import * as Groups from '../local/repository/groups';
 import * as Documents from '../local/repository/documents';
+import * as Shares from '../local/repository/shares';
 import * as Marks from '../local/repository/marks';
 import * as Queue from '../local/repository/queue';
 import { useLocalQuery } from '../local/use-local-query';
@@ -37,7 +39,9 @@ export type ActivityKind =
   | 'bookmark'
   | 'note'
   | 'collection'
-  | 'filing';
+  | 'filing'
+  | 'share'
+  | 'group';
 
 export type ActivityItem = {
   opId: string;
@@ -61,7 +65,15 @@ export type SyncActivity = {
   discard: (opId: string | null) => Promise<void>;
 };
 
-const TABLES = ['syncQueue', 'documents', 'bookmarks', 'annotations', 'collections'] as const;
+const TABLES = [
+  'syncQueue',
+  'documents',
+  'bookmarks',
+  'annotations',
+  'collections',
+  'shares',
+  'groupsLocal',
+] as const;
 
 async function titleOf(db: SQLiteDatabase, documentId: string): Promise<string> {
   const document = await Documents.documentById(db, documentId);
@@ -190,6 +202,62 @@ async function describe(
         kind: 'filing',
         title,
         detail: operation.op === 'remove' ? `Taken out of ${name}.` : `Filed in ${name}.`,
+      };
+    }
+
+    /**
+     * A share waiting to go out.
+     *
+     * The detail names who it is for and says plainly that they have not been
+     * told — a reader who shared something in a tunnel should be able to find
+     * out here whether it actually went, rather than assuming it did.
+     */
+    case 'share': {
+      const share = await Shares.shareById(db, operation.entityId);
+      if (share === null) {
+        return null;
+      }
+      const who = share.groupName ?? share.counterpartName ?? 'someone';
+      const title = share.title ?? (await titleOf(db, share.documentId ?? ''));
+
+      if (operation.op === 'create') {
+        return {
+          ...base,
+          kind: 'share',
+          title,
+          detail: `To be shared with ${who}. They have not been told yet.`,
+        };
+      }
+      if (operation.op === 'remove' || share.status === 'revoked') {
+        return { ...base, kind: 'share', title, detail: `Access for ${who} to be removed.` };
+      }
+      if (share.direction === 'incoming') {
+        return {
+          ...base,
+          kind: 'share',
+          title,
+          detail:
+            share.status === 'accepted'
+              ? `Accepted from ${who}. Not sent yet.`
+              : `Declined from ${who}. Not sent yet.`,
+        };
+      }
+      return { ...base, kind: 'share', title, detail: `What ${who} can do is to be changed.` };
+    }
+
+    case 'group': {
+      const group = await Groups.groupById(db, operation.entityId);
+      const name = group?.name ?? 'A group';
+      return {
+        ...base,
+        kind: 'group',
+        title: name,
+        detail:
+          operation.op === 'create'
+            ? 'Made here. Your account has not met it yet.'
+            : operation.op === 'remove'
+              ? 'Deleted here.'
+              : 'Renamed here.',
       };
     }
   }

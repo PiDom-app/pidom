@@ -1,12 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { RAIL_LIMIT } from '@convex/model/limits';
 import { useLocalLibraryStore } from '@/stores/local-library-store';
 import { useSyncStore } from '@/stores/sync-store';
 
 import * as Collections from '../local/repository/collections';
 import * as Documents from '../local/repository/documents';
-import type { LibraryCollection, LibraryDocument } from '../local/repository/types';
+import * as Shares from '../local/repository/shares';
+import type {
+  LibraryCollection,
+  LibraryDocument,
+  LibraryShare,
+} from '../local/repository/types';
 import { useLocalQuery } from '../local/use-local-query';
 import { useSyncNow } from '../sync/use-sync-engine';
 import { useCoverSync } from './use-cover-sync';
@@ -38,6 +44,21 @@ export type HomeSection =
       id: string;
       title: string;
       collections: LibraryCollection[];
+    }
+  /**
+   * Documents other people sent, before any of them is on this device.
+   *
+   * Its own kind rather than a `documents` rail, because a share is not a
+   * `LibraryDocument` yet — there is no local row and no file, only a title, a
+   * size and a name. A rail that pretended otherwise would be a rail of covers
+   * for files that are not here.
+   */
+  | {
+      kind: 'shares';
+      id: string;
+      title: string;
+      shares: LibraryShare[];
+      waiting: number;
     };
 
 export type HomeState = {
@@ -73,11 +94,19 @@ type Rails = {
   finished: LibraryDocument[];
   onDevice: LibraryDocument[];
   collections: LibraryCollection[];
+  /** Live grants from other people. Not documents yet — see `HomeSection`. */
+  shared: LibraryShare[];
   total: number;
 };
 
 /** The tables these rails are built from. Anything else writing is not our business. */
-const TABLES = ['documents', 'documentFiles', 'collections', 'collectionDocuments'] as const;
+const TABLES = [
+  'documents',
+  'documentFiles',
+  'collections',
+  'collectionDocuments',
+  'shares',
+] as const;
 
 export function useHome(): HomeState {
   const { offline, offlineIdentity, hasNetwork, profileId } = useLibraryStatus();
@@ -94,6 +123,14 @@ export function useHome(): HomeState {
       finished: await Documents.finished(db),
       onDevice: await Documents.onThisDevice(db),
       collections: await Collections.listCollections(db),
+      // Waiting first, then the rest: the ones with somebody at the other end
+      // are the ones worth putting in front of the reader.
+      shared: (await Shares.incoming(db))
+        .filter((share) => share.status === 'pending' || share.status === 'accepted')
+        .sort((a, b) =>
+          a.status === b.status ? b.updatedAt - a.updatedAt : a.status === 'pending' ? -1 : 1,
+        )
+        .slice(0, RAIL_LIMIT),
       total: await Documents.documentCount(db),
     }),
     [],
@@ -136,6 +173,15 @@ export function useHome(): HomeState {
     }
 
     const candidates: HomeSection[] = [
+      // Above Continue reading, because an unanswered share is the one thing on
+      // this screen with somebody waiting at the other end of it.
+      {
+        kind: 'shares',
+        id: 'shared',
+        title: 'Shared with you',
+        shares: data.shared,
+        waiting: data.shared.filter((share) => share.status === 'pending').length,
+      },
       {
         kind: 'documents',
         id: 'continue',
@@ -182,7 +228,11 @@ export function useHome(): HomeState {
     // A rail with nothing in it renders nothing at all. Six empty headings is
     // what a dashboard does; this screen would rather be shorter.
     return candidates.filter((section) =>
-      section.kind === 'documents' ? section.documents.length > 0 : section.collections.length > 0,
+      section.kind === 'documents'
+        ? section.documents.length > 0
+        : section.kind === 'shares'
+          ? section.shares.length > 0
+          : section.collections.length > 0,
     );
   }, [data]);
 

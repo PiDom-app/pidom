@@ -19,7 +19,7 @@ import { log } from '@/lib/logger';
 const SCOPE = 'local-db';
 
 /** Bump this, and add the step, whenever the schema changes. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * Everything except the search index.
@@ -188,7 +188,120 @@ CREATE TABLE meta (
 );
 `;
 
-const STEPS: { to: number; sql: string }[] = [{ to: 1, sql: V1 }];
+/**
+ * Sharing.
+ *
+ * Three tables and four columns, and the shape of them follows one decision
+ * made on the backend: **a shared document is not a copy.** There is one
+ * `documents` row on the account, still owned by whoever imported it, and what
+ * a recipient holds is a grant. So there is no second document table here —
+ * a shared document that has been accepted and downloaded becomes an ordinary
+ * row in `documents`, with `ownedByMe` at 0 and `shareId` naming the grant it
+ * arrived under.
+ *
+ * `shares` carries enough of the document to render the inbox — title, size,
+ * page count — which is what makes the inbox legible with no connection and
+ * before a single byte has been fetched. Nothing in it is a `file://` path.
+ *
+ * `annotations.authorId` is the other half of the same decision. A note written
+ * on somebody else's document belongs to the writer, and a list that showed it
+ * as the reader's own would be putting somebody else's words in their mouth.
+ * `visibility` defaults to `private`, which is what every note written before
+ * sharing existed was.
+ *
+ * `groupsLocal` rather than `groups`: `groupMembers` would have been fine, but
+ * naming one of a pair after the server table and not the other is how the two
+ * get confused in a query six months from now.
+ */
+const V2 = `
+ALTER TABLE documents ADD COLUMN ownedByMe INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE documents ADD COLUMN shareId TEXT;
+ALTER TABLE annotations ADD COLUMN authorId TEXT;
+ALTER TABLE annotations ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
+
+CREATE INDEX documents_shared ON documents (ownedByMe, deletedAt, updatedAt);
+
+CREATE TABLE shares (
+  id                    TEXT PRIMARY KEY NOT NULL,
+  remoteId              TEXT UNIQUE,
+  documentId            TEXT,
+  direction             TEXT NOT NULL,
+  subject               TEXT NOT NULL DEFAULT 'user',
+  counterpartId         TEXT,
+  counterpartName       TEXT,
+  counterpartHandle     TEXT,
+  counterpartPictureUrl TEXT,
+  groupId               TEXT,
+  groupName             TEXT,
+  title                 TEXT,
+  author                TEXT,
+  pageCount             INTEGER,
+  byteSize              INTEGER NOT NULL DEFAULT 0,
+  hasCover              INTEGER NOT NULL DEFAULT 0,
+  role                  TEXT NOT NULL DEFAULT 'viewer',
+  canDownload           INTEGER NOT NULL DEFAULT 0,
+  canReshare            INTEGER NOT NULL DEFAULT 0,
+  status                TEXT NOT NULL DEFAULT 'pending',
+  message               TEXT,
+  expiresAt             INTEGER,
+  revokedAt             INTEGER,
+  createdAt             INTEGER NOT NULL,
+  updatedAt             INTEGER NOT NULL,
+  clientUpdatedAt       INTEGER NOT NULL DEFAULT 0,
+  syncState             TEXT NOT NULL DEFAULT 'pending',
+  deletedAt             INTEGER
+);
+
+CREATE INDEX shares_direction ON shares (direction, deletedAt, updatedAt);
+CREATE INDEX shares_document ON shares (documentId, deletedAt);
+CREATE INDEX shares_status ON shares (direction, status, deletedAt);
+
+CREATE TABLE groupsLocal (
+  id              TEXT PRIMARY KEY NOT NULL,
+  remoteId        TEXT UNIQUE,
+  name            TEXT NOT NULL,
+  memberCount     INTEGER NOT NULL DEFAULT 1,
+  role            TEXT,
+  createdAt       INTEGER NOT NULL,
+  updatedAt       INTEGER NOT NULL,
+  clientUpdatedAt INTEGER NOT NULL DEFAULT 0,
+  syncState       TEXT NOT NULL DEFAULT 'pending',
+  deletedAt       INTEGER
+);
+
+CREATE TABLE groupMembersLocal (
+  groupId    TEXT NOT NULL,
+  userId     TEXT NOT NULL,
+  name       TEXT,
+  handle     TEXT,
+  pictureUrl TEXT,
+  role       TEXT NOT NULL DEFAULT 'member',
+  isOwner    INTEGER NOT NULL DEFAULT 0,
+  addedAt    INTEGER NOT NULL,
+  PRIMARY KEY (groupId, userId)
+);
+
+CREATE TABLE shareEvents (
+  id           TEXT PRIMARY KEY NOT NULL,
+  kind         TEXT NOT NULL,
+  shareId      TEXT,
+  documentId   TEXT,
+  groupId      TEXT,
+  actorName    TEXT,
+  actorHandle  TEXT,
+  actorPicture TEXT,
+  readAt       INTEGER,
+  createdAt    INTEGER NOT NULL
+);
+
+CREATE INDEX shareEvents_created ON shareEvents (createdAt);
+CREATE INDEX shareEvents_unread ON shareEvents (readAt, createdAt);
+`;
+
+const STEPS: { to: number; sql: string }[] = [
+  { to: 1, sql: V1 },
+  { to: 2, sql: V2 },
+];
 
 /** Brings a freshly opened database up to `SCHEMA_VERSION`. */
 export async function migrate(db: SQLiteDatabase): Promise<void> {

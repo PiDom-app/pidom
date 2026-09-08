@@ -97,6 +97,21 @@ const icons = {
   arrowDown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
   hardDrive: '<path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01"/><path d="M10 16h.01"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  /* Sharing. People, permission, and the two ways a notification can be. */
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>',
+  userCheck: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>',
+  shieldCheck: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  bellOff: '<path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/>',
+  send: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  eyeOff: '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+  mailOpen: '<path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0z"/><path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"/>',
+  ban: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+  messageSquare: '<path d="M22 17a2 2 0 0 1-2 2H6l-4 4V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>',
+  atSign: '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>',
 };
 const icon = (name, size, color, sw = 1.75) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block">${icons[name]}</svg>`;
@@ -2920,10 +2935,8 @@ function deviceStorageTight() {
         storageNotice(
           c,
           'lock',
-          'This build cannot encrypt the library on disk. Your documents and their text are stored in the clear — see <span style="color:' +
-            c.fg +
-            '">docs/security.md</span>.',
-          c.fgMuted,
+          'This build cannot encrypt a library on disk, so Pidom is not keeping one. Your documents are still in your account, but nothing is being stored here until the app is rebuilt with encryption turned on.',
+          c.destructive,
         ),
       rows: `${storageRow(c, {
         title: 'The Complete Works — scanned, 1,340 pages',
@@ -2944,6 +2957,1062 @@ ${storageRow(c, {
         recoverable: true,
       })}`,
     }),
+  });
+}
+
+/* ============================ SHARING ============================= *
+ * Sharing sits above the local-first library rather than replacing any
+ * of it. A shared document is one row, still owned by whoever imported
+ * it, plus a grant — so every screen below is about the grant, and the
+ * document underneath is the same document the reader already has.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The people in these artboards.
+ *
+ * A handle rather than an email on every row, because that is what search
+ * matches on: an exact `@handle` or an exact address, never a prefix over
+ * everybody. `find` says whether that person can be found at all — the last
+ * one has turned it off, which is why she appears in a group and never in a
+ * search result.
+ */
+const PEOPLE = [
+  { n: 'Amina Wanjiru', h: 'amina', i: 'AW', online: true, find: true },
+  { n: 'Joseph Kimani', h: 'jkimani', i: 'JK', online: false, find: true },
+  { n: 'Grace Otieno', h: 'grace_o', i: 'GO', online: true, find: true },
+  { n: 'Daniel Mwangi', h: 'dmwangi', i: 'DM', online: false, find: true },
+  { n: 'Faith Njeri', h: 'faithn', i: 'FN', online: false, find: false },
+];
+const byHandle = (h) => PEOPLE.find((p) => p.h === h);
+
+const GROUPS = [
+  { n: 'Reading group', m: 6, g: 'RG' },
+  { n: 'Kilimani Housing Co-op', m: 23, g: 'KH' },
+  { n: 'Distributed systems', m: 4, g: 'DS' },
+];
+
+/**
+ * A person, drawn the way a cover is: the same hash, the same twelve hues.
+ *
+ * The account has a Google photo most of the time and this is the fallback —
+ * but the fallback is what the artboards draw, because a screen designed
+ * around photographs falls apart on the account that has none.
+ */
+function faceOf(c, p, size, dark = true) {
+  const hue = hueOf(p.n);
+  return `<div style="width:${size}px;height:${size}px;border-radius:9999px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${coverBg(hue, dark)};color:${coverFg(hue, dark)};font-size:${Math.round(size * 0.36)}px;font-weight:600;letter-spacing:.01em">${p.i ?? p.g}</div>`;
+}
+
+/**
+ * Online, and nothing more.
+ *
+ * Presence is ephemeral by design — a heartbeat and a timeout, not a
+ * `lastSeen` column — so the only honest rendering is a dot that is either
+ * there or not. No "active 4 minutes ago": the component does not know that,
+ * and a number invented to fill the space would be a number somebody trusts.
+ */
+function dot(c, online) {
+  return online
+    ? `<div style="width:8px;height:8px;border-radius:9999px;background:${c.ok};flex:0 0 auto"></div>`
+    : '';
+}
+
+/** A face with its presence dot notched into the corner. */
+function facePresence(c, p, size, dark = true) {
+  return `<div style="position:relative;flex:0 0 auto">
+      ${faceOf(c, p, size, dark)}
+      ${p.online ? `<div style="position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:9999px;background:${c.ok};box-shadow:0 0 0 2px ${c.bg}"></div>` : ''}
+    </div>`;
+}
+
+/** One person or group in a list. The trailing slot is the only thing that varies. */
+function personRow(c, { face, name, sub, trailing = '', dim = false, pad = PAD }) {
+  return `<div style="display:flex;align-items:center;gap:12px;padding:11px ${pad}px;${dim ? 'opacity:.55;' : ''}">
+      ${face}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;letter-spacing:-.008em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+        ${sub ? `<div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div>` : ''}
+      </div>
+      ${trailing}
+    </div>`;
+}
+
+/**
+ * The chip row.
+ *
+ * Same control as the navigator's, generalised: a chip rather than a sliding
+ * segmented control, because these labels carry counts and a sliding indicator
+ * over labels that change width is an indicator that never lands square.
+ */
+function segments(c, items) {
+  return `<div style="display:flex;gap:6px;padding:0 ${PAD}px 12px;overflow:hidden">
+      ${items
+        .map(
+          ({ label, on }) =>
+            `<div style="padding:6px 12px;border-radius:${R};flex:0 0 auto;${on ? `background:${c.primaryTint}` : ''}">
+               <span style="font-size:12px;white-space:nowrap;color:${on ? c.primary : c.fgMuted}">${label}</span>
+             </div>`,
+        )
+        .join('')}
+    </div>`;
+}
+
+/** The shell every sharing screen uses. Identical to the navigator's, minus its fixed tabs. */
+function sharePage(c, { glyph, title, subtitle = '', trailing = '', segs = null, body }) {
+  return `<div style="position:absolute;inset:0;background:${c.bg};display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px;flex:0 0 auto">
+      ${icon('arrowLeft', 22, c.fg, 2)}
+      <div style="margin-left:10px;flex:0 0 auto">${icon(glyph, 18, c.fgMuted)}</div>
+      <div style="flex:1;min-width:0;margin-left:10px">
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">${title}</div>
+        ${subtitle ? `<div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>` : ''}
+      </div>
+      ${trailing}
+    </div>
+    ${segs ? segments(c, segs) : ''}
+    <div style="height:1px;background:${c.hairline};flex:0 0 auto"></div>
+    ${body}
+  </div>`;
+}
+
+/**
+ * The document being shared, at the top of the screen and not in a card.
+ *
+ * It is the header's subject rather than an object on the page — the reader
+ * arrived here from that document and does not need to be sold it again.
+ */
+function pdfIdentity(c, doc, { note = null } = {}) {
+  return `<div style="display:flex;align-items:center;gap:14px;padding:14px ${PAD}px">
+      ${pageCover(doc, { w: 44 })}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;letter-spacing:-.008em;color:${c.fg}" class="c2">${doc.t}</div>
+        <div style="margin-top:3px;font-size:12px;color:${c.fgSubtle}" class="tnum">${note ?? `${doc.p ? `${doc.p} pages · ` : ''}${doc.size}`}</div>
+      </div>
+    </div>`;
+}
+
+/** The one filled control on a screen. Same 48px the import footer uses. */
+function primaryButton(c, label, { tone = 'primary', glyph = null, spinner = false } = {}) {
+  const bg = tone === 'quiet' ? c.hover : c.primary;
+  const fg = tone === 'quiet' ? c.fgDisabled : c.onPrimary;
+  return `<div style="height:48px;display:flex;align-items:center;justify-content:center;gap:9px;border-radius:${R};background:${bg}">
+      ${spinner ? `<div style="width:17px;height:17px;border-radius:9999px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.28);border-top:2px solid ${c.onPrimary}"></div>` : glyph ? icon(glyph, 17, fg, 2) : ''}
+      <span style="font-size:15px;font-weight:500;color:${fg}">${label}</span>
+    </div>`;
+}
+
+/** An outline control, for the second of two actions. */
+function quietButton(c, label, { glyph = null, tone = null } = {}) {
+  const fg = tone === 'danger' ? c.destructive : c.fg;
+  return `<div style="height:48px;display:flex;align-items:center;justify-content:center;gap:9px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
+      ${glyph ? icon(glyph, 17, fg, 2) : ''}
+      <span style="font-size:15px;font-weight:500;color:${fg}">${label}</span>
+    </div>`;
+}
+
+const switchToggle = (c, on, off = false) =>
+  `<div style="width:44px;height:26px;border-radius:9999px;background:${on ? c.primary : c.border};position:relative;flex:0 0 auto;${off ? 'opacity:.45;' : ''}">
+     <div style="position:absolute;${on ? 'right:3px' : 'left:3px'};top:3px;width:20px;height:20px;border-radius:9999px;background:${on ? c.onPrimary : c.fgSubtle}"></div>
+   </div>`;
+
+/** A settings group label. Typography and a rule do the work a card would. */
+const settingsLabel = (c, text, top = 24) =>
+  `<div style="padding:${top}px ${PAD}px 8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">${text}</div>`;
+
+function settingsSwitch(c, { label, note, on, off = false }) {
+  return `<div style="display:flex;align-items:center;gap:14px;padding:11px ${PAD}px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;color:${off ? c.fgDisabled : c.fg}">${label}</div>
+        ${note ? `<div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">${note}</div>` : ''}
+      </div>
+      ${switchToggle(c, on, off)}
+    </div>`;
+}
+
+function settingsPick(c, { label, note, value }) {
+  return `<div style="display:flex;align-items:center;gap:12px;padding:11px ${PAD}px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;color:${c.fg}">${label}</div>
+        ${note ? `<div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">${note}</div>` : ''}
+      </div>
+      <span style="font-size:13px;color:${c.fgSubtle};flex:0 0 auto">${value}</span>
+      ${icon('chevronRight', 15, c.fgSubtle, 2)}
+    </div>`;
+}
+
+/** The line a screen uses to say something without demanding anything. */
+function quietNotice(c, glyph, text, tone = null) {
+  return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px ${PAD}px">
+      <div style="margin-top:1px">${icon(glyph, 15, tone ?? c.fgSubtle, 2)}</div>
+      <div style="flex:1;font-size:12px;line-height:17px;color:${tone ?? c.fgSubtle}" class="pretty">${text}</div>
+    </div>`;
+}
+
+/* -------------------------- share compose ------------------------- */
+
+/**
+ * Sharing a document with people.
+ *
+ * One continuous surface: the document at the top as the header's subject, a
+ * field, the people chosen so far in a horizontal rail, results underneath,
+ * then what they will be allowed to do and an optional line to them.
+ *
+ * The search is a **lookup, not a search**. It matches an exact `@handle` or an
+ * exact email address, plus display-name prefixes among people already in a
+ * group with the reader — and nothing else, because a Convex query cannot spend
+ * a rate-limiter token, so an index over every account in the deployment would
+ * be an enumeration endpoint with no bound anybody could put on it.
+ */
+function shareCompose(variant) {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const searching = variant === 'searching';
+  const nomatch = variant === 'nomatch';
+  const sending = variant === 'sending';
+  const queued = variant === 'queued';
+  const chosen = nomatch ? [] : sending || queued ? [byHandle('amina'), byHandle('grace_o')] : [byHandle('amina')];
+
+  const field = (value, placeholder) =>
+    `<div style="margin:14px ${PAD}px 0;height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${value ? c.primary : c.border}">
+       ${icon('search', 18, c.fgSubtle)}
+       <span style="font-size:14px;color:${value ? c.fg : c.fgSubtle}">${value ?? placeholder}</span>
+     </div>`;
+
+  const chip = (p) =>
+    `<div style="width:60px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px">
+       <div style="position:relative">${faceOf(c, p, 44)}<div style="position:absolute;right:-2px;top:-2px;width:17px;height:17px;border-radius:9999px;background:${c.hover};box-shadow:0 0 0 2px ${c.bg};display:flex;align-items:center;justify-content:center">${icon('close', 10, c.fgMuted, 2.4)}</div></div>
+       <span style="font-size:10px;line-height:13px;text-align:center;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60px">${p.n.split(' ')[0]}</span>
+     </div>`;
+
+  const result = (p, sub) =>
+    personRow(c, { face: facePresence(c, p, 38), name: p.n, sub, trailing: icon('plus', 18, c.fgMuted, 2) });
+
+  const groupResult = (g) =>
+    personRow(c, {
+      face: `<div style="width:38px;height:38px;border-radius:${R};flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${c.hover};color:${c.fgMuted};font-size:13px;font-weight:600">${g.g}</div>`,
+      name: g.n,
+      sub: `${g.m} members`,
+      trailing: icon('plus', 18, c.fgMuted, 2),
+    });
+
+  const results = nomatch
+    ? `<div style="padding:34px ${PAD}px 0;text-align:center">
+         ${icon('atSign', 26, c.fgSubtle, 1.6)}
+         <div style="margin-top:14px;font-size:15px;font-weight:600;color:${c.fg}">No account called @kimw</div>
+         <div style="margin-top:6px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Handles and email addresses have to match exactly. Pidom does not list accounts you have no connection to, so there is nothing to browse here.</div>
+       </div>`
+    : searching
+      ? `<div style="padding-top:2px">
+           ${result(byHandle('jkimani'), '@jkimani · exact handle')}
+           <div style="padding:14px ${PAD}px 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">In your groups</div>
+           ${result(byHandle('grace_o'), 'Reading group')}
+           ${result(byHandle('faithn'), 'Kilimani Housing Co-op')}
+           <div style="padding:14px ${PAD}px 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Groups</div>
+           ${groupResult(GROUPS[0])}
+         </div>`
+      : `<div style="padding-top:2px">
+           <div style="padding:8px ${PAD}px 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Recent</div>
+           ${result(byHandle('grace_o'), '@grace_o')}
+           ${result(byHandle('dmwangi'), '@dmwangi')}
+           <div style="padding:14px ${PAD}px 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Groups</div>
+           ${groupResult(GROUPS[0])}
+           ${groupResult(GROUPS[2])}
+         </div>`;
+
+  const footer = queued
+    ? `${quietNotice(c, 'wifiOff', 'No connection. This share is in the queue and goes out the moment there is one — the people you picked are not told anything until it does.')}
+       <div style="padding:2px ${PAD}px 34px">${primaryButton(c, 'Waiting for connection', { tone: 'quiet', glyph: 'clock' })}</div>`
+    : sending
+      ? `<div style="padding:12px ${PAD}px 34px">${primaryButton(c, 'Sharing…', { spinner: true })}</div>`
+      : `<div style="padding:12px ${PAD}px 34px">${primaryButton(c, chosen.length === 0 ? 'Share' : `Share with ${chosen.length}`, { tone: chosen.length === 0 ? 'quiet' : 'primary', glyph: chosen.length === 0 ? null : 'send' })}</div>`;
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'share2',
+    title: 'Share',
+    subtitle: doc.t,
+    body: `<div style="flex:1;display:flex;flex-direction:column;min-height:0">
+      ${pdfIdentity(c, doc)}
+      <div style="height:1px;background:${c.hairline};margin:0 ${PAD}px"></div>
+      ${field(searching ? 'kim' : nomatch ? '@kimw' : null, 'Search people or groups')}
+      ${chosen.length === 0 ? '' : `<div style="margin-top:14px;display:flex;gap:10px;padding:0 ${PAD}px;overflow:hidden">${chosen.map(chip).join('')}</div>`}
+      <div style="flex:1;min-height:0;overflow:hidden">${results}</div>
+      ${nomatch ? '' : `<div style="height:1px;background:${c.hairline}"></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px ${PAD}px">
+        ${icon('eye', 19, c.fgMuted)}
+        <div style="flex:1"><div style="font-size:15px;color:${c.fg}">They can read it</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}">No downloading, no resharing</div></div>
+        ${icon('chevronRight', 15, c.fgSubtle, 2)}
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:2px ${PAD}px 10px">
+        ${icon('messageSquare', 19, c.fgMuted)}
+        <span style="font-size:14px;color:${sending || queued ? c.fg : c.fgSubtle}">${sending || queued ? 'Chapter 4 is the one we argued about.' : 'Say something (optional)'}</span>
+      </div>`}
+      ${footer}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * What a recipient will be allowed to do.
+ *
+ * Three rows and one check mark, in a sheet, because it is a short fixed list.
+ * Download sits below a rule and reads as the consequential one, which it is:
+ * it is the only option here that puts the file itself on somebody else's
+ * disk, where no later change of mind can reach it.
+ */
+function sharePermissionSheet() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;inset:0;background:${c.bg};opacity:.45"></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+  ${readerSheet(c, {
+    glyph: 'shieldCheck',
+    title: 'What they can do',
+    subtitle: doc.t,
+    body: `<div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'eye', label: 'Can read', note: 'Open it and read it. Nothing is written back.', checked: true })}
+      ${readerRow(c, { glyph: 'notebookPen', label: 'Can annotate', note: 'Keep passages and write notes on it. Theirs, and you see them.' })}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      ${readerRow(c, { glyph: 'download', label: 'Can download a copy', note: 'Puts the file on their device. Removing access later does not take it back.' })}
+      ${readerRow(c, { glyph: 'share2', label: 'Can share it on', note: 'Never more than they have themselves.' })}
+      <div style="padding:14px ${PAD}px 4px">
+        <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Both of the last two are off unless you turn them on, on every share.</div>
+      </div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/* ---------------------------- the inbox --------------------------- */
+
+/**
+ * What has been shared with this reader, and what they have shared out.
+ *
+ * Every row here is drawn from the device's own `shares` table, which carries
+ * the title, the size and the page count — so the inbox is legible with no
+ * connection and before a single byte of any of these documents has been
+ * fetched. Nothing on this screen is a `file://` path.
+ */
+function sharedInbox(variant) {
+  const c = DARK;
+  const empty = variant === 'empty';
+
+  const row = (p, doc, { detail, trailing = '', dim = false }) =>
+    `<div style="display:flex;align-items:center;gap:12px;padding:12px ${PAD}px;${dim ? 'opacity:.6;' : ''}">
+       ${pageCover(doc, { w: 38 })}
+       <div style="flex:1;min-width:0">
+         <div style="font-size:14px;letter-spacing:-.008em;color:${c.fg}" class="c2">${doc.t}</div>
+         <div style="margin-top:3px;display:flex;align-items:center;gap:6px">
+           ${faceOf(c, p, 15)}
+           <span style="font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${detail}</span>
+         </div>
+       </div>
+       ${trailing}
+     </div>`;
+
+  const pill = (label, tone) =>
+    `<span style="flex:0 0 auto;padding:3px 8px;border-radius:${R};font-size:11px;background:${tone === 'primary' ? c.primaryTint : c.hover};color:${tone === 'primary' ? c.primary : c.fgSubtle}">${label}</span>`;
+
+  const bodies = {
+    inbox: `<div style="padding-top:2px">
+      ${row(byHandle('amina'), byTitle('Designing Data'), { detail: 'Amina Wanjiru · can read', trailing: icon('cloudDown', 17, c.primary, 2) })}
+      ${row(byHandle('grace_o'), byTitle('The Pragmatic'), { detail: 'Grace Otieno · can annotate', trailing: icon('check', 17, c.fgSubtle, 2) })}
+      ${row(byHandle('jkimani'), byTitle('Kubernetes'), { detail: 'Reading group · can read', trailing: icon('cloudDown', 17, c.primary, 2) })}
+      ${row(byHandle('dmwangi'), byTitle('Domain-Driven'), { detail: 'Daniel Mwangi · access removed', dim: true, trailing: icon('ban', 15, c.fgSubtle, 2) })}
+    </div>`,
+    pending: `<div style="padding-top:2px">
+      ${row(byHandle('amina'), byTitle('Structure and'), { detail: 'Amina Wanjiru · 2 hours ago', trailing: pill('Decide', 'primary') })}
+      ${row(byHandle('dmwangi'), byTitle('Annual Report'), { detail: 'Daniel Mwangi · yesterday', trailing: pill('Decide', 'primary') })}
+      ${quietNotice(c, 'lock', 'Nothing is downloaded until you accept. Until then all Pidom has told you is the title and who sent it. Documents shared with a group are not here — being in the group is the agreement, so they are already under Shared with you.')}
+    </div>`,
+    sent: `<div style="padding-top:2px">
+      ${row(byHandle('grace_o'), byTitle('Thinking,'), { detail: 'Grace Otieno, Amina Wanjiru · can read', trailing: pill('2 people', null) })}
+      ${row(byHandle('jkimani'), byTitle('The Design of'), { detail: 'Reading group · can annotate', trailing: pill('6 people', null) })}
+      ${row(byHandle('dmwangi'), byTitle('React Native'), { detail: 'Daniel Mwangi · waiting to send', dim: true, trailing: icon('clock', 15, c.fgSubtle, 2) })}
+    </div>`,
+    empty: `<div style="padding:74px ${PAD}px 0;text-align:center">
+      ${icon('inbox', 30, c.fgSubtle, 1.6)}
+      <div style="margin-top:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Nothing shared with you</div>
+      <div style="margin-top:7px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">When somebody shares a PDF with you it lands here, with their name on it, before anything is downloaded.</div>
+    </div>`,
+  };
+
+  const counts = {
+    inbox: [
+      { label: 'Shared with you', on: true },
+      { label: 'Pending · 2', on: false },
+      { label: 'Sent', on: false },
+    ],
+    pending: [
+      { label: 'Shared with you', on: false },
+      { label: 'Pending · 2', on: true },
+      { label: 'Sent', on: false },
+    ],
+    sent: [
+      { label: 'Shared with you', on: false },
+      { label: 'Pending · 2', on: false },
+      { label: 'Sent', on: true },
+    ],
+    empty: [
+      { label: 'Shared with you', on: true },
+      { label: 'Pending', on: false },
+      { label: 'Sent', on: false },
+    ],
+  };
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'inbox',
+    title: 'Shared',
+    subtitle: empty ? 'Nothing yet' : '4 documents · 2 waiting',
+    trailing: empty ? '' : `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">${{ inbox: 4, pending: 2, sent: 3 }[variant]}</span>`,
+    segs: counts[variant],
+    body: `<div style="flex:1;min-height:0;overflow:hidden">${bodies[variant]}</div>`,
+  })}
+</div>`,
+  });
+}
+
+/* --------------------------- one share ---------------------------- */
+
+/**
+ * One document somebody shared, from the recipient's side.
+ *
+ * It says what is allowed **before** anything is tapped. A recipient who finds
+ * out there is no download button by looking for it has been told the rule by
+ * its absence, which is the worst way to be told anything.
+ */
+function shareDetail(variant) {
+  const c = DARK;
+  const doc = byTitle('Designing Data');
+  const from = byHandle('amina');
+  const accepted = variant === 'accepted';
+  const revoked = variant === 'revoked';
+  const expired = variant === 'expired';
+
+  const allowRow = (glyph, label, on) =>
+    `<div style="display:flex;align-items:center;gap:14px;padding:10px ${PAD}px">
+       ${icon(glyph, 18, on ? c.fgMuted : c.fgDisabled)}
+       <span style="flex:1;font-size:14px;color:${on ? c.fg : c.fgDisabled}">${label}</span>
+       ${on ? icon('check', 16, c.ok, 2.2) : icon('close', 15, c.fgDisabled, 2.2)}
+     </div>`;
+
+  const footer = revoked
+    ? `<div style="padding:0 ${PAD}px 34px">${quietButton(c, 'Open the copy on this device', { glyph: 'bookOpen' })}</div>`
+    : expired
+      ? `<div style="padding:0 ${PAD}px 34px">${primaryButton(c, 'Ask Amina again', { tone: 'quiet', glyph: 'send' })}</div>`
+      : accepted
+        ? `<div style="padding:0 ${PAD}px 34px;display:flex;flex-direction:column;gap:10px">
+             ${primaryButton(c, 'Download for offline', { glyph: 'download' })}
+             ${quietButton(c, 'Open without downloading', { glyph: 'bookOpen' })}
+           </div>`
+        : `<div style="padding:0 ${PAD}px 34px;display:flex;flex-direction:column;gap:10px">
+             ${primaryButton(c, 'Accept', { glyph: 'check' })}
+             ${quietButton(c, 'Decline')}
+           </div>`;
+
+  const state = revoked
+    ? quietNotice(
+        c,
+        'ban',
+        'Amina removed your access on 4 September. You can still open the copy already on this phone — a file that has been downloaded cannot be recalled, and saying otherwise would be the lie this screen exists to avoid. It will not sync again and it will not come back if you delete it.',
+      )
+    : expired
+      ? quietNotice(c, 'clock', 'This share ran out on 1 September. The document is untouched; only the permission expired.')
+      : accepted
+        ? quietNotice(c, 'cloudDown', '12.4 MB. Once it is here it opens with no connection, like everything else in your library.')
+        : `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px ${PAD}px">
+             ${icon('quote', 16, c.fgMuted)}
+             <div style="flex:1;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Chapter 4 is the one we argued about. No rush.</div>
+           </div>`;
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'share2',
+    title: revoked ? 'Access removed' : expired ? 'Share expired' : 'Shared with you',
+    subtitle: `From ${from.n}`,
+    body: `<div style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;justify-content:center;padding:22px 0 16px">${pageCover(doc, { w: 116 })}</div>
+      <div style="padding:0 ${PAD}px;text-align:center">
+        <div style="font-size:17px;font-weight:600;letter-spacing:-.014em;color:${revoked || expired ? c.fgMuted : c.fg}" class="c2 pretty">${doc.t}</div>
+        <div style="margin-top:5px;font-size:12px;color:${c.fgSubtle}" class="tnum">${doc.p} pages · ${doc.size}</div>
+      </div>
+
+      <div style="height:1px;background:${c.hairline};margin:18px ${PAD}px 0"></div>
+      ${personRow(c, {
+        face: facePresence(c, from, 36),
+        name: from.n,
+        sub: revoked || expired ? `@${from.h}` : `@${from.h} · ${from.online ? 'online' : 'offline'}`,
+        trailing: `<span style="font-size:12px;color:${c.fgSubtle}">Profile</span>`,
+      })}
+      <div style="height:1px;background:${c.hairline};margin:0 ${PAD}px"></div>
+
+      <div style="padding-top:6px">
+        ${allowRow('eye', 'Read it', !revoked && !expired)}
+        ${allowRow('notebookPen', 'Keep passages and notes', false)}
+        ${allowRow('download', 'Download a copy', accepted)}
+      </div>
+
+      ${state}
+      <div style="flex:1"></div>
+      ${footer}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/* -------------------------- manage access ------------------------- */
+
+/**
+ * Who can open this document, from the owner's side.
+ *
+ * Presence is here and nowhere near the page: a dot beside a name in a list
+ * somebody deliberately opened, rather than a live header over a document
+ * being read. The reader came here to answer a question about access; the
+ * dot answers a second one they did not have to ask.
+ */
+function manageAccess(variant) {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const menu = variant === 'menu';
+  const removing = variant === 'remove';
+
+  const roleTag = (label) =>
+    `<span style="flex:0 0 auto;padding:3px 8px;border-radius:${R};font-size:11px;background:${c.hover};color:${c.fgMuted}">${label}</span>`;
+
+  const accessRow = (p, role, { pendingLabel = null } = {}) =>
+    personRow(c, {
+      face: facePresence(c, p, 38),
+      name: p.n,
+      sub: pendingLabel ?? `@${p.h}${p.online ? ' · viewing now' : ''}`,
+      trailing: `<div style="display:flex;align-items:center;gap:10px;flex:0 0 auto">${roleTag(role)}${icon('more', 17, c.fgSubtle)}</div>`,
+    });
+
+  const body = `<div style="flex:1;min-height:0;overflow:hidden">
+      ${pdfIdentity(c, doc, { note: 'Shared with 4 people and 1 group' })}
+      <div style="height:1px;background:${c.hairline};margin:0 ${PAD}px"></div>
+      <div style="padding-top:4px">
+        ${personRow(c, {
+          face: facePresence(c, { n: 'Emmanuel Gichuhi', h: 'you', i: 'EG', online: true }, 38),
+          name: 'You',
+          sub: 'Owner · imported 12 August',
+          trailing: roleTag('Owner'),
+        })}
+        ${accessRow(byHandle('amina'), 'Read')}
+        ${accessRow(byHandle('grace_o'), 'Annotate')}
+        ${accessRow(byHandle('jkimani'), 'Read', { pendingLabel: `@jkimani · invited, not answered` })}
+        <div style="padding:14px ${PAD}px 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Groups</div>
+        ${personRow(c, {
+          face: `<div style="width:38px;height:38px;border-radius:${R};flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${c.hover};color:${c.fgMuted};font-size:13px;font-weight:600">RG</div>`,
+          name: 'Reading group',
+          sub: '6 members · 2 reading now',
+          trailing: `<div style="display:flex;align-items:center;gap:10px;flex:0 0 auto">${roleTag('Read')}${icon('more', 17, c.fgSubtle)}</div>`,
+        })}
+      </div>
+      ${quietNotice(c, 'info', 'Nobody here can download this. Turning that on for one person puts the file on their device permanently.')}
+    </div>`;
+
+  const overlay = menu
+    ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,.4)"></div>
+       <div style="position:absolute;right:${PAD}px;top:284px;width:224px;border-radius:${R};background:${c.elevated};box-shadow:0 0 0 1px ${c.border}, 0 12px 32px rgba(0,0,0,.5);padding:4px 0">
+         ${[
+           ['shieldCheck', 'Change what they can do', false],
+           ['user', 'View profile', false],
+           ['ban', 'Remove access', true],
+         ]
+           .map(
+             ([g, label, danger]) =>
+               `<div style="height:42px;display:flex;align-items:center;gap:10px;padding:0 13px">${icon(g, 16, danger ? c.destructive : c.fgMuted)}<span style="font-size:14px;color:${danger ? c.destructive : c.fg}">${label}</span></div>`,
+           )
+           .join('')}
+       </div>`
+    : removing
+      ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+         <div style="position:absolute;left:26px;right:26px;top:266px;border-radius:${R};background:${c.elevated};box-shadow:0 0 0 1px ${c.border};padding:20px">
+           <div style="font-size:17px;font-weight:700;letter-spacing:-.014em;color:${c.fg}">Remove Grace's access?</div>
+           <div style="margin-top:10px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">She will not be able to open this document again, and her notes on it stop syncing to you.</div>
+           <div style="margin-top:12px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">She downloaded a copy on 28 August. That copy is on her phone and this does not delete it — no setting here can.</div>
+           <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
+             <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}"><span style="font-size:14px;color:${c.fg}">Cancel</span></div>
+             <div style="height:36px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.destructive}"><span style="font-size:14px;font-weight:500;color:#ffffff">Remove access</span></div>
+           </div>
+         </div>`
+      : '';
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'users',
+    title: 'Who can open this',
+    subtitle: doc.t,
+    trailing: icon('userPlus', 19, c.fgMuted),
+    body,
+  })}
+  ${overlay}
+</div>`,
+  });
+}
+
+/**
+ * A person, as much of them as sharing has any business showing.
+ *
+ * A name, a handle, a picture and what the two of you already have in common.
+ * No email, no last-seen, no library — a search result is not a licence to
+ * read somebody's account, and the projection the server returns is exactly
+ * these four fields whatever the search matched on.
+ */
+function profilePreview() {
+  const c = DARK;
+  const p = byHandle('grace_o');
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+  ${readerSheet(c, {
+    glyph: 'user',
+    title: p.n,
+    subtitle: `@${p.h}`,
+    body: `<div style="padding:20px ${PAD}px 4px;display:flex;align-items:center;gap:16px">
+      ${facePresence(c, p, 64)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:600;letter-spacing:-.014em;color:${c.fg}">${p.n}</div>
+        <div style="margin-top:3px;font-size:13px;color:${c.fgSubtle}">@${p.h}</div>
+        <div style="margin-top:7px;display:flex;align-items:center;gap:6px">${dot(c, true)}<span style="font-size:12px;color:${c.ok}">Online</span></div>
+      </div>
+    </div>
+    <div style="height:1px;margin:16px ${PAD}px 0;background:${c.hairline}"></div>
+    <div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'users', label: 'In 2 groups with you', detail: 'Reading group, Distributed systems' })}
+      ${readerRow(c, { glyph: 'share2', label: 'Shared 3 documents with you' })}
+    </div>
+    <div style="padding:12px ${PAD}px 4px">
+      <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">This is everything Pidom will tell you about another account. Not their email, not what else they are reading.</div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/* ----------------------------- groups ----------------------------- */
+
+/**
+ * Groups exist to stop the owner editing two hundred rows by hand.
+ *
+ * A person joining or leaving changes what they can open, because access is
+ * resolved through membership at the moment it is asked for rather than copied
+ * into a share row when the group was shared with.
+ */
+function groupsScreen() {
+  const c = DARK;
+  const row = (g, sub) =>
+    personRow(c, {
+      face: `<div style="width:40px;height:40px;border-radius:${R};flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${c.hover};color:${c.fgMuted};font-size:14px;font-weight:600">${g.g}</div>`,
+      name: g.n,
+      sub,
+      trailing: icon('chevronRight', 15, c.fgSubtle, 2),
+    });
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'users',
+    title: 'Groups',
+    subtitle: '3 groups · 33 people',
+    trailing: icon('plus', 20, c.fgMuted, 2),
+    body: `<div style="flex:1;min-height:0;overflow:hidden;padding-top:4px">
+      ${row(GROUPS[0], '6 members · you are an admin · 4 documents')}
+      ${row(GROUPS[1], '23 members · 1 document')}
+      ${row(GROUPS[2], '4 members · you are an admin · 2 documents')}
+      ${quietNotice(c, 'info', 'A group is a way to give the same people access to a document without adding them one at a time. Leaving one takes that access away.')}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+function groupScreen(segment) {
+  const c = DARK;
+  const g = GROUPS[0];
+  const roleTag = (label) =>
+    `<span style="flex:0 0 auto;padding:3px 8px;border-radius:${R};font-size:11px;background:${c.hover};color:${c.fgMuted}">${label}</span>`;
+
+  const members = `<div style="padding-top:4px">
+      ${personRow(c, {
+        face: facePresence(c, { n: 'Emmanuel Gichuhi', h: 'you', i: 'EG', online: true }, 38),
+        name: 'You',
+        sub: 'Admin · created this group',
+        trailing: roleTag('Admin'),
+      })}
+      ${[byHandle('amina'), byHandle('grace_o'), byHandle('jkimani'), byHandle('faithn')]
+        .map((p) =>
+          personRow(c, {
+            face: facePresence(c, p, 38),
+            name: p.n,
+            sub: `@${p.h}${p.online ? ' · online' : ''}`,
+            trailing: `<div style="display:flex;align-items:center;gap:10px;flex:0 0 auto">${roleTag(p.h === 'amina' ? 'Admin' : 'Member')}${icon('more', 17, c.fgSubtle)}</div>`,
+          }),
+        )
+        .join('')}
+      ${personRow(c, {
+        face: `<div style="width:38px;height:38px;border-radius:9999px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px ${c.border}">${icon('userPlus', 17, c.fgMuted)}</div>`,
+        name: 'Add someone',
+        sub: 'By handle or email',
+      })}
+    </div>`;
+
+  const documents = `<div style="padding-top:4px">
+      ${[
+        [byTitle('Thinking,'), 'You · can read'],
+        [byTitle('The Design of'), 'You · can annotate'],
+        [byTitle('Kubernetes'), 'Joseph Kimani · can read'],
+        [byTitle('Convex Backend'), 'Amina Wanjiru · can read'],
+      ]
+        .map(
+          ([d, sub]) =>
+            `<div style="display:flex;align-items:center;gap:12px;padding:12px ${PAD}px">
+               ${pageCover(d, { w: 38 })}
+               <div style="flex:1;min-width:0">
+                 <div style="font-size:14px;color:${c.fg}" class="c2">${d.t}</div>
+                 <div style="margin-top:3px;font-size:12px;color:${c.fgSubtle}">${sub}</div>
+               </div>
+               ${icon('chevronRight', 15, c.fgSubtle, 2)}
+             </div>`,
+        )
+        .join('')}
+      ${quietNotice(c, 'users', 'Everybody in this group can open all four. Removing somebody from the group removes all four at once.')}
+    </div>`;
+
+  const settings = `<div style="padding-top:2px">
+      ${settingsLabel(c, 'This group', 14)}
+      ${settingsPick(c, { label: 'Name', value: g.n })}
+      ${settingsPick(c, { label: 'Who can add members', note: 'Members can always leave.', value: 'Admins' })}
+      ${settingsSwitch(c, { label: 'Members can share documents in', note: 'Anything they share is theirs, not yours, and they can take it back.', on: true })}
+      ${settingsSwitch(c, { label: 'Show who is online', note: 'Applies to this group only. Your own setting still wins.', on: true })}
+      <div style="height:1px;background:${c.hairline};margin:14px ${PAD}px"></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:11px ${PAD}px">
+        ${icon('logOut', 19, c.destructive)}
+        <div style="flex:1"><div style="font-size:15px;color:${c.destructive}">Leave this group</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}">You lose access to the four documents shared here.</div></div>
+      </div>
+    </div>`;
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'users',
+    title: g.n,
+    subtitle: `${g.m} members · 4 documents`,
+    trailing: `<span style="font-size:12px;color:${c.ok}">2 online</span>`,
+    segs: [
+      { label: 'Members · 6', on: segment === 'members' },
+      { label: 'Shared PDFs · 4', on: segment === 'documents' },
+      { label: 'Settings', on: segment === 'settings' },
+    ],
+    body: `<div style="flex:1;min-height:0;overflow:hidden">${segment === 'members' ? members : segment === 'documents' ? documents : settings}</div>`,
+  })}
+</div>`,
+  });
+}
+
+/* ---------------------------- settings ---------------------------- */
+
+/**
+ * Sharing and privacy.
+ *
+ * Defaults are conservative in one direction only: the two that put a file on
+ * somebody else's device permanently — downloading and resharing — are off, and
+ * have to be turned on per share. Being findable is on, because a share system
+ * nobody can be found in is a share system that does not work; what makes that
+ * safe is that finding is an exact match rather than a list.
+ */
+function sharingPrivacy() {
+  const c = DARK;
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'shieldCheck',
+    title: 'Sharing & privacy',
+    subtitle: 'Who can reach you, and what they get',
+    body: `<div style="flex:1;min-height:0;overflow:hidden">
+      ${settingsLabel(c, 'Being found', 14)}
+      ${settingsPick(c, { label: 'Who can find me', note: 'By an exact @handle or email address. Pidom never lists accounts.', value: 'Anyone' })}
+      ${settingsPick(c, { label: 'Who can share with me', value: 'Anyone' })}
+      ${settingsSwitch(c, { label: 'Show when I am online', note: 'A dot beside your name to people who already share a document or a group with you.', on: true })}
+      ${settingsSwitch(c, { label: 'Show which page I am on', note: 'Off. Nobody sees where you are in a document.', on: false })}
+
+      ${settingsLabel(c, 'What I share out')}
+      ${settingsPick(c, { label: 'Default permission', note: 'What a new share starts as, before you change it.', value: 'Can read' })}
+      ${settingsSwitch(c, { label: 'Let people download by default', note: 'Off. A downloaded copy cannot be taken back later.', on: false })}
+      ${settingsSwitch(c, { label: 'Let people share mine on', note: 'Off. When on, they can never grant more than they have.', on: false })}
+
+      ${settingsLabel(c, 'Groups')}
+      ${settingsSwitch(c, { label: 'Allow group invitations', on: true })}
+      ${quietNotice(c, 'users', 'A document shared with a group is open to its members straight away — being in the group is the agreement. Leaving one takes those documents with it.')}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Notifications, per kind.
+ *
+ * Presence is deliberately absent from this list. It is a heartbeat that times
+ * out, it changes every few seconds, and a notification for it would be a
+ * notification for nothing.
+ */
+function notificationSettings() {
+  const c = DARK;
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${sharePage(c, {
+    glyph: 'bell',
+    title: 'Notifications',
+    subtitle: 'On this device',
+    body: `<div style="flex:1;min-height:0;overflow:hidden">
+      <div style="padding-top:6px">${settingsSwitch(c, { label: 'Allow notifications', note: 'Everything below is off while this is.', on: true })}</div>
+      <div style="height:1px;background:${c.hairline};margin:6px ${PAD}px"></div>
+
+      ${settingsLabel(c, 'Tell me about', 12)}
+      ${settingsSwitch(c, { label: 'Documents shared with me', on: true })}
+      ${settingsSwitch(c, { label: 'Answers to what I shared', note: 'Accepted, declined.', on: true })}
+      ${settingsSwitch(c, { label: 'Group activity', note: 'Added to a group, a document shared into one.', on: true })}
+      ${settingsSwitch(c, { label: 'Notes on documents I own', note: 'Somebody with annotate access wrote something.', on: false })}
+
+      ${settingsLabel(c, 'Quiet hours')}
+      ${settingsSwitch(c, { label: 'Hold notifications overnight', note: 'They arrive in the morning. Nothing is dropped.', on: true })}
+      ${settingsPick(c, { label: 'From', value: '22:00' })}
+      ${settingsPick(c, { label: 'Until', value: '07:00' })}
+
+      ${quietNotice(c, 'lock', 'A notification says a PDF was shared with you and who by. Never the title — it renders on a locked screen, and the rest is behind a query that checks you are allowed to read it.')}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Asking for the permission, at the point it buys the reader something.
+ *
+ * Not on first launch. This is drawn after a first share has been sent, when
+ * the answer being waited for is the reason to allow it — a prompt with a
+ * concrete thing attached is a prompt somebody can decide about.
+ */
+function notificationPermission() {
+  const c = DARK;
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;inset:0;background:${c.bg}"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;background:${c.elevated};border-radius:${R} ${R} 0 0;box-shadow:0 -1px 0 ${c.border};padding:0 0 34px">
+    <div style="display:flex;justify-content:center;padding:8px 0 4px"><div style="width:36px;height:4px;border-radius:${R};background:${c.borderStrong}"></div></div>
+    <div style="padding:18px ${PAD}px 0;text-align:center">
+      ${icon('bell', 28, c.primary, 1.6)}
+      <div style="margin-top:14px;font-size:19px;font-weight:700;letter-spacing:-.016em;color:${c.fg}">Know when Amina answers</div>
+      <div style="margin-top:9px;font-size:14px;line-height:20px;color:${c.fgMuted}" class="pretty">You shared a document a moment ago. A notification is how you find out it was accepted without opening the app to check.</div>
+    </div>
+    <div style="margin-top:20px;height:1px;background:${c.hairline}"></div>
+    <div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'inbox', label: 'Shares, and answers to yours', note: 'The title stays out of it. Just who, and that there is something.' })}
+      ${readerRow(c, { glyph: 'bellOff', label: 'Nothing else', note: 'No reading reminders, no presence, no marketing.' })}
+    </div>
+    <div style="padding:16px ${PAD}px 0;display:flex;flex-direction:column;gap:10px">
+      ${primaryButton(c, 'Allow notifications')}
+      ${quietButton(c, 'Not now')}
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/* ------------------- sharing inside the app ----------------------- */
+
+/**
+ * The reader, with a share control and the people reading alongside.
+ *
+ * The presence row sits under the title rather than in the run of buttons: the
+ * top bar carries five controls already, and a sixth would be the one that
+ * finally makes the title an ellipsis. The faces are three at most, then a
+ * count — a row that grows without limit is a row that pushes the title off.
+ */
+function readerShare() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const watchers = [byHandle('amina'), byHandle('grace_o')];
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  ${readerPage({ top: 108 })}
+  <div style="position:absolute;left:0;right:0;top:0;background:${c.bg};box-shadow:0 1px 0 ${c.hairline}">
+    <div style="display:flex;align-items:center;gap:6px;padding:44px 16px 4px">
+      ${icon('arrowLeft', 22, c.fg, 2)}
+      <div style="flex:1;min-width:0;padding:0 4px">
+        <div style="font-size:14px;font-weight:600;letter-spacing:-.01em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${doc.t}</div>
+      </div>
+      ${icon('listTree', 21, c.fg, 2)}
+      ${icon('textSearch', 21, c.fg, 2)}
+      ${icon('bookmark', 21, c.fg, 2)}
+      ${icon('share2', 21, c.primary, 2)}
+      ${icon('more', 21, c.fg, 2)}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:2px 20px 12px">
+      <div style="display:flex">
+        ${watchers.map((p, i) => `<div style="margin-left:${i === 0 ? 0 : -8}px;border-radius:9999px;box-shadow:0 0 0 2px ${c.bg}">${faceOf(c, p, 22)}</div>`).join('')}
+      </div>
+      <span style="font-size:12px;color:${c.fgSubtle}">Amina and Grace are reading this</span>
+    </div>
+  </div>
+  ${folio(216)}
+</div>`,
+  });
+}
+
+/**
+ * Home, with what other people sent.
+ *
+ * A rail like every other rail, read from the device's own database. It is
+ * above Continue reading because an unanswered share is the one thing on this
+ * screen with somebody waiting at the other end of it.
+ */
+function homeSharedRail() {
+  const c = DARK;
+  const t = (title, opts) => tile(byTitle(title), { dark: true, ...opts });
+
+  const sharedTile = (title, who, state) => {
+    const doc = byTitle(title);
+    return `<div style="width:${COVER_W}px;flex:0 0 auto">
+        ${state === 'pending' ? `<div style="opacity:.55">${pageCover(doc, { w: COVER_W })}</div>` : pageCover(doc, { w: COVER_W })}
+        <div style="margin-top:8px;font-size:12px;line-height:16px;letter-spacing:-.006em;color:${c.fg}" class="c2">${doc.t}</div>
+        <div style="margin-top:4px;display:flex;align-items:center;gap:5px;font-size:10px;line-height:13px;color:${state === 'pending' ? c.primary : c.fgSubtle}">
+          ${state === 'pending' ? icon('inbox', 11, c.primary, 2) : icon('cloudDown', 11, c.fgSubtle, 2)}${who}
+        </div>
+      </div>`;
+  };
+
+  return dc({
+    w: 390,
+    h: 844,
+    bg: c.bg,
+    body: `<div style="height:844px;overflow:hidden;background:${c.bg}">
+  ${header(c)}
+  ${searchTrigger(c)}
+  <section style="margin-top:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 ${PAD}px">
+      <div style="font-size:16px;line-height:20px;font-weight:700;letter-spacing:-.014em;color:${c.fg}">Shared with you</div>
+      <span style="font-size:12px;color:${c.primary}">2 waiting</span>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:${GAP}px;padding:0 ${PAD}px;overflow:hidden">
+      ${sharedTile('Structure and', 'Amina · decide', 'pending')}
+      ${sharedTile('Annual Report', 'Kilimani · decide', 'pending')}
+      ${sharedTile('Designing Data', 'Amina · download', 'accepted')}
+      ${sharedTile('The Pragmatic', 'Grace · on device', 'accepted')}
+    </div>
+  </section>
+  ${rail('Continue reading', [t('Thinking,', { showProgress: true, real: true }), t('The Design of', { showProgress: true, real: true }), t('Convex Backend', { showProgress: true })], c)}
+  ${rail('Recently added', [t('Sapiens'), t('React Native'), t('Lease Agreement')], c)}
+</div>`,
+  });
+}
+
+/**
+ * What a share actually is, and what removing one can and cannot do.
+ *
+ * Drawn because the honest answer is counter-intuitive and the UI has to keep
+ * saying it: access is resolved every time it is asked for, so revoking is
+ * immediate for everything the server mediates — and reaches nothing that is
+ * already on somebody's disk.
+ */
+function shareModel() {
+  const c = DARK;
+  const box = (title, lines, { tone = null, w = 236 } = {}) =>
+    `<div style="width:${w}px;border-radius:${R};padding:14px 16px;box-shadow:inset 0 0 0 1px ${tone === 'danger' ? c.destructive : tone === 'ok' ? c.ok : c.border}">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${tone === 'danger' ? c.destructive : tone === 'ok' ? c.ok : c.fg}">${title}</div>
+       ${lines.map((l) => `<div style="margin-top:7px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${l}</div>`).join('')}
+     </div>`;
+  const arrow = () => `<div style="display:flex;align-items:center;justify-content:center;width:44px">${icon('arrowRight', 17, c.fgMuted, 2)}</div>`;
+  const label = (t) => `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle};margin-bottom:12px">${t}</div>`;
+
+  return dc({
+    w: 900,
+    h: 720,
+    bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Identity, membership, access</div>
+  <div style="margin-top:8px;max-width:640px;font-size:13px;line-height:20px;color:${c.fgMuted}" class="pretty">Three separate things. Collapsing them into one "shared PDF" row is what makes a person leaving a group into a hundred rows somebody has to remember to delete.</div>
+
+  <div style="margin-top:30px">${label('How a recipient is allowed in')}
+    <div style="display:flex;align-items:stretch">
+      ${box('The document', ['One row, one owner, one object in R2. Sharing never copies it and never changes who owns it.'])}
+      ${arrow()}
+      ${box('A grant', ['<b style="color:' + c.fg + '">documentShares</b> — who, what role, can they download, can they share it on, and when it stops.'])}
+      ${arrow()}
+      ${box('Resolved on every read', ['Owner first, then a direct grant, then a group the caller is in. Nothing is cached into a session.'])}
+    </div>
+  </div>
+
+  <div style="margin-top:34px">${label('What removing access reaches')}
+    <div style="display:flex;align-items:stretch;gap:18px">
+      ${box('Immediately', ['Opening it again.', 'Downloading it again.', 'Their notes syncing to you.', 'Joining the presence room.'], { tone: 'ok', w: 250 })}
+      ${box('Never', ['A copy already downloaded to their phone. It is a file on a disk you do not own, and no server can reach it.', 'This is why downloading is off by default and asked for per share.'], { tone: 'danger', w: 250 })}
+      ${box('Unchanged', ['Your own document, your own file, your own notes. Removing access is a change to a grant and nothing else.'], { w: 250 })}
+    </div>
+  </div>
+
+  <div style="margin-top:34px;padding-top:20px;border-top:1px solid ${c.hairline};display:flex;gap:36px">
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:${c.fg}">The file still moves the same way</div>
+      <div style="margin-top:7px;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">A recipient downloads through a signed R2 URL that lives for five minutes and is minted only after the grant is checked — the same mutation the owner's own devices use, with a different check in front of it. There is no permanent link, and no URL that outlives the permission it was issued under.</div>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:${c.fg}">And it still reads offline</div>
+      <div style="margin-top:7px;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty">Once accepted and downloaded, a shared document is a row in this phone's database and a file beside it, like every other document. Opening it touches no network. That is the whole point of putting sharing above the local-first library rather than beside it.</div>
+    </div>
+  </div>
+</div>`,
   });
 }
 
@@ -3009,6 +4078,36 @@ const out = {
   'SyncPipeline.dc.html': syncPipeline(),
   'DeviceStorage.dc.html': deviceStorage(),
   'DeviceStorageTight.dc.html': deviceStorageTight(),
+
+  /* Sharing. */
+  'Share.dc.html': shareCompose('idle'),
+  'ShareSearching.dc.html': shareCompose('searching'),
+  'ShareNoMatch.dc.html': shareCompose('nomatch'),
+  'ShareSending.dc.html': shareCompose('sending'),
+  'ShareQueued.dc.html': shareCompose('queued'),
+  'SharePermission.dc.html': sharePermissionSheet(),
+  'SharedInbox.dc.html': sharedInbox('inbox'),
+  'SharedInboxPending.dc.html': sharedInbox('pending'),
+  'SharedInboxSent.dc.html': sharedInbox('sent'),
+  'SharedInboxEmpty.dc.html': sharedInbox('empty'),
+  'ShareDetail.dc.html': shareDetail('pending'),
+  'ShareDetailAccepted.dc.html': shareDetail('accepted'),
+  'ShareRevoked.dc.html': shareDetail('revoked'),
+  'ShareExpired.dc.html': shareDetail('expired'),
+  'ManageAccess.dc.html': manageAccess('list'),
+  'ManageAccessMenu.dc.html': manageAccess('menu'),
+  'ManageAccessRemove.dc.html': manageAccess('remove'),
+  'ProfilePreview.dc.html': profilePreview(),
+  'Groups.dc.html': groupsScreen(),
+  'Group.dc.html': groupScreen('members'),
+  'GroupDocuments.dc.html': groupScreen('documents'),
+  'GroupSettings.dc.html': groupScreen('settings'),
+  'SharingPrivacy.dc.html': sharingPrivacy(),
+  'NotificationSettings.dc.html': notificationSettings(),
+  'NotificationPermission.dc.html': notificationPermission(),
+  'ReaderShare.dc.html': readerShare(),
+  'HomeSharedRail.dc.html': homeSharedRail(),
+  'ShareModel.dc.html': shareModel(),
 };
 for (const [name, html] of Object.entries(out)) { writeFileSync(new URL('./' + name, import.meta.url), html); }
 
@@ -3078,6 +4177,40 @@ const canvas = {
 
     { file: 'DeviceStorage.dc.html', title: 'On this device', x: 0, y: 14180, w: 390, h: 844 },
     { file: 'DeviceStorageTight.dc.html', title: 'On this device — running out, and unencrypted', x: 490, y: 14180, w: 390, h: 844 },
+
+    { file: 'Share.dc.html', title: 'Share — who with', x: 0, y: 15144, w: 390, h: 844 },
+    { file: 'ShareSearching.dc.html', title: 'Share — an exact handle, and your own groups', x: 490, y: 15144, w: 390, h: 844 },
+    { file: 'ShareNoMatch.dc.html', title: 'Share — no account by that name', x: 980, y: 15144, w: 390, h: 844 },
+    { file: 'SharePermission.dc.html', title: 'Share — what they can do', x: 1470, y: 15144, w: 390, h: 844 },
+    { file: 'ShareSending.dc.html', title: 'Share — sending', x: 1960, y: 15144, w: 390, h: 844 },
+    { file: 'ShareQueued.dc.html', title: 'Share — with no connection', x: 2450, y: 15144, w: 390, h: 844 },
+
+    { file: 'SharedInbox.dc.html', title: 'Shared with you', x: 0, y: 16108, w: 390, h: 844 },
+    { file: 'SharedInboxPending.dc.html', title: 'Shared — waiting on you', x: 490, y: 16108, w: 390, h: 844 },
+    { file: 'SharedInboxSent.dc.html', title: 'Shared — what you sent', x: 980, y: 16108, w: 390, h: 844 },
+    { file: 'SharedInboxEmpty.dc.html', title: 'Shared — nothing yet', x: 1470, y: 16108, w: 390, h: 844 },
+    { file: 'ShareDetail.dc.html', title: 'A share — accept or decline', x: 1960, y: 16108, w: 390, h: 844 },
+    { file: 'ShareDetailAccepted.dc.html', title: 'A share — accepted', x: 2450, y: 16108, w: 390, h: 844 },
+
+    { file: 'ShareRevoked.dc.html', title: 'A share — access removed', x: 0, y: 17072, w: 390, h: 844 },
+    { file: 'ShareExpired.dc.html', title: 'A share — expired', x: 490, y: 17072, w: 390, h: 844 },
+    { file: 'ManageAccess.dc.html', title: 'Who can open this', x: 980, y: 17072, w: 390, h: 844 },
+    { file: 'ManageAccessMenu.dc.html', title: 'Who can open this — one person', x: 1470, y: 17072, w: 390, h: 844 },
+    { file: 'ManageAccessRemove.dc.html', title: 'Removing access, and what it cannot do', x: 1960, y: 17072, w: 390, h: 844 },
+    { file: 'ProfilePreview.dc.html', title: 'A person, as far as sharing shows them', x: 2450, y: 17072, w: 390, h: 844 },
+
+    { file: 'Groups.dc.html', title: 'Groups', x: 0, y: 18036, w: 390, h: 844 },
+    { file: 'Group.dc.html', title: 'A group — members', x: 490, y: 18036, w: 390, h: 844 },
+    { file: 'GroupDocuments.dc.html', title: 'A group — what is shared in it', x: 980, y: 18036, w: 390, h: 844 },
+    { file: 'GroupSettings.dc.html', title: 'A group — settings', x: 1470, y: 18036, w: 390, h: 844 },
+    { file: 'SharingPrivacy.dc.html', title: 'Sharing & privacy', x: 1960, y: 18036, w: 390, h: 844 },
+    { file: 'NotificationSettings.dc.html', title: 'Notifications', x: 2450, y: 18036, w: 390, h: 844 },
+
+    { file: 'NotificationPermission.dc.html', title: 'Notifications — asking, once it is worth something', x: 0, y: 19000, w: 390, h: 844 },
+    { file: 'ReaderShare.dc.html', title: 'Reader — sharing, and who else is here', x: 490, y: 19000, w: 390, h: 844 },
+    { file: 'HomeSharedRail.dc.html', title: 'Home — what other people sent', x: 980, y: 19000, w: 390, h: 844 },
+
+    { file: 'ShareModel.dc.html', title: 'Identity, membership, access', x: 1470, y: 19000, w: 900, h: 720 },
   ],
   annotations: [
     { id: 'note-boundary', x: 0, y: -150, w: 880, text: 'Convex owns metadata, the device owns the PDF.\nRendering this screen never touches a file. Every rail below is one query and one index scan; "On this device" is answered by the filesystem, not the server.' },
@@ -3091,6 +4224,9 @@ const canvas = {
     { id: 'note-offline-first', x: 0, y: 12110, w: 880, text: 'Offline is not a mode this app enters.\nThe local database and the files beside it are the first source for every ordinary read, and the account is what the device converges with afterwards \u2014 so none of these screens is a degraded one. The only thing that changes with no connection is a line saying so and a queue quietly filling up.' },
     { id: 'note-outbox', x: 1000, y: 13074, w: 1024, text: 'One queue row per thing, not per change. That is what makes two hundred page turns one message, and it is also why the values are read off the row at the moment of sending rather than captured when the reader acted \u2014 the account is told where somebody ended up, not replayed through every page they passed.' },
     { id: 'note-covers', x: 1960, y: 2360, w: 300, text: 'No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library.' },
+    { id: 'note-sharing', x: 0, y: 14994, w: 880, text: 'Sharing is a grant, not a copy.\nThe document stays one row with one owner. A documentShares row says who else may open it, what they may do, and when that stops — and it is resolved on every read rather than cached into a session, so removing access is immediate everywhere the server is in the loop.\nSearch is a lookup: an exact @handle or an exact email, plus display-name prefixes among people already in a group with you. A Convex query cannot spend a rate-limiter token, so an index over every account would be an enumeration endpoint with nothing to bound it.' },
+    { id: 'note-share-truth', x: 0, y: 16922, w: 880, text: 'The one thing this feature must keep saying out loud: a file that has been downloaded cannot be recalled.\nRemove access stops the next open, the next download and the next sync. It does not reach a copy already sitting on somebody else\u2019s phone, because no server can. That is why downloading is off by default, asked for per share, and spelled out in the dialog rather than discovered afterwards.' },
+    { id: 'note-notify', x: 2940, y: 18886, w: 380, text: 'A push says a PDF was shared with you and who by. Never the title \u2014 it renders on a locked screen. The rest arrives from an authenticated query once the app is open and the recipient has been checked.' },
     { id: 'note-device-storage', x: 0, y: 14030, w: 880, text: 'The screen the refusal always assumed.\nAn import with no room says to remove a download or two, and until now nothing said which ones were large — the account’s Storage section reported what was in the account, which is the other half.\nEvery row says what removing it costs. A document in the account comes back on a tap; a document that is only here does not come back at all. Same gesture, two consequences, so the row says which before the reader commits. And no covers: this is the one library surface where a document is a quantity rather than something to open.' },
   ],
   launch: { view: 'canvas' },

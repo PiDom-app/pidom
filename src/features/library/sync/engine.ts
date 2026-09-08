@@ -23,8 +23,10 @@ import { log } from '@/lib/logger';
 
 import * as Collections from '../local/repository/collections';
 import * as Documents from '../local/repository/documents';
+import * as Groups from '../local/repository/groups';
 import * as Marks from '../local/repository/marks';
 import * as Queue from '../local/repository/queue';
+import * as Shares from '../local/repository/shares';
 import { sweepDocument } from '../local/sweep';
 import { classify, type Outcome } from './outcome';
 import { NotYetSynced, send, type Sender } from './operations';
@@ -232,6 +234,9 @@ export async function reconcile(sender: Sender, profileId: string): Promise<void
   await reconcileBookmarks(sender);
   await reconcileAnnotations(sender);
   await reconcileCollections(sender);
+  await reconcileShares(sender);
+  await reconcileGroups(sender);
+  await reconcileEvents(sender);
   await reconcileOutlines(sender);
 
   await db.runAsync(
@@ -357,4 +362,151 @@ async function reconcileCollections({ client, db }: Sender): Promise<void> {
       await Collections.replaceRemoteMembership(db, collectionId, []);
     }
   }
+}
+
+/* ── sharing ────────────────────────────────────────────────────────── */
+
+/**
+ * Grants, both directions.
+ *
+ * Two queries rather than one, because the two sides are indexed differently on
+ * the account and merging them there would mean a scan: `inbox` walks the
+ * recipient's own index and `outbox` walks the owner's. Locally they are one
+ * table separated by `direction`, which is what lets the Shared screen show
+ * both with one read.
+ *
+ * The prune is by absence, like documents — with one important exception. A
+ * **revoked** share is still in the answer, because the row is what tells the
+ * recipient who removed their access and when. What disappears is a share whose
+ * document was deleted, and that one should disappear: there is nothing left
+ * for it to describe.
+ */
+async function reconcileShares({ client, db }: Sender): Promise<void> {
+  const [incoming, outgoing] = await Promise.all([
+    client.query(api.sharing.inbox, { filter: 'all' }),
+    client.query(api.sharing.outbox, {}),
+  ]);
+
+  const seen = new Set<string>();
+
+  for (const remote of [...incoming, ...outgoing]) {
+    seen.add(remote.id);
+    await Shares.upsertRemoteShare(db, {
+      id: remote.id,
+      remoteId: remote.id,
+      documentId: remote.document?.id ?? null,
+      direction: remote.direction,
+      subject: remote.subject,
+      counterpartId: remote.counterpart?.id ?? null,
+      counterpartName: remote.counterpart?.displayName ?? null,
+      counterpartHandle: remote.counterpart?.handle ?? null,
+      counterpartPictureUrl: remote.counterpart?.pictureUrl ?? null,
+      groupId: remote.group?.id ?? null,
+      groupName: remote.group?.name ?? null,
+      title: remote.document?.title ?? null,
+      author: remote.document?.author ?? null,
+      pageCount: remote.document?.pageCount ?? null,
+      byteSize: remote.document?.byteSize ?? 0,
+      hasCover: remote.document?.hasCover ?? false,
+      role: remote.role,
+      canDownload: remote.canDownload,
+      canReshare: remote.canReshare,
+      status: remote.status,
+      message: remote.message,
+      expiresAt: remote.expiresAt,
+      revokedAt: remote.revokedAt,
+      createdAt: remote.createdAt,
+      updatedAt: remote.updatedAt,
+      clientUpdatedAt: 0,
+      syncState: 'synced',
+    });
+  }
+
+  const dropped = await Shares.pruneShares(db, seen);
+  for (const localId of dropped) {
+    await Queue.dropOperationsFor(db, 'share', [localId]);
+  }
+}
+
+/**
+ * Groups and who is in them.
+ *
+ * Membership is replaced wholesale per group rather than diffed, and
+ * `replaceMembers` says why: membership decides what somebody can open, so a
+ * member this device failed to notice leaving is a name still shown in a list
+ * of who can read the reader's document.
+ */
+async function reconcileGroups({ client, db }: Sender): Promise<void> {
+  const groups = await client.query(api.groups.list, {});
+  const seen = new Set<string>();
+
+  for (const remote of groups) {
+    seen.add(remote.id);
+    await Groups.upsertRemoteGroup(db, {
+      id: remote.id,
+      name: remote.name,
+      memberCount: remote.memberCount,
+      role: remote.role,
+      createdAt: remote.createdAt,
+      updatedAt: remote.updatedAt,
+    });
+
+    const detail = await client.query(api.groups.detail, {
+      groupId: remote.id as Id<'groups'>,
+    });
+    await Groups.replaceMembers(
+      db,
+      remote.id,
+      detail.members
+        .filter((member) => member.profile !== null)
+        .map((member) => ({
+          groupId: remote.id,
+          userId: member.profile!.id,
+          name: member.profile!.displayName,
+          handle: member.profile!.handle,
+          pictureUrl: member.profile!.pictureUrl,
+          role: member.role,
+          isOwner: member.isOwner,
+          addedAt: member.addedAt,
+        })),
+    );
+  }
+
+  await Groups.pruneGroups(db, seen);
+}
+
+/**
+ * The inbox of things that happened.
+ *
+ * Mirrored so the Shared screen has something to show on a cold launch with no
+ * connection, and replaced rather than merged: an event is immutable except for
+ * whether it has been read, and the account is the authority on both.
+ *
+ * Bounded to what the screen renders. This is a feed, not an archive — a device
+ * that kept every event forever would be keeping a log nobody reads.
+ */
+async function reconcileEvents({ client, db }: Sender): Promise<void> {
+  const events = await client.query(api.sharing.events, { limit: 50 });
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync('DELETE FROM shareEvents');
+    for (const event of events) {
+      await txn.runAsync(
+        `INSERT INTO shareEvents (id, kind, shareId, documentId, groupId, actorName, actorHandle, actorPicture, readAt, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          event.id,
+          event.kind,
+          event.shareId,
+          event.documentId,
+          event.groupId,
+          event.actor?.displayName ?? null,
+          event.actor?.handle ?? null,
+          event.actor?.pictureUrl ?? null,
+          event.read ? event.createdAt : null,
+          event.createdAt,
+        ],
+      );
+    }
+  });
 }

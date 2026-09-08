@@ -28,6 +28,9 @@ import { ReaderModesSheet } from './reader-modes-sheet';
 import { ReaderSettingsSheet } from './reader-settings-sheet';
 import type { NavigatorSegment } from './reader-location';
 import { SelectionBar } from './selection-bar';
+import { useDocumentPresence } from '@/features/sharing/data/use-document-presence';
+import { useIsShared } from '@/features/sharing/data/use-sharing';
+
 import { useAnnotations } from './use-annotations';
 import { useBookmarks } from './use-bookmarks';
 import { useReaderDocument } from './use-reader-document';
@@ -194,6 +197,17 @@ export function ReaderScreen() {
   // navigator, which subscribes to the same query from its own screen.
   const { keep } = useAnnotations({ documentId });
 
+  /**
+   * Who else has this open, if anybody could.
+   *
+   * Gated on the document being shared at all — either way round, which is what
+   * `useIsShared` asks. Presence on a private document is a mutation every ten
+   * seconds telling an empty room that one person is in it, and nearly every
+   * document is private.
+   */
+  const shared = useIsShared(documentId ?? null, document?.remoteId ?? null);
+  const readers = useDocumentPresence(document?.remoteId ?? null, shared);
+
   // The renderer hands the document's own contents back on every load; this
   // keeps them when the row has none. See the hook for why it is that narrow.
   const recoverOutline = useRecoveredOutline({
@@ -223,6 +237,21 @@ export function ReaderScreen() {
     },
     [router, documentId, session.page],
   );
+
+  /**
+   * Who else may open this document.
+   *
+   * A screen, like the navigator, for the same reason: it holds a search field
+   * and a list that goes from nothing to twenty rows, and a sheet whose height
+   * is that list is a sheet whose controls move under the reader's thumb. The
+   * document stays mounted underneath, so coming back is not reopening it.
+   */
+  const openShare = useCallback(() => {
+    if (documentId === undefined) {
+      return;
+    }
+    router.push({ pathname: '/share', params: { id: documentId } });
+  }, [router, documentId]);
 
   /** Writing a note about the page on screen, or about a passage from it. */
   const openNote = useCallback(
@@ -261,6 +290,7 @@ export function ReaderScreen() {
     onOpenNavigator: openNavigator,
     onOpenSearch: () => setOverlay({ kind: 'find' }),
     onOpenPageJump: () => setOverlay({ kind: 'jump' }),
+    onOpenShare: openShare,
     // The three things `ReaderAnatomy` says this does. The position write and
     // the wake-lock release are unmount effects, so leaving is all it takes —
     // but the command is where somebody looks for them, so it says so.
@@ -494,6 +524,11 @@ export function ReaderScreen() {
         onSearch={commands.openSearch}
         isBookmarked={marked(session.page)}
         onToggleBookmark={commands.toggleBookmark}
+        // Only for a document with a copy in the account. A local-only document
+        // has nothing a recipient could fetch, and `Sharing.create` refuses one
+        // — so the control is absent rather than present and refused.
+        onShare={document.isSynced ? commands.openShare : undefined}
+        readers={readers}
         onMore={() => setActing(document)}
         onScrubTo={commands.goToPage}
         onOpenJump={commands.openPageJump}

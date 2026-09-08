@@ -2,6 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from 'convex/serve
 import { ConvexError, v } from 'convex/values';
 
 import { internalMutation, mutation, query, type MutationCtx } from './_generated/server';
+import { requireReadable } from './model/access';
 import * as Annotations from './model/annotations';
 import { requireUser } from './model/auth';
 import * as Library from './model/library';
@@ -228,10 +229,15 @@ export const pagesOf = query({
   }),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    // Ownership on the document rather than on the page rows: it is the thing
+    // Access on the document rather than on the page rows: it is the thing
     // being asked about, and a caller probing ids gets `FORBIDDEN` before a
     // single page is read.
-    await Library.requireDocument(ctx, user, args.documentId);
+    //
+    // `requireReadable`, so a recipient can mirror the text of a document
+    // shared with them and search inside it offline like any other. The pages
+    // stay the owner's rows; what the recipient gets is a copy in their own
+    // FTS index, which is what every synced document already does.
+    await requireReadable(ctx, user, args.documentId);
 
     const pages = await ctx.db
       .query('documentPages')

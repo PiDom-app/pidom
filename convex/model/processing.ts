@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { assertOwner } from './auth';
+import { requireReadable } from './access';
 import {
   OUTLINE_DEPTH_MAX,
   OUTLINE_ENTRY_MAX,
@@ -146,10 +147,15 @@ export async function outlineFor(
   owner: Doc<'users'>,
   documentId: Id<'documents'>,
 ): Promise<OutlineEntry[]> {
-  // The ownership check is on the document rather than the outline row, so a
+  // The access check is on the document rather than the outline row, so a
   // caller probing ids gets `FORBIDDEN` before anything is read.
-  const doc = await ctx.db.get('documents', documentId);
-  assertOwner(doc, owner);
+  //
+  // `requireReadable` rather than `assertOwner`, because a table of contents is
+  // the first thing a recipient needs and withholding it would make a shared
+  // document navigable only by scrubbing. For an owner the two are the same
+  // check — one `get` and one comparison — so nothing about the owner path
+  // changed when sharing landed.
+  const { doc } = await requireReadable(ctx, owner, documentId);
 
   const row = await ctx.db
     .query('documentOutline')
@@ -215,17 +221,31 @@ export async function searchInside(
     invalid(`Search terms are limited to ${SEARCH_TERM_MAX} characters.`);
   }
 
+  /**
+   * Whose pages are being searched.
+   *
+   * Across the library it is the caller's own, and that is the only honest
+   * answer — a search with no document named is "find it in my books", and
+   * folding in everything anybody ever shared would turn one query into a walk
+   * of every grant the caller holds.
+   *
+   * Inside one document it is the document's owner, because `documentPages`
+   * carries the owner's id and a recipient's does not match it. Which is
+   * exactly why the access check comes first and the id comes from the row it
+   * returns rather than from the caller: this is the one place in this backend
+   * where a query is scoped to somebody else's id, and it is scoped to the id
+   * of a document the caller has just been proven able to read.
+   */
+  let scopeOwnerId = owner._id;
   if (documentId !== undefined) {
-    // Scoped to one document, so ownership is checked on the document itself
-    // rather than left to the index filter alone.
-    const doc = await ctx.db.get('documents', documentId);
-    assertOwner(doc, owner);
+    const { doc } = await requireReadable(ctx, owner, documentId);
+    scopeOwnerId = doc.ownerId;
   }
 
   const pages = await ctx.db
     .query('documentPages')
     .withSearchIndex('search_text', (q) => {
-      const scoped = q.search('text', trimmed).eq('ownerId', owner._id);
+      const scoped = q.search('text', trimmed).eq('ownerId', scopeOwnerId);
       return documentId === undefined ? scoped : scoped.eq('documentId', documentId);
     })
     .take(SEARCH_LIMIT);
@@ -464,8 +484,10 @@ export async function jobFor(
   owner: Doc<'users'>,
   documentId: Id<'documents'>,
 ): Promise<Doc<'documentJobs'> | null> {
-  const doc = await ctx.db.get('documents', documentId);
-  assertOwner(doc, owner);
+  // Readable rather than owned: the Details sheet renders this, and a recipient
+  // looking at a document still being extracted should see "218 of 499" rather
+  // than a permission error.
+  const { doc } = await requireReadable(ctx, owner, documentId);
 
   return await ctx.db
     .query('documentJobs')

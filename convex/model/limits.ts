@@ -287,6 +287,157 @@ export const JOB_SWEEP_LIMIT = 20;
  */
 export const SWEEP_LIMIT = 2_000;
 
+/* ── sharing ─────────────────────────────────────────────────────────── */
+
+/**
+ * A line to the person you are sharing with.
+ *
+ * Not a message thread. It is one field on one screen, read once beside the
+ * document it arrived with, and anything past a short paragraph is a
+ * conversation Pidom is not the place for.
+ */
+export const SHARE_MESSAGE_MAX = 500;
+
+/**
+ * The name somebody can be found by.
+ *
+ * Long enough for a real name plus a disambiguator, short enough to sit beside
+ * a display name on a 390px row without becoming an ellipsis. The character
+ * class is narrower than the length: lowercase, digits and underscore only, so
+ * two handles cannot differ by an invisible character or by case alone.
+ */
+export const HANDLE_MAX = 24;
+export const HANDLE_MIN = 3;
+export const HANDLE_PATTERN = /^[a-z0-9_]+$/;
+
+/** A group name is a row label, not a title. Shorter than a collection's. */
+export const GROUP_NAME_MAX = 60;
+
+/**
+ * People in one group.
+ *
+ * Sharing with a group fans out to every member, so this is the real bound on
+ * how much work one tap can create. Two hundred is a department; past it the
+ * answer is several groups, not a bigger one — and the fan-out stays inside a
+ * workflow that pages at `SHARE_FANOUT_BATCH` rather than one mutation.
+ */
+export const GROUP_MEMBER_MAX = 200;
+
+/** Groups one account can own. The list is read unpaged, so it has to fit one screen's worth of scrolling. */
+export const GROUPS_PER_OWNER = 30;
+
+/**
+ * People and groups one document can be shared with.
+ *
+ * The Manage Access list is one bounded read, the same way the bookmark list
+ * is. A document that needs more than two hundred grants wants a group.
+ */
+export const SHARES_PER_DOCUMENT = 200;
+
+/**
+ * Shares one account can hold out at once, across every document.
+ *
+ * The bound the per-document limit does not give: two hundred documents each
+ * shared with two hundred people is forty thousand rows from one account. This
+ * is checked on create, against the sender rather than the document.
+ */
+export const SHARES_PER_OWNER = 2_000;
+
+/** Rows the inbox and Manage Access read. Both are lists somebody scrolls, not archives. */
+export const SHARE_LIST_LIMIT = 100;
+
+/** Results a people or group search returns. Same reasoning as `SEARCH_LIMIT`. */
+export const DISCOVERY_LIMIT = 20;
+
+/**
+ * The shortest prefix that will run a within-graph name search.
+ *
+ * Two characters over a group of two hundred is the whole group, which is a
+ * listing rather than a search. Exact handle and email lookups have no minimum
+ * — they are already exact.
+ */
+export const DISCOVERY_PREFIX_MIN = 2;
+
+/**
+ * Members walked per step of the group fan-out.
+ *
+ * Each one is a `documentShares` insert plus a `shareEvents` insert, so this is
+ * fifty writes against a mutation's budget with room to spare — and a workflow
+ * step that fails is retried at this size rather than restarting a group of
+ * two hundred.
+ */
+export const SHARE_FANOUT_BATCH = 25;
+
+/* ── notifications ───────────────────────────────────────────────────── */
+
+/**
+ * Messages per request to the Expo Push Service.
+ *
+ * Their number, not ours: the API accepts an array of at most 100 message
+ * objects. Sending them one at a time would also walk straight into the
+ * project-level ceiling of 600 notifications per second.
+ */
+export const PUSH_BATCH = 100;
+
+/**
+ * How long to wait before asking Expo whether a notification actually arrived.
+ *
+ * Their guidance is roughly fifteen minutes. Asking sooner returns nothing and
+ * spends a request; not asking at all means a dead token is never noticed and
+ * every later send to it is wasted.
+ */
+export const PUSH_RECEIPT_DELAY_MS = 15 * 60 * 1000;
+
+/** Receipts fetched per poll. The same 100 the send call takes. */
+export const PUSH_RECEIPT_BATCH = 100;
+
+/**
+ * Devices one account can have registered.
+ *
+ * A phone, a tablet, a spare, and room for reinstalls that minted a new token
+ * before the old one was reported dead. Past this the oldest `lastSeenAt` is
+ * dropped, because an account accumulating tokens is an account whose old ones
+ * are not being cleaned up by the receipt poll.
+ */
+export const DEVICE_TOKENS_PER_USER = 10;
+
+/** An `ExpoPushToken[…]` is about 41 characters. This refuses anything that is not one. */
+export const PUSH_TOKEN_MAX = 200;
+
+/**
+ * Shares the hourly sweep expires per run.
+ *
+ * Each one is a patch on a row nobody is reading, and the sweep is the read
+ * path's enforcement rather than the write path's — so it wants to be well
+ * ahead of any realistic rate of expiry rather than exhaustive in one pass.
+ * Two hundred an hour is far past what a deployment of readers produces.
+ */
+export const SHARE_EXPIRY_SWEEP = 200;
+
+/**
+ * Delivery rows the nightly prune drops.
+ *
+ * Reads first, then deletes, against a mutation's one-second budget. Five
+ * hundred rows a night stays ahead of one account's notifications by orders of
+ * magnitude, and a backlog is cleared over several nights rather than by a
+ * mutation that does not finish.
+ */
+export const DELIVERY_PRUNE_LIMIT = 500;
+
+/* ── presence ────────────────────────────────────────────────────────── */
+
+/**
+ * How often a device says it is still here.
+ *
+ * The component's own default. Named here because the client passes it and the
+ * server checks it: a client asking for a one-second heartbeat would be asking
+ * this deployment to run a mutation per second per open document.
+ */
+export const PRESENCE_INTERVAL_MS = 10_000;
+
+/** The narrowest heartbeat the server will accept, whatever a client asks for. */
+export const PRESENCE_INTERVAL_MIN_MS = 5_000;
+
 /** Thrown when a value is the right type but not a usable one. */
 export function invalid(message: string): never {
   throw new ConvexError({ code: 'INVALID', message });

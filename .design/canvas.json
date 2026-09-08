@@ -487,6 +487,230 @@
       "y": 14180,
       "w": 390,
       "h": 844
+    },
+    {
+      "file": "Share.dc.html",
+      "title": "Share — who with",
+      "x": 0,
+      "y": 15144,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareSearching.dc.html",
+      "title": "Share — an exact handle, and your own groups",
+      "x": 490,
+      "y": 15144,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareNoMatch.dc.html",
+      "title": "Share — no account by that name",
+      "x": 980,
+      "y": 15144,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharePermission.dc.html",
+      "title": "Share — what they can do",
+      "x": 1470,
+      "y": 15144,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareSending.dc.html",
+      "title": "Share — sending",
+      "x": 1960,
+      "y": 15144,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareQueued.dc.html",
+      "title": "Share — with no connection",
+      "x": 2450,
+      "y": 15144,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharedInbox.dc.html",
+      "title": "Shared with you",
+      "x": 0,
+      "y": 16108,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharedInboxPending.dc.html",
+      "title": "Shared — waiting on you",
+      "x": 490,
+      "y": 16108,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharedInboxSent.dc.html",
+      "title": "Shared — what you sent",
+      "x": 980,
+      "y": 16108,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharedInboxEmpty.dc.html",
+      "title": "Shared — nothing yet",
+      "x": 1470,
+      "y": 16108,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareDetail.dc.html",
+      "title": "A share — accept or decline",
+      "x": 1960,
+      "y": 16108,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareDetailAccepted.dc.html",
+      "title": "A share — accepted",
+      "x": 2450,
+      "y": 16108,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareRevoked.dc.html",
+      "title": "A share — access removed",
+      "x": 0,
+      "y": 17072,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareExpired.dc.html",
+      "title": "A share — expired",
+      "x": 490,
+      "y": 17072,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ManageAccess.dc.html",
+      "title": "Who can open this",
+      "x": 980,
+      "y": 17072,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ManageAccessMenu.dc.html",
+      "title": "Who can open this — one person",
+      "x": 1470,
+      "y": 17072,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ManageAccessRemove.dc.html",
+      "title": "Removing access, and what it cannot do",
+      "x": 1960,
+      "y": 17072,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ProfilePreview.dc.html",
+      "title": "A person, as far as sharing shows them",
+      "x": 2450,
+      "y": 17072,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Groups.dc.html",
+      "title": "Groups",
+      "x": 0,
+      "y": 18036,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Group.dc.html",
+      "title": "A group — members",
+      "x": 490,
+      "y": 18036,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "GroupDocuments.dc.html",
+      "title": "A group — what is shared in it",
+      "x": 980,
+      "y": 18036,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "GroupSettings.dc.html",
+      "title": "A group — settings",
+      "x": 1470,
+      "y": 18036,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharingPrivacy.dc.html",
+      "title": "Sharing & privacy",
+      "x": 1960,
+      "y": 18036,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "NotificationSettings.dc.html",
+      "title": "Notifications",
+      "x": 2450,
+      "y": 18036,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "NotificationPermission.dc.html",
+      "title": "Notifications — asking, once it is worth something",
+      "x": 0,
+      "y": 19000,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ReaderShare.dc.html",
+      "title": "Reader — sharing, and who else is here",
+      "x": 490,
+      "y": 19000,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "HomeSharedRail.dc.html",
+      "title": "Home — what other people sent",
+      "x": 980,
+      "y": 19000,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareModel.dc.html",
+      "title": "Identity, membership, access",
+      "x": 1470,
+      "y": 19000,
+      "w": 900,
+      "h": 720
     }
   ],
   "annotations": [
@@ -566,6 +790,27 @@
       "y": 2360,
       "w": 300,
       "text": "No cards anywhere. The cover is the only filled shape on the surface; sections are separated by whitespace, and the one rule on the screen sits above View all library."
+    },
+    {
+      "id": "note-sharing",
+      "x": 0,
+      "y": 14994,
+      "w": 880,
+      "text": "Sharing is a grant, not a copy.\nThe document stays one row with one owner. A documentShares row says who else may open it, what they may do, and when that stops — and it is resolved on every read rather than cached into a session, so removing access is immediate everywhere the server is in the loop.\nSearch is a lookup: an exact @handle or an exact email, plus display-name prefixes among people already in a group with you. A Convex query cannot spend a rate-limiter token, so an index over every account would be an enumeration endpoint with nothing to bound it."
+    },
+    {
+      "id": "note-share-truth",
+      "x": 0,
+      "y": 16922,
+      "w": 880,
+      "text": "The one thing this feature must keep saying out loud: a file that has been downloaded cannot be recalled.\nRemove access stops the next open, the next download and the next sync. It does not reach a copy already sitting on somebody else’s phone, because no server can. That is why downloading is off by default, asked for per share, and spelled out in the dialog rather than discovered afterwards."
+    },
+    {
+      "id": "note-notify",
+      "x": 2940,
+      "y": 18886,
+      "w": 380,
+      "text": "A push says a PDF was shared with you and who by. Never the title — it renders on a locked screen. The rest arrives from an authenticated query once the app is open and the recipient has been checked."
     },
     {
       "id": "note-device-storage",

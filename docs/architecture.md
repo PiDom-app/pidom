@@ -583,6 +583,71 @@ Reads are absent, search included, and that is a limitation rather than a
 choice — spending a token is a write, and a query cannot write. Declaring a
 limit nothing enforces would be worse than declaring none.
 
+## Sharing
+
+```
+owner picks people  →  documentShares row  →  recipient accepts  →  signed URL
+                                                                        ↓
+                       reconcile ← Convex ← outbox            local file + row
+```
+
+A shared document is **one row with one owner** and a grant on top of it. The
+recipient's device ends up with an ordinary `documents` row — `ownedByMe` at 0,
+`shareId` naming the grant — so it opens offline, takes notes, and appears in
+the library like anything else. Everything specific to sharing is the grant.
+
+**Two tables and one resolution.** `documentShares` names either a person or a
+group; `groupMembers` says who is in the group. Access is resolved on every read
+through `convex/model/access.ts`, never cached — so a person leaving a group of
+six that shares four documents is one row deleted, not twenty-four, and nothing
+has to remember to run.
+
+**The device holds a mirror.** `shares`, `groupsLocal`, `groupMembersLocal` and
+`shareEvents` are written by three new reconcile passes in `sync/engine.ts`. A
+share row carries the document's title, size and page count, which is why the
+inbox is legible with no connection and before a single byte has been fetched.
+
+**Writes go through the outbox like everything else**, with two exceptions that
+are deliberate:
+
+- **Group membership is never queued.** Adding somebody changes what *they* can
+  open, and a device that invented memberships offline would be deciding who can
+  read another person's documents with nothing to check against. Refused with a
+  sentence instead.
+- **Downloading is not queued**, because it is a network act by definition.
+
+A share made in a tunnel is written, queued and delivered on reconnect. What it
+cannot do is take effect — nobody is told anything until the queue drains, and
+the share screen says exactly that rather than letting the sender assume.
+
+### Fan-out
+
+Creating a share commits the grant and the event, then hands the network off. A
+person's share dispatches one push through the `notifications` workpool. A
+group's starts `workflows/share.ts`, which pages members at
+`SHARE_FANOUT_BATCH` — **nothing there grants anything**, because a group share
+is already one row; what is left is the part that has to reach two hundred
+people one at a time.
+
+Expo's send call returns a ticket, and whether the notification arrived is only
+knowable from a receipt fetched about fifteen minutes later. `push.ts` records
+tickets, polls receipts, and deletes a token on `DeviceNotRegistered` — which is
+the only thing that ever retires a dead token. Without that half, a reinstalled
+phone accumulates tokens nobody ever clears.
+
+### Presence
+
+`@convex-dev/presence` in rooms named `document:<id>` and `group:<id>`. Entered
+only for a document that is actually shared, either way round — presence on a
+private document is a mutation every ten seconds telling an empty room that one
+person is in it, and nearly every document is private.
+
+Ephemeral by construction: a heartbeat and a timeout, run by one
+deployment-wide worker rather than by every client polling. There is no
+`lastSeen` column and no "active 4 minutes ago", because the component does not
+know that and a number invented to fill the space is a number somebody would
+believe.
+
 ## Layout
 
 ```

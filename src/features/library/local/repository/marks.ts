@@ -149,13 +149,17 @@ export async function annotationsOf(
 ): Promise<LibraryAnnotation[]> {
   const rows = await db.getAllAsync<LibraryAnnotation & { kind: string }>(
     `SELECT id, remoteId, documentId, page, kind, text, note, createdAt, updatedAt,
-            clientUpdatedAt
+            clientUpdatedAt, authorId, visibility
        FROM annotations
       WHERE documentId = ? AND deletedAt IS NULL
       ORDER BY page ASC, createdAt ASC`,
     documentId,
   );
-  return rows.map((row) => ({ ...row, kind: row.kind as 'passage' | 'note' }));
+  return rows.map((row) => ({
+    ...row,
+    kind: row.kind as 'passage' | 'note',
+    visibility: (row.visibility as 'private' | 'shared' | null) ?? 'private',
+  }));
 }
 
 export async function annotationById(
@@ -164,11 +168,17 @@ export async function annotationById(
 ): Promise<LibraryAnnotation | null> {
   const row = await db.getFirstAsync<LibraryAnnotation & { kind: string }>(
     `SELECT id, remoteId, documentId, page, kind, text, note, createdAt, updatedAt,
-            clientUpdatedAt
+            clientUpdatedAt, authorId, visibility
        FROM annotations WHERE id = ?`,
     id,
   );
-  return row === null ? null : { ...row, kind: row.kind as 'passage' | 'note' };
+  return row === null
+    ? null
+    : {
+        ...row,
+        kind: row.kind as 'passage' | 'note',
+        visibility: (row.visibility as 'private' | 'shared' | null) ?? 'private',
+      };
 }
 
 export async function addAnnotation(
@@ -179,14 +189,36 @@ export async function addAnnotation(
     kind: 'passage' | 'note';
     text: string | null;
     note: string | null;
+    /**
+     * The account id of whoever is writing it, and whether it is theirs alone.
+     *
+     * Both optional, and absent means the ordinary case: the reader writing on
+     * their own document. A note on a document shared with them is `shared`,
+     * because that is what `annotator` is for — a note nobody else can read is
+     * not collaboration.
+     */
+    authorId?: string | null;
+    visibility?: 'private' | 'shared';
   },
 ): Promise<string> {
   const id = mintId();
   const now = Date.now();
   await db.runAsync(
-    `INSERT INTO annotations (id, documentId, page, kind, text, note, createdAt, updatedAt, clientUpdatedAt, syncState)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')`,
-    [id, next.documentId, next.page, next.kind, next.text, next.note, now, now, now],
+    `INSERT INTO annotations (id, documentId, page, kind, text, note, createdAt, updatedAt, clientUpdatedAt, syncState, authorId, visibility)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?, ?)`,
+    [
+      id,
+      next.documentId,
+      next.page,
+      next.kind,
+      next.text,
+      next.note,
+      now,
+      now,
+      now,
+      next.authorId ?? null,
+      next.visibility ?? 'private',
+    ],
   );
   return id;
 }

@@ -60,8 +60,8 @@ breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.
 ## The canvas
 
 `.design/` holds the design source: `build.mjs` generates one `.dc.html`
-artboard per screen — fifty-one of them — and `screens.mjs` draws twenty-one of
-the same screens as SVG for the images in the README. Both read the same tokens
+artboard per screen — eighty-nine of them — and `screens.mjs` draws twenty-one
+of the same screens as SVG for the images in the README. Both read the same tokens
 as `src/design/global.css`, so a colour that changes there has to change in both
 — the audit that checks `src/` does not reach them.
 
@@ -78,3 +78,41 @@ Rasterising the SVG needs `rsvg-convert`:
 ```bash
 cd docs/screens && for f in *.svg; do rsvg-convert -w 780 "$f" -o "${f%.svg}.png"; done
 ```
+
+## The sharing surfaces
+
+Twenty-eight artboards, drawn before any of the code was written. Six screens,
+three sheets and a dialog, and every one of them wears the shell
+`navigator-screen.tsx` established: a back arrow, a glyph, two lines of title,
+something small on the right, an optional row of chips, and a rule.
+`components/segments.tsx` is that shell, lifted rather than reinvented — four
+new screens with four slightly different headers would be four screens that look
+like four different applications.
+
+The vocabulary does not change. No cards. `rounded-md` everywhere.
+`data-[active=true]:bg-hover` on every pressable. `Divider className="bg-hairline"`.
+Semantic tokens only, so no colour on any of these screens is a hex.
+
+**No `Tabs`, and no `Badge`.** gluestack ships both. This app's segmented
+control is the chip row from the navigator, built that way after a sheet's
+height moved its own control under somebody's thumb — a second one would be a
+second vocabulary for the same job. `Tag` in `components/person-row.tsx` is the
+same chip used as a role label, and the presence dot is a `Box` with `bg-ok`,
+because `AvatarBadge` carries its own colour and every colour here comes from a
+token.
+
+**Screens rather than sheets, with two exceptions.** Choosing a permission is
+four rows that will never be five, and a profile preview is a fixed block —
+neither has a height that is the reader's data, so both are `Actionsheet`s
+shaped like `document-details.tsx`. Everything else is a route, because
+everything else holds a list.
+
+Three of the artboards exist to say something the code cannot:
+
+- **`ShareRevoked`** — access removed, the local copy still openable, and the
+  sentence that a downloaded file cannot be recalled.
+- **`ManageAccessRemove`** — the same truth in the dialog, before the tap.
+- **`ShareModel`** (900×720) — identity, membership and access as three separate
+  things, and a column headed **Never** listing what removing access does not
+  reach.
+

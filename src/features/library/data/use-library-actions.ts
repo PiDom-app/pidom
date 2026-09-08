@@ -82,6 +82,25 @@ export function useLibraryActions() {
           return false;
         }
 
+        /**
+         * A document somebody else owns is removed from this phone and nowhere
+         * else.
+         *
+         * There is nothing to tell the account: `library.remove` is the
+         * owner's, the grant is theirs and stays until they take it back, and
+         * the share row remains so the inbox can offer the download again. So
+         * the row is purged rather than soft-deleted — a tombstone exists to
+         * carry a delete to the account, and this delete has nowhere to go.
+         */
+        const mine = await Documents.isOwnedByMe(db, documentId);
+        if (!mine) {
+          await Queue.dropOperationsFor(db, 'annotation', await annotationIdsOf(db, documentId));
+          await Documents.purge(db, documentId);
+          sweepDocument(profileId, documentId, 'document');
+          markAbsent(documentId);
+          return true;
+        }
+
         await Documents.softDelete(db, documentId);
         const outcome = await Queue.enqueue(db, 'document', documentId, 'remove');
 

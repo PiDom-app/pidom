@@ -30,7 +30,23 @@
  */
 import { type SQLiteDatabase } from 'expo-sqlite';
 
-export type QueueEntity = 'document' | 'bookmark' | 'annotation' | 'collection' | 'membership';
+export type QueueEntity =
+  | 'document'
+  | 'bookmark'
+  | 'annotation'
+  | 'collection'
+  | 'membership'
+  /**
+   * A grant, and the group it may go to.
+   *
+   * Both are here for the same reason everything else is: a reader who taps
+   * Share in a tunnel has made a decision, and the alternative to queueing it
+   * is refusing it. The one thing a queued share cannot do is take effect —
+   * the recipient hears nothing until the queue drains, which is what the
+   * "Waiting for connection" state on the share screen says out loud.
+   */
+  | 'share'
+  | 'group';
 export type QueueOp = 'create' | 'update' | 'remove';
 
 export type QueuedOperation = {

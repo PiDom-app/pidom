@@ -349,18 +349,32 @@ derived from anything a person types. It is a raw key rather than a passphrase,
 so there is no KDF to get wrong. `app.json` turns the cipher on through the
 `expo-sqlite` config plugin (`useSQLCipher`), which is a **build** flag.
 
-Which is the caveat. A build made without it opens the same file unencrypted,
-and SQLite will not complain — `PRAGMA key` on a plain build is accepted and
-ignored. So the cipher is verified rather than assumed: `PRAGMA cipher_version`
-is read back at open, and `databaseEncrypted()` reports the answer.
+Which was the hole, and it was not theoretical. A build made without the flag
+opens the same file unencrypted and SQLite does not complain: `PRAGMA key` on a
+plain build is accepted and ignored. `app.json` carried `useSQLCipher: true`
+the whole time — but the config plugin only runs during `prebuild`, and this
+project commits `android/` and `ios/`, which were generated before the flag was
+added. It never reached a build. The database on a real device began with the
+bytes `SQLite format 3`, in the clear, holding every title, note and page of
+extracted text.
 
-That function used to have no callers. It reported the one thing on this page
-that a reader would want to know about their own phone, to a log nobody reads,
-and the app carried on storing their documents' text in the clear. It is on the
-`/storage` screen now, as a line saying this build cannot encrypt the library.
-The alternative — refusing to keep anything locally — was considered and
-rejected: a build misconfiguration would silently cost the reader the entire
-offline library, which is a worse failure than an honest one.
+So the cipher is verified rather than assumed, and the verification now
+**fails closed**. `PRAGMA cipher_version` is read before anything is written,
+and a build that cannot answer it does not get a database at all:
+`database()` returns `null`, `databaseFault()` says `no-cipher`, and Home and
+`/storage` say so in words instead of rendering an empty library. Losing the
+offline library to a misconfigured build is a bad day. Writing somebody's
+documents to disk in the clear while the app's own documentation promises
+otherwise is a different kind of thing, and not one to trade for convenience.
+
+Turning the cipher on had to deal with what the broken builds left behind.
+Keying an existing plaintext file makes every read fail, so `adoptPlaintext`
+recognises that case — the file opens with no key and reads as a database —
+attaches a keyed copy, runs SQLCipher's own `sqlcipher_export` into it, carries
+`user_version` across by hand, and swaps the files. The original is deleted only
+once the copy is in place, so a process killed halfway leaves the old file
+intact and tries again. A file that is neither keyable nor plaintext is
+discarded and rebuilt from the account.
 
 The PDFs themselves are **not** encrypted, and that is not an oversight. They
 are handed to `react-native-pdf` as a `file://` URI, so a key would have to be
@@ -374,3 +388,161 @@ orphans, which reads the oldest rows in the deployment and therefore almost
 always a document that is fine. It collected nothing, every night, while
 orphaned text — the reader's own content, outliving their decision to remove it
 — accumulated. Orphans are recorded on the way out now, not hunted for.
+
+
+## Sharing
+
+Everything above answers one question — does this row's `ownerId` equal the
+caller's — and `assertOwner` is the whole of it. Sharing cannot be expressed
+that way, so it adds a second authorization path and nothing else.
+
+### A grant, not a copy
+
+There is one `documents` row and one object in R2 however many people can open
+it. `documentShares` says who else may, what they may do, and when that stops.
+`documents.ownerId` never changes.
+
+That decision is what makes the rest cheap. A group share is **one row**:
+membership is resolved through `groupMembers` at the moment somebody asks, so a
+person joining or leaving changes what they can open with no rows to insert and
+none to remember to delete. It is also why there is no per-member accept step
+for a group, and why `sharingSettings` has no `autoAcceptFromGroups` — there is
+no per-member state for such a switch to govern, and a switch nothing enforces
+reads as covered when it is not.
+
+### `convex/model/access.ts` is the only door
+
+`requireReadable`, `requireAnnotatable`, `requireDownloadable` and
+`requireResharable`. Every function that touches a document on behalf of
+somebody who might not own it calls one of them and nothing else. Four rules
+hold across all of them:
+
+- **The owner path is unchanged.** It is checked first and it is still
+  `assertOwner`, so a document nobody has shared resolves in one `get`. Sharing
+  did not make an owner's own access slower or weaker.
+- **A grant is read, never remembered.** No session, no cached permission, no
+  flag on `documents` saying it is shared. Removing access is a write to one
+  row, and the next read sees it.
+- **Refusals are indistinguishable.** A missing document, somebody else's
+  document, and a revoked share all raise `FORBIDDEN`. Telling them apart would
+  let a caller probe which document ids exist.
+- **A reshare cannot grow.** `clampToCeiling` is applied to every create,
+  including the owner's, so there is one code path rather than two that can
+  drift. A `viewer` cannot hand somebody `annotator`; somebody who cannot
+  download cannot let anybody else; and a reshare is never itself resharable.
+
+Writes to the document row — renaming, filing, deleting, syncing — stay
+owner-only. No role expresses them.
+
+### Expiry is checked twice, and neither check is enough alone
+
+`Access.grants` compares the clock on every resolution, so a caller who asks
+after a share has lapsed is refused. But a Convex query is not re-run because
+time advanced, so a screen that subscribed while the share was live goes on
+rendering it. `Sharing.expireDue` writes `status` on a cron every fifteen
+minutes, and a write is what invalidates a subscription.
+
+It cannot be done lazily from the refusing mutation, which is the obvious design
+and does not work: **a Convex mutation is one transaction, so a handler that
+patches the row and then throws rolls the patch back with everything else.** The
+first version did exactly that — the caller was refused and the row still said
+`accepted` — and `convex/sharing.test.ts` is what caught it.
+
+### The file moves the way it always did
+
+A recipient downloads through `sharing.shareDownloadUrl`, which is
+`library.downloadUrl` with `requireDownloadable` in front of it: a mutation,
+because a query result is cached and a cached URL outliving its signature is a
+download that fails for no visible reason. Same five-minute R2 signature, same
+`DOWNLOAD_URL_SECONDS`, narrower rate-limit bucket — that egress is billed to
+the sender and spendable by anybody they ever shared with.
+
+Once downloaded, a shared document is an ordinary row in the recipient's
+database with `ownedByMe` at 0 and `shareId` naming the grant. It opens with no
+connection, takes bookmarks and notes, and appears in the library like anything
+else. That is the point of putting sharing above the local-first library rather
+than beside it.
+
+### Finding people is a lookup, not a search
+
+An exact `@handle` or an exact email address returns one row or none. Prefix
+matching exists and reaches only people the caller already shares a group with —
+their own graph rather than the deployment.
+
+There is no search index over accounts and there is not going to be one. **A
+Convex query cannot spend a rate-limiter token** — spending one is a write, and
+a query cannot write — so a prefix index over `users.name` would be an
+enumeration of every account, walkable one letter at a time, with nothing to
+bound it.
+
+`Discovery.toPublicProfile` is the only projection: id, display name, handle,
+picture. Email is never in it, not even for a search that matched on one, and
+the fallback for somebody with no name is their handle rather than their
+address. `sharingSettings.findableBy` gates it, and a refusal is an empty result
+rather than an error — an error would confirm the account exists.
+
+Two endpoints were narrowed after an authz pass over the finished feature,
+because both were the same enumeration reached through a different door:
+
+- **`sharing.profile`** took a user id and returned a profile to anybody signed
+  in. Search will not return a stranger, but this would have, to any caller who
+  could get hold of an id. It now needs something between the two accounts — a
+  group in common, or a share in either direction — and returns `null`
+  otherwise, for the same reason a search refusal is empty rather than an error.
+- **`sharing.accessList`** was readable by anybody who could read the document,
+  which let one recipient enumerate every other person the owner had shared
+  with. Being handed a document is not being handed the owner's address book.
+  The owner sees all of it; anybody else sees only the shares they made
+  themselves, which is what a resharer needs to take one back.
+
+### Notifications say nothing about the document
+
+A `shareEvents` row is the fact, written in the same transaction as the thing it
+describes. A push is one attempt to draw attention to it and is allowed to fail:
+muted, quiet hours, a wiped device, Expo down. The inbox is still right.
+
+The body is "Amina shared a PDF with you" and never the title.
+`Notifications.bodyFor` is the one place those strings are written, so there is
+one place to audit. The payload carries `{ kind, shareId }` — identifiers the
+app trades for content through an authenticated query. A notification renders on
+a locked screen, often face-up on a desk, and the reader has not proved they are
+the reader.
+
+A push token never comes back out of the API. It identifies a handset to a third
+party, the operating system cycles it, and there is nothing a client could do
+with one that re-registering would not do.
+
+### Presence is ephemeral, and its door is checked twice
+
+`@convex-dev/presence` keeps the state; `convex/presence.ts` is the door.
+
+The React Native hook's signature is `usePresence(api, roomId, userId, interval)`,
+so **a user id crosses the wire on every heartbeat and is thrown away**. A client
+that could name whose presence it was recording could put anybody in any room.
+The identity comes from the verified JWT.
+
+A room name is `document:<id>` or `group:<id>` — a Convex id in a string, so
+guessable. Both `heartbeat` and `inRoom` resolve it back to a document or a
+group and run the same access check the reader does. `showOnlineStatus` off
+makes the heartbeat a no-op for that account rather than refusing it: they see
+others and are not themselves seen, which is what the setting says.
+
+`disconnect` is deliberately unauthenticated, and the export name cannot be
+renamed. The hook tears a session down with a bare `fetch` to `/api/mutation` at
+the literal path `presence:disconnect`, carrying no auth header. A session token
+is minted by the component and unguessable, and the only thing it authorises is
+ending the session it names. `requireUser` there would not add a check; it would
+break every clean disconnect and leave rooms full of people who closed the app.
+
+### The thing the UI has to keep saying
+
+**Removing access does not reach a copy already downloaded.** It stops the next
+open, the next download and the next sync; it deletes the recipient's
+annotations on the document; and it cannot touch a file on a disk this
+deployment does not own.
+
+That is why `canDownload` is false by default, asked for per share, and stated
+in `remove-access-dialog.tsx` before the tap rather than discovered afterwards —
+and why the revoked state on the share detail screen says it in plain words. A
+dialog that said "remove access" and meant something narrower would be the one
+place this feature lied.
