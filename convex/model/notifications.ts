@@ -4,6 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { DEVICE_TOKENS_PER_USER, PUSH_TOKEN_MAX, SHARE_LIST_LIMIT, invalid } from './limits';
 import { type PublicProfile, profileOf } from './discovery';
+import { pushNotifications } from './pushClient';
 import { notificationsOf } from './settings';
 
 /**
@@ -199,7 +200,7 @@ export async function registerDevice(
   ctx: MutationCtx,
   user: Doc<'users'>,
   input: { token: string; platform: 'ios' | 'android'; deviceName?: string; appVersion?: string },
-): Promise<void> {
+): Promise<Id<'deviceTokens'>> {
   const token = input.token.trim();
   if (token.length === 0 || token.length > PUSH_TOKEN_MAX) {
     invalid('That is not a push token.');
@@ -226,10 +227,10 @@ export async function registerDevice(
       lastSeenAt: now,
       failedAt: undefined,
     });
-    return;
+    return existing._id;
   }
 
-  await ctx.db.insert('deviceTokens', {
+  const deviceId = await ctx.db.insert('deviceTokens', {
     userId: user._id,
     token,
     platform: input.platform,
@@ -241,6 +242,29 @@ export async function registerDevice(
   });
 
   await trimDevices(ctx, user._id);
+  return deviceId;
+}
+
+/**
+ * Tells the push component about a device, once the row exists.
+ *
+ * Separate from `registerDevice` so the id it records is one Pidom minted
+ * rather than anything a client sent — and so the local row stays the thing
+ * that decides which handsets exist. The component is a delivery address book
+ * keyed on it, not the other way round.
+ */
+export async function recordWithComponent(
+  ctx: MutationCtx,
+  deviceId: Id<'deviceTokens'>,
+): Promise<void> {
+  const device = await ctx.db.get('deviceTokens', deviceId);
+  if (device === null) {
+    return;
+  }
+  await pushNotifications.recordToken(ctx, {
+    userId: device._id,
+    pushToken: device.token,
+  });
 }
 
 /**
@@ -265,7 +289,15 @@ async function trimDevices(ctx: MutationCtx, userId: Id<'users'>): Promise<void>
   }
 }
 
-/** Deletes a token and the delivery rows that named it. */
+/**
+ * Deletes a token, the delivery rows that named it, and its row in the push
+ * component.
+ *
+ * All three. The component addresses handsets by this row's id, so a
+ * `deviceTokens` row dropped without `removeToken` leaves it holding a token
+ * for a device Pidom no longer believes in — and it goes on accepting sends
+ * to it.
+ */
 export async function forgetDevice(ctx: MutationCtx, tokenId: Id<'deviceTokens'>): Promise<void> {
   const deliveries = await ctx.db
     .query('pushDeliveries')
@@ -274,6 +306,7 @@ export async function forgetDevice(ctx: MutationCtx, tokenId: Id<'deviceTokens'>
   for (const delivery of deliveries) {
     await ctx.db.delete('pushDeliveries', delivery._id);
   }
+  await pushNotifications.removeToken(ctx, { userId: tokenId });
   await ctx.db.delete('deviceTokens', tokenId);
 }
 

@@ -278,59 +278,6 @@ export const events = query({
   },
 });
 
-/**
- * Everything a device needs to rebuild its own copy of what is shared with it.
- *
- * The recipient's half of `library.snapshot`, paged over
- * `by_recipient_and_updated` — oldest change first, so a device that comes back
- * after a week walks forward through what moved rather than re-reading
- * everything. Group shares are appended rather than paged, because they are
- * bounded by how many groups one person is in.
- */
-export const changedSince = query({
-  args: { since: v.number(), limit: v.optional(v.number()) },
-  returns: v.object({
-    shares: v.array(publicShareValidator),
-    cursor: v.number(),
-    done: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const size = Math.min(args.limit ?? 50, 100);
-
-    const rows = await ctx.db
-      .query('documentShares')
-      .withIndex('by_recipient_and_updated', (q) =>
-        q.eq('recipientUserId', user._id).gt('updatedAt', args.since),
-      )
-      .take(size);
-
-    const shares = [];
-    for (const row of rows) {
-      shares.push(await Sharing.toPublicShare(ctx, row, user));
-    }
-
-    // The last page carries the group shares, so a device gets them exactly
-    // once per walk rather than on every page.
-    if (rows.length < size) {
-      const throughGroups = await Sharing.inboxFor(ctx, user, 'active');
-      const seen = new Set(shares.map((share) => share.id));
-      for (const row of throughGroups) {
-        if (row.subject === 'group' && !seen.has(row._id) && row.updatedAt > args.since) {
-          shares.push(await Sharing.toPublicShare(ctx, row, user));
-        }
-      }
-    }
-
-    const last = rows.at(-1);
-    return {
-      shares,
-      cursor: last === undefined ? args.since : last.updatedAt,
-      done: rows.length < size,
-    };
-  },
-});
-
 /* ── writes ─────────────────────────────────────────────────────────── */
 
 /**

@@ -1,4 +1,5 @@
 import { defineApp } from 'convex/server';
+import pushNotifications from '@convex-dev/expo-push-notifications/convex.config.js';
 import presence from '@convex-dev/presence/convex.config.js';
 import r2 from '@convex-dev/r2/convex.config.js';
 import rateLimiter from '@convex-dev/rate-limiter/convex.config.js';
@@ -30,12 +31,22 @@ import workpool from '@convex-dev/workpool/convex.config.js';
  * **Rate limiter** puts a per-account bound on the four writes that cost real
  * money or real work. `SECURITY.md` named this as the one thing not covered.
  *
- * **Workpool**, named `notifications`, fans a share out to the people it
- * reaches. A group share is one row, so nothing here inserts permissions — but
- * it does write an event per member and POST to Expo's push service in batches,
- * and neither belongs inside the mutation that grants the share. A reader
- * tapping Share should not wait on a third party, and one unreachable device
- * should not take the rest of a group down with it. See `./push.ts`.
+ * **Push notifications** talks to Expo. It replaced about two hundred lines of
+ * hand-written batching, backoff and workpool bookkeeping in `./push.ts` — with
+ * one adaptation, because the component is one-token-per-account: `recordToken`
+ * patches the existing row and `sendPushNotification` reads it back with
+ * `.unique()`. Pidom supports up to ten devices per reader, so the id recorded
+ * with it is the **device's**, not the account's. The class is generic over a
+ * plain string for exactly this. See `./push.ts`.
+ *
+ * What did *not* come with it is receipts: the component reads the immediate
+ * ticket from `/push/send`, treats only `MessageRateExceeded` as retryable, and
+ * never calls `getReceipts` — so nothing in it ever retires a dead token. That
+ * half is still Pidom's, and is the only thing that notices a handset has been
+ * wiped. It runs on the **`receipts`** workpool: fetching them is an
+ * independent, unordered, idempotent action against a third party, which is a
+ * pool rather than a flow, and a group share can leave a hundred of them due at
+ * once.
  *
  * **Presence** tracks who is in a document or group room right now. It is
  * ephemeral by construction — heartbeats and a timeout, run by one
@@ -46,14 +57,15 @@ import workpool from '@convex-dev/workpool/convex.config.js';
  *
  * Parallelism is the number to watch: the free plan allows 20 across every pool
  * in the deployment, and the workflow component carries a pool of its own. The
- * three here are set to 4, 2 and 4 in the files that construct them.
+ * three written here are 4, 2 and 2; the push component brings one of its own.
  */
 const app = defineApp();
 app.use(r2);
 app.use(workflow);
 app.use(workpool, { name: 'maintenance' });
-app.use(workpool, { name: 'notifications' });
+app.use(workpool, { name: 'receipts' });
 app.use(rateLimiter);
 app.use(presence);
+app.use(pushNotifications, { env: {} });
 
 export default app;

@@ -8,6 +8,7 @@ import { useIncomingDocument } from '@/features/library/import/use-incoming-docu
 import { useLocalLibrary } from '@/features/library/local/use-local-library';
 import { useSyncEngine } from '@/features/library/sync/use-sync-engine';
 import { usePushNotifications } from '@/features/notifications/use-push-registration';
+import { useSharingSync } from '@/features/sharing/data/use-sharing-sync';
 
 /**
  * The authenticated shell.
@@ -21,6 +22,7 @@ import { usePushNotifications } from '@/features/notifications/use-push-registra
  *   useEnsureProfile    the account row, on a first sign-in
  *   useLocalLibrary     the filesystem scan, into `documentFiles`
  *   useLibrarySync      one live subscription, upserted into the local database
+ *   useSharingSync      the same, for what other people have shared
  *   useSyncEngine       the outbox: drain, then reconcile
  *   useSyncIntents      uploads asked for when there was nothing to upload to
  *   useIncomingDocument a PDF handed over by another app
@@ -42,6 +44,11 @@ export default function AppLayout() {
   useEnsureProfile();
   useLocalLibrary();
   useLibrarySync();
+  // The sharing half of the same arrangement. Without it every sharing screen
+  // waits on the thirty-second reconcile, which additionally refuses to run
+  // while this device's own outbox has anything in it — so a document somebody
+  // shared arrived somewhere between instantly and never.
+  useSharingSync();
   useSyncEngine();
   useSyncIntents();
   // A PDF opened from another app. Here rather than on a screen, because a

@@ -27,7 +27,10 @@ export const registerDevice = mutation({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'registerDevice');
-    await Notifications.registerDevice(ctx, user, args);
+    const deviceId = await Notifications.registerDevice(ctx, user, args);
+    // The row first, then the component — the id it is addressed by is the
+    // row's, so the row has to exist before it can be recorded.
+    await Notifications.recordWithComponent(ctx, deviceId);
     return null;
   },
 });

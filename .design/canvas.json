@@ -711,6 +711,102 @@
       "y": 19000,
       "w": 900,
       "h": 720
+    },
+    {
+      "file": "Activity.dc.html",
+      "title": "Activity — what has happened",
+      "x": 0,
+      "y": 19964,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ActivityEmpty.dc.html",
+      "title": "Activity — nothing yet",
+      "x": 490,
+      "y": 19964,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharedInboxBadge.dc.html",
+      "title": "Account — with what is waiting",
+      "x": 980,
+      "y": 19964,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SharedSkeleton.dc.html",
+      "title": "Shared — the shape of what is coming",
+      "x": 1470,
+      "y": 19964,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareDownloading.dc.html",
+      "title": "A share — arriving",
+      "x": 1960,
+      "y": 19964,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ShareDetailScrolled.dc.html",
+      "title": "A share — redrawn, content at the top",
+      "x": 2450,
+      "y": 19964,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AccessPermission.dc.html",
+      "title": "Changing what somebody can do",
+      "x": 0,
+      "y": 20928,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "GroupLeaveConfirm.dc.html",
+      "title": "Leaving a group, and what it costs",
+      "x": 490,
+      "y": 20928,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ProfileEdit.dc.html",
+      "title": "Your profile",
+      "x": 980,
+      "y": 20928,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "NotificationDevices.dc.html",
+      "title": "Notifications — devices and quiet hours",
+      "x": 1470,
+      "y": 20928,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SyncData.dc.html",
+      "title": "Sync & data",
+      "x": 1960,
+      "y": 20928,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DeleteAccount.dc.html",
+      "title": "Deleting an account, and what it cannot reach",
+      "x": 2450,
+      "y": 20928,
+      "w": 390,
+      "h": 844
     }
   ],
   "annotations": [
@@ -804,6 +900,20 @@
       "y": 16922,
       "w": 880,
       "text": "The one thing this feature must keep saying out loud: a file that has been downloaded cannot be recalled.\nRemove access stops the next open, the next download and the next sync. It does not reach a copy already sitting on somebody else’s phone, because no server can. That is why downloading is off by default, asked for per share, and spelled out in the dialog rather than discovered afterwards."
+    },
+    {
+      "id": "note-roundtwo",
+      "x": 0,
+      "y": 19814,
+      "w": 880,
+      "text": "The feature was built and was not reachable.\nNothing about sharing was live — the library had a Convex subscription so a favourite crossed devices in a second, and shares waited on a 30-second heartbeat that would not run while the outbox had anything in it. The event feed had a table, a sync pass and an unread count, and no screen. Avatars were frozen at sign-up because the profile refresh fired once per account rather than once per launch. And the content sat low: an empty state 64px down, a share detail with a hard spacer pushing its buttons to the bezel and no way to scroll past a long title.\nThese are the surfaces that close that, and the layout rule they all now follow: content starts at the top, loading shows the shape of what is coming, and nothing is centred unless being centred is the point."
+    },
+    {
+      "id": "note-delete",
+      "x": 2450,
+      "y": 20778,
+      "w": 380,
+      "text": "The one dialog that asks for a typed word. Everything else destructive here is one tap behind a sentence, which is right for a document that downloads again. This is not, and it is honest about the one thing it cannot reach."
     },
     {
       "id": "note-notify",

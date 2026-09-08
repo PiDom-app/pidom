@@ -288,6 +288,25 @@ export function useShareActions() {
         } else {
           await removeMember(args);
         }
+
+        // The account is the authority on membership and the mirror is a copy,
+        // but the copy is what the screen renders — so it moves now rather than
+        // at the next reconcile. Removing is the half that matters: a name left
+        // in a list of who can read your document is a name you believe.
+        await withDb(async (db) => {
+          if (action === 'remove') {
+            await db!.runAsync('DELETE FROM groupMembersLocal WHERE groupId = ? AND userId = ?', [
+              groupId,
+              userId,
+            ]);
+          }
+          await db!.runAsync(
+            `UPDATE groupsLocal
+                SET memberCount = MAX(0, memberCount + ?), updatedAt = ?
+              WHERE id = ?`,
+            [action === 'add' ? 1 : -1, Date.now(), groupId],
+          );
+        });
         return true;
       } catch (error) {
         log.error(SCOPE, 'membership change refused');
@@ -299,10 +318,31 @@ export function useShareActions() {
     [addMember, hasNetwork, removeMember, showToast, withDb],
   );
 
-  /** Clears the badge. Best effort: a failure means the badge is right for longer. */
+  /**
+   * Clears the badge.
+   *
+   * Locally first, like every other action here. It used to write only to the
+   * account — which meant the badge stayed lit until the next reconcile
+   * overwrote the mirror, so opening Activity did not clear the number beside
+   * it. Best effort on the network half: a failure means the account catches up
+   * on the next pass, and the reader has already seen the rows.
+   */
   const markEventsRead = useCallback(
     async (eventIds: string[]): Promise<void> => {
-      if (eventIds.length === 0 || !hasNetwork) {
+      if (eventIds.length === 0) {
+        return;
+      }
+      const now = Date.now();
+      await withDb(async (db) => {
+        for (const eventId of eventIds) {
+          await db!.runAsync('UPDATE shareEvents SET readAt = ? WHERE id = ? AND readAt IS NULL', [
+            now,
+            eventId,
+          ]);
+        }
+      });
+
+      if (!hasNetwork) {
         return;
       }
       try {
@@ -311,7 +351,7 @@ export function useShareActions() {
         log.debug(SCOPE, 'could not mark events read', error);
       }
     },
-    [hasNetwork, markRead],
+    [hasNetwork, markRead, withDb],
   );
 
   return {

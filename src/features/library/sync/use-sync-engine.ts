@@ -107,8 +107,23 @@ export function useSyncEngine(): void {
         again = true;
         return;
       }
-      if (Date.now() - lastRun < FLOOR_MS) {
-        again = true;
+      /**
+       * Inside the floor. Wait it out rather than dropping the trigger.
+       *
+       * This used to set `again` and return, which looks like the branch above
+       * it and is not: `again` is only ever consumed in the `finally` of a pass
+       * that got past the guards, and `running` is false here — so nothing
+       * consumed it and the wake-up was lost. A share tapped two seconds after
+       * launch waited for the thirty-second heartbeat.
+       */
+      const waited = Date.now() - lastRun;
+      if (waited < FLOOR_MS) {
+        if (timer === null) {
+          timer = setTimeout(() => {
+            timer = null;
+            void pass();
+          }, FLOOR_MS - waited);
+        }
         return;
       }
 

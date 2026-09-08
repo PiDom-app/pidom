@@ -1,10 +1,11 @@
 /// <reference types="vite/client" />
 import actionRetrier from '@convex-dev/action-retrier/test';
+import pushNotifications from '@convex-dev/expo-push-notifications/test';
 import presence from '@convex-dev/presence/test';
+import workpool from '@convex-dev/workpool/test';
 import r2 from '@convex-dev/r2/test';
 import rateLimiter from '@convex-dev/rate-limiter/test';
 import workflow from '@convex-dev/workflow/test';
-import workpool from '@convex-dev/workpool/test';
 import { convexTest } from 'convex-test';
 import { describe, expect, test } from 'vitest';
 
@@ -39,8 +40,9 @@ const modules = import.meta.glob('./**/*.ts');
  *
  * More than `sync.test.ts` registers, and each one is on the path rather than
  * registered defensively: **rate limiter** because every mutation here spends a
- * bucket, **notifications** because creating a share enqueues a push job,
- * **workflow** because a group share starts a fan-out, and **presence** because
+ * bucket, **push notifications** because creating a share hands the component a
+ * batch, **workflow** because a group share starts a fan-out, and **presence**
+ * because
  * the heartbeat tests call it, and **R2** because deleting a document deletes
  * its objects and because one test asserts that a permitted recipient really
  * does get a URL. The credentials it signs with are the throwaway ones in
@@ -50,9 +52,10 @@ const modules = import.meta.glob('./**/*.ts');
 function harness() {
   const t = convexTest(schema, modules);
   rateLimiter.register(t);
-  workpool.register(t, 'notifications');
+  workpool.register(t, 'receipts');
   workflow.register(t);
   presence.register(t);
+  pushNotifications.register(t);
   r2.register(t);
   // R2 mounts the action retrier beneath itself, so it lives at
   // `r2/actionRetrier`. Its own test helper registers it at the bare
@@ -656,14 +659,19 @@ describe('a group', () => {
       groupId,
       userId: await userIdOf(t, FRIEND),
     });
-    await owner.mutation(api.sharing.createShare, {
-      documentId,
-      subject: 'group',
-      groupId,
-      role: 'viewer',
-      canDownload: false,
-      canReshare: false,
-    });
+    try {
+      await owner.mutation(api.sharing.createShare, {
+        documentId,
+        subject: 'group',
+        groupId,
+        role: 'viewer',
+        canDownload: false,
+        canReshare: false,
+      });
+    } catch (error) {
+      console.log('REAL STACK:\n' + (error as Error).stack);
+      throw error;
+    }
 
     // No accept step: being in the group is the agreement.
     expect((await friend.query(api.sharing.sharedDocument, { documentId }))?.title).toBe(

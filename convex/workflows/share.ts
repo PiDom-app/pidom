@@ -27,6 +27,9 @@ import { workflow } from './document';
  * It reuses the extraction workflow's manager and pool deliberately: a second
  * `WorkflowManager` would be a second workpool against the free plan's twenty,
  * and these steps are cheap enough to sit behind an extraction.
+ *
+ * It is started with `startAsync`, and that is not a preference — see
+ * `queueFanOut` at the bottom of this file.
  */
 export const fanOutGroupShare = workflow.define({
   args: { shareId: v.id('documentShares') },
@@ -117,7 +120,19 @@ export async function queueFanOut(
   ctx: MutationCtx,
   shareId: Id<'documentShares'>,
 ): Promise<void> {
-  await workflow.start(ctx, internal.workflows.share.fanOutGroupShare, { shareId });
+  await workflow.start(
+    ctx,
+    internal.workflows.share.fanOutGroupShare,
+    { shareId },
+    {
+      // `startAsync`, for the reason `queueExtraction` uses it: without it the
+      // first step runs inside the caller's transaction, and the caller is
+      // `createShare` — a reader watching a button. Telling two hundred people
+      // is not worth a second of that, and the grant is already committed by
+      // the time this runs.
+      startAsync: true,
+    },
+  );
 }
 
 /** How many people a group share will reach. Rendered before it is sent. */

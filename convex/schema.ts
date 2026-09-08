@@ -918,7 +918,15 @@ export default defineSchema({
     enabled: v.boolean(),
     lastSeenAt: v.number(),
     createdAt: v.number(),
-    /** When Expo last told us this token is gone. The sweep deletes on it. */
+    /**
+     * When a receipt said this token is gone.
+     *
+     * Written by `push.applyReceipts` on `DeviceNotRegistered`, immediately
+     * before the row is deleted — it used to be a column nothing ever set, so
+     * the state described here could not occur. It exists for anything reading
+     * the token between that patch and the delete, and as the record of *why*
+     * a device disappeared.
+     */
     failedAt: v.optional(v.number()),
   })
     // Everything to send to, for one recipient.
@@ -1003,12 +1011,12 @@ export default defineSchema({
     userId: v.id('users'),
     tokenId: v.id('deviceTokens'),
     ticketId: v.optional(v.string()),
-    status: v.union(
-      v.literal('queued'),
-      v.literal('sent'),
-      v.literal('delivered'),
-      v.literal('failed'),
-    ),
+    /**
+     * `queued` used to be here and nothing ever wrote it. A state the schema
+     * declares and no code can reach reads as covered when it is not, which is
+     * the same objection `sharingSettings` makes to a switch nothing enforces.
+     */
+    status: v.union(v.literal('sent'), v.literal('delivered'), v.literal('failed')),
     /** Expo's error code — `DeviceNotRegistered`, `MessageTooBig`, and so on. A code, never a message. */
     error: v.optional(v.string()),
     sentAt: v.number(),

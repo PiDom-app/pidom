@@ -371,13 +371,14 @@ export const SHARE_FANOUT_BATCH = 25;
 /* ── notifications ───────────────────────────────────────────────────── */
 
 /**
- * Messages per request to the Expo Push Service.
+ * Batching to Expo's cap is the component's now.
  *
- * Their number, not ours: the API accepts an array of at most 100 message
- * objects. Sending them one at a time would also walk straight into the
- * project-level ceiling of 600 notifications per second.
+ * `PUSH_BATCH` used to be here, at Expo's documented 100 messages per request.
+ * `@convex-dev/expo-push-notifications` owns that, along with the workpool and
+ * the backoff — which is most of why it is worth depending on. What stayed is
+ * everything below: Expo reports a dead token only in a receipt, and the
+ * component has no receipt path at all.
  */
-export const PUSH_BATCH = 100;
 
 /**
  * How long to wait before asking Expo whether a notification actually arrived.
