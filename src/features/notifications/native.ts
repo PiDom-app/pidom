@@ -34,11 +34,19 @@ export function notifications(): Module | null {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       resolved = require('expo-notifications') as Module;
     } catch (error) {
-      // Once, at the first attempt. Repeating it on every heartbeat of a
-      // feature that is switched off is noise, and the cache below is what
-      // stops Metro re-evaluating a module that throws.
-      log.warn(SCOPE, 'this build has no notifications module, so push is off');
-      log.debug(SCOPE, 'notifications module error', error);
+      // Once, at the first attempt, and at `debug` rather than `warn`. On Expo
+      // Go this is the documented state of the world rather than a fault —
+      // Expo removed push from Expo Go on Android in SDK 53 — and a warning on
+      // every launch for an expected condition teaches people to ignore
+      // warnings. A development build is what turns it back on, and a dev
+      // client built before `expo-notifications` was added needs rebuilding
+      // for the same reason. The cache below is also what stops Metro
+      // re-evaluating a module that throws.
+      log.debug(
+        SCOPE,
+        'no push on this build (Expo Go, or a dev client built before expo-notifications); the in-app inbox is unaffected',
+        error,
+      );
       resolved = null;
     }
   }

@@ -134,14 +134,25 @@ async function hasCipher(db: SQLiteDatabase): Promise<boolean> {
 /**
  * Whether the key just set actually opens the file.
  *
- * The cheapest read that touches the database header. On a keyed connection
- * against a file the key does not fit — a plaintext database from a build with
- * no cipher, or a key that has been rotated out from under it — SQLite answers
- * `SQLITE_NOTADB` here rather than at some later query nobody is watching.
+ * **`SELECT count(*) FROM sqlite_master`, which is SQLCipher's own answer to
+ * this question, and not `PRAGMA user_version`, which was the bug.** SQLCipher
+ * derives the key just in time: `PRAGMA key` never reports a wrong one, and
+ * the failure only surfaces when something actually reads a page. `PRAGMA
+ * user_version` did not read one — Zetetic's own documentation lists it under
+ * migrations, where it *rewrites* the header rather than parsing it — so a key
+ * that could not open the file passed this check, both recovery paths below
+ * were skipped, and the first real statement threw `SQLITE_NOTADB` inside
+ * `migrate`. The symptom was a log reading `migrating to 1` followed by `file
+ * is not a database`, on every launch, with nothing able to repair it.
+ *
+ * Reading `sqlite_master` forces page one to be decrypted and its schema
+ * parsed, which is precisely the operation that fails on a wrong key. It also
+ * succeeds on a brand-new empty file, which is what makes it usable both after
+ * `deleteDatabaseAsync` and against a file that has been there for months.
  */
 async function opensWithKey(db: SQLiteDatabase): Promise<boolean> {
   try {
-    await db.getFirstAsync('PRAGMA user_version');
+    await db.getFirstAsync('SELECT count(*) FROM sqlite_master');
     return true;
   } catch {
     return false;
@@ -174,11 +185,12 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
 
   // Anything left by an interrupted attempt. Its contents are a partial copy of
   // a database that still exists, so there is nothing in it worth keeping.
-  await deleteDatabaseAsync(workingName).catch(() => undefined);
+  await discard(workingName);
 
   let plain: SQLiteDatabase | null = null;
   try {
-    // Opened with no key: if this reads, the file really is plaintext.
+    // Opened with no key: if `sqlite_master` reads, the file really is
+    // plaintext rather than encrypted with a key nobody has.
     plain = await openDatabaseAsync(name);
     if (!(await opensWithKey(plain))) {
       return false;
@@ -212,6 +224,33 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
     return false;
   } finally {
     await plain?.closeAsync().catch(() => undefined);
+  }
+}
+
+/**
+ * Removes a database and the two files SQLite keeps beside it.
+ *
+ * `deleteDatabaseAsync` takes the database file. WAL mode leaves `-wal` and
+ * `-shm` next to it, and those hold pages written under the *old* key — so
+ * starting over without them means a fresh, correctly keyed file with somebody
+ * else's ciphertext replayed into it on first open, which is the same
+ * `SQLITE_NOTADB` again with no way out of the loop.
+ *
+ * Best effort per file: on a clean shutdown neither exists, and a missing one
+ * is the expected case rather than a failure.
+ */
+async function discard(name: string): Promise<void> {
+  await deleteDatabaseAsync(name).catch(() => undefined);
+  for (const suffix of ['-wal', '-shm']) {
+    try {
+      const sidecar = new File(pathOf(`${name}${suffix}`));
+      if (sidecar.exists) {
+        sidecar.delete();
+      }
+    } catch {
+      // Nothing to do about it, and nothing depending on it: the next open
+      // either works or reports `unreadable` as it already would have.
+    }
   }
 }
 
@@ -269,7 +308,7 @@ async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
       }
     } else {
       log.error(SCOPE, 'the local library cannot be opened with this device s key; starting over');
-      await deleteDatabaseAsync(fileNameOf(profileId)).catch(() => undefined);
+      await discard(fileNameOf(profileId));
       db = await openDatabaseAsync(fileNameOf(profileId), { enableChangeListener: true });
       await db.execAsync(`PRAGMA key = "x'${key}'"`);
       if (!(await opensWithKey(db))) {
@@ -329,6 +368,12 @@ export async function database(profileId: string): Promise<SQLiteDatabase | null
       handle = { profileId, db };
       return db;
     } catch (error) {
+      // Anything that throws past the key check — a migration against a file
+      // that turned out to be unreadable after all, a disk with no room — is
+      // the same fact to the reader: there is no local library this launch.
+      // Recording it is what puts the error screen in front of them instead of
+      // an empty one. See `use-library-status.ts`.
+      fault = fault ?? 'unreadable';
       log.error(SCOPE, 'could not open the local library');
       log.debug(SCOPE, 'open failed', error);
       return null;
