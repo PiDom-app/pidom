@@ -274,7 +274,18 @@ function State({ share, onDevice }: { share: LibraryShare; onDevice: boolean }) 
       </Notice>
     );
   }
+  // A pending share reads two completely different ways depending on which end
+  // of it you are. This screen used to render only the recipient's.
   if (share.status === 'pending') {
+    if (share.direction === 'outgoing') {
+      return (
+        <Notice glyph={Clock}>
+          {share.counterpartName ?? 'They'} have not answered yet. Nothing has been downloaded and
+          nothing has been opened — until they accept, all Pidom has told them is the title and who
+          sent it.
+        </Notice>
+      );
+    }
     return share.message === null ? (
       <Notice glyph={Clock}>
         Nothing is downloaded until you accept. Until then all Pidom has told you is the title and
@@ -346,6 +357,17 @@ function Actions({
         </Progress>
       </VStack>
     );
+  }
+
+  // **Only the recipient can answer**, and only the recipient is offered the
+  // buttons. They used to be drawn from `status === 'pending'` alone, which is
+  // true of a share the *sender* is looking at too — their own outgoing offer
+  // is pending until the other person answers it. So Share, open Sent, tap
+  // Accept, and the account refused it with `FORBIDDEN` from
+  // `requireAddressed`, correctly: nobody may accept on somebody else's behalf.
+  // The refusal was right and the button should never have been there.
+  if (share.status === 'pending' && share.direction === 'outgoing') {
+    return null;
   }
 
   if (share.status === 'pending') {

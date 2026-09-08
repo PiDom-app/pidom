@@ -55,11 +55,23 @@ export function usePushNotifications(): void {
     let live = true;
 
     void (async () => {
-      if ((await permissionStatus()) !== 'granted') {
+      // Both of the ways this gives up used to be silent, which is why a
+      // handset that never registered could only ever be diagnosed by the
+      // settings screen saying it had not. Neither line carries a token.
+      const permission = await permissionStatus();
+      if (permission !== 'granted') {
+        log.error(SCOPE, `not registering: notifications are ${permission}`);
         return;
       }
       const outcome = await register();
-      if (!live || outcome.kind !== 'token') {
+      if (!live) {
+        return;
+      }
+      if (outcome.kind !== 'token') {
+        log.error(
+          SCOPE,
+          `not registering: ${outcome.kind === 'denied' ? 'permission denied' : outcome.reason}`,
+        );
         return;
       }
       try {
@@ -76,8 +88,12 @@ export function usePushNotifications(): void {
         );
         registered.current = true;
       } catch (error) {
-        // Never fatal. A device that could not register still reads its inbox.
-        log.debug(SCOPE, 'could not register this device', error);
+        // Never fatal — a device that could not register still reads its inbox
+        // — but not silent either. This was `debug`, which is compiled out of a
+        // production bundle, so a handset that never managed to register said
+        // nothing anywhere and the settings screen could only report the
+        // symptom. The message is a failure reason, never the token.
+        log.error(SCOPE, 'could not register this device for notifications', error);
       }
     })();
 
