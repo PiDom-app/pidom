@@ -111,6 +111,17 @@ function fileNameOf(profileId: string): string {
   return `pidom-${profileId}.db`;
 }
 
+/**
+ * Where `adoptPlaintext` builds the encrypted copy before it swaps it in.
+ *
+ * Named here rather than inside that function because `resumeInterrupted`
+ * needs it too: if the process died between the delete and the move, this file
+ * is the entire library and the one next to it is a stub.
+ */
+function workingNameOf(profileId: string): string {
+  return `pidom-${profileId}.encrypting.db`;
+}
+
 function pathOf(name: string): string {
   return `${String(defaultDatabaseDirectory)}/${name}`;
 }
@@ -160,6 +171,33 @@ async function opensWithKey(db: SQLiteDatabase): Promise<boolean> {
 }
 
 /**
+ * Sets the key and proves it opens the file, in one answer.
+ *
+ * **Setting the key can itself throw**, and that is the half the first fix
+ * missed. `PRAGMA key` is documented as not *reporting* a wrong key, which is
+ * not the same as never failing: against a file that is not a database at all —
+ * truncated, zero bytes, or the tail of an interrupted write — expo-sqlite
+ * rejects the `execAsync` outright with `file is not a database`. That throw
+ * escaped past both recovery paths below and out to the caller, so the one code
+ * that could have repaired the file never ran and every launch failed the same
+ * way, for ever.
+ *
+ * Both failures mean the same thing to the caller — this connection cannot read
+ * this file — so both are `false` and the recovery path decides what to do
+ * about it.
+ */
+async function keyed(db: SQLiteDatabase, key: string): Promise<boolean> {
+  try {
+    // `RAW_KEY` has already proved the interpolation is 64 hex characters and
+    // nothing else.
+    await db.execAsync(`PRAGMA key = "x'${key}'"`);
+  } catch {
+    return false;
+  }
+  return await opensWithKey(db);
+}
+
+/**
  * Encrypts a database an earlier build left in the clear.
  *
  * This is not hypothetical and not a one-device problem: `useSQLCipher` was in
@@ -180,7 +218,7 @@ async function opensWithKey(db: SQLiteDatabase): Promise<boolean> {
  */
 async function adoptPlaintext(profileId: string, key: string): Promise<boolean> {
   const name = fileNameOf(profileId);
-  const workingName = `pidom-${profileId}.encrypting.db`;
+  const workingName = workingNameOf(profileId);
   const workingPath = pathOf(workingName);
 
   // Anything left by an interrupted attempt. Its contents are a partial copy of
@@ -190,7 +228,9 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
   let plain: SQLiteDatabase | null = null;
   try {
     // Opened with no key: if `sqlite_master` reads, the file really is
-    // plaintext rather than encrypted with a key nobody has.
+    // plaintext rather than encrypted with a key nobody has — or not a
+    // database at all, which reads the same way here and is handled the same
+    // way by the caller.
     plain = await openDatabaseAsync(name);
     if (!(await opensWithKey(plain))) {
       return false;
@@ -254,12 +294,77 @@ async function discard(name: string): Promise<void> {
   }
 }
 
+/**
+ * Finishes an encryption that was interrupted between the delete and the move.
+ *
+ * `adoptPlaintext` builds the encrypted copy beside the original, deletes the
+ * original, and then moves the copy into its place. Its own comment claims a
+ * process killed mid-migration "leaves the old file intact and tries again next
+ * launch", and that is only true of a kill *before* the delete. A kill in the
+ * window after it leaves the opposite: a stub where the database should be, and
+ * the entire library sitting in the working file next to it.
+ *
+ * On a real device that window was not theoretical. It produced a 4 KB
+ * `pidom-<id>.db` and a 2 MB `pidom-<id>.encrypting.db`, and every launch after
+ * it failed — because the recovery path read the stub, could not key it, and
+ * would have gone on to treat the *stub* as the thing worth keeping and delete
+ * the working file as debris. The data was one `move` away the whole time.
+ *
+ * So this runs first, and it is deliberately narrow: adopt the working file
+ * only when it opens with this device's key. A working file that does not is a
+ * partial export of a database that no longer exists, which is worth nothing,
+ * and it is cleared so the next attempt starts from a clean directory.
+ */
+async function resumeInterrupted(profileId: string, key: string): Promise<boolean> {
+  const workingName = workingNameOf(profileId);
+  const workingPath = pathOf(workingName);
+
+  try {
+    if (!new File(workingPath).exists) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  let working: SQLiteDatabase | null = null;
+  try {
+    working = await openDatabaseAsync(workingName);
+    const complete = await keyed(working, key);
+    await working.closeAsync();
+    working = null;
+
+    if (!complete) {
+      log.warn(SCOPE, 'discarding a partial copy left by an interrupted encryption');
+      await discard(workingName);
+      return false;
+    }
+
+    log.warn(SCOPE, 'finishing an encryption that was interrupted; the library is in the copy');
+    await discard(fileNameOf(profileId));
+    new File(workingPath).move(
+      new File(new Directory(String(defaultDatabaseDirectory)), fileNameOf(profileId)),
+    );
+    return true;
+  } catch (error) {
+    log.error(SCOPE, 'could not finish an interrupted encryption');
+    log.debug(SCOPE, 'resume failed', error);
+    return false;
+  } finally {
+    await working?.closeAsync().catch(() => undefined);
+  }
+}
+
 async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
   const key = await keyFor(profileId);
   if (key === null) {
     fault = 'no-keychain';
     return null;
   }
+
+  // Before the database is opened at all, because if this fires the file that
+  // is about to be opened is the wrong one.
+  await resumeInterrupted(profileId, key);
 
   // `enableChangeListener` is what makes the database reactive: every write
   // raises an event naming the table it touched, and `use-local-query.ts` turns
@@ -286,11 +391,8 @@ async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
     return null;
   }
 
-  // `PRAGMA key` must be the first statement that touches the file. `RAW_KEY`
-  // has already proved the interpolation is 64 hex characters and nothing else.
-  await db.execAsync(`PRAGMA key = "x'${key}'"`);
-
-  if (!(await opensWithKey(db))) {
+  // `PRAGMA key` must be the first statement that touches the file.
+  if (!(await keyed(db, key))) {
     // Either a plaintext database from the build this fix replaces, or a file
     // this key can no longer open. The first is recoverable and common; the
     // second leaves nothing to recover, and the library is rebuilt from the
@@ -299,8 +401,7 @@ async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
 
     if (await adoptPlaintext(profileId, key)) {
       db = await openDatabaseAsync(fileNameOf(profileId), { enableChangeListener: true });
-      await db.execAsync(`PRAGMA key = "x'${key}'"`);
-      if (!(await opensWithKey(db))) {
+      if (!(await keyed(db, key))) {
         await db.closeAsync().catch(() => undefined);
         fault = 'unreadable';
         log.error(SCOPE, 'the local library did not open after being encrypted');
@@ -310,10 +411,10 @@ async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
       log.error(SCOPE, 'the local library cannot be opened with this device s key; starting over');
       await discard(fileNameOf(profileId));
       db = await openDatabaseAsync(fileNameOf(profileId), { enableChangeListener: true });
-      await db.execAsync(`PRAGMA key = "x'${key}'"`);
-      if (!(await opensWithKey(db))) {
+      if (!(await keyed(db, key))) {
         await db.closeAsync().catch(() => undefined);
         fault = 'unreadable';
+        log.error(SCOPE, 'a fresh local library could not be created on this device');
         return null;
       }
     }

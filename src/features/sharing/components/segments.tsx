@@ -248,8 +248,8 @@ export function ListSkeleton({
 /**
  * A labelled run of rows, at the density the rest of the app uses.
  *
- * `pt-5 pb-1.5` rather than `pt-6 pb-2`, and the callers' dividers drop their
- * `mt-4` to `mt-3`. It sounds like fiddling and it is not: those three values
+ * `pt-4 pb-1.5` rather than `pt-6 pb-2`, and the callers' dividers drop their
+ * `mt-4` to `mt-2` — the rows above them already carry `py-3` of their own. It sounds like fiddling and it is not: those three values
  * are added together at every section boundary, and at the old numbers a
  * settings screen spent 40dp between one row and the next heading. The
  * reference is `search-inside-screen.tsx`, whose results are `py-3.5` rows
@@ -262,7 +262,7 @@ export function ListSkeleton({
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <VStack>
-      <Text size="xs" className="px-6 pt-5 pb-1.5 uppercase tracking-wider text-fg-subtle">
+      <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
         {title}
       </Text>
       {children}

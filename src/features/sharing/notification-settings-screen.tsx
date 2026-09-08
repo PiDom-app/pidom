@@ -201,7 +201,7 @@ export function NotificationSettingsScreen() {
           />
         </Section>
 
-        <Divider className="mt-3 bg-hairline" />
+        <Divider className="mt-2 bg-hairline" />
 
         <Section title="Quiet hours">
           <Toggle
@@ -242,7 +242,7 @@ export function NotificationSettingsScreen() {
 
         {devices === undefined || devices.length === 0 ? null : (
           <>
-            <Divider className="mt-3 bg-hairline" />
+            <Divider className="mt-2 bg-hairline" />
             {/* Per device, because "notify me" is not one answer: a tablet on
                 a shelf and a phone in a pocket are different questions, and
                 muting the shelf should not mute the pocket. */}

@@ -49,16 +49,17 @@ import { ThemeControl } from './theme-control';
  * because that is the densest list in the app and nobody has ever called it
  * cramped: rows at `py-3.5` separated by a hairline, and nothing else between
  * them. A heading needs air above it and almost none below — it belongs to the
- * rows under it, not to the divider over it — so the label carries `pt-5 pb-1.5`
- * and the group closes with `pb-3` before the next rule.
+ * rows under it, not to the divider over it — so the label carries `pt-4 pb-1.5`
+ * and the group closes with `pb-1`, the rows' own `py-3` being most of the gap
+ * before the next rule already.
  */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <VStack>
-      <Text size="xs" className="pt-5 pb-1.5 uppercase tracking-wider text-fg-subtle">
+      <Text size="xs" className="pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
         {title}
       </Text>
-      <VStack className="pb-3">{children}</VStack>
+      <VStack className="pb-1">{children}</VStack>
     </VStack>
   );
 }
