@@ -655,6 +655,46 @@ empty room id instead — which is what the first version did — meant a refuse
 mutation every ten seconds per synced document, each one spending a token from
 the presence bucket before being refused.
 
+### Push degrades instead of crashing
+
+`expo-notifications` touches its native counterparts as it evaluates, so on a
+build that has not linked them — Expo Go on Android since SDK 53 dropped remote
+push — a plain `import` throws `Cannot find native module
+'ExpoPushTokenManager'` before any of Pidom's own code runs. That import was
+reached from `(app)/_layout.tsx`, so the authenticated layout never evaluated
+and expo-router was left with a route module that was `undefined`: the second
+error was always `Cannot read property 'ErrorBoundary' of undefined`. One
+missing native module took the entire signed-in half of the app down.
+
+`features/notifications/native.ts` requires it lazily, once, behind a `try`,
+and caches the refusal. Every consumer goes through it — the handler, the
+registration, the tap listeners — and each becomes a no-op when it is absent.
+Everything downstream already had an "unconfigured" path; this makes that path
+reachable rather than fatal. Shares still arrive, the inbox fills, the activity
+feed works. Only the lock screen is quiet, and the settings screen says so in
+those words rather than claiming the device merely is not registered.
+
+The type import stays, and is erased at compile time, so call sites are fully
+typed and cost nothing at runtime. Metro still bundles the module: a literal
+`require` is statically analysed, so a development build that *does* have the
+native module gets the real thing.
+
+### The Expo access token is set and not yet reachable
+
+`@convex-dev/expo-push-notifications` 0.3.1 documents forwarding
+`EXPO_ACCESS_TOKEN` through `app.use`, and does not implement it. The published
+component is `defineComponent("pushNotifications")` with no env vars declared,
+and its send posts to `exp.host/--/api/v2/push/send` with `Accept`,
+`Accept-encoding` and `Content-Type` and no `Authorization` header. Passing the
+variable is refused at push time: *Component [pushNotifications] has no env var
+named EXPO_ACCESS_TOKEN*.
+
+The token is therefore set on the deployment (`npx convex env set
+EXPO_ACCESS_TOKEN`) and never written into this repository, ready for the
+version that reads it. Until then **enhanced push security must be off on the
+Expo project**, or every send is rejected before it leaves — which the receipt
+poll records as `failed` deliveries rather than losing silently.
+
 ### The account, and leaving it
 
 `convex/account.ts` is the deletion cascade: a public mutation that tombstones

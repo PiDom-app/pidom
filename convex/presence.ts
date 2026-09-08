@@ -183,6 +183,18 @@ export const heartbeat = mutation({
  * No screen calls it. `usePresence` does: the hook's `PresenceAPI` requires
  * `list` and holds the room token privately, which is why `inRoom` below exists
  * alongside it for the face row, taking a room id and running the check itself.
+ *
+ * **No `requireUser` here, deliberately.** It used to have one, and it bought
+ * nothing: a room token is minted by `heartbeat`, which already ran the access
+ * check, and it cannot be constructed — so anybody holding one has passed the
+ * door. What it cost was the component's shared query cache. The component's
+ * own guidance is not to add per-user reads to this function, because a read of
+ * the caller's `users` row gives every subscriber a distinct cache entry and
+ * re-runs their presence subscription every time that row moves — and
+ * `ensureProfile` moves `lastSeenAt` on every launch.
+ *
+ * What comes back is opaque anyway: ids and booleans, no names and no
+ * pictures. `inRoom` is the one that resolves those, and it keeps its check.
  */
 export const list = query({
   args: { roomToken: v.string() },
@@ -194,7 +206,6 @@ export const list = query({
     }),
   ),
   handler: async (ctx, args) => {
-    await requireUser(ctx);
     const state = await presence.list(ctx, args.roomToken);
     return state.map((entry) => ({
       userId: entry.userId,

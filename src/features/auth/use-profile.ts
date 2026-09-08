@@ -54,12 +54,22 @@ export function useProfile(): ProfileState {
 
   // Written back so the next cold launch has a profile id before it has a
   // network. `useProfile` is mounted in several places at once, so this is
-  // idempotent by being a merge of the same two values.
+  // idempotent by being a merge of the same values.
+  //
+  // The name and photo go too, and they are the account's answers rather than
+  // Google's: a reader who has chosen a display name or turned their photo off
+  // should see that decision on the next offline launch, not the claim it
+  // replaced.
   useEffect(() => {
     if (live === undefined || live === null) {
       return;
     }
-    void rememberAccount({ profileId: live.id, createdAt: live.createdAt });
+    void rememberAccount({
+      profileId: live.id,
+      createdAt: live.createdAt,
+      name: live.name,
+      photoUrl: live.pictureUrl,
+    });
   }, [live]);
 
   return useMemo(() => {
@@ -127,10 +137,13 @@ export function useEnsureProfile(): void {
      * `lastSeenAt` were frozen at whatever the token said on the day the
      * account was created.
      *
-     * That is invisible to the reader themselves, because the header and the
-     * account screen prefer the Google session's own copy. It is not invisible
-     * to anybody else: they read the `users` row, so a changed avatar became a
-     * URL that eventually 404s on every other person's screen.
+     * That was invisible to the reader themselves, because the header and the
+     * account screen used to prefer the Google session's own copy for
+     * everything. It was not invisible to anybody else: they read the `users`
+     * row, so a changed avatar became a URL that eventually 404s on every other
+     * person's screen. The photo now comes from the account wherever the
+     * account has answered, because that is the half that knows whether the
+     * reader has hidden it.
      *
      * `undefined` still means the query has not answered yet, and there is no
      * reason to write before knowing whether there is a row.

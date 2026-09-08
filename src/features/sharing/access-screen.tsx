@@ -197,10 +197,11 @@ export function AccessScreen() {
               <PersonRow
                 name="You"
                 detail="Owner"
-                // The reader's own face, from the Google session rather than
-                // the `users` row: the session's copy is refreshed on every
-                // launch and is the one the library header already draws.
-                pictureUrl={me?.photoUrl ?? profile?.pictureUrl ?? null}
+                // The account's answer when it has one, and the session's
+                // only until then. The account is the half that knows the
+                // photo has been turned off, and this row sits in a list of
+                // what other people can see.
+                pictureUrl={profile === null ? me?.photoUrl ?? null : profile.pictureUrl}
                 trailing={<Tag label="Owner" />}
                 online
               />

@@ -1,4 +1,6 @@
-import * as Notifications from 'expo-notifications';
+import type * as Notifications from 'expo-notifications';
+
+import { notifications } from './native';
 
 /**
  * What happens when one arrives while the app is open.
@@ -7,6 +9,10 @@ import * as Notifications from 'expo-notifications';
  * globally rather than per screen — a handler set in a component is a handler
  * that exists only while that component is mounted.
  *
+ * Through `notifications()` rather than a bare import: a build without the
+ * native module throws on the import itself, and this file is reached from the
+ * authenticated layout. See `./native.ts`.
+ *
  * A banner and a list entry, no sound and no badge. The sound belongs to the
  * operating system's own decision when the app is closed; playing one over a
  * reader who is looking at the screen is telling them something they can see.
@@ -14,7 +20,7 @@ import * as Notifications from 'expo-notifications';
  * `shouldShowBanner` and `shouldShowList` are the current fields —
  * `shouldShowAlert` was the old single flag and is gone.
  */
-Notifications.setNotificationHandler({
+notifications()?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,

@@ -75,9 +75,13 @@ export function AccountScreen() {
   // Google's copy is available the instant the sheet closes; the Convex row
   // arrives a round trip later. Preferring the local one keeps the header from
   // flashing a skeleton for data the app already has.
-  const name = account?.name ?? profile?.name ?? null;
+  const name = profile?.name ?? account?.name ?? null;
   const email = account?.email ?? profile?.email ?? null;
-  const photo = account?.photoUrl ?? profile?.pictureUrl ?? null;
+  // The photo is the exception to that order. `profile.pictureUrl` is already
+  // `null` when the reader has turned their photo off, and the session's copy
+  // knows nothing about that — so preferring the session here would show
+  // somebody the face they have just hidden from everybody else.
+  const photo = profile === null ? account?.photoUrl ?? null : profile.pictureUrl;
 
   return (
     <Screen>

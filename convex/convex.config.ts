@@ -39,6 +39,23 @@ import workpool from '@convex-dev/workpool/convex.config.js';
  * with it is the **device's**, not the account's. The class is generic over a
  * plain string for exactly this. See `./push.ts`.
  *
+ * **It cannot yet be given an Expo access token, and that is the component's
+ * limitation rather than a decision here.** Its README documents forwarding
+ * `EXPO_ACCESS_TOKEN` through `app.use`, but the published 0.3.1 declares no
+ * env vars at all — `defineComponent("pushNotifications")` and nothing else —
+ * and `component/internal.ts` posts to `exp.host/--/api/v2/push/send` with
+ * `Accept`, `Accept-encoding` and `Content-Type` and no `Authorization` header.
+ * Passing the variable is refused at push time with "Component
+ * [pushNotifications] has no env var named EXPO_ACCESS_TOKEN", which is the
+ * honest answer.
+ *
+ * The token is set on the deployment (`npx convex env set EXPO_ACCESS_TOKEN`)
+ * and never written into this repository, so the day the component ships
+ * support the wiring is one line. Until then **enhanced push security has to be
+ * off on the Expo project**, or every send is rejected before it leaves. The
+ * receipt poll below is what would notice: rejected sends are recorded as
+ * `failed` deliveries rather than disappearing.
+ *
  * What did *not* come with it is receipts: the component reads the immediate
  * ticket from `/push/send`, treats only `MessageRateExceeded` as retryable, and
  * never calls `getReceipts` — so nothing in it ever retires a dead token. That

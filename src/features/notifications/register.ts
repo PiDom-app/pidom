@@ -1,9 +1,10 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { log } from '@/lib/logger';
+
+import { notifications } from './native';
 
 const SCOPE = 'notifications';
 
@@ -13,6 +14,10 @@ const SCOPE = 'notifications';
  * Four things have to be true before a token exists, and each of them fails in
  * a way worth naming rather than swallowing:
  *
+ * - **The module has to exist.** `expo-notifications` throws as it evaluates on
+ *   a build that has not linked it — Expo Go on Android since SDK 53 dropped
+ *   remote push — so it is reached through `notifications()`, which returns
+ *   `null` there instead of taking the app down with it.
  * - **It has to be a real device.** A simulator has no push service to
  *   register with, and Expo's own docs say so.
  * - **There has to be an EAS project id.** `getExpoPushTokenAsync` needs one to
@@ -40,21 +45,32 @@ export type Registration =
 export const CHANNEL_ID = 'shares';
 
 export async function ensureAndroidChannel(): Promise<void> {
-  if (Platform.OS !== 'android') {
+  const api = notifications();
+  if (Platform.OS !== 'android' || api === null) {
     return;
   }
-  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+  await api.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Shared documents',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: api.AndroidImportance.DEFAULT,
     // No custom vibration or light: this is somebody being told a PDF arrived,
     // not an alarm.
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+    lockscreenVisibility: api.AndroidNotificationVisibility.PRIVATE,
   });
 }
 
-/** Whether the reader has already answered, without asking them again. */
+/**
+ * Whether the reader has already answered, without asking them again.
+ *
+ * A build with no module has no answer to give and reports `undetermined`
+ * rather than `denied`: nobody has refused anything, and the settings screen
+ * says which of the two it is in its own words.
+ */
 export async function permissionStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
-  const { status } = await Notifications.getPermissionsAsync();
+  const api = notifications();
+  if (api === null) {
+    return 'undetermined';
+  }
+  const { status } = await api.getPermissionsAsync();
   return status;
 }
 
@@ -67,17 +83,21 @@ export async function permissionStatus(): Promise<'granted' | 'denied' | 'undete
  * unable to notify anybody.
  */
 export async function register(): Promise<Registration> {
+  const api = notifications();
+  if (api === null) {
+    return { kind: 'unconfigured', reason: 'this build has no notifications module' };
+  }
   if (!Device.isDevice) {
     return { kind: 'unconfigured', reason: 'push notifications need a physical device' };
   }
 
   await ensureAndroidChannel();
 
-  const existing = await Notifications.getPermissionsAsync();
+  const existing = await api.getPermissionsAsync();
   const decided =
     existing.status === 'granted'
       ? existing
-      : await Notifications.requestPermissionsAsync({
+      : await api.requestPermissionsAsync({
           ios: { allowAlert: true, allowBadge: true, allowSound: true },
         });
 
@@ -101,7 +121,7 @@ export async function register(): Promise<Registration> {
   }
 
   try {
-    const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
+    const { data } = await api.getExpoPushTokenAsync({ projectId });
     return {
       kind: 'token',
       token: data,

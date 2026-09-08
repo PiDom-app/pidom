@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useMutation } from 'convex/react';
@@ -10,6 +9,7 @@ import { log } from '@/lib/logger';
 import { useDeviceStore } from '@/stores/device-store';
 
 import { shareIdOf } from './handler';
+import { notifications } from './native';
 import { permissionStatus, register } from './register';
 
 const SCOPE = 'notifications';
@@ -33,6 +33,13 @@ const SCOPE = 'notifications';
  * The payload carries `{ kind, shareId }` and nothing else — no title, no
  * message — so the deep link is the whole of what a notification communicates
  * before the reader has been authenticated and checked.
+ *
+ * **Nothing here imports `expo-notifications` directly.** It throws as it
+ * evaluates on a build without the native module, and this hook is mounted by
+ * the authenticated layout — so the import took the entire signed-in half of
+ * the app down with it, layout and all. `notifications()` returns `null`
+ * instead, both effects below become no-ops, and everything that does not need
+ * a lock screen carries on working.
  */
 export function usePushNotifications(): void {
   const router = useRouter();
@@ -81,7 +88,11 @@ export function usePushNotifications(): void {
 
   // A tap while the app is running.
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const api = notifications();
+    if (api === null) {
+      return;
+    }
+    const subscription = api.addNotificationResponseReceivedListener((response) => {
       const shareId = shareIdOf(response);
       router.push(
         shareId === null ? { pathname: '/shared' } : { pathname: '/share-detail', params: { id: shareId } },
@@ -93,11 +104,12 @@ export function usePushNotifications(): void {
   // A tap that launched the app. Reported only here, and only once.
   const opened = useRef(false);
   useEffect(() => {
-    if (!ready || opened.current) {
+    const api = notifications();
+    if (!ready || opened.current || api === null) {
       return;
     }
     opened.current = true;
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
+    void api.getLastNotificationResponseAsync().then((response) => {
       if (response === null) {
         return;
       }

@@ -23,6 +23,7 @@ import Constants from 'expo-constants';
 import { ConfirmDialog } from './components/confirm-dialog';
 import { ListSkeleton, Notice, ScreenHeader, Section } from './components/segments';
 import { formatMinute, TimeSheet } from './components/time-sheet';
+import { pushAvailable } from '@/features/notifications/native';
 import { permissionStatus, register } from '@/features/notifications/register';
 import { useDeviceStore } from '@/stores/device-store';
 
@@ -127,6 +128,9 @@ export function NotificationSettingsScreen() {
 
   const { notifications } = settings;
   const registeredHere = (devices ?? []).length > 0;
+  // A build with no native module cannot ever mint a token, so offering the
+  // permission prompt would be offering a button that does nothing.
+  const canPush = pushAvailable();
   const quietOn = notifications.quietStartMinute !== undefined;
   const quietStart = notifications.quietStartMinute ?? 22 * 60;
   const quietEnd = notifications.quietEndMinute ?? 7 * 60;
@@ -142,7 +146,7 @@ export function NotificationSettingsScreen() {
       <Divider className="bg-hairline" />
 
       <ScrollView contentContainerStyle={CONTENT}>
-        {permission === 'granted' || permission === null ? null : (
+        {permission === 'granted' || permission === null || !canPush ? null : (
           <VStack className="px-6 pt-4" space="sm">
             <Text size="md" className="font-semibold text-foreground">
               Know when somebody answers
@@ -288,7 +292,17 @@ export function NotificationSettingsScreen() {
           a locked screen, and the rest is behind a query that checks you are allowed to read it.
         </Notice>
 
-        {registeredHere ? null : (
+        {/* Two different facts, and saying the wrong one is worse than saying
+            nothing: a build that cannot notify is not a device that has not
+            been registered, and the reader can do something about only one of
+            them. */}
+        {!canPush ? (
+          <Notice glyph={Inbox}>
+            This build cannot receive notifications — remote push needs a development build
+            rather than Expo Go. Shares still arrive in the app, and everything on this screen
+            is remembered for a build that can.
+          </Notice>
+        ) : registeredHere ? null : (
           <Notice glyph={Inbox}>
             This device is not registered for notifications, so shares arrive in the app rather
             than on the lock screen. Everything else works exactly the same.
