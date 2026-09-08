@@ -89,7 +89,10 @@ export function AccessScreen() {
   } | null>(null);
 
   // Anybody with a grant can be in the room, so the two lists line up.
-  const watchers = useDocumentPresence(remoteId, shares !== undefined && shares.length > 0);
+  const { people: watchers, beat } = useDocumentPresence(
+    remoteId,
+    shares !== undefined && shares.length > 0,
+  );
   const onlineIds = useMemo(
     () => new Set(watchers.map((person) => person.id)),
     [watchers],
@@ -162,6 +165,7 @@ export function AccessScreen() {
         onBack={() => router.back()}
       />
       <Divider className="bg-hairline" />
+      {beat}
 
       <ScrollView contentContainerStyle={CONTENT}>
         <HStack className="items-center px-6 py-3.5" space="md">

@@ -38,8 +38,24 @@ export const SHARING_DEFAULTS: SharingSettings = {
   defaultCanDownload: false,
   defaultCanReshare: false,
   showOnlineStatus: true,
-  /** Off. Nobody sees which page somebody is on; presence says here, not where. */
-  showReadingActivity: false,
+  /**
+   * On, and it is narrower than it sounds.
+   *
+   * It governs one thing: whether being in a document right now shows to the
+   * people that document is already shared with. Never which page — presence
+   * says here, not where, and there is no page number anywhere in what the
+   * component stores. The audience is not the deployment either; it is the
+   * handful of accounts who can already open the file.
+   *
+   * It was `false` while it governed nothing, which read as caution and was
+   * not: a switch wired to no behaviour is not a protection. Now that
+   * `presence.heartbeat` actually checks it, `false` would mean the dot beside
+   * a name on Manage access never lights for anybody — a feature turned off by
+   * a default rather than by a decision. Somebody who wants to read unobserved
+   * turns it off, and `showOnlineStatus` still governs the wider question of
+   * appearing anywhere at all.
+   */
+  showReadingActivity: true,
   allowGroupInvites: true,
 };
 

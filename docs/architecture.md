@@ -648,11 +648,46 @@ deployment-wide worker rather than by every client polling. There is no
 know that and a number invented to fill the space is a number somebody would
 believe.
 
+The hook has no disabled state, so the heartbeat is *mounted* rather than
+skipped: `use-document-presence.tsx` returns a `beat` node that the reader and
+the Access screen render, and it is `null` when there is no room. Passing an
+empty room id instead — which is what the first version did — meant a refused
+mutation every ten seconds per synced document, each one spending a token from
+the presence bucket before being refused.
+
+### The account, and leaving it
+
+`convex/account.ts` is the deletion cascade: a public mutation that tombstones
+the account's `subject` so its token stops matching immediately, then a chain of
+bounded internal mutations — documents, collections, notes written on other
+people's documents, shares received, shares created, memberships, owned groups,
+events, devices, settings — each rescheduling itself while its phase has more to
+do. Documents go through the existing `Library.removeDocument`, so the R2
+objects and page text go with them.
+
+`users.updateProfile` is the only other account write, and it sets two flags
+rather than columns: `nameIsCustom`, so `upsertFromIdentity` stops replacing an
+edited name with the Google claim on the next launch, and `photoHidden`, read by
+`photoOf` at both projections.
+
+### Settings, and where each one lives
+
+Three places, and the split is by what the setting is about rather than by
+convenience. **The account** holds what describes the reader —
+`sharingSettings` and `notificationSettings`, which should follow them to a new
+phone. **`deviceTokens`** holds per-device notification state, because muting a
+tablet is not muting a phone; the row is addressed by id, never by its push
+token, which never comes back out of the account. **`preferences-store.ts`**
+holds what describes this handset — Wi-Fi-only downloads — in AsyncStorage,
+because syncing one device's answer about its data plan to another device is
+applying it to a question that device never asked.
+
 ## Layout
 
 ```
 convex/          schema, OIDC config, and the public function surface
-  convex.config.ts  R2, Workflow, Workpool, Rate Limiter
+  convex.config.ts  R2, Workflow, Workpool, Rate Limiter, Presence, Push
+  account.ts     deleting an account, as a chain of bounded steps
   r2.ts          the bucket, and the one function the client may call on it
   crons.ts       one nightly job, which queues four
   maintenance.ts the workpool those four run in

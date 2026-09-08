@@ -206,7 +206,7 @@ export function ReaderScreen() {
    * document is private.
    */
   const shared = useIsShared(documentId ?? null, document?.remoteId ?? null);
-  const readers = useDocumentPresence(document?.remoteId ?? null, shared);
+  const { people: readers, beat } = useDocumentPresence(document?.remoteId ?? null, shared);
 
   // The renderer hands the document's own contents back on every load; this
   // keeps them when the row has none. See the hook for why it is that narrow.
@@ -415,6 +415,11 @@ export function ReaderScreen() {
 
   return (
     <Box className="flex-1 bg-background">
+      {/* This device's own "still here", mounted only for a document somebody
+          else can see — which is what stops a heartbeat every ten seconds for
+          every private document. See `use-document-presence.tsx`. */}
+      {beat}
+
       {/* Mounted only once there is a page to open at. The row and this device's
           own record are both consulted first, so the renderer opens on the
           right page instead of opening on page 1 and jumping.

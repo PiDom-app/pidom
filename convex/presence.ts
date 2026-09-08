@@ -101,12 +101,21 @@ function refuse(): never {
  * is derived from anything the caller sent, so a token cannot be forged into a
  * room the caller was refused.
  *
- * An account with `showOnlineStatus` off is not refused — it is simply not
+ * An account that has asked not to be seen is not refused — it is simply not
  * recorded. Refusing would make the reader's own client retry forever; this way
  * they read the document, see who else is there, and are not themselves in the
  * list. The tokens still come back so the hook has something to hold, and the
  * room token still lists, because seeing others and being seen are two
- * different permissions and the setting is only about the second.
+ * different permissions and both settings are only about the second.
+ *
+ * **There are two settings, and they are not the same question.**
+ * `showOnlineStatus` is whether this account appears beside its name anywhere —
+ * a member list, a Manage access row. `showReadingActivity` is narrower and is
+ * about a *document*: whether being in a PDF right now is something other
+ * people get to see. Somebody can reasonably want the first and not the second,
+ * which is why the default for the second is off. Until now it governed nothing
+ * at all — it was a switch on a settings screen wired to no behaviour, which is
+ * worse than not offering it.
  */
 export const heartbeat = mutation({
   args: {
@@ -138,7 +147,14 @@ export const heartbeat = mutation({
     );
 
     const settings = await sharingOf(ctx, user._id);
-    if (!settings.showOnlineStatus) {
+    // A document room is the narrower question, so it takes both answers. A
+    // group room asks only the general one: being listed as a member who is
+    // around says nothing about what anybody is reading.
+    const visible =
+      settings.showOnlineStatus &&
+      (room.kind === 'group' || settings.showReadingActivity);
+
+    if (!visible) {
       // Enter, then leave. The component hands back the tokens the hook needs
       // and the room is left without this account in it — invisible rather
       // than refused, which is what the setting says.

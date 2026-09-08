@@ -93,13 +93,22 @@ The vocabulary does not change. No cards. `rounded-md` everywhere.
 `data-[active=true]:bg-hover` on every pressable. `Divider className="bg-hairline"`.
 Semantic tokens only, so no colour on any of these screens is a hex.
 
-**No `Tabs`, and no `Badge`.** gluestack ships both. This app's segmented
-control is the chip row from the navigator, built that way after a sheet's
-height moved its own control under somebody's thumb — a second one would be a
-second vocabulary for the same job. `Tag` in `components/person-row.tsx` is the
-same chip used as a role label, and the presence dot is a `Box` with `bg-ok`,
-because `AvatarBadge` carries its own colour and every colour here comes from a
-token.
+**No `Tabs`.** gluestack ships one. This app's segmented control is the chip row
+from the navigator, built that way after a sheet's height moved its own control
+under somebody's thumb — a second one would be a second vocabulary for the same
+job. `Tag` in `components/person-row.tsx` is the same chip used as a role label,
+and the presence dot is a `Box` with `bg-ok`, because `AvatarBadge` carries its
+own colour and every colour here comes from a token.
+
+**`Badge` was finally vendored**, and only once there was a number somebody has
+to act on. It carries exactly two: unanswered shares on the Shared row, and
+unread activity on the Activity row. That is the whole rule for it — the only
+filled shape on the account screen and the only number on it anybody is expected
+to do something about, which is what separates it from every other piece of
+metadata there, all of which is `text-fg-subtle` and stays that way. Vendoring
+it took the two mandatory steps this document requires: `styled` repointed to
+`../styled-shim`, and its colour classes audited (`dark:bg-destructive/60`,
+`dark:border-border/90` and `text-white` removed, `rounded-sm` to `rounded-md`).
 
 **Screens rather than sheets, with two exceptions.** Choosing a permission is
 four rows that will never be five, and a profile preview is a fixed block —
@@ -116,3 +125,36 @@ Three of the artboards exist to say something the code cannot:
   things, and a column headed **Never** listing what removing access does not
   reach.
 
+## Where content sits
+
+Three rules, written down after a round of screens broke all three.
+
+**Content starts at the top.** `Empty` opens at `pt-8` and left-aligns its body,
+because it is the first-run view of Groups and Shared and a centred block of
+text 16 units down reads as an error state rather than as a beginning. The one
+screen that had a centred hero — a 164px identity block with an explicit
+`<Box className="flex-1" />` under it — is now a left-aligned identity row over
+a scroller, which is also what fixed it clipping long titles with no way to
+reach them.
+
+**Skeletons, not spinners.** Eight screens loaded into an identical
+`flex-1 items-center justify-center` spinner. They use `ShareRowSkeleton` and
+`PersonRowSkeleton` now, modelled on `library-skeleton.tsx`: the shape of what
+is coming, in the position it will occupy, rather than a dot in the middle of
+nothing.
+
+**A long list scrolls, and a fixed footer does not.** The results on the share
+screen were a `.map()` inside a plain `VStack` and could not be reached past the
+fold; they are a `FlashList`. Anything that has to stay reachable while the body
+scrolls — the Share button, Save on the profile screen — sits under a `Divider`
+below the scroller rather than floating over it.
+
+## Picking a time without a date picker
+
+Quiet hours are two times of day, and the sheet that sets them is forty-eight
+rows in half-hour steps rather than `@react-native-community/datetimepicker`.
+That would be a dependency, two native behaviours and two sets of theming to
+fight, for a value nobody sets to 22:17. The list is both smaller and easier to
+hit than a spinner, and its height is fixed rather than fitted — forty-eight
+rows would otherwise push the sheet past the top of the screen and take the drag
+indicator with it.

@@ -940,6 +940,66 @@ describe('presence', () => {
     ).rejects.toThrow();
   });
 
+  test('showReadingActivity keeps somebody out of a document room, not a group one', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+    await sharedWith(t, owner, friend, documentId);
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    const friendId = await userIdOf(t, FRIEND);
+    await owner.mutation(api.groups.addMember, { groupId, userId: friendId });
+
+    await friend.mutation(api.settings.updateSharing, { showReadingActivity: false });
+
+    // The heartbeat is accepted either way — refusing would make the client
+    // retry forever — so what is asserted is who ends up in the room.
+    await friend.mutation(api.presence.heartbeat, {
+      roomId: `document:${documentId}`,
+      userId: friendId,
+      sessionId: 'reading',
+      interval: 10_000,
+    });
+    await friend.mutation(api.presence.heartbeat, {
+      roomId: `group:${groupId}`,
+      userId: friendId,
+      sessionId: 'grouped',
+      interval: 10_000,
+    });
+
+    const inDocument = await owner.query(api.presence.inRoom, {
+      roomId: `document:${documentId}`,
+    });
+    const inGroup = await owner.query(api.presence.inRoom, { roomId: `group:${groupId}` });
+
+    expect(inDocument.some((person) => person.id === friendId && person.online)).toBe(false);
+    // The wider setting is still on, so being a member who is around is not
+    // hidden by the narrower one.
+    expect(inGroup.some((person) => person.id === friendId && person.online)).toBe(true);
+  });
+
+  test('showOnlineStatus off hides them from both', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    const friendId = await userIdOf(t, FRIEND);
+    await owner.mutation(api.groups.addMember, { groupId, userId: friendId });
+
+    await friend.mutation(api.settings.updateSharing, { showOnlineStatus: false });
+    await friend.mutation(api.presence.heartbeat, {
+      roomId: `group:${groupId}`,
+      userId: friendId,
+      sessionId: 'grouped',
+      interval: 10_000,
+    });
+
+    const inGroup = await owner.query(api.presence.inRoom, { roomId: `group:${groupId}` });
+    expect(inGroup.some((person) => person.id === friendId && person.online)).toBe(false);
+  });
+
   test('refuses to list a room the caller has no access to', async () => {
     const t = harness();
     const owner = await signedIn(t, OWNER);

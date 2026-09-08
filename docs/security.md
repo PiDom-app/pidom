@@ -523,9 +523,32 @@ The identity comes from the verified JWT.
 
 A room name is `document:<id>` or `group:<id>` — a Convex id in a string, so
 guessable. Both `heartbeat` and `inRoom` resolve it back to a document or a
-group and run the same access check the reader does. `showOnlineStatus` off
-makes the heartbeat a no-op for that account rather than refusing it: they see
-others and are not themselves seen, which is what the setting says.
+group and run the same access check the reader does.
+
+**Two settings, two questions.** `showOnlineStatus` is whether this account
+appears beside its name anywhere at all — a member list, a Manage access row.
+`showReadingActivity` is narrower: whether being in a *document* right now is
+something the people that document is shared with get to see. A document room
+needs both; a group room needs only the first, because being a member who is
+around says nothing about what anybody is reading. Neither refuses the
+heartbeat — refusing would make the client retry forever. The account enters
+and is removed, so it sees others and is not itself seen, which is what the
+settings say.
+
+`showReadingActivity` governed nothing until this was written. It defaulted to
+`false`, which read as caution and was not: a switch wired to no behaviour is
+not a protection, and leaving it off once it *did* govern something would have
+meant the feature was disabled by a default rather than by anybody's decision.
+It defaults to `true` now, and the audience is never the deployment — it is the
+handful of accounts that can already open the file.
+
+**The heartbeat is mounted, not skipped.** `usePresence` has no disabled state:
+it fires on its interval whatever room id it is handed. The first version passed
+an empty string for a document with nobody to show it to, so every synced
+document beat a mutation every ten seconds that the server refused *after*
+spending a token from the 600-an-hour presence bucket — a reader exhausting
+their own budget doing nothing. The hook now lives in a component rendered only
+when there is a room to be in.
 
 `disconnect` is deliberately unauthenticated, and the export name cannot be
 renamed. The hook tears a session down with a bare `fetch` to `/api/mutation` at
@@ -546,3 +569,56 @@ in `remove-access-dialog.tsx` before the tap rather than discovered afterwards �
 and why the revoked state on the share detail screen says it in plain words. A
 dialog that said "remove access" and meant something narrower would be the one
 place this feature lied.
+
+### Deleting an account is a chain, not a mutation
+
+`sign-out-action.tsx` said this existed long before it did. It exists now, in
+`convex/account.ts`, and the shape is the interesting part.
+
+**It cannot be one mutation.** An account is every row somebody has written:
+documents, page text, annotations, shares in both directions, groups, events. A
+Convex mutation has a one-second budget and a read limit, and a reader with four
+thousand annotations exceeds both. The public mutation does two small things and
+schedules a chain of bounded internal mutations, each a transaction that either
+finishes its phase or reschedules itself.
+
+**The account is unreachable from the first step, not the last.** `subject` is
+the column `findUser` matches the Google token against, so it is overwritten
+with `deleted:<id>` — a value a Google `sub` cannot collide with — and the
+handle, address, name and photo go at the same moment. The reader is signed out
+of an account that no longer answers to their token while the rows behind it are
+still being removed. A half-deleted account that is still findable by strangers
+is the state this rules out.
+
+**Documents go through `Library.removeDocument`.** It already removes the
+outline, the job, the page text, the bookmarks, every annotation including other
+people's, every share on the document and both R2 objects. A second cascade
+written here would be a second thing to keep correct, and the one that got
+forgotten would be the one leaving a stranger's notes in the database.
+
+**`documentShares.by_creator` exists for this.** A reshare made by this account
+of somebody else's document is reachable by neither `by_owner_and_updated` nor
+`by_recipient_*`, so without that index deleting an account would leave grants
+behind on documents it never owned.
+
+**The cascade takes a user id and so it is `internalMutation`.** That argument
+shape is exactly what must never be reachable from a client; the public
+`deleteAccount` takes no arguments at all and deletes whoever is calling.
+
+### The profile has no photo URL field
+
+An account can set a display name and can turn its Google photo off. It cannot
+supply a photo URL, and the omission is deliberate: a string the reader supplies
+and this deployment then renders on *other people's* screens is a tracking pixel
+with a profile around it — whoever controls that host learns the address and the
+moment of everyone who opens a screen the reader appears on. It also buys
+nothing, because the photo people expect is the one on the account they signed
+in with.
+
+Hiding is a decision made at the projection rather than by clearing the column.
+`pictureUrl` keeps holding Google's claim, because the claim is re-read on every
+sign-in and a cleared field would come straight back on the next launch;
+`photoOf` is what both `toPublicProfile` functions call, so one flag covers
+every screen anybody sees them on. `nameIsCustom` does the same job for the
+name, and without it a reader's edit would silently disappear at the next
+launch.
