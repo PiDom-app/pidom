@@ -51,28 +51,30 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 const queues = new WeakMap<SQLiteDatabase, Promise<unknown>>();
 
 /**
- * Whether a transaction is already open on this connection.
+ * **There is deliberately no "am I already inside one?" shortcut.**
  *
- * A task that calls `inTransaction` again joins the one it is already inside
- * rather than opening a second. Without this a nested call would wait on a
- * queue that cannot advance until it returns, which is a deadlock — a worse
- * failure than the error it replaced, and silent.
+ * A first version kept a flag per connection and let a call made while it was
+ * set run inline, to stop a nested call deadlocking on a queue that could not
+ * advance until it returned. That flag cannot tell a *nested* call from a
+ * *concurrent* one — both see the same connection with a transaction open — so
+ * the second of two independent writers joined the first's transaction and
+ * interleaved with it. The symptom was `UNIQUE constraint failed:
+ * groupMembersLocal.groupId, groupMembersLocal.userId`: one caller's DELETE and
+ * the other's INSERT, inside one transaction, in the wrong order.
+ *
+ * JavaScript has no way to ask which async call is the caller, so the flag
+ * cannot be made correct. Everything queues instead, and the rule that replaces
+ * it is a rule about call sites: **a task must not call `inTransaction` again.**
+ * Nothing in this codebase does — every repository function that opens one is
+ * called from the top of a pass, never from inside another.
  */
-const open = new WeakSet<SQLiteDatabase>();
-
 export async function inTransaction(
   db: SQLiteDatabase,
   task: (txn: SQLiteDatabase) => Promise<void>,
 ): Promise<void> {
-  if (open.has(db)) {
-    await task(db);
-    return;
-  }
-
   const previous = queues.get(db) ?? Promise.resolve();
   const run = previous.then(async () => {
     await db.execAsync('BEGIN IMMEDIATE');
-    open.add(db);
     try {
       await task(db);
       await db.execAsync('COMMIT');
@@ -81,8 +83,6 @@ export async function inTransaction(
       // no-op and the original failure is the one worth reporting.
       await db.execAsync('ROLLBACK').catch(() => undefined);
       throw error;
-    } finally {
-      open.delete(db);
     }
   });
 

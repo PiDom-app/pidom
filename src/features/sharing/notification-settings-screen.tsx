@@ -52,6 +52,7 @@ export function NotificationSettingsScreen() {
   const registerDevice = useMutation(api.notifications.registerDevice);
   const setDeviceEnabled = useMutation(api.notifications.setDeviceEnabled);
   const forgetDevice = useMutation(api.notifications.forgetDevice);
+  const sendTest = useMutation(api.notifications.sendTest);
   const showToast = useAppToast();
 
   const thisDevice = useDeviceStore((state) => state.deviceId);
@@ -291,6 +292,34 @@ export function NotificationSettingsScreen() {
           A notification says a PDF was shared with you and who by. Never the title — it renders on
           a locked screen, and the rest is behind a query that checks you are allowed to read it.
         </Notice>
+
+        {/* The only way to find out whether push works is for one to arrive.
+            Offered only once a device is registered, because before that the
+            answer is already on the screen. */}
+        {!canPush || !registeredHere ? null : (
+          <Box className="px-6 pt-2">
+            <Button
+              variant="outline"
+              size="lg"
+              isDisabled={!notifications.allow}
+              onPress={() => {
+                void sendTest({}).then(
+                  () =>
+                    showToast({
+                      id: 'push-test',
+                      tone: 'success',
+                      title: 'Test sent',
+                      description: 'It should arrive in a moment, on every device that is not muted.',
+                    }),
+                  () =>
+                    showToast({ id: 'push-test', tone: 'error', title: 'That could not be sent' }),
+                );
+              }}
+              className="h-11">
+              <ButtonText>Send a test notification</ButtonText>
+            </Button>
+          </Box>
+        )}
 
         {/* Two different facts, and saying the wrong one is worse than saying
             nothing: a build that cannot notify is not a device that has not

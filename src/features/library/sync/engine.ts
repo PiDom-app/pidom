@@ -494,13 +494,17 @@ async function reconcileGroups({ client, db }: Sender): Promise<void> {
     const detail = await client.query(api.groups.detail, {
       groupId: remote.id as Id<'groups'>,
     });
+    // Under this device's id for the group, not the account's — the member list
+    // is read back by local id, and writing it under the remote one is why a
+    // group with two people in it rendered as having none.
+    const localGroupId = (await Groups.localIdFor(db, remote.id)) ?? remote.id;
     await Groups.replaceMembers(
       db,
-      remote.id,
+      localGroupId,
       detail.members
         .filter((member) => member.profile !== null)
         .map((member) => ({
-          groupId: remote.id,
+          groupId: localGroupId,
           userId: member.profile!.id,
           name: member.profile!.displayName,
           handle: member.profile!.handle,
