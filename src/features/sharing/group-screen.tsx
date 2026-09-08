@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ChevronRight,
   LogOut,
@@ -422,7 +423,13 @@ function AddMemberSheet({
   }
 
   return (
+    // **Inside a `SafeAreaView`, not just `inset-0`.** An absolutely positioned
+    // overlay covers the whole display, status bar included, so this header drew
+    // its back arrow and title straight over the clock and the signal icons.
+    // Every other full-screen surface gets its inset from `Screen`; this one is
+    // not a route, so it takes the same view directly.
     <Box className="absolute inset-0 bg-background">
+      <SafeAreaView style={FILL} edges={SHEET_EDGES}>
       <ScreenHeader glyph={UserPlus} title="Add someone" onBack={onClose} backLabel="Cancel" />
       <Box className="mx-6 h-px bg-hairline" />
 
@@ -484,9 +491,14 @@ function AddMemberSheet({
             ))
         )}
       </ScrollView>
+      </SafeAreaView>
     </Box>
   );
 }
+
+const FILL = { flex: 1 } as const;
+/** Both edges, because the sheet owns the whole display while it is open. */
+const SHEET_EDGES = ['top', 'bottom'] as const;
 
 /**
  * `flexGrow` rather than `flex`, and it is what lets an empty state centre.

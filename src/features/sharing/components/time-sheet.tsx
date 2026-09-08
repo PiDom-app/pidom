@@ -63,7 +63,7 @@ export function TimeSheet({
         </VStack>
         <Divider className="bg-hairline" />
 
-        <ScrollView className="w-full" style={LIST} contentContainerStyle={CONTENT}>
+        <ScrollView style={LIST} contentContainerStyle={CONTENT}>
           {times.map((minute) => {
             const selected = minute === value;
             return (
@@ -101,5 +101,19 @@ export function formatMinute(minute: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
-const LIST = { maxHeight: 320 } as const;
+/**
+ * Width belongs in here, not in a `className`.
+ *
+ * This had `className="w-full"` and `style={{ maxHeight }}` together, and
+ * **passing `style` alongside `className` replaces the class-derived styles
+ * rather than merging with them** — the rule `docs/design.md` states and this
+ * component broke. The width went, the list collapsed to a narrow column, and
+ * every label wrapped in the middle of itself: `00:0` on one line and `0` on
+ * the next, forty-eight times.
+ *
+ * The cap is still a cap rather than a height: forty-eight rows would otherwise
+ * push the sheet past the top of the screen and take the drag indicator with
+ * it.
+ */
+const LIST = { maxHeight: 320, width: '100%' } as const;
 const CONTENT = { paddingBottom: 8 } as const;

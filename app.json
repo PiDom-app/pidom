@@ -53,6 +53,12 @@
             }
           ]
         }
+      ],
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.DOWNLOAD_WITHOUT_NOTIFICATION",
+        "android.permission.ACCESS_NETWORK_STATE"
       ]
     },
     "web": {
@@ -102,6 +108,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8dcac7a4-80ab-438a-bafb-3438a24ab2d1"
+      }
+    },
+    "owner": "teum254s-team"
   }
 }

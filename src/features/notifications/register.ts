@@ -21,11 +21,12 @@ const SCOPE = 'notifications';
  * - **It has to be a real device.** A simulator has no push service to
  *   register with, and Expo's own docs say so.
  * - **There has to be an EAS project id.** `getExpoPushTokenAsync` needs one to
- *   know which project's credentials to mint against, and this project does not
- *   have an EAS project yet. Rather than throwing on every launch, this returns
- *   `unconfigured` and logs the reason — the app runs, the in-app inbox works,
- *   and push starts working the moment `eas init` has been run and the id
- *   appears in `app.json`.
+ *   know which project's credentials to mint against. It is looked for in three
+ *   places, and the third is the one that matters in practice: a development
+ *   build carries the manifest it was built with, so an id added to `app.json`
+ *   afterwards is invisible to it until the next native build. Rather than
+ *   throwing on every launch, this returns `unconfigured` and says which reason
+ *   it was — the app runs and the in-app inbox works either way.
  * - **The reader has to have said yes.** Asked at the point it buys them
  *   something, not on first launch. See `use-push-registration.ts`.
  * - **Android needs a channel.** A notification sent to a channel that does not
@@ -108,7 +109,16 @@ export async function register(): Promise<Registration> {
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ??
     // The field EAS writes on a build, which is not always the same object.
-    (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+    (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId ??
+    // **And the environment, which is the one that survives a stale binary.**
+    // `Constants.expoConfig` is baked into the app when it is built, so on a
+    // development build made before `eas init` ran both fields above stay
+    // `undefined` no matter what `app.json` says now and no matter what the dev
+    // server serves — the manifest the app trusts is the one inside the APK.
+    // That cost a full rebuild to discover. `EXPO_PUBLIC_` variables are
+    // inlined by Metro at bundle time instead, so this one is current the
+    // moment the JS reloads. It is a project identifier, not a secret.
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
 
   if (typeof projectId !== 'string' || projectId === '') {
     // Not an error, and not silent. Everything else in the feature works; this
@@ -131,8 +141,12 @@ export async function register(): Promise<Registration> {
     // A development build is required for remote push on Android from SDK 53,
     // and Expo Go throws here rather than returning anything. Logged without
     // the error's message, which can carry project identifiers.
-    log.warn(SCOPE, 'could not mint a push token on this build');
-    log.debug(SCOPE, 'push token error', error);
+    // `error` rather than `warn`: on a build that *should* be able to mint one
+    // — a development build with an EAS project id and FCM configured — this
+    // failing is the whole reason push does not work, and a level that is
+    // compiled out is a level that cannot say so. The message carries a reason,
+    // never a token.
+    log.error(SCOPE, 'could not mint a push token on this build', error);
     return { kind: 'unconfigured', reason: 'this build cannot receive remote notifications' };
   }
 }
