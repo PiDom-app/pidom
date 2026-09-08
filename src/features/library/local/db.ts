@@ -20,7 +20,7 @@
  * the same place, and with the same accessibility, as a PDF's password.
  */
 import * as Crypto from 'expo-crypto';
-import { Directory, File } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import {
   addDatabaseChangeListener,
@@ -127,6 +127,20 @@ function pathOf(name: string): string {
 }
 
 /**
+ * The same file, as `expo-file-system` addresses it.
+ *
+ * `defaultDatabaseDirectory` is a bare filesystem path —
+ * `context.filesDir.canonicalPath + "/SQLite"` on Android, with no scheme — and
+ * that is what `ATTACH` wants. The `File` API wants a URI, and handing it the
+ * bare path is why the sidecar cleanup here quietly did nothing and why the
+ * original migration's file move failed hard enough to strand a library. One
+ * conversion, in one place, rather than a scheme spliced in at each call site.
+ */
+function uriOf(name: string): string {
+  return `file://${pathOf(name)}`;
+}
+
+/**
  * Whether this build has SQLCipher at all.
  *
  * `cipher_version` is a property of the library rather than of the file, so it
@@ -198,6 +212,63 @@ async function keyed(db: SQLiteDatabase, key: string): Promise<boolean> {
 }
 
 /**
+ * Makes `target` a copy of `source`, both keyed, without moving a file.
+ *
+ * **The file move is what broke on a real device**, and it broke silently. The
+ * previous version deleted the original and then called
+ * `new File(workingPath).move(...)` from `expo-file-system`, which needs the
+ * paths it is handed to be ones it recognises — `defaultDatabaseDirectory` is
+ * an opaque value from another module, not a URI this one mints. When that
+ * threw, the `catch` reported "could not encrypt the library", the caller
+ * treated it as an unrecoverable file and started over, and the outcome was the
+ * state found on the device: a 4 KB stub where the database should be and the
+ * entire 2 MB library orphaned in the working file beside it, unreadable
+ * forever because nothing ever looked at it again.
+ *
+ * So the swap is SQL now. `sqlcipher_export` copies a whole database into an
+ * attached one, `deleteDatabaseAsync` is expo-sqlite's own API for its own
+ * files, and neither needs a path this module had to guess at. The only
+ * filesystem path left is the one `ATTACH` takes, which is the one that was
+ * always working.
+ */
+async function installFrom(sourceName: string, targetName: string, key: string): Promise<boolean> {
+  let source: SQLiteDatabase | null = null;
+  try {
+    source = await openDatabaseAsync(sourceName);
+    if (!(await keyed(source, key))) {
+      return false;
+    }
+
+    // The target is recreated rather than written over: `sqlcipher_export`
+    // copies a schema in, and copying one into a database that already has it
+    // is an error rather than a merge.
+    await discard(targetName);
+
+    await source.execAsync(`ATTACH DATABASE '${pathOf(targetName)}' AS installed KEY "x'${key}'"`);
+    try {
+      await source.execAsync(`SELECT sqlcipher_export('installed')`);
+      const version = await source.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      await source.execAsync(
+        `PRAGMA installed.user_version = ${Number(version?.user_version ?? 0)}`,
+      );
+    } finally {
+      await source.execAsync('DETACH DATABASE installed').catch(() => undefined);
+    }
+
+    await source.closeAsync();
+    source = null;
+    await discard(sourceName);
+    return true;
+  } catch (error) {
+    log.error(SCOPE, 'could not install the encrypted copy of the library');
+    log.debug(SCOPE, 'installFrom failed', error);
+    return false;
+  } finally {
+    await source?.closeAsync().catch(() => undefined);
+  }
+}
+
+/**
  * Encrypts a database an earlier build left in the clear.
  *
  * This is not hypothetical and not a one-device problem: `useSQLCipher` was in
@@ -222,7 +293,8 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
   const workingPath = pathOf(workingName);
 
   // Anything left by an interrupted attempt. Its contents are a partial copy of
-  // a database that still exists, so there is nothing in it worth keeping.
+  // a database that still exists, so there is nothing in it worth keeping —
+  // `resumeInterrupted` has already had its chance at it.
   await discard(workingName);
 
   let plain: SQLiteDatabase | null = null;
@@ -253,11 +325,10 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
     await plain.closeAsync();
     plain = null;
 
-    // Delete before the move, and only now: up to this point the plaintext file
-    // is still the only complete copy.
-    await deleteDatabaseAsync(name);
-    new File(workingPath).move(new File(new Directory(String(defaultDatabaseDirectory)), name));
-    return true;
+    // The copy is complete, so the original can go and the copy can take its
+    // place. `installFrom` does that with SQL rather than by moving a file —
+    // see the note there for why the move is what broke.
+    return await installFrom(workingName, name, key);
   } catch (error) {
     log.error(SCOPE, 'could not encrypt the library left by an earlier build');
     log.debug(SCOPE, 'adoptPlaintext failed', error);
@@ -280,79 +351,104 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
  * is the expected case rather than a failure.
  */
 async function discard(name: string): Promise<void> {
-  await deleteDatabaseAsync(name).catch(() => undefined);
-  for (const suffix of ['-wal', '-shm']) {
+  // `deleteDatabaseAsync` first, because it is the module's own API for its own
+  // files and it keeps that module's bookkeeping straight.
+  //
+  // **But it refuses while the database is in expo-sqlite's open cache**, and
+  // that refusal is not theoretical: on the device this was debugged against it
+  // threw on every recovery attempt, so the corrupt file was never actually
+  // removed and the "starting over" branch reopened exactly what it had just
+  // decided to throw away. Unlinking the file directly is cache-independent and
+  // is safe here — the handle is closed before this is called, and an unlink
+  // under a still-open descriptor is something the filesystem handles rather
+  // than something that corrupts anything.
+  //
+  // The journals go either way. `deleteDatabaseAsync` takes only the database
+  // file, and `-wal` holds pages written under the old key: a fresh, correctly
+  // keyed file with a foreign journal beside it fails exactly as the old one
+  // did, which is the loop this whole path exists to break.
+  let removed = false;
+  try {
+    await deleteDatabaseAsync(name);
+    removed = true;
+  } catch {
+    removed = false;
+  }
+
+  for (const suffix of ['', '-wal', '-shm']) {
+    if (suffix === '' && removed) {
+      continue;
+    }
     try {
-      const sidecar = new File(pathOf(`${name}${suffix}`));
-      if (sidecar.exists) {
-        sidecar.delete();
+      const file = new File(uriOf(`${name}${suffix}`));
+      if (file.exists) {
+        file.delete();
       }
-    } catch {
-      // Nothing to do about it, and nothing depending on it: the next open
-      // either works or reports `unreadable` as it already would have.
+    } catch (error) {
+      // Only the database file itself is worth reporting: without it the
+      // recovery cannot work, and a missing journal is the expected case.
+      if (suffix === '') {
+        log.error(SCOPE, 'could not remove a database file that is being replaced');
+        log.debug(SCOPE, 'delete failed', error);
+      }
     }
   }
 }
 
 /**
- * Finishes an encryption that was interrupted between the delete and the move.
+ * Finishes an encryption that was interrupted before the copy was installed.
  *
- * `adoptPlaintext` builds the encrypted copy beside the original, deletes the
- * original, and then moves the copy into its place. Its own comment claims a
- * process killed mid-migration "leaves the old file intact and tries again next
- * launch", and that is only true of a kill *before* the delete. A kill in the
- * window after it leaves the opposite: a stub where the database should be, and
- * the entire library sitting in the working file next to it.
+ * `adoptPlaintext` builds the encrypted copy beside the original and then makes
+ * it the original. Its own comment claimed a process killed mid-migration
+ * "leaves the old file intact and tries again next launch", and that is only
+ * true of a kill *before* the swap. On a real device the swap failed instead —
+ * see `installFrom` — leaving a 4 KB stub where the database should be and the
+ * whole library in the working file next to it, which every later launch then
+ * ignored while reporting that the library could not be opened.
  *
- * On a real device that window was not theoretical. It produced a 4 KB
- * `pidom-<id>.db` and a 2 MB `pidom-<id>.encrypting.db`, and every launch after
- * it failed — because the recovery path read the stub, could not key it, and
- * would have gone on to treat the *stub* as the thing worth keeping and delete
- * the working file as debris. The data was one `move` away the whole time.
- *
- * So this runs first, and it is deliberately narrow: adopt the working file
- * only when it opens with this device's key. A working file that does not is a
- * partial export of a database that no longer exists, which is worth nothing,
- * and it is cleared so the next attempt starts from a clean directory.
+ * The test for "is there something worth recovering" is deliberately not
+ * `File.exists`: reaching for the filesystem by path is what caused this in the
+ * first place. Opening the working name creates an empty file if there is none,
+ * which is why an empty one is not enough — **a copy counts only if it has a
+ * schema**, and `count(*) FROM sqlite_master` is the same read that proves the
+ * key fits. A file that fails either test is a partial export of a database
+ * that no longer exists, worth nothing, and it is cleared.
  */
 async function resumeInterrupted(profileId: string, key: string): Promise<boolean> {
   const workingName = workingNameOf(profileId);
-  const workingPath = pathOf(workingName);
-
-  try {
-    if (!new File(workingPath).exists) {
-      return false;
-    }
-  } catch {
-    return false;
-  }
 
   let working: SQLiteDatabase | null = null;
+  let recoverable = false;
   try {
     working = await openDatabaseAsync(workingName);
-    const complete = await keyed(working, key);
-    await working.closeAsync();
-    working = null;
-
-    if (!complete) {
-      log.warn(SCOPE, 'discarding a partial copy left by an interrupted encryption');
-      await discard(workingName);
-      return false;
+    if (await keyed(working, key)) {
+      const row = await working.getFirstAsync<{ tables: number }>(
+        'SELECT count(*) AS tables FROM sqlite_master',
+      );
+      recoverable = Number(row?.tables ?? 0) > 0;
     }
-
-    log.warn(SCOPE, 'finishing an encryption that was interrupted; the library is in the copy');
-    await discard(fileNameOf(profileId));
-    new File(workingPath).move(
-      new File(new Directory(String(defaultDatabaseDirectory)), fileNameOf(profileId)),
-    );
-    return true;
-  } catch (error) {
-    log.error(SCOPE, 'could not finish an interrupted encryption');
-    log.debug(SCOPE, 'resume failed', error);
-    return false;
+  } catch {
+    recoverable = false;
   } finally {
     await working?.closeAsync().catch(() => undefined);
   }
+
+  if (!recoverable) {
+    await discard(workingName);
+    return false;
+  }
+
+  log.warn(SCOPE, 'finishing an encryption that was interrupted; the library is in the copy');
+  return await installFrom(workingName, fileNameOf(profileId), key);
+}
+
+async function prepare(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 5000;
+  `);
+  await migrate(db);
 }
 
 async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
@@ -420,13 +516,37 @@ async function openFor(profileId: string): Promise<SQLiteDatabase | null> {
     }
   }
 
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
-    PRAGMA busy_timeout = 5000;
-  `);
+  // **Everything past the key check is inside this, and that is the point.**
+  // A key that fits proves the header decrypts; it does not prove the rest of
+  // the file is coherent. On the device this was debugged against, the header
+  // was a 4 KB stub and a 2.3 MB `-wal` beside it held pages from a different
+  // database — so the key check passed and `PRAGMA journal_mode = WAL` then
+  // replayed a foreign journal and threw `file is not a database` from inside
+  // `migrate`. That throw went straight past both recovery paths above and out
+  // to the caller, which is why the failure repeated on every launch for ever
+  // instead of being repaired once.
+  //
+  // Now it converges: prepare, and if preparing fails, throw the whole thing
+  // away — file and journals — and prepare a new one. The library is rebuilt
+  // from the account on the next sync, which is a bad afternoon rather than a
+  // permanently broken install.
+  try {
+    await prepare(db);
+  } catch (error) {
+    log.error(SCOPE, 'the local library could not be prepared; starting over', error);
 
-  await migrate(db);
+    await db.closeAsync().catch(() => undefined);
+    await discard(fileNameOf(profileId));
+
+    db = await openDatabaseAsync(fileNameOf(profileId), { enableChangeListener: true });
+    if (!(await keyed(db, key))) {
+      await db.closeAsync().catch(() => undefined);
+      fault = 'unreadable';
+      log.error(SCOPE, 'a fresh local library could not be created on this device');
+      return null;
+    }
+    await prepare(db);
+  }
 
   textIndexReady = await ensureTextIndex(db);
   if (textIndexReady) {
