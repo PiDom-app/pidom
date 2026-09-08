@@ -1252,6 +1252,24 @@ describe('deleting an account', () => {
     expect(left.devices).toEqual([]);
   });
 
+  test('leaves a group they were only a member of counting correctly', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+    expect((await owner.query(api.groups.detail, { groupId })).group.memberCount).toBe(2);
+
+    await friend.mutation(api.account.deleteAccount, {});
+    await t.finishAllScheduledFunctions(() => {});
+
+    // `memberCount` is maintained rather than derived, so a cascade that
+    // deleted the membership row underneath it would leave the owner looking
+    // at a group with a member who no longer exists.
+    expect((await owner.query(api.groups.detail, { groupId })).group.memberCount).toBe(1);
+  });
+
   test('leaves the other account alone', async () => {
     const t = harness();
     const owner = await signedIn(t, OWNER);

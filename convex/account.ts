@@ -196,13 +196,30 @@ async function runPhase(ctx: MutationCtx, user: Doc<'users'>, phase: Phase): Pro
           .take(ACCOUNT_DELETE_BATCH),
       );
 
-    case 'memberships':
-      return await deleteBatch(ctx, 'groupMembers', () =>
-        ctx.db
-          .query('groupMembers')
-          .withIndex('by_user', (q) => q.eq('userId', user._id))
-          .take(ACCOUNT_DELETE_BATCH),
-      );
+    // Not `deleteBatch`, because `groups.memberCount` is a maintained counter
+    // rather than a derived one — `Groups.removeMember` decrements it, and a
+    // cascade that deleted the rows underneath it would leave every group this
+    // account belonged to permanently one member too high, forever, on
+    // somebody else's screen.
+    case 'memberships': {
+      const rows = await ctx.db
+        .query('groupMembers')
+        .withIndex('by_user', (q) => q.eq('userId', user._id))
+        .take(ACCOUNT_DELETE_BATCH);
+      for (const row of rows) {
+        const group = await ctx.db.get('groups', row.groupId);
+        // A group this account owns is deleted whole in the next phase, so its
+        // count is not worth a write.
+        if (group !== null && group.ownerId !== user._id) {
+          await ctx.db.patch('groups', group._id, {
+            memberCount: Math.max(0, group.memberCount - 1),
+            updatedAt: Date.now(),
+          });
+        }
+        await ctx.db.delete('groupMembers', row._id);
+      }
+      return rows.length === ACCOUNT_DELETE_BATCH;
+    }
 
     // Groups this account owns, which takes everybody else's membership of
     // them with it — the group is the owner's, and there is nobody left to
