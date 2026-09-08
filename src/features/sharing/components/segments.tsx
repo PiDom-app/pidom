@@ -140,15 +140,23 @@ export function Notice({
 }
 
 /**
- * The empty state, near the top of the screen.
+ * The empty state, centred in whatever space is left.
  *
- * It opened with `pt-16` and `items-center`, which put "No groups yet" a third
- * of the way down a screen whose entire content was that sentence — and it is
- * the *first* thing a new account sees on both Groups and Shared. Half the
- * padding, and left aligned against the same `px-6` gutter every row uses, so
- * an empty list and a full one begin in the same place.
+ * It went through `pt-16`, then `pt-8` and left-aligned, and neither was right.
+ * A fixed top padding is a guess about screen height: it put "No groups yet" a
+ * third of the way down a tall phone and immediately under the header on a
+ * short one, and the left-aligned version read as a paragraph somebody forgot
+ * to finish rather than as the state of the screen.
  *
- * Centred text over two lines reads as an error page. This is not an error.
+ * `flex-1` with `justify-center` has no guess in it. There is exactly one thing
+ * on the screen, so it sits in the middle of the screen, and it stays there
+ * whatever the device.
+ *
+ * **The parent has to have height for that to mean anything.** Inside a
+ * `ScrollView` the content container is sized by its children, so `flex-1`
+ * collapses and this pins to the top again — which is why the scrolling screens
+ * that render it set `flexGrow: 1` on their content style. Rendered as a direct
+ * child of `Screen`, it needs nothing.
  */
 export function Empty({
   glyph,
@@ -163,12 +171,12 @@ export function Empty({
   action?: React.ReactNode;
 }) {
   return (
-    <VStack className="px-6 pt-8">
+    <VStack className="flex-1 items-center justify-center px-8 py-10">
       <Icon as={glyph} size="xl" className="text-fg-subtle" />
-      <Text size="md" className="mt-3.5 font-semibold text-foreground">
+      <Text size="md" className="mt-3.5 text-center font-semibold text-foreground">
         {title}
       </Text>
-      <Text size="sm" className="mt-1.5 max-w-[300px] text-fg-muted">
+      <Text size="sm" className="mt-1.5 max-w-[300px] text-center text-fg-muted">
         {body}
       </Text>
       {action === undefined ? null : <Box className="mt-4">{action}</Box>}

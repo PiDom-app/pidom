@@ -323,7 +323,7 @@ function countFor(
  */
 function Empty({ onSearch }: { onSearch: () => void }) {
   return (
-    <VStack className="flex-1 items-center px-10 pt-16">
+    <VStack className="flex-1 items-center justify-center px-10 py-12">
       <Icon as={ListTree} size="xl" className="text-fg-subtle" />
       <Text size="md" className="mt-4 text-center font-semibold text-foreground">
         No contents in this PDF
@@ -396,7 +396,7 @@ function Bookmarks({
 }) {
   if (bookmarks.length === 0) {
     return (
-      <VStack className="flex-1 items-center px-10 pt-16">
+      <VStack className="flex-1 items-center justify-center px-10 py-12">
         <Icon as={Bookmark} size="xl" className="text-fg-subtle" />
         <Text size="md" className="mt-4 text-center font-semibold text-foreground">
           No bookmarks yet

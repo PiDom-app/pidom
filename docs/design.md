@@ -129,13 +129,26 @@ Three of the artboards exist to say something the code cannot:
 
 Three rules, written down after a round of screens broke all three.
 
-**Content starts at the top.** `Empty` opens at `pt-8` and left-aligns its body,
-because it is the first-run view of Groups and Shared and a centred block of
-text 16 units down reads as an error state rather than as a beginning. The one
-screen that had a centred hero — a 164px identity block with an explicit
-`<Box className="flex-1" />` under it — is now a left-aligned identity row over
-a scroller, which is also what fixed it clipping long titles with no way to
-reach them.
+**A list starts at the top; a single message sits in the middle.** Those are
+two different things and the mistake was treating them as one. Rows begin at the
+top against the `px-6` gutter, so an empty list and a full one start in the same
+place — but an empty state is not a list with nothing in it, it is the only
+thing on the screen, and the only honest place for the only thing on the screen
+is the centre of it. `Empty` is `flex-1 items-center justify-center`, with no
+fixed top padding to guess a screen height with.
+
+That needs height to centre in. Inside a `ScrollView` the content container is
+sized by its children, so `flex-1` collapses and the state pins to the top
+anyway; the scrolling screens set `flexGrow: 1` on their content style (or
+`grow` in a `contentContainerClassName`) to give it the viewport as a floor
+without a ceiling. Short content centres, long content scrolls exactly as
+before.
+
+The one screen that had a centred *hero* — a 164px identity block with an
+explicit `<Box className="flex-1" />` under it — went the other way, to a
+left-aligned identity row over a scroller. It was not an empty state; it was a
+screen full of content pretending to be one, and the spacer is what clipped
+long titles with no way to reach them.
 
 **Skeletons, not spinners.** Eight screens loaded into an identical
 `flex-1 items-center justify-center` spinner. They use `ShareRowSkeleton` and

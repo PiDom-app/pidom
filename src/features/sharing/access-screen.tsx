@@ -415,4 +415,13 @@ function detailFor(
   return `${handle}${suffix}`;
 }
 
-const CONTENT = { paddingBottom: 32 } as const;
+/**
+ * `flexGrow` rather than `flex`, and it is what lets an empty state centre.
+ *
+ * A `ScrollView`'s content container is sized by its children, so a `flex-1`
+ * child inside one has nothing to fill and collapses to its own height — which
+ * is how every empty state on a scrolling screen ended up pinned under the
+ * header. `flexGrow: 1` gives the container the viewport as a floor and no
+ * ceiling: short content centres, long content scrolls exactly as before.
+ */
+const CONTENT = { flexGrow: 1, paddingBottom: 32 } as const;

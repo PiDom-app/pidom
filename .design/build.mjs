@@ -3165,7 +3165,10 @@ function quietNotice(c, glyph, text, tone = null) {
  * lines reads as an error page.
  */
 function emptyState(c, { glyph, title, body, action = null }) {
-  return `<div style="padding:32px ${PAD}px 0">
+  // Centred in whatever is left, which is what the screens do: an empty state
+  // is the only thing on the screen, and a fixed top padding is a guess about
+  // how tall the screen is. See `Empty` in `components/segments.tsx`.
+  return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;text-align:center">
       ${icon(glyph, 26, c.fgSubtle, 1.6)}
       <div style="margin-top:14px;font-size:16px;font-weight:600;letter-spacing:-.012em;color:${c.fg}">${title}</div>
       <div style="margin-top:7px;max-width:300px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">${body}</div>
