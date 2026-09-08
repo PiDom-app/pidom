@@ -54,12 +54,22 @@ export function useProfile(): ProfileState {
 
   // Written back so the next cold launch has a profile id before it has a
   // network. `useProfile` is mounted in several places at once, so this is
-  // idempotent by being a merge of the same two values.
+  // idempotent by being a merge of the same values.
+  //
+  // The name and photo go too, and they are the account's answers rather than
+  // Google's: a reader who has chosen a display name or turned their photo off
+  // should see that decision on the next offline launch, not the claim it
+  // replaced.
   useEffect(() => {
     if (live === undefined || live === null) {
       return;
     }
-    void rememberAccount({ profileId: live.id, createdAt: live.createdAt });
+    void rememberAccount({
+      profileId: live.id,
+      createdAt: live.createdAt,
+      name: live.name,
+      photoUrl: live.pictureUrl,
+    });
   }, [live]);
 
   return useMemo(() => {
@@ -106,8 +116,7 @@ export function useEnsureProfile(): void {
   const ensureProfile = useMutation(api.users.ensureProfile);
   const profile = useQuery(api.users.me, isAuthenticated ? {} : 'skip');
 
-  // The mutation is idempotent, but without this it would fire on every render
-  // until the query caught up.
+  // The mutation is idempotent, but without this it would fire on every render.
   const requestedRef = useRef(false);
 
   useEffect(() => {
@@ -115,9 +124,31 @@ export function useEnsureProfile(): void {
       requestedRef.current = false;
       return;
     }
-    // `undefined` means the query has not answered yet; only an explicit `null`
-    // means there is no row to read.
-    if (profile !== null || requestedRef.current) {
+
+    /**
+     * Once per authenticated mount, which is what `convex/users.ts` has always
+     * said this does.
+     *
+     * The guard used to be `profile !== null`, and that meant the mutation
+     * fired in exactly one window in an account's life: after `users.me`
+     * answered an explicit `null`, before the row existed. Every launch after
+     * the first returned early — so `upsertFromIdentity`'s patch branch was
+     * unreachable in normal operation, and `pictureUrl`, `name`, `email` and
+     * `lastSeenAt` were frozen at whatever the token said on the day the
+     * account was created.
+     *
+     * That was invisible to the reader themselves, because the header and the
+     * account screen used to prefer the Google session's own copy for
+     * everything. It was not invisible to anybody else: they read the `users`
+     * row, so a changed avatar became a URL that eventually 404s on every other
+     * person's screen. The photo now comes from the account wherever the
+     * account has answered, because that is the half that knows whether the
+     * reader has hidden it.
+     *
+     * `undefined` still means the query has not answered yet, and there is no
+     * reason to write before knowing whether there is a row.
+     */
+    if (profile === undefined || requestedRef.current) {
       return;
     }
 

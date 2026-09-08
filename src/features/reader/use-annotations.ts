@@ -6,6 +6,7 @@ import { log } from '@/lib/logger';
 
 import { useLibraryStatus } from '../library/data/use-library-status';
 import { database } from '../library/local/db';
+import * as Documents from '../library/local/repository/documents';
 import * as Marks from '../library/local/repository/marks';
 import * as Queue from '../library/local/repository/queue';
 import { useLocalQuery } from '../library/local/use-local-query';
@@ -65,12 +66,23 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
           if (db === null) {
             return;
           }
+          // Whose note this is, and whether anybody else sees it.
+          //
+          // On the reader's own document both are the ordinary case: theirs,
+          // and private. On a document shared *with* them it is theirs and
+          // shared, because that is what `annotator` is for — a note nobody
+          // else can read is not collaboration. The account decides this again
+          // on the way in; what is written here is what the list renders before
+          // the queue drains.
+          const ownedByMe = await Documents.isOwnedByMe(db, documentId);
           const id = await Marks.addAnnotation(db, {
             documentId,
             page: input.page,
             kind: input.kind,
             text: input.text ?? null,
             note: input.note ?? null,
+            authorId: profileId,
+            visibility: ownedByMe ? 'private' : 'shared',
           });
           await Queue.enqueue(db, 'annotation', id, 'create');
         } catch (error) {

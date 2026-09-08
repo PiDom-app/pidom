@@ -583,11 +583,151 @@ Reads are absent, search included, and that is a limitation rather than a
 choice — spending a token is a write, and a query cannot write. Declaring a
 limit nothing enforces would be worse than declaring none.
 
+## Sharing
+
+```
+owner picks people  →  documentShares row  →  recipient accepts  →  signed URL
+                                                                        ↓
+                       reconcile ← Convex ← outbox            local file + row
+```
+
+A shared document is **one row with one owner** and a grant on top of it. The
+recipient's device ends up with an ordinary `documents` row — `ownedByMe` at 0,
+`shareId` naming the grant — so it opens offline, takes notes, and appears in
+the library like anything else. Everything specific to sharing is the grant.
+
+**Two tables and one resolution.** `documentShares` names either a person or a
+group; `groupMembers` says who is in the group. Access is resolved on every read
+through `convex/model/access.ts`, never cached — so a person leaving a group of
+six that shares four documents is one row deleted, not twenty-four, and nothing
+has to remember to run.
+
+**The device holds a mirror.** `shares`, `groupsLocal`, `groupMembersLocal` and
+`shareEvents` are written by three new reconcile passes in `sync/engine.ts`. A
+share row carries the document's title, size and page count, which is why the
+inbox is legible with no connection and before a single byte has been fetched.
+
+**Writes go through the outbox like everything else**, with two exceptions that
+are deliberate:
+
+- **Group membership is never queued.** Adding somebody changes what *they* can
+  open, and a device that invented memberships offline would be deciding who can
+  read another person's documents with nothing to check against. Refused with a
+  sentence instead.
+- **Downloading is not queued**, because it is a network act by definition.
+
+A share made in a tunnel is written, queued and delivered on reconnect. What it
+cannot do is take effect — nobody is told anything until the queue drains, and
+the share screen says exactly that rather than letting the sender assume.
+
+### Fan-out
+
+Creating a share commits the grant and the event, then hands the network off. A
+person's share dispatches one push through the `notifications` workpool. A
+group's starts `workflows/share.ts`, which pages members at
+`SHARE_FANOUT_BATCH` — **nothing there grants anything**, because a group share
+is already one row; what is left is the part that has to reach two hundred
+people one at a time.
+
+Expo's send call returns a ticket, and whether the notification arrived is only
+knowable from a receipt fetched about fifteen minutes later. `push.ts` records
+tickets, polls receipts, and deletes a token on `DeviceNotRegistered` — which is
+the only thing that ever retires a dead token. Without that half, a reinstalled
+phone accumulates tokens nobody ever clears.
+
+### Presence
+
+`@convex-dev/presence` in rooms named `document:<id>` and `group:<id>`. Entered
+only for a document that is actually shared, either way round — presence on a
+private document is a mutation every ten seconds telling an empty room that one
+person is in it, and nearly every document is private.
+
+Ephemeral by construction: a heartbeat and a timeout, run by one
+deployment-wide worker rather than by every client polling. There is no
+`lastSeen` column and no "active 4 minutes ago", because the component does not
+know that and a number invented to fill the space is a number somebody would
+believe.
+
+The hook has no disabled state, so the heartbeat is *mounted* rather than
+skipped: `use-document-presence.tsx` returns a `beat` node that the reader and
+the Access screen render, and it is `null` when there is no room. Passing an
+empty room id instead — which is what the first version did — meant a refused
+mutation every ten seconds per synced document, each one spending a token from
+the presence bucket before being refused.
+
+### Push degrades instead of crashing
+
+`expo-notifications` touches its native counterparts as it evaluates, so on a
+build that has not linked them — Expo Go on Android since SDK 53 dropped remote
+push — a plain `import` throws `Cannot find native module
+'ExpoPushTokenManager'` before any of Pidom's own code runs. That import was
+reached from `(app)/_layout.tsx`, so the authenticated layout never evaluated
+and expo-router was left with a route module that was `undefined`: the second
+error was always `Cannot read property 'ErrorBoundary' of undefined`. One
+missing native module took the entire signed-in half of the app down.
+
+`features/notifications/native.ts` requires it lazily, once, behind a `try`,
+and caches the refusal. Every consumer goes through it — the handler, the
+registration, the tap listeners — and each becomes a no-op when it is absent.
+Everything downstream already had an "unconfigured" path; this makes that path
+reachable rather than fatal. Shares still arrive, the inbox fills, the activity
+feed works. Only the lock screen is quiet, and the settings screen says so in
+those words rather than claiming the device merely is not registered.
+
+The type import stays, and is erased at compile time, so call sites are fully
+typed and cost nothing at runtime. Metro still bundles the module: a literal
+`require` is statically analysed, so a development build that *does* have the
+native module gets the real thing.
+
+### The Expo access token is set and not yet reachable
+
+`@convex-dev/expo-push-notifications` 0.3.1 documents forwarding
+`EXPO_ACCESS_TOKEN` through `app.use`, and does not implement it. The published
+component is `defineComponent("pushNotifications")` with no env vars declared,
+and its send posts to `exp.host/--/api/v2/push/send` with `Accept`,
+`Accept-encoding` and `Content-Type` and no `Authorization` header. Passing the
+variable is refused at push time: *Component [pushNotifications] has no env var
+named EXPO_ACCESS_TOKEN*.
+
+The token is therefore set on the deployment (`npx convex env set
+EXPO_ACCESS_TOKEN`) and never written into this repository, ready for the
+version that reads it. Until then **enhanced push security must be off on the
+Expo project**, or every send is rejected before it leaves — which the receipt
+poll records as `failed` deliveries rather than losing silently.
+
+### The account, and leaving it
+
+`convex/account.ts` is the deletion cascade: a public mutation that tombstones
+the account's `subject` so its token stops matching immediately, then a chain of
+bounded internal mutations — documents, collections, notes written on other
+people's documents, shares received, shares created, memberships, owned groups,
+events, devices, settings — each rescheduling itself while its phase has more to
+do. Documents go through the existing `Library.removeDocument`, so the R2
+objects and page text go with them.
+
+`users.updateProfile` is the only other account write, and it sets two flags
+rather than columns: `nameIsCustom`, so `upsertFromIdentity` stops replacing an
+edited name with the Google claim on the next launch, and `photoHidden`, read by
+`photoOf` at both projections.
+
+### Settings, and where each one lives
+
+Three places, and the split is by what the setting is about rather than by
+convenience. **The account** holds what describes the reader —
+`sharingSettings` and `notificationSettings`, which should follow them to a new
+phone. **`deviceTokens`** holds per-device notification state, because muting a
+tablet is not muting a phone; the row is addressed by id, never by its push
+token, which never comes back out of the account. **`preferences-store.ts`**
+holds what describes this handset — Wi-Fi-only downloads — in AsyncStorage,
+because syncing one device's answer about its data plan to another device is
+applying it to a question that device never asked.
+
 ## Layout
 
 ```
 convex/          schema, OIDC config, and the public function surface
-  convex.config.ts  R2, Workflow, Workpool, Rate Limiter
+  convex.config.ts  R2, Workflow, Workpool, Rate Limiter, Presence, Push
+  account.ts     deleting an account, as a chain of bounded steps
   r2.ts          the bucket, and the one function the client may call on it
   crons.ts       one nightly job, which queues four
   maintenance.ts the workpool those four run in

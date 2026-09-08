@@ -76,7 +76,7 @@ export function DeviceStorageScreen() {
         </Text>
       </HStack>
 
-      <ScrollView contentContainerClassName="pb-12">
+      <ScrollView contentContainerClassName="grow pb-12">
         <HStack className="items-start px-6 pt-2 pb-5" space="md">
           <Icon as={HardDrive} size="lg" className="text-primary" />
           <VStack className="flex-1" space="xs">
@@ -124,7 +124,7 @@ export function DeviceStorageScreen() {
         )}
 
         {loading ? null : entries.length === 0 ? (
-          <Center className="px-10 pt-16">
+          <Center className="flex-1 px-10 py-16">
             <Text size="sm" className="text-center text-fg-subtle">
               Documents you import or download are kept here so they open with no connection.
               Nothing is on this device yet.

@@ -91,6 +91,18 @@ export type LibraryDocument = {
    * reader acted.
    */
   clientUpdatedAt: number;
+  /**
+   * Whether this is the reader's own document.
+   *
+   * False for one that arrived under a grant. It is what the actions sheet
+   * branches on: renaming, deleting, syncing and filing are the owner's, and
+   * offering them on somebody else's document would be offering four controls
+   * the account refuses. Hiding them is a convenience — `requireDocument` on
+   * the server is what enforces it.
+   */
+  ownedByMe: boolean;
+  /** The grant it arrived under, for a document that is not the reader's own. */
+  shareId: string | null;
 };
 
 export type LibraryCollection = {
@@ -100,6 +112,101 @@ export type LibraryCollection = {
   documentCount: number;
   /** Up to four, newest first. The mosaic on the collection tile. */
   coverDocumentIds: string[];
+  createdAt: number;
+};
+
+/* ── sharing ─────────────────────────────────────────────────────────── */
+
+export type ShareRole = 'viewer' | 'annotator';
+export type ShareStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
+
+/**
+ * A grant, from this device's point of view.
+ *
+ * It carries a copy of the document's title, size and page count, and that is
+ * the reason the inbox works offline: a share the reader has not accepted has
+ * no local file and no `documents` row, so without these there would be
+ * nothing to draw but a grey rectangle and a name.
+ *
+ * `documentId` is the account's id for the document rather than a local one,
+ * because until the share is accepted and downloaded there is no local
+ * document to have an id. Once there is, `documents.shareId` points back here.
+ */
+export type LibraryShare = {
+  id: string;
+  remoteId: string | null;
+  /** The account's document id. Not a local id, and never a path. */
+  documentId: string | null;
+  direction: 'incoming' | 'outgoing';
+  subject: 'user' | 'group';
+  /** The other party — the sender on an incoming share, the recipient on an outgoing one. */
+  counterpartId: string | null;
+  counterpartName: string | null;
+  counterpartHandle: string | null;
+  counterpartPictureUrl: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  title: string | null;
+  author: string | null;
+  pageCount: number | null;
+  byteSize: number;
+  hasCover: boolean;
+  role: ShareRole;
+  canDownload: boolean;
+  canReshare: boolean;
+  status: ShareStatus;
+  message: string | null;
+  expiresAt: number | null;
+  revokedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  clientUpdatedAt: number;
+  syncState: SyncState;
+};
+
+export type LibraryGroup = {
+  id: string;
+  remoteId: string | null;
+  name: string;
+  memberCount: number;
+  /** The reader's own standing. `null` for a group they can see but are not in. */
+  role: 'owner' | 'admin' | 'member' | null;
+  createdAt: number;
+  updatedAt: number;
+  syncState: SyncState;
+};
+
+export type LibraryGroupMember = {
+  groupId: string;
+  userId: string;
+  name: string | null;
+  handle: string | null;
+  pictureUrl: string | null;
+  role: 'admin' | 'member';
+  isOwner: boolean;
+  addedAt: number;
+};
+
+export type ShareEventKind =
+  | 'shareOffered'
+  | 'shareAccepted'
+  | 'shareDeclined'
+  | 'accessRevoked'
+  | 'accessChanged'
+  | 'groupJoined'
+  | 'groupDocumentShared'
+  | 'annotationAdded';
+
+export type LibraryShareEvent = {
+  id: string;
+  kind: ShareEventKind;
+  shareId: string | null;
+  documentId: string | null;
+  groupId: string | null;
+  actorName: string | null;
+  actorHandle: string | null;
+  actorPicture: string | null;
+  read: boolean;
   createdAt: number;
 };
 
@@ -125,6 +232,14 @@ export type LibraryAnnotation = {
   updatedAt: number;
   /** When the reader last edited the note. The ordering clock, as on a document. */
   clientUpdatedAt: number;
+  /**
+   * The account id of whoever wrote it, or `null` for one written before
+   * sharing existed — which is the same as saying it was written by whoever
+   * owns the document.
+   */
+  authorId: string | null;
+  /** Whether anybody else on the document sees it. */
+  visibility: 'private' | 'shared';
 };
 
 /** The stored row, before it becomes any of the above. */
@@ -157,6 +272,8 @@ export type DocumentRow = {
   clientUpdatedAt: number;
   syncState: string;
   deletedAt: number | null;
+  ownedByMe: number;
+  shareId: string | null;
   /** Joined from `documentFiles`, which may have no row yet. */
   fileState: string | null;
 };
@@ -199,6 +316,10 @@ export function toLibraryDocument(row: DocumentRow): LibraryDocument {
     fileState: (row.fileState as FileState | null) ?? 'missing',
     syncState: (row.syncState as SyncState) ?? 'pending',
     clientUpdatedAt: row.clientUpdatedAt,
+    // Defaults to 1, so every document imported before sharing existed answers
+    // yes — which is correct: they were all imported by whoever is reading them.
+    ownedByMe: (row.ownedByMe ?? 1) === 1,
+    shareId: row.shareId ?? null,
   };
 }
 
@@ -209,6 +330,7 @@ export const DOCUMENT_COLUMNS = `
   d.textStatus, d.hasOutline, d.isSynced, d.hasCover, d.syncIntent, d.isFavorite,
   d.isFinished, d.currentPage, d.progress, d.readingMode, d.lastOpenedAt,
   d.createdAt, d.updatedAt, d.clientUpdatedAt, d.syncState, d.deletedAt,
+  d.ownedByMe, d.shareId,
   f.state AS fileState
 `;
 

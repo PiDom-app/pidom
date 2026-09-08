@@ -1,9 +1,10 @@
 import type { PaginationOptions, PaginationResult } from 'convex/server';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
-import { assertOwner } from './auth';
+import { AuthError } from './auth';
+import { requireAnnotatable, requireReadable } from './access';
 import { annotationByOpId, clientClock, isLocalId, isStale } from './sync';
 import {
   ANNOTATIONS_PER_DOCUMENT,
@@ -44,15 +45,24 @@ import {
  * `docs/security.md`.
  */
 
-/** The caller's document, or `FORBIDDEN`. */
+/** Every refusal in this file is this one. See `requireAnnotation`. */
+function refuse(): never {
+  throw new ConvexError({ code: AuthError.forbidden });
+}
+
+/**
+ * A document the caller may write a note against, or `FORBIDDEN`.
+ *
+ * The owner always may. A recipient needs `annotator` — `viewer` is refused
+ * here rather than in the screen that hides the Keep button, because the button
+ * being absent is a convenience and this is the rule.
+ */
 async function requireDocument(
   ctx: QueryCtx | MutationCtx,
   owner: Doc<'users'>,
   documentId: Id<'documents'>,
 ): Promise<Doc<'documents'>> {
-  const doc = await ctx.db.get('documents', documentId);
-  assertOwner(doc, owner);
-  return doc;
+  return (await requireAnnotatable(ctx, owner, documentId)).doc;
 }
 
 /* ── the wire shape ─────────────────────────────────────────────────── */
@@ -108,11 +118,24 @@ export const ownedAnnotationValidator = v.object({
   kind: v.union(v.literal('passage'), v.literal('note')),
   text: v.union(v.string(), v.null()),
   note: v.union(v.string(), v.null()),
+  /**
+   * Who wrote it.
+   *
+   * On the wire because a device now receives notes it did not write — an
+   * owner's reconcile pulls down what their annotators wrote on their
+   * documents, and a list that showed those as the reader's own would be
+   * putting somebody else's words in their mouth. Absent on a row written
+   * before sharing, where the author and the owner are the same account.
+   */
+  authorId: v.union(v.id('users'), v.null()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
 
-export type OwnedAnnotation = PublicAnnotation & { documentId: Id<'documents'> };
+export type OwnedAnnotation = PublicAnnotation & {
+  documentId: Id<'documents'>;
+  authorId: Id<'users'> | null;
+};
 
 /* ── reads ──────────────────────────────────────────────────────────── */
 
@@ -133,8 +156,26 @@ async function requireAnnotation(
   annotationId: Id<'documentAnnotations'>,
 ): Promise<Doc<'documentAnnotations'>> {
   const row = await ctx.db.get('documentAnnotations', annotationId);
-  assertOwner(row, owner);
-  await requireDocument(ctx, owner, row.documentId);
+  // A missing row and somebody else's are the same refusal. Telling them apart
+  // would let a caller probe which annotation ids exist.
+  if (row === null) {
+    refuse();
+  }
+
+  // Whose words these are. `ownerId` is the *document's* owner and stays that
+  // way so the delete cascade can still find every annotation on a document
+  // including other people's; `authorId` is the person who wrote it, and a row
+  // from before sharing has none because it was written by the owner.
+  const authorId = row.authorId ?? row.ownerId;
+  if (authorId !== owner._id) {
+    refuse();
+  }
+
+  // And the document still has to be reachable — an annotation whose document
+  // is gone, or whose share was revoked, cannot still be edited through its own
+  // id. Readable rather than annotatable: somebody whose `annotator` was
+  // narrowed to `viewer` can still delete what they already wrote.
+  await requireReadable(ctx, owner, row.documentId);
   return row;
 }
 
@@ -210,7 +251,16 @@ export async function add(
 
   const now = Date.now();
   return await ctx.db.insert('documentAnnotations', {
-    ownerId: owner._id,
+    // The document's owner, not the writer. This is what the delete cascade
+    // walks, so a recipient's note on a shared document has to hang off the
+    // owner or it survives the document being deleted.
+    ownerId: doc.ownerId,
+    // The writer. Equal to `ownerId` for every note somebody makes on their own
+    // document, which is all of them until a document is shared.
+    authorId: owner._id,
+    // A note on somebody else's document is written to be seen — that is what
+    // `annotator` is for. A note on your own stays yours.
+    visibility: doc.ownerId === owner._id ? 'private' : 'shared',
     documentId: doc._id,
     page,
     kind: input.kind,
@@ -267,16 +317,20 @@ export async function update(
 /**
  * Deletes one, and is genuinely silent when it is already gone.
  *
- * It said it was silent and it was not: `requireAnnotation` calls `assertOwner`,
- * which reports "no such row" and "not yours" identically as `FORBIDDEN` — so a
- * second delivery of the same delete threw. That was invisible while the only
- * caller was a list waiting for an answer, and it is a queue that never drains
- * once the caller is an outbox: the operation fails, is retried, fails again,
- * for ever, over a note that is already deleted.
+ * It said it was silent and it was not: `requireAnnotation` reports "no such
+ * row" and "not yours" identically as `FORBIDDEN` — so a second delivery of the
+ * same delete threw. That was invisible while the only caller was a list
+ * waiting for an answer, and it is a queue that never drains once the caller is
+ * an outbox: the operation fails, is retried, fails again, for ever, over a
+ * note that is already deleted.
  *
  * The row is looked up directly instead. An id that names nothing answers
  * nothing; an id that names somebody else's note still answers `FORBIDDEN`,
- * because that check has not moved.
+ * because that check has not moved — and now it accounts for the second person
+ * who is allowed to remove one. A recipient can delete what they wrote, and so
+ * can the owner of the document it was written on: it is their document, and
+ * being left holding somebody else's words on it after taking their access away
+ * is exactly what `Sharing.revoke` cleans up.
  */
 export async function remove(
   ctx: MutationCtx,
@@ -287,7 +341,10 @@ export async function remove(
   if (row === null) {
     return;
   }
-  assertOwner(row, owner);
+  const authorId = row.authorId ?? row.ownerId;
+  if (authorId !== owner._id && row.ownerId !== owner._id) {
+    refuse();
+  }
   await ctx.db.delete('documentAnnotations', row._id);
 }
 
@@ -333,6 +390,48 @@ export async function allForOwner(
 
   return {
     ...page,
-    page: page.page.map((row) => ({ ...toPublicAnnotation(row), documentId: row.documentId })),
+    page: page.page.map((row) => ({
+      ...toPublicAnnotation(row),
+      documentId: row.documentId,
+      authorId: row.authorId ?? null,
+    })),
+  };
+}
+
+/**
+ * Everything this person wrote, wherever it lives.
+ *
+ * The other half of `allForOwner`, and the reason it is a second query rather
+ * than a wider one: a recipient's note on a shared document carries the
+ * *document owner's* `ownerId`, because that is what the delete cascade walks.
+ * So `by_owner` cannot see it, and without this a device would send its own
+ * note once and then never hear about it again — it would vanish from the list
+ * on the next reconcile.
+ *
+ * Rows from before sharing have no `authorId` and are therefore absent here;
+ * they are covered by `allForOwner`, where they have always been. Between the
+ * two, every annotation a person can see is reachable exactly once.
+ */
+export async function allForAuthor(
+  ctx: QueryCtx,
+  authorId: Id<'users'>,
+  paginationOpts: PaginationOptions,
+): Promise<PaginationResult<OwnedAnnotation>> {
+  const page = await ctx.db
+    .query('documentAnnotations')
+    .withIndex('by_author', (q) => q.eq('authorId', authorId))
+    .paginate(paginationOpts);
+
+  return {
+    ...page,
+    // Their own documents are already covered by `allForOwner`; returning them
+    // here too would make every reconcile pay for the same rows twice.
+    page: page.page
+      .filter((row) => row.ownerId !== authorId)
+      .map((row) => ({
+        ...toPublicAnnotation(row),
+        documentId: row.documentId,
+        authorId: row.authorId ?? null,
+      })),
   };
 }

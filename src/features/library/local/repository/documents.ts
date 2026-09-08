@@ -309,6 +309,86 @@ export type NewDocument = {
  * `local` is a row the account has never heard of. Only the second needs its id
  * carried across when the queue drains.
  */
+
+/**
+ * A document somebody else owns, arriving under a grant.
+ *
+ * It becomes an ordinary row — the reader opens it, marks it, searches it and
+ * reads it offline exactly like any other — with two columns saying where it
+ * came from: `ownedByMe` at 0, and `shareId` naming the grant. Nothing else
+ * about it is special, which is the point of putting sharing above the
+ * local-first library rather than beside it.
+ *
+ * `remoteId` is set immediately, because unlike an import there is nothing to
+ * create on the account: the row is already there, owned by somebody else.
+ * `syncState` is `synced` for the same reason — this device has nothing to
+ * send about a document it does not own.
+ *
+ * Idempotent on the id, so accepting the same share twice or a reconcile
+ * racing a download cannot produce two rows for one document.
+ */
+export async function insertShared(
+  db: SQLiteDatabase,
+  next: {
+    id: string;
+    remoteId: string;
+    shareId: string;
+    title: string;
+    author: string | null;
+    pageCount: number | null;
+    byteSize: number;
+  },
+): Promise<void> {
+  const now = Date.now();
+  await db.runAsync(
+    `INSERT OR IGNORE INTO documents (
+       id, remoteId, title, author, pageCount, byteSize,
+       processing, currentPage, progress, isFinished, isFavorite,
+       isSynced, ownedByMe, shareId,
+       createdAt, updatedAt, clientUpdatedAt, syncState
+     ) VALUES (?, ?, ?, ?, ?, ?, 'ready', 1, 0, 0, 0, 1, 0, ?, ?, ?, ?, 'synced')`,
+    [
+      next.id,
+      next.remoteId,
+      next.title,
+      next.author,
+      next.pageCount,
+      next.byteSize,
+      next.shareId,
+      now,
+      now,
+      now,
+    ],
+  );
+}
+
+/**
+ * Whether this document is the reader's own.
+ *
+ * `ownedByMe` defaults to 1, so every document imported before sharing existed
+ * answers yes — which is correct: they were all imported by whoever is reading
+ * them. Only a row written by `insertShared` says otherwise.
+ */
+export async function isOwnedByMe(db: SQLiteDatabase, id: string): Promise<boolean> {
+  const row = await db.getFirstAsync<{ ownedByMe: number }>(
+    'SELECT ownedByMe FROM documents WHERE id = ? LIMIT 1',
+    id,
+  );
+  return (row?.ownedByMe ?? 1) === 1;
+}
+
+/** Whether this device holds a row for a document the account knows by this id. */
+export async function localIdForRemote(
+  db: SQLiteDatabase,
+  remoteId: string,
+): Promise<string | null> {
+  const row = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM documents WHERE remoteId = ? LIMIT 1',
+    remoteId,
+  );
+  return row?.id ?? null;
+}
+
 export async function insertLocal(db: SQLiteDatabase, next: NewDocument): Promise<void> {
   const now = Date.now();
   await db.runAsync(

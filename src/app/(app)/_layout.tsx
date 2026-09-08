@@ -7,6 +7,8 @@ import { useSyncIntents } from '@/features/library/data/use-sync-intents';
 import { useIncomingDocument } from '@/features/library/import/use-incoming-document';
 import { useLocalLibrary } from '@/features/library/local/use-local-library';
 import { useSyncEngine } from '@/features/library/sync/use-sync-engine';
+import { usePushNotifications } from '@/features/notifications/use-push-registration';
+import { useSharingSync } from '@/features/sharing/data/use-sharing-sync';
 
 /**
  * The authenticated shell.
@@ -20,9 +22,11 @@ import { useSyncEngine } from '@/features/library/sync/use-sync-engine';
  *   useEnsureProfile    the account row, on a first sign-in
  *   useLocalLibrary     the filesystem scan, into `documentFiles`
  *   useLibrarySync      one live subscription, upserted into the local database
+ *   useSharingSync      the same, for what other people have shared
  *   useSyncEngine       the outbox: drain, then reconcile
  *   useSyncIntents      uploads asked for when there was nothing to upload to
  *   useIncomingDocument a PDF handed over by another app
+ *   usePushNotifications this device's push token, and where a tap goes
  *
  * None of them returns anything and no screen waits for any of them. That is
  * the whole architecture: the screens read the device, and these keep the
@@ -40,12 +44,24 @@ export default function AppLayout() {
   useEnsureProfile();
   useLocalLibrary();
   useLibrarySync();
+  // The sharing half of the same arrangement. Without it every sharing screen
+  // waits on the thirty-second reconcile, which additionally refuses to run
+  // while this device's own outbox has anything in it — so a document somebody
+  // shared arrived somewhere between instantly and never.
+  useSharingSync();
   useSyncEngine();
   useSyncIntents();
   // A PDF opened from another app. Here rather than on a screen, because a
   // document can arrive while the reader is anywhere — and only here, because a
   // file handed over while signed out has no account to go into.
   useIncomingDocument();
+  // Registers this device only if the reader has already agreed. The operating
+  // system prompt is raised on the notification settings screen and nowhere
+  // else — a permission asked for cold on launch is a permission denied for
+  // good. It also routes a notification tap, which has to be handled twice: a
+  // listener for a running app, and `getLastNotificationResponseAsync` for one
+  // that was launched by the tap.
+  usePushNotifications();
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -66,6 +82,23 @@ export default function AppLayout() {
       <Stack.Screen name="sync" />
       {/* What the library takes up here, and what removing any of it costs. */}
       <Stack.Screen name="storage" />
+
+      {/* Sharing. A document is still one row with one owner; these are the
+          screens for the grants on top of it. All pushed rather than presented:
+          each is a place with a back arrow, and the one that is a task with a
+          Cancel — picking who to share with — is still a place you can leave
+          without losing what you picked. */}
+      <Stack.Screen name="share" />
+      <Stack.Screen name="shared" />
+      <Stack.Screen name="activity" />
+      <Stack.Screen name="share-detail" />
+      <Stack.Screen name="access" />
+      <Stack.Screen name="groups" />
+      <Stack.Screen name="group" />
+      <Stack.Screen name="sharing-privacy" />
+      <Stack.Screen name="notification-settings" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="data" />
     </Stack>
   );
 }

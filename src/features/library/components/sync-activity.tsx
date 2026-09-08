@@ -12,8 +12,10 @@ import {
   NotebookPen,
   Pencil,
   RefreshCw,
+  Share2,
   Trash2,
   TriangleAlert,
+  Users,
   WifiOff,
 } from 'lucide-react-native';
 import React from 'react';
@@ -259,6 +261,8 @@ const GLYPHS: Record<ActivityKind, React.ComponentProps<typeof Icon>['as']> = {
   note: NotebookPen,
   collection: FolderTree,
   filing: FolderTree,
+  share: Share2,
+  group: Users,
 };
 
 function Row({ item }: { item: ActivityItem }) {

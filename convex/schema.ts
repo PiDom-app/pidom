@@ -35,7 +35,53 @@ export default defineSchema({
     pictureUrl: v.optional(v.string()),
     createdAt: v.number(),
     lastSeenAt: v.number(),
-  }).index('by_subject', ['subject']),
+
+    /**
+     * The name somebody can be found by, and the only one they choose.
+     *
+     * Sharing needs a way to name a person who is not yet a contact, and every
+     * other candidate is worse: a display name is not unique and is not theirs
+     * to be identified by, and an email address is the one piece of an account
+     * that must never come back out of a search. A handle is opt-in, lowercase
+     * `[a-z0-9_]{3,24}`, and unique — see `Discovery.claimHandle`.
+     *
+     * Optional, because an account that has never opened the sharing screens
+     * has never been asked for one, and inventing `emmanuel_g_4471` on their
+     * behalf would put a name they did not choose on a screen strangers read.
+     */
+    handle: v.optional(v.string()),
+
+    /**
+     * Whether `name` was chosen here rather than read from the Google claim.
+     *
+     * `upsertFromIdentity` refreshes name and picture on every sign-in, which
+     * is right for an account that has never said otherwise and wrong the
+     * moment somebody edits their profile: without this flag the next launch
+     * would quietly put the Google name back and the edit would look like a
+     * bug in the app rather than a rule in it.
+     */
+    nameIsCustom: v.optional(v.boolean()),
+
+    /**
+     * Whether the reader asked for no photo at all.
+     *
+     * A separate flag rather than clearing `pictureUrl`, for the same reason:
+     * the claim is re-read on every sign-in, so a cleared field comes straight
+     * back. `toPublicProfile` is where it takes effect, so one flag covers
+     * every screen anybody else sees them on.
+     */
+    photoHidden: v.optional(v.boolean()),
+  })
+    .index('by_subject', ['subject'])
+    // Discovery, and nothing else. Both of these answer "is there an account
+    // at exactly this string" — one row or none. There is deliberately no
+    // search index over `name`: a prefix index across every account in the
+    // deployment is an enumeration endpoint, and a Convex query cannot spend a
+    // rate-limiter token, so there would be nothing to bound it with. Prefix
+    // matching exists, in `Discovery.searchWithinGraph`, and reaches only
+    // people the caller already shares a group with.
+    .index('by_handle', ['handle'])
+    .index('by_email', ['email']),
 
   /**
    * One imported PDF.
@@ -526,12 +572,47 @@ export default defineSchema({
     clientOpId: v.optional(v.string()),
     /** See `documents.clientUpdatedAt`. Guards an edit against a stale one. */
     clientUpdatedAt: v.optional(v.number()),
+
+    /**
+     * Who wrote it, which stopped being the same question as who owns it.
+     *
+     * `ownerId` still means the document's owner, and has to: it is what the
+     * delete cascade walks, so an annotation written by a recipient on somebody
+     * else's document has to be reachable from that document's owner or it
+     * survives the document. `authorId` is the person whose words these are.
+     *
+     * Optional because every annotation written before sharing existed was
+     * written by the owner, and `authorId ?? ownerId` is the correct reading of
+     * a missing value rather than a guess at one.
+     */
+    authorId: v.optional(v.id('users')),
+
+    /**
+     * Whether anybody else on this document sees it.
+     *
+     * `private` is the default and the only value an unshared document ever
+     * has. `shared` is what an annotator's note is, because a note nobody can
+     * read is not collaboration — but it stays an explicit field rather than
+     * being inferred from `authorId !== ownerId`, so that an owner can keep
+     * their own reading notes to themselves on a document they have shared out.
+     */
+    visibility: v.optional(v.union(v.literal('private'), v.literal('shared'))),
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     // The list, which reads in page order because that is the order somebody
     // moving through a book wants to step through their own marks in.
     .index('by_document', ['documentId', 'page'])
+    // One person's marks on one document — what an annotator's own list is, and
+    // what has to be removed when their access is. Without it, revoking would
+    // read every annotation on the document to find the handful that are theirs.
+    .index('by_document_and_author', ['documentId', 'authorId'])
+    // Everything one person wrote, anywhere. The reconcile walk for a recipient:
+    // their notes on a shared document carry the *document owner's* `ownerId`,
+    // so `by_owner` cannot see them and a device would sync its own writing
+    // exactly once and then lose track of it.
+    .index('by_author', ['authorId', 'createdAt'])
     // The count and the delete cascade, which do not care about page order.
     // Two orders need two indexes; the guidelines are explicit about it.
     .index('by_document_and_created', ['documentId', 'createdAt'])
@@ -583,4 +664,393 @@ export default defineSchema({
     // denormalised `ownerId` was already here for the ownership check; this is
     // what makes it answerable in one paged query rather than one per folder.
     .index('by_owner', ['ownerId', 'addedAt']),
+
+  /* ── sharing ───────────────────────────────────────────────────────
+   *
+   * Every table above answers "what does this account own". These answer
+   * "who else may open it", which is a different question and deliberately
+   * a different set of rows: `documents.ownerId` never changes when a
+   * document is shared, and there is no second copy of anything.
+   *
+   * The decomposition is identity → membership → access. Collapsing it into
+   * one "shared PDF" row is what turns a person leaving a group into a
+   * hundred rows somebody has to remember to delete.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * A named set of people, so a document can be shared with all of them at once.
+   *
+   * It owns no documents. A group appears in `documentShares` exactly like a
+   * person does, and membership is resolved at the moment access is asked for —
+   * which is what makes leaving a group take its documents with it, with no
+   * cascade to run and nothing to forget.
+   */
+  groups: defineTable({
+    ownerId: v.id('users'),
+    name: v.string(),
+
+    /**
+     * Denormalised, for the same reason `collections.documentCount` is: the
+     * groups list renders a count per row, and `.collect().length` over
+     * `groupMembers` would be one unbounded read per row per render. Convex has
+     * no count operator; a maintained counter is the documented answer.
+     *
+     * `Groups.addMember` and `Groups.removeMember` are the only writers.
+     */
+    memberCount: v.number(),
+
+    /** The id the device gave it. See `documentAnnotations.clientOpId`. */
+    clientOpId: v.optional(v.string()),
+    clientUpdatedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner', ['ownerId'])
+    .index('by_owner_and_op', ['ownerId', 'clientOpId']),
+
+  /**
+   * One person in one group.
+   *
+   * `userId` rather than an invitation by email: somebody has to have an
+   * account before they can be added, because the whole point of the row is to
+   * resolve to an identity Convex has verified. There is no pending-member
+   * state — an invitation to a group is a `shareInvitations`-shaped problem
+   * this schema deliberately does not have, and adding somebody who has not
+   * agreed is prevented by their own `allowGroupInvites` instead.
+   */
+  groupMembers: defineTable({
+    groupId: v.id('groups'),
+    userId: v.id('users'),
+
+    /**
+     * `admin` can add and remove members and rename the group. `member` can
+     * leave it. The group's `ownerId` is a third thing and is not stored here:
+     * an owner who demoted themselves out of their own group would be a group
+     * nobody can administer.
+     */
+    role: v.union(v.literal('admin'), v.literal('member')),
+
+    /** Who did it. Kept so a member can see how they got here. */
+    addedBy: v.id('users'),
+    addedAt: v.number(),
+  })
+    // "Is this person in this group?" — asked on every access resolution that
+    // goes through a group share, so it has to be one lookup rather than a scan.
+    .index('by_group_and_user', ['groupId', 'userId'])
+    // The member list, and the fan-out walk when a document is shared with the
+    // group. Paged: a group can hold GROUP_MEMBER_MAX people.
+    .index('by_group_and_added', ['groupId', 'addedAt'])
+    // "Which groups am I in?" — the caller's own graph, which is what bounds
+    // `Discovery.searchWithinGraph` and what the groups list reads.
+    .index('by_user', ['userId', 'addedAt']),
+
+  /**
+   * Permission for one document, granted to one person or one group.
+   *
+   * This is the whole of sharing. It is resolved on every read rather than
+   * cached into anything, so revoking is immediate everywhere the server is in
+   * the loop — and reaches nothing that has already been downloaded, which the
+   * UI says out loud rather than implying otherwise.
+   */
+  documentShares: defineTable({
+    documentId: v.id('documents'),
+
+    /**
+     * The document's owner, denormalised.
+     *
+     * A recipient-scoped read needs to name who shared with them, and without
+     * this every row in the inbox would be a second fetch of a document the
+     * recipient may not even be allowed to read yet. It is written from the
+     * document row at insert and never from an argument.
+     */
+    ownerId: v.id('users'),
+
+    /**
+     * Who performed this share, which is not always the owner.
+     *
+     * On a reshare it is the recipient who passed it on. Kept separately so
+     * "shared by" can be honest, and so a reshare can be revoked by the person
+     * who made it as well as by the owner.
+     */
+    createdBy: v.id('users'),
+
+    /**
+     * Exactly one of `recipientUserId` and `groupId` is set, and `subject` says
+     * which. A discriminant rather than two nullable fields read in order,
+     * because the two resolve through different indexes and a row that set
+     * both would silently take whichever branch was written first.
+     */
+    subject: v.union(v.literal('user'), v.literal('group')),
+    recipientUserId: v.optional(v.id('users')),
+    groupId: v.optional(v.id('groups')),
+
+    /**
+     * What they may do with the document itself.
+     *
+     * Two values, not a ladder of five. `annotator` is `viewer` plus the right
+     * to write annotations against the document; anything more — renaming it,
+     * filing it, deleting it — belongs to the owner and is not expressible
+     * here on purpose.
+     */
+    role: v.union(v.literal('viewer'), v.literal('annotator')),
+
+    /**
+     * Whether they may put the file on their own device.
+     *
+     * Separate from `role` because it is the one permission that survives being
+     * taken away. Everything else here stops the moment the row changes; a
+     * downloaded PDF is a file on a disk this deployment cannot reach. Default
+     * false, asked for per share, and stated in the dialog rather than
+     * discovered afterwards.
+     */
+    canDownload: v.boolean(),
+
+    /**
+     * Whether they may share it on.
+     *
+     * A reshare is capped at what the resharer holds — never a higher role,
+     * never a wider `canDownload`, and never `canReshare` again. See
+     * `Sharing.requireResharable`.
+     */
+    canReshare: v.boolean(),
+
+    /**
+     * `pending` until the recipient answers. `accepted` is the only state that
+     * grants anything: an unanswered share is a notification and a title, and
+     * nothing is downloaded under it.
+     *
+     * `expired` is written by the nightly sweep as well as being derived from
+     * `expiresAt`, so a stale row reads correctly in a list without every
+     * reader recomputing it.
+     */
+    status: v.union(
+      v.literal('pending'),
+      v.literal('accepted'),
+      v.literal('declined'),
+      v.literal('revoked'),
+      v.literal('expired'),
+    ),
+
+    /** A line to the recipient. Bounded by `SHARE_MESSAGE_MAX`, cleaned like a title. */
+    message: v.optional(v.string()),
+
+    /** Absent means it does not expire. Checked on every resolution, not only on the sweep. */
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    respondedAt: v.optional(v.number()),
+
+    /** See `documentAnnotations.clientOpId`. A share queued offline is delivered once. */
+    clientOpId: v.optional(v.string()),
+    clientUpdatedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // Manage Access: everybody this document is shared with, newest last.
+    .index('by_document', ['documentId', 'createdAt'])
+    // "Does this person already have this document?" — the idempotency check on
+    // a create, and the first branch of every access resolution.
+    .index('by_document_and_recipient', ['documentId', 'recipientUserId'])
+    // The inbox, split by state so Pending is not a filter over everything.
+    .index('by_recipient_and_status', ['recipientUserId', 'status'])
+    // The recipient's reconcile walk — the mirror of `documents.by_owner_and_updated`.
+    // A device coming back online asks what moved, oldest change first, paged.
+    .index('by_recipient_and_updated', ['recipientUserId', 'updatedAt'])
+    // The second branch of access resolution, and the cascade when a group is
+    // deleted. Ordered by document so one group's shares read as a list.
+    .index('by_group', ['groupId', 'documentId'])
+    // What the sender sees under "Sent", and their own reconcile walk.
+    .index('by_owner_and_updated', ['ownerId', 'updatedAt'])
+    // The idempotency lookup for a share the device queued while offline.
+    .index('by_owner_and_op', ['ownerId', 'clientOpId'])
+    // Reshares. A share created by somebody who is not the document's owner is
+    // reachable by neither `by_owner_and_updated` nor `by_recipient_*`, so
+    // without this index deleting an account would leave its reshares behind
+    // on other people's documents. See `convex/account.ts`.
+    .index('by_creator', ['createdBy'])
+    // The expiry sweep. `status` first because it is the equality — only
+    // `accepted` and `pending` rows can expire — and `expiresAt` orders within
+    // it, so the sweep reads exactly the rows that are due and stops.
+    //
+    // Expiry is enforced by this transition rather than by comparing a clock on
+    // every read: a Convex query is not re-run because time passed, so a query
+    // that decided a share was live at subscribe time would go on saying so.
+    // Flipping `status` is a write, and a write invalidates every subscription
+    // that read the row. See `Sharing.expireDue`.
+    .index('by_status_and_expiry', ['status', 'expiresAt']),
+
+  /**
+   * Something that happened, addressed to one person.
+   *
+   * The in-app inbox, and the record a push is sent against. It exists
+   * separately from `documentShares` because a share produces several events
+   * over its life — offered, accepted, revoked — and because an event that was
+   * never delivered has to be re-sendable without touching the permission.
+   *
+   * It carries no title and no message text. Everything a screen renders is
+   * fetched through an authenticated query at the moment it renders, so a row
+   * here cannot become a copy of a document's contents that outlives access
+   * to that document.
+   */
+  shareEvents: defineTable({
+    userId: v.id('users'),
+    kind: v.union(
+      v.literal('shareOffered'),
+      v.literal('shareAccepted'),
+      v.literal('shareDeclined'),
+      v.literal('accessRevoked'),
+      v.literal('accessChanged'),
+      v.literal('groupJoined'),
+      v.literal('groupDocumentShared'),
+      v.literal('annotationAdded'),
+    ),
+    shareId: v.optional(v.id('documentShares')),
+    documentId: v.optional(v.id('documents')),
+    groupId: v.optional(v.id('groups')),
+    /** Who caused it. Rendered as an avatar and a name, through the same projection search uses. */
+    actorId: v.optional(v.id('users')),
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    // The list, newest first.
+    .index('by_user_and_created', ['userId', 'createdAt'])
+    // The unread count on the Shared row, without reading the whole history.
+    // `readAt` first because it is the equality; `createdAt` orders within it.
+    .index('by_user_and_read', ['userId', 'readAt', 'createdAt'])
+    // The cascade when a share or a document goes.
+    .index('by_share', ['shareId']),
+
+  /**
+   * One installation that can receive a push.
+   *
+   * A row per device rather than per account, because that is what Expo's push
+   * service addresses and what has to be deleted when it answers
+   * `DeviceNotRegistered`. The token is infrastructure data: it identifies a
+   * device to a third party, it is cycled by the OS, and it is never returned
+   * to any client — including the device that registered it.
+   */
+  deviceTokens: defineTable({
+    userId: v.id('users'),
+    /** An `ExpoPushToken[...]`. Never leaves the deployment except toward Expo. */
+    token: v.string(),
+    platform: v.union(v.literal('ios'), v.literal('android')),
+    /** For the settings screen, so somebody can tell two phones apart. */
+    deviceName: v.optional(v.string()),
+    appVersion: v.optional(v.string()),
+    /**
+     * Turned off by the notification settings rather than deleted, so that
+     * switching notifications back on does not require the OS permission
+     * dance again. A delete here means the token is dead, not muted.
+     */
+    enabled: v.boolean(),
+    lastSeenAt: v.number(),
+    createdAt: v.number(),
+    /**
+     * When a receipt said this token is gone.
+     *
+     * Written by `push.applyReceipts` on `DeviceNotRegistered`, immediately
+     * before the row is deleted — it used to be a column nothing ever set, so
+     * the state described here could not occur. It exists for anything reading
+     * the token between that patch and the delete, and as the record of *why*
+     * a device disappeared.
+     */
+    failedAt: v.optional(v.number()),
+  })
+    // Everything to send to, for one recipient.
+    .index('by_user', ['userId'])
+    // Registration is an upsert: the same device re-registering must not
+    // insert a second row, and a token that moved to another account must
+    // move rather than duplicate.
+    .index('by_token', ['token']),
+
+  /**
+   * What one account wants to be told about.
+   *
+   * A row only exists once somebody has changed something. Defaults live in
+   * `Notifications.defaults` rather than in the row, so a reader who has never
+   * opened the screen is covered by code that can be corrected in one place
+   * rather than by a backfill over every account.
+   */
+  notificationSettings: defineTable({
+    userId: v.id('users'),
+    /** The master switch. False means nothing is sent, whatever the rest say. */
+    allow: v.boolean(),
+    documentShares: v.boolean(),
+    shareResponses: v.boolean(),
+    groupActivity: v.boolean(),
+    annotationActivity: v.boolean(),
+    /**
+     * Minutes past local midnight, or absent for no quiet hours.
+     *
+     * Minutes rather than a timestamp because the reader means "at night",
+     * which is a time of day and not an instant. A window that wraps midnight
+     * is the normal case, so `start > end` is valid and is what the check
+     * handles first.
+     */
+    quietStartMinute: v.optional(v.number()),
+    quietEndMinute: v.optional(v.number()),
+    /** Minutes east of UTC, sent by the device. Only ever used to read the two above. */
+    utcOffsetMinutes: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  /**
+   * Who may reach this account, and what a share of theirs starts as.
+   *
+   * Same absent-row-means-defaults rule as `notificationSettings`. The two
+   * defaults worth naming: `findableBy` is `anyone`, because a sharing system
+   * nobody can be found in does not work and finding is an exact match rather
+   * than a listing; `defaultCanDownload` and `defaultCanReshare` are false,
+   * because those are the two that survive being taken away.
+   *
+   * There is no `autoAcceptFromGroups`, and its absence is deliberate. A group
+   * share is one row resolved through `groupMembers` at read time — that is the
+   * whole reason groups exist, and it means membership *is* the acceptance.
+   * There is no per-member state for a setting to govern, and a switch nothing
+   * enforces reads as covered when it is not.
+   */
+  sharingSettings: defineTable({
+    userId: v.id('users'),
+    findableBy: v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
+    shareableBy: v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
+    defaultRole: v.union(v.literal('viewer'), v.literal('annotator')),
+    defaultCanDownload: v.boolean(),
+    defaultCanReshare: v.boolean(),
+    /** Whether a heartbeat is recorded at all — not whether a screen hides it. */
+    showOnlineStatus: v.boolean(),
+    showReadingActivity: v.boolean(),
+    allowGroupInvites: v.boolean(),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  /**
+   * One attempt to push one event to one device.
+   *
+   * Expo's send call returns a ticket, and whether the notification actually
+   * arrived is only knowable from a receipt fetched later — so a send is two
+   * steps separated by about fifteen minutes, and something has to hold the
+   * ticket in between. This is also what stops one dead token swallowing a
+   * group's notifications: a failure is recorded against the row rather than
+   * thrown out of the batch.
+   */
+  pushDeliveries: defineTable({
+    eventId: v.id('shareEvents'),
+    userId: v.id('users'),
+    tokenId: v.id('deviceTokens'),
+    ticketId: v.optional(v.string()),
+    /**
+     * `queued` used to be here and nothing ever wrote it. A state the schema
+     * declares and no code can reach reads as covered when it is not, which is
+     * the same objection `sharingSettings` makes to a switch nothing enforces.
+     */
+    status: v.union(v.literal('sent'), v.literal('delivered'), v.literal('failed')),
+    /** Expo's error code — `DeviceNotRegistered`, `MessageTooBig`, and so on. A code, never a message. */
+    error: v.optional(v.string()),
+    sentAt: v.number(),
+    receiptAt: v.optional(v.number()),
+  })
+    // The receipt poll: everything sent and not yet resolved, oldest first.
+    .index('by_status_and_sent', ['status', 'sentAt'])
+    // The cascade when a token is deleted, and "did this event reach anybody?".
+    .index('by_token', ['tokenId'])
+    .index('by_event', ['eventId']),
 });

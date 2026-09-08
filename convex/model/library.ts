@@ -7,6 +7,7 @@ import { r2 } from '../r2';
 
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import * as Annotations from './annotations';
+import * as Sharing from './sharing';
 import { assertOwner } from './auth';
 import * as Processing from './processing';
 import { clientClock, documentByLocalId, isLocalId, isStale, localIdField } from './sync';
@@ -1053,9 +1054,17 @@ export async function removeDocument(
   await Processing.deleteOutline(ctx, doc._id);
   await Processing.deleteJob(ctx, doc._id);
   // Both bounded by the same constants that bound how many can exist, so one
-  // pass is always enough.
+  // pass is always enough. `Annotations.deleteAll` walks `by_document`, so it
+  // takes an annotator's notes with it as well as the owner's — which is why
+  // `documentAnnotations.ownerId` is still the *document's* owner even now that
+  // a second person can write one.
   await deleteBookmarks(ctx, doc._id);
   await Annotations.deleteAll(ctx, doc._id);
+  // Every grant on this document, and the events that named them. Deleted
+  // rather than revoked: revoking describes a document that still exists, and
+  // in a moment this one will not — a revoked row would sit in each recipient's
+  // inbox forever naming nothing.
+  await Sharing.removeForDocument(ctx, doc._id);
   // Bounded like the one in `detachUpload`, and queued for the same reason.
   // This is the case where the queue earns its keep: in a moment there will be
   // no document row at all, so anything left behind could never be recognised

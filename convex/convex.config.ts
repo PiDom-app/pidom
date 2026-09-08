@@ -1,4 +1,6 @@
 import { defineApp } from 'convex/server';
+import pushNotifications from '@convex-dev/expo-push-notifications/convex.config.js';
+import presence from '@convex-dev/presence/convex.config.js';
 import r2 from '@convex-dev/r2/convex.config.js';
 import rateLimiter from '@convex-dev/rate-limiter/convex.config.js';
 import workflow from '@convex-dev/workflow/convex.config.js';
@@ -29,14 +31,58 @@ import workpool from '@convex-dev/workpool/convex.config.js';
  * **Rate limiter** puts a per-account bound on the four writes that cost real
  * money or real work. `SECURITY.md` named this as the one thing not covered.
  *
+ * **Push notifications** talks to Expo. It replaced about two hundred lines of
+ * hand-written batching, backoff and workpool bookkeeping in `./push.ts` — with
+ * one adaptation, because the component is one-token-per-account: `recordToken`
+ * patches the existing row and `sendPushNotification` reads it back with
+ * `.unique()`. Pidom supports up to ten devices per reader, so the id recorded
+ * with it is the **device's**, not the account's. The class is generic over a
+ * plain string for exactly this. See `./push.ts`.
+ *
+ * **It cannot yet be given an Expo access token, and that is the component's
+ * limitation rather than a decision here.** Its README documents forwarding
+ * `EXPO_ACCESS_TOKEN` through `app.use`, but the published 0.3.1 declares no
+ * env vars at all — `defineComponent("pushNotifications")` and nothing else —
+ * and `component/internal.ts` posts to `exp.host/--/api/v2/push/send` with
+ * `Accept`, `Accept-encoding` and `Content-Type` and no `Authorization` header.
+ * Passing the variable is refused at push time with "Component
+ * [pushNotifications] has no env var named EXPO_ACCESS_TOKEN", which is the
+ * honest answer.
+ *
+ * The token is set on the deployment (`npx convex env set EXPO_ACCESS_TOKEN`)
+ * and never written into this repository, so the day the component ships
+ * support the wiring is one line. Until then **enhanced push security has to be
+ * off on the Expo project**, or every send is rejected before it leaves. The
+ * receipt poll below is what would notice: rejected sends are recorded as
+ * `failed` deliveries rather than disappearing.
+ *
+ * What did *not* come with it is receipts: the component reads the immediate
+ * ticket from `/push/send`, treats only `MessageRateExceeded` as retryable, and
+ * never calls `getReceipts` — so nothing in it ever retires a dead token. That
+ * half is still Pidom's, and is the only thing that notices a handset has been
+ * wiped. It runs on the **`receipts`** workpool: fetching them is an
+ * independent, unordered, idempotent action against a third party, which is a
+ * pool rather than a flow, and a group share can leave a hundred of them due at
+ * once.
+ *
+ * **Presence** tracks who is in a document or group room right now. It is
+ * ephemeral by construction — heartbeats and a timeout, run by one
+ * deployment-wide worker rather than by every client polling — which is exactly
+ * what "is Amina reading this" is and exactly what a `lastSeen` column is not.
+ * Its own component tables are the only place that state lives. See
+ * `./presence.ts`, which wraps every entry point in an access check.
+ *
  * Parallelism is the number to watch: the free plan allows 20 across every pool
  * in the deployment, and the workflow component carries a pool of its own. The
- * two here are set to 4 and 2 in the files that construct them.
+ * three written here are 4, 2 and 2; the push component brings one of its own.
  */
 const app = defineApp();
 app.use(r2);
 app.use(workflow);
 app.use(workpool, { name: 'maintenance' });
+app.use(workpool, { name: 'receipts' });
 app.use(rateLimiter);
+app.use(presence);
+app.use(pushNotifications, { env: {} });
 
 export default app;

@@ -47,7 +47,7 @@ export function LibraryHeader({
           className="rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarFallbackText>{name ?? email ?? 'Reader'}</AvatarFallbackText>
-            {photoUrl === null ? null : <AvatarImage source={{ uri: photoUrl }} />}
+            <AvatarImage source={{ uri: photoUrl }} />
           </Avatar>
         </Pressable>
       </HStack>

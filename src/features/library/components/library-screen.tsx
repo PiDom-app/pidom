@@ -22,6 +22,7 @@ import { useLibraryActions } from '../data/use-library-actions';
 import { useLibraryStatus } from '../data/use-library-status';
 import { usePendingProbe } from '../data/use-pending-probe';
 import { databaseFault } from '../local/db';
+import type { LibraryShare } from '../local/repository/types';
 import { documentFile } from '../local/paths';
 import { COLLECTION_TILE_HEIGHT, CollectionTile } from './collection-tile';
 import { DocumentActions } from './document-actions';
@@ -33,6 +34,7 @@ import { LibraryHeader } from './library-header';
 import { LibraryUnavailable, OfflineState, SyncNotice } from './library-notice';
 import { LibrarySkeleton } from './library-skeleton';
 import { SectionRail } from './section-rail';
+import { SharedTile } from './shared-tile';
 
 /**
  * Home.
@@ -121,6 +123,14 @@ export function LibraryScreen() {
     [router],
   );
 
+  /** A share opens its own screen rather than the reader: there may be no file yet. */
+  const openShare = useCallback(
+    (share: LibraryShare) => {
+      router.push({ pathname: '/share-detail', params: { id: share.id } });
+    },
+    [router],
+  );
+
   const renderSection = useCallback(
     (section: HomeSection) => {
       if (section.kind === 'collections') {
@@ -133,6 +143,18 @@ export function LibraryScreen() {
             renderItem={(collection) => (
               <CollectionTile collection={collection} onPress={openCollection} />
             )}
+          />
+        );
+      }
+
+      if (section.kind === 'shares') {
+        return (
+          <SectionRail
+            title={section.title}
+            data={section.shares}
+            minHeight={tileHeight(COVER_WIDTH, false)}
+            keyExtractor={(share) => share.id}
+            renderItem={(share) => <SharedTile share={share} onPress={openShare} />}
           />
         );
       }
@@ -154,7 +176,7 @@ export function LibraryScreen() {
         />
       );
     },
-    [openCollection, openDocument],
+    [openCollection, openDocument, openShare],
   );
 
   const header = (

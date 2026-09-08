@@ -1,10 +1,19 @@
-import { ArrowLeft, Bookmark, ListTree, MoreHorizontal, TextSearch } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Bookmark,
+  ListTree,
+  MoreHorizontal,
+  Share2,
+  TextSearch,
+} from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import type { ThemeName } from '@/design/tokens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
+import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
@@ -49,6 +58,8 @@ export function ReaderChrome({
   onSearch,
   isBookmarked,
   onToggleBookmark,
+  onShare,
+  readers,
   onMore,
   onScrubTo,
   onOpenJump,
@@ -72,6 +83,15 @@ export function ReaderChrome({
   /** Whether the page currently on screen is one of the marked ones. */
   isBookmarked: boolean;
   onToggleBookmark: () => void;
+  /** Absent for a document with no cloud copy — there would be nothing to share. */
+  onShare?: () => void;
+  /**
+   * Who else has this document open right now.
+   *
+   * Empty for a document nobody shares, which is nearly all of them, and the
+   * row is absent rather than empty in that case.
+   */
+  readers?: readonly { id: string; displayName: string; pictureUrl: string | null }[];
   onMore: () => void;
   /** Committed on release, never during the drag. */
   onScrubTo: (page: number) => void;
@@ -175,6 +195,23 @@ export function ReaderChrome({
             />
           </Pressable>
 
+          {/* Sharing is one tap rather than two through the sheet, because it
+              is the one thing here somebody does *to* a document rather than
+              with it — and because the sheet's Share is the operating system's,
+              which sends a file rather than granting access. Two different
+              acts, so two different controls. Absent when the document has no
+              copy in the account: there would be nothing for a recipient to
+              fetch, and the account refuses such a share anyway. */}
+          {onShare === undefined ? null : (
+            <Pressable
+              onPress={onShare}
+              accessibilityRole="button"
+              accessibilityLabel="Share this document"
+              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+              <Icon as={Share2} size="lg" className="text-foreground" />
+            </Pressable>
+          )}
+
           <Pressable
             onPress={onMore}
             accessibilityRole="button"
@@ -183,6 +220,32 @@ export function ReaderChrome({
             <Icon as={MoreHorizontal} size="lg" className="text-foreground" />
           </Pressable>
         </HStack>
+
+        {/* Under the title rather than in the run of buttons.
+
+            The bar carries six controls already, and a seventh would be the one
+            that finally turns the title into an ellipsis. Three faces at most
+            and then a count: a row that grows with the number of readers is a
+            row that eventually pushes something off the screen. */}
+        {readers === undefined || readers.length === 0 ? null : (
+          <HStack className="items-center gap-2 px-5 pb-3">
+            <HStack className="items-center">
+              {readers.slice(0, 3).map((reader, index) => (
+                <Box
+                  key={reader.id}
+                  className={index === 0 ? 'rounded-full' : '-ml-2 rounded-full'}>
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallbackText>{reader.displayName}</AvatarFallbackText>
+                    <AvatarImage source={{ uri: reader.pictureUrl }} recyclingKey={reader.id} />
+                  </Avatar>
+                </Box>
+              ))}
+            </HStack>
+            <Text size="xs" numberOfLines={1} className="flex-1 text-fg-subtle">
+              {describeReaders(readers)}
+            </Text>
+          </HStack>
+        )}
       </Animated.View>
 
       <Animated.View
@@ -210,4 +273,25 @@ export function ReaderChrome({
       </Animated.View>
     </>
   );
+}
+
+/**
+ * "Amina and Grace are reading this."
+ *
+ * Names rather than a count, up to two, because "2 people are reading this" is
+ * a fact nobody can do anything with and a name is somebody you might message.
+ * Past two it becomes a count, since a list of five names is a line of
+ * ellipsis.
+ */
+function describeReaders(
+  readers: readonly { displayName: string }[],
+): string {
+  const names = readers.map((reader) => reader.displayName.split(' ')[0]);
+  if (names.length === 1) {
+    return `${names[0]} is reading this`;
+  }
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]} are reading this`;
+  }
+  return `${names[0]}, ${names[1]} and ${names.length - 2} more are reading this`;
 }

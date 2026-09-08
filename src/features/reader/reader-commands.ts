@@ -48,6 +48,8 @@ export type ReaderCommands = {
   openNavigator: (segment: NavigatorSegment) => void;
   openSearch: () => void;
   openPageJump: () => void;
+  /** Who else may open this document — a screen, like the navigator. */
+  openShare: () => void;
   closeReader: () => void;
 };
 
@@ -64,6 +66,7 @@ export function useReaderCommands({
   onOpenNavigator,
   onOpenSearch,
   onOpenPageJump,
+  onOpenShare,
   onClose,
 }: {
   canvas: RefObject<ReaderCanvasRef | null>;
@@ -79,6 +82,7 @@ export function useReaderCommands({
   onOpenNavigator: (segment: NavigatorSegment) => void;
   onOpenSearch: () => void;
   onOpenPageJump: () => void;
+  onOpenShare: () => void;
   onClose: () => void;
 }): ReaderCommands {
   const goToLocation = useCallback(
@@ -139,6 +143,7 @@ export function useReaderCommands({
       openNavigator: onOpenNavigator,
       openSearch: onOpenSearch,
       openPageJump: onOpenPageJump,
+      openShare: onOpenShare,
       closeReader: onClose,
     }),
     [
@@ -153,6 +158,7 @@ export function useReaderCommands({
       onOpenNavigator,
       onOpenSearch,
       onOpenPageJump,
+      onOpenShare,
       onClose,
     ],
   );

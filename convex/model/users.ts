@@ -40,9 +40,38 @@ export function toPublicProfile(user: Doc<'users'>): PublicProfile {
     id: user._id,
     email: user.email,
     name: user.name ?? null,
-    pictureUrl: user.pictureUrl ?? null,
+    pictureUrl: photoOf(user),
     createdAt: user.createdAt,
   };
+}
+
+/**
+ * The photo other people are shown, which is not always the one on file.
+ *
+ * `pictureUrl` keeps holding the Google claim while `photoHidden` is set,
+ * because the claim is re-read on every sign-in and clearing the column would
+ * only last until the next launch. Hiding is therefore a decision made at the
+ * projection, once, where every screen goes through it.
+ */
+export function photoOf(user: Doc<'users'>): string | null {
+  return user.photoHidden === true ? null : (user.pictureUrl ?? null);
+}
+
+/**
+ * The same photo, at a size worth rendering.
+ *
+ * Google's OIDC `picture` claim comes back as `=s96-c`, meaning 96 device-
+ * independent pixels. The account screen draws it at `h-20 w-20` — 80dp, which
+ * is 240 real pixels on a three-times screen — so what shipped was a 96px image
+ * upscaled two and a half times, and it looked it.
+ *
+ * The suffix is Google's own resizing parameter and is safe to rewrite; the
+ * rest of the URL is opaque and is left alone. A URL that carries no `=s`
+ * segment is returned untouched rather than guessed at, and the whole thing is
+ * bounded by the claim being a string Google signed.
+ */
+function atSize(url: string, pixels = 240): string {
+  return /=s\d+/.test(url) ? url.replace(/=s\d+/, `=s${pixels}`) : url;
 }
 
 /**
@@ -77,12 +106,15 @@ export async function upsertFromIdentity(
   // Only the claims Google actually sent. Convex treats an explicit `undefined`
   // in a patch as "delete this field", so spreading the present ones is what
   // stops a token that omits `name` from wiping a name already on record.
+  //
+  // A name the reader chose here is not one of them. `nameIsCustom` is the one
+  // thing that stops the next launch putting the Google name back over an edit.
   const claims: { name?: string; pictureUrl?: string } = {};
-  if (identity.name !== undefined) {
+  if (identity.name !== undefined && existing?.nameIsCustom !== true) {
     claims.name = identity.name;
   }
   if (identity.pictureUrl !== undefined) {
-    claims.pictureUrl = identity.pictureUrl;
+    claims.pictureUrl = atSize(identity.pictureUrl);
   }
 
   if (existing !== null) {

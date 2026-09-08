@@ -8,6 +8,8 @@ import { useAppToast } from '@/components/feedback/use-app-toast';
 import { log } from '@/lib/logger';
 import { useLocalLibraryStore } from '@/stores/local-library-store';
 import { useTransferStore } from '@/stores/transfer-store';
+import { mayTransfer } from '@/lib/connectivity';
+import { wifiOnlyNow } from '@/stores/preferences-store';
 
 import type { OutlineEntry } from '../components/document-probe';
 import { database } from '../local/db';
@@ -80,6 +82,25 @@ export function useLibraryActions() {
         const db = await database(profileId);
         if (db === null) {
           return false;
+        }
+
+        /**
+         * A document somebody else owns is removed from this phone and nowhere
+         * else.
+         *
+         * There is nothing to tell the account: `library.remove` is the
+         * owner's, the grant is theirs and stays until they take it back, and
+         * the share row remains so the inbox can offer the download again. So
+         * the row is purged rather than soft-deleted — a tombstone exists to
+         * carry a delete to the account, and this delete has nowhere to go.
+         */
+        const mine = await Documents.isOwnedByMe(db, documentId);
+        if (!mine) {
+          await Queue.dropOperationsFor(db, 'annotation', await annotationIdsOf(db, documentId));
+          await Documents.purge(db, documentId);
+          sweepDocument(profileId, documentId, 'document');
+          markAbsent(documentId);
+          return true;
         }
 
         await Documents.softDelete(db, documentId);
@@ -447,6 +468,18 @@ export function useLibraryActions() {
       if (profileId === null || document.remoteId === null) {
         return false;
       }
+      // The reader's own answer about their own connection. Only a link
+      // NetInfo positively calls cellular is refused — see `mayTransfer`.
+      if (!mayTransfer(wifiOnlyNow())) {
+        showToast({
+          id: 'download',
+          tone: 'error',
+          title: 'Waiting for Wi-Fi',
+          description: 'Downloads are set to Wi-Fi only. Change that under Sync & data.',
+        });
+        return false;
+      }
+
       const documentId = document.remoteId as Id<'documents'>;
       const db = await database(profileId);
 

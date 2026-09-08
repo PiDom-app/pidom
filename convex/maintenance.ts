@@ -5,13 +5,16 @@ import { components, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalMutation } from './_generated/server';
 import {
+  DELIVERY_PRUNE_LIMIT,
   JOB_STALE_MS,
   JOB_SWEEP_LIMIT,
   PAGE_DELETE_BUDGET,
   PRUNE_DOCUMENTS,
+  SHARE_EXPIRY_SWEEP,
   WORKFLOW_CLEANUP_LIMIT,
 } from './model/limits';
 import * as Processing from './model/processing';
+import * as Sharing from './model/sharing';
 import { queueExtraction, workflow } from './workflows/document';
 
 /**
@@ -40,9 +43,9 @@ export const maintenance = new Workpool(components.maintenance, {
 });
 
 /**
- * The nightly entry point. Queues the four jobs and returns.
+ * The nightly entry point. Queues the jobs and returns.
  *
- * A cron runs one function, and doing all four inline would be one mutation
+ * A cron runs one function, and doing them all inline would be one mutation
  * whose time budget is one second. Queueing them puts each on the pool's own
  * retry, so a sweep that fails does not take the re-drive down with it.
  */
@@ -54,7 +57,53 @@ export const nightly = internalMutation({
     await maintenance.enqueueMutation(ctx, internal.maintenance.redriveStaleJobs, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.prunePagesOfUnsynced, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.cleanupWorkflows, {});
+    await maintenance.enqueueMutation(ctx, internal.maintenance.prunePushDeliveries, {});
     return null;
+  },
+});
+
+/**
+ * Marks shares whose time is up.
+ *
+ * **Hourly rather than nightly, and that is a security decision.** Everything
+ * else in this file repairs waste — an orphaned object, a stale job, page text
+ * outliving a sync. This one ends somebody's access, and a permission that was
+ * supposed to lapse at nine in the morning should not still be readable at two
+ * in the afternoon.
+ *
+ * It is not the only enforcement. `Access.refuseIfExpired` checks a fresh clock
+ * on every mutation that hands out a signed URL or writes an annotation, so
+ * nothing capability-granting waits for this. What the sweep adds is the read
+ * path: a Convex query is not re-run because time advanced, so a screen
+ * subscribed to a live share goes on rendering it as live until a write
+ * invalidates the subscription. This is that write.
+ */
+export const expireShares = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    return await Sharing.expireDue(ctx, SHARE_EXPIRY_SWEEP);
+  },
+});
+
+/**
+ * Drops delivery rows that have already told us what they were going to.
+ *
+ * A `pushDeliveries` row exists to connect a ticket to a receipt. Once the
+ * receipt has landed it is a log line, and the table grows by one row per
+ * notification per device forever without this.
+ *
+ * A week, because that is long enough to answer "did this reach them" while
+ * somebody is still asking.
+ */
+export const prunePushDeliveries = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx): Promise<number> => {
+    return await ctx.runMutation(internal.push.pruneDeliveries, {
+      olderThanMs: 7 * 24 * 60 * 60 * 1000,
+      limit: DELIVERY_PRUNE_LIMIT,
+    });
   },
 });
 
