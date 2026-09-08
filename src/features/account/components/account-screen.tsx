@@ -83,7 +83,7 @@ export function AccountScreen() {
                 h-12 w-12, so the profile header sizes it through className. */}
             <Avatar className="h-20 w-20">
               <AvatarFallbackText>{name ?? email ?? 'Reader'}</AvatarFallbackText>
-              {photo === null ? null : <AvatarImage source={{ uri: photo }} />}
+              <AvatarImage source={{ uri: photo }} />
             </Avatar>
 
             <VStack className="items-center" space="xs">

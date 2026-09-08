@@ -21,7 +21,6 @@ import { Input, InputField } from '@/components/ui/input';
 import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
-import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { NameDialog } from '@/features/library/components/name-dialog';
@@ -29,7 +28,7 @@ import { useLibraryStatus } from '@/features/library/data/use-library-status';
 
 import { PersonRow, Tag } from './components/person-row';
 import { ProfileSheet } from './components/profile-sheet';
-import { Empty, Notice, ScreenHeader, Segments } from './components/segments';
+import { Empty, ListSkeleton, Notice, ScreenHeader, Segments } from './components/segments';
 import { useShareActions } from './data/use-share-actions';
 import { useGroup, useGroupDocuments } from './data/use-sharing';
 
@@ -98,9 +97,15 @@ export function GroupScreen() {
     return (
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader glyph={Users} title="Group" onBack={() => router.back()} />
-        <Box className="flex-1 items-center justify-center">
-          {loading ? <Spinner /> : <Text size="sm" className="text-fg-subtle">That group is gone.</Text>}
-        </Box>
+        {loading ? (
+          <ListSkeleton />
+        ) : (
+          <Empty
+            glyph={Users}
+            title="That group is gone"
+            body="It was deleted, or you were removed from it. Anything shared into it is no longer open to you."
+          />
+        )}
       </Screen>
     );
   }
@@ -392,9 +397,7 @@ function AddMemberSheet({
             body="Pidom does not list accounts, so a handle or an address has to match exactly."
           />
         ) : people === undefined ? (
-          <Box className="py-12 items-center">
-            <Spinner />
-          </Box>
+          <ListSkeleton />
         ) : people.filter((person) => !exclude.has(person.id)).length === 0 ? (
           <Empty
             glyph={Search}

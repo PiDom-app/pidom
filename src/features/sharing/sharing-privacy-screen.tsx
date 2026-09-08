@@ -6,13 +6,11 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { Screen } from '@/components/layout/screen';
-import { Box } from '@/components/ui/box';
 import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
-import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -20,7 +18,7 @@ import { NameDialog } from '@/features/library/components/name-dialog';
 import { HANDLE_MAX } from '@convex/model/limits';
 import { messageOf } from '@/features/library/data/errors';
 
-import { Notice, ScreenHeader, Section } from './components/segments';
+import { ListSkeleton, Notice, ScreenHeader, Section } from './components/segments';
 
 /**
  * Who can reach this account, and what a share of theirs starts as.
@@ -68,9 +66,7 @@ export function SharingPrivacyScreen() {
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader glyph={ShieldCheck} title="Sharing & privacy" onBack={() => router.back()} />
         <Divider className="bg-hairline" />
-        <Box className="flex-1 items-center justify-center">
-          <Spinner />
-        </Box>
+        <ListSkeleton rows={5} />
       </Screen>
     );
   }

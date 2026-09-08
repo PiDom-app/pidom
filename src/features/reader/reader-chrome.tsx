@@ -236,9 +236,7 @@ export function ReaderChrome({
                   className={index === 0 ? 'rounded-full' : '-ml-2 rounded-full'}>
                   <Avatar className="h-5 w-5">
                     <AvatarFallbackText>{reader.displayName}</AvatarFallbackText>
-                    {reader.pictureUrl == null ? null : (
-                      <AvatarImage source={{ uri: reader.pictureUrl }} />
-                    )}
+                    <AvatarImage source={{ uri: reader.pictureUrl }} recyclingKey={reader.id} />
                   </Avatar>
                 </Box>
               ))}

@@ -106,8 +106,7 @@ export function useEnsureProfile(): void {
   const ensureProfile = useMutation(api.users.ensureProfile);
   const profile = useQuery(api.users.me, isAuthenticated ? {} : 'skip');
 
-  // The mutation is idempotent, but without this it would fire on every render
-  // until the query caught up.
+  // The mutation is idempotent, but without this it would fire on every render.
   const requestedRef = useRef(false);
 
   useEffect(() => {
@@ -115,9 +114,28 @@ export function useEnsureProfile(): void {
       requestedRef.current = false;
       return;
     }
-    // `undefined` means the query has not answered yet; only an explicit `null`
-    // means there is no row to read.
-    if (profile !== null || requestedRef.current) {
+
+    /**
+     * Once per authenticated mount, which is what `convex/users.ts` has always
+     * said this does.
+     *
+     * The guard used to be `profile !== null`, and that meant the mutation
+     * fired in exactly one window in an account's life: after `users.me`
+     * answered an explicit `null`, before the row existed. Every launch after
+     * the first returned early — so `upsertFromIdentity`'s patch branch was
+     * unreachable in normal operation, and `pictureUrl`, `name`, `email` and
+     * `lastSeenAt` were frozen at whatever the token said on the day the
+     * account was created.
+     *
+     * That is invisible to the reader themselves, because the header and the
+     * account screen prefer the Google session's own copy. It is not invisible
+     * to anybody else: they read the `users` row, so a changed avatar became a
+     * URL that eventually 404s on every other person's screen.
+     *
+     * `undefined` still means the query has not answered yet, and there is no
+     * reason to write before knowing whether there is a row.
+     */
+    if (profile === undefined || requestedRef.current) {
       return;
     }
 

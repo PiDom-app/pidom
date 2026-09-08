@@ -59,7 +59,7 @@ export function ProfileSheet({
           <Box className="relative">
             <Avatar className="h-16 w-16">
               <AvatarFallbackText>{name}</AvatarFallbackText>
-              {pictureUrl == null ? null : <AvatarImage source={{ uri: pictureUrl }} />}
+              <AvatarImage source={{ uri: pictureUrl }} />
             </Avatar>
             {online ? (
               <Box className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-ok ring-2 ring-elevated" />

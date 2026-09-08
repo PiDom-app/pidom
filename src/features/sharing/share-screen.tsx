@@ -2,6 +2,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, MessageSquare, Plus, Search, Send, Share2, WifiOff, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 import { useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
@@ -13,7 +14,9 @@ import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Input, InputField } from '@/components/ui/input';
+import { KeyboardAvoidingView } from '@/components/ui/keyboard-avoiding-view';
 import { Pressable } from '@/components/ui/pressable';
+import { ScrollView } from '@/components/ui/scroll-view';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -23,7 +26,7 @@ import { useReaderDocument } from '@/features/reader/use-reader-document';
 import { useShareStore, type Recipient } from '@/stores/share-store';
 
 import { GroupRow, PersonRow, initialsOf } from './components/person-row';
-import { Empty, Notice, ScreenHeader } from './components/segments';
+import { Empty, ListSkeleton, Notice, ScreenHeader } from './components/segments';
 import { SharePermissionSheet, permissionLabel } from './components/share-permission-sheet';
 import { useShareActions } from './data/use-share-actions';
 import { useGroups } from './data/use-sharing';
@@ -142,9 +145,7 @@ export function ShareScreen() {
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader glyph={Share2} title="Share" onBack={() => router.back()} />
         <Divider className="bg-hairline" />
-        <Box className="flex-1 items-center justify-center">
-          <Spinner />
-        </Box>
+        <ListSkeleton rows={3} />
       </Screen>
     );
   }
@@ -230,6 +231,12 @@ export function ShareScreen() {
 
       <Divider className="bg-hairline" />
 
+      {/* The permission row, the message and the Share button move with the
+          keyboard. Without this the keyboard covers the button the reader is
+          typing a message in order to press. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}>
       <Pressable
         onPress={() => setChoosingPermission(true)}
         accessibilityRole="button"
@@ -286,6 +293,8 @@ export function ShareScreen() {
         </Button>
       </Box>
 
+      </KeyboardAvoidingView>
+
       <SharePermissionSheet
         isOpen={choosingPermission}
         onClose={() => setChoosingPermission(false)}
@@ -329,15 +338,21 @@ function Results({
   }
 
   if (searching && people === undefined && groups.length === 0) {
-    return (
-      <Box className="flex-1 items-center justify-center">
-        <Spinner />
-      </Box>
-    );
+    return <ListSkeleton rows={3} />;
   }
 
   return (
-    <VStack className="flex-1">
+    /**
+     * Scrollable, which it was not.
+     *
+     * The results rendered as two `.map()`s inside a plain `VStack`, so a
+     * search that matched more people than fit simply clipped — there was
+     * nothing to scroll. A `ScrollView` rather than a `FlashList`, because
+     * `DISCOVERY_LIMIT` bounds this at twenty rows and a virtualiser inside a
+     * flex column that also holds a chip rail and a footer is more machinery
+     * than twenty rows are worth.
+     */
+    <ScrollView contentContainerStyle={RESULTS} keyboardShouldPersistTaps="handled">
       {people === undefined || people.length === 0 ? null : (
         <>
           <Text size="xs" className="px-6 pt-3 pb-1 uppercase tracking-wider text-fg-subtle">
@@ -418,7 +433,7 @@ function Results({
           body="Search an exact @handle or email address, or pick one of your groups."
         />
       )}
-    </VStack>
+    </ScrollView>
   );
 }
 
@@ -459,5 +474,6 @@ function ChosenChip({
   );
 }
 
+const RESULTS = { paddingBottom: 8 } as const;
 const RAIL = { flexGrow: 0 } as const;
 const RAIL_CONTENT = { paddingHorizontal: 24, paddingTop: 12, gap: 10 } as const;

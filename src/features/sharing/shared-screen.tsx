@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { Ban, Check, CloudDownload, Clock, Inbox, Lock, Send } from 'lucide-react-native';
+import { Ban, Check, Clock, CloudDownload, Inbox, Lock, Send, Users } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 
 import { Screen } from '@/components/layout/screen';
@@ -9,13 +9,12 @@ import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
-import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import type { LibraryShare } from '@/features/library/local/repository/types';
 
 import { Tag } from './components/person-row';
-import { Empty, Notice, ScreenHeader, Segments } from './components/segments';
+import { Empty, ListSkeleton, Notice, ScreenHeader, Segments } from './components/segments';
 import { useInbox } from './data/use-sharing';
 
 /**
@@ -81,9 +80,7 @@ export function SharedScreen() {
       />
 
       {loading ? (
-        <Box className="flex-1 items-center justify-center">
-          <Spinner />
-        </Box>
+        <ListSkeleton kind="share" />
       ) : rows.length === 0 ? (
         <Empty {...EMPTY[segment]} />
       ) : (
@@ -143,12 +140,22 @@ function ShareRow({ share, onPress }: { share: LibraryShare; onPress: () => void
             {share.title ?? 'A shared document'}
           </Text>
           <HStack className="mt-1 items-center gap-1.5">
-            <Avatar className="h-4 w-4">
-              <AvatarFallbackText>{who}</AvatarFallbackText>
-              {share.counterpartPictureUrl == null ? null : (
-                <AvatarImage source={{ uri: share.counterpartPictureUrl }} />
-              )}
-            </Avatar>
+            {/* Round is a person and square is a group, everywhere. A group
+                share used to draw a round avatar carrying one arbitrary
+                member's photo, which read as that person having sent it. */}
+            {share.groupName === null ? (
+              <Avatar className="h-4 w-4">
+                <AvatarFallbackText>{who}</AvatarFallbackText>
+                <AvatarImage
+                  source={{ uri: share.counterpartPictureUrl }}
+                  recyclingKey={share.id}
+                />
+              </Avatar>
+            ) : (
+              <Box className="h-4 w-4 items-center justify-center rounded-[3px] bg-surface">
+                <Icon as={Users} size="2xs" className="text-fg-subtle" />
+              </Box>
+            )}
             <Text size="xs" numberOfLines={1} className="flex-1 text-fg-subtle">
               {who} · {detailFor(share)}
             </Text>

@@ -584,6 +584,54 @@ describe('finding people', () => {
   });
 });
 
+/* ── the profile other people see ───────────────────────────────────── */
+
+describe('a profile', () => {
+  test('follows Google, and takes the photo at a size worth rendering', async () => {
+    const t = harness();
+    const withPhoto = {
+      ...FRIEND,
+      name: 'A Friend',
+      pictureUrl: 'https://lh3.googleusercontent.com/a/opaque=s96-c',
+    };
+    const as = t.withIdentity(withPhoto);
+    await as.mutation(api.users.ensureProfile, {});
+
+    // 96 device-independent pixels is what Google's claim carries and a third
+    // of what the account screen draws.
+    expect((await as.query(api.users.me, {}))?.pictureUrl).toBe(
+      'https://lh3.googleusercontent.com/a/opaque=s240-c',
+    );
+
+    // And a later launch picks up a changed photo and a changed name. This is
+    // the branch `useEnsureProfile` could not reach: its guard fired only when
+    // `users.me` answered `null`, so every launch after the first returned
+    // early and the row stayed frozen at whatever the first token said.
+    const renamed = t.withIdentity({
+      ...withPhoto,
+      name: 'Renamed Friend',
+      pictureUrl: 'https://lh3.googleusercontent.com/a/different=s96-c',
+    });
+    await renamed.mutation(api.users.ensureProfile, {});
+
+    const after = await renamed.query(api.users.me, {});
+    expect(after?.name).toBe('Renamed Friend');
+    expect(after?.pictureUrl).toBe(
+      'https://lh3.googleusercontent.com/a/different=s240-c',
+    );
+  });
+
+  test('leaves a photo URL that carries no size alone', async () => {
+    const t = harness();
+    const as = t.withIdentity({ ...OWNER, pictureUrl: 'https://example.test/face.png' });
+    await as.mutation(api.users.ensureProfile, {});
+
+    expect((await as.query(api.users.me, {}))?.pictureUrl).toBe(
+      'https://example.test/face.png',
+    );
+  });
+});
+
 /* ── the second door into discovery ─────────────────────────────────── */
 
 describe('a profile lookup by id', () => {

@@ -3,12 +3,14 @@ import React from 'react';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
+import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { COVER_WIDTH } from '@/features/library/components/document-cover';
 import type { LibraryShare } from '@/features/library/local/repository/types';
+import { useTransfer } from '@/stores/transfer-store';
 
 /**
  * A document somebody else sent, on the home screen.
@@ -34,6 +36,20 @@ export function SharedTile({
   const waiting = share.status === 'pending';
   const height = Math.round(COVER_WIDTH * COVER_RATIO);
 
+  /**
+   * Bytes moving for this document, if any are.
+   *
+   * Keyed on the account's document id, which is what a share row carries and
+   * what `use-share-download.ts` mints the local row against — a download
+   * started from the share screen shows here too, because it is the same file
+   * arriving.
+   */
+  const transfer = useTransfer(share.documentId ?? '');
+  const percent =
+    transfer === null || transfer.total === 0
+      ? 0
+      : Math.round((transfer.sent / transfer.total) * 100);
+
   return (
     <Pressable
       onPress={() => onPress(share)}
@@ -53,6 +69,12 @@ export function SharedTile({
           {share.title ?? 'A shared document'}
         </Text>
 
+        {transfer === null ? null : (
+          <Progress value={percent} className="mt-[7px] h-0.5 bg-border">
+            <ProgressFilledTrack className="bg-primary" />
+          </Progress>
+        )}
+
         <HStack className="mt-1 items-center gap-1">
           <Icon
             as={waiting ? Inbox : CloudDownload}
@@ -63,8 +85,9 @@ export function SharedTile({
             size="2xs"
             numberOfLines={1}
             className={waiting ? 'flex-1 text-primary' : 'flex-1 text-fg-subtle'}>
-            {share.groupName ?? share.counterpartName ?? 'Someone'} ·{' '}
-            {waiting ? 'decide' : 'download'}
+            {transfer === null
+              ? `${share.groupName ?? share.counterpartName ?? 'Someone'} · ${waiting ? 'decide' : 'download'}`
+              : `Downloading · ${percent}%`}
           </Text>
         </HStack>
       </VStack>

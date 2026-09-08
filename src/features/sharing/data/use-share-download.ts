@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useMutation } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
@@ -44,6 +44,16 @@ const SCOPE = 'share-download';
  */
 export function useShareDownload() {
   const { profileId, hasNetwork } = useLibraryStatus();
+
+  /**
+   * The id the transfer is keyed on, published before the bytes move.
+   *
+   * `useTransferStore` is keyed on the *local* document id, which is minted
+   * inside `download` — so a screen holding its own idea of the local id read
+   * `null` for the entire transfer and could only show a spinner. This is the
+   * same id, set the moment it exists.
+   */
+  const [transferId, setTransferId] = useState<string | null>(null);
   const shareDownloadUrl = useMutation(api.sharing.shareDownloadUrl);
   const shareCoverUrl = useMutation(api.sharing.shareCoverUrl);
 
@@ -122,6 +132,7 @@ export function useShareDownload() {
       if (localId === null) {
         return false;
       }
+      setTransferId(localId);
 
       const db = await database(profileId);
       const documentId = share.documentId as Id<'documents'>;
@@ -197,6 +208,7 @@ export function useShareDownload() {
         return false;
       } finally {
         finishTransfer(localId);
+        setTransferId(null);
       }
     },
     [
@@ -214,5 +226,5 @@ export function useShareDownload() {
     ],
   );
 
-  return { download, localise };
+  return { download, localise, transferId };
 }

@@ -18,7 +18,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import Constants from 'expo-constants';
 
-import { Notice, ScreenHeader, Section } from './components/segments';
+import { ListSkeleton, Notice, ScreenHeader, Section } from './components/segments';
 import { permissionStatus, register } from '@/features/notifications/register';
 
 /**
@@ -91,9 +91,7 @@ export function NotificationSettingsScreen() {
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader glyph={Bell} title="Notifications" onBack={() => router.back()} />
         <Divider className="bg-hairline" />
-        <Box className="flex-1 items-center justify-center">
-          <Spinner />
-        </Box>
+        <ListSkeleton rows={5} />
       </Screen>
     );
   }

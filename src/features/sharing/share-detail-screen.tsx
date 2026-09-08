@@ -20,16 +20,19 @@ import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
+import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
+import { ScrollView } from '@/components/ui/scroll-view';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { useTransfer, type Transfer } from '@/stores/transfer-store';
 import { database } from '@/features/library/local/db';
 import * as Documents from '@/features/library/local/repository/documents';
 import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import type { LibraryShare } from '@/features/library/local/repository/types';
 
 import { PersonRow } from './components/person-row';
-import { Notice, ScreenHeader } from './components/segments';
+import { ListSkeleton, Notice, ScreenHeader } from './components/segments';
 import { useShareActions } from './data/use-share-actions';
 import { useShareDownload } from './data/use-share-download';
 import { useShare } from './data/use-sharing';
@@ -54,7 +57,8 @@ export function ShareDetailScreen() {
   const { profileId } = useLibraryStatus();
   const { share, loading } = useShare(id ?? null);
   const { answer } = useShareActions();
-  const { download } = useShareDownload();
+  const { download, transferId } = useShareDownload();
+  const transfer = useTransfer(transferId ?? '');
 
   const [busy, setBusy] = useState(false);
   const [localId, setLocalId] = useState<string | null>(null);
@@ -109,21 +113,27 @@ export function ShareDetailScreen() {
       return;
     }
     setBusy(true);
-    const ok = await download(share);
+    // Deliberately does not `router.back()` on success. The screen has a
+    // finished state to show — the file is here, and Open is the next thing —
+    // and bouncing the reader out the instant a download completes leaves them
+    // wondering whether it did.
+    await download(share);
     setBusy(false);
-    if (ok) {
-      router.back();
-    }
-  }, [download, router, share]);
+  }, [download, share]);
 
   if (loading || share === null) {
     return (
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader glyph={Share2} title="Shared with you" onBack={() => router.back()} />
         <Divider className="bg-hairline" />
-        <Box className="flex-1 items-center justify-center">
-          {loading ? <Spinner /> : <Text size="sm" className="text-fg-subtle">That share is gone.</Text>}
-        </Box>
+        {loading ? (
+          <ListSkeleton kind="share" rows={1} />
+        ) : (
+          <Notice glyph={Ban}>
+            That share is gone. It was withdrawn, or the document it named was
+            deleted.
+          </Notice>
+        )}
       </Screen>
     );
   }
@@ -148,48 +158,67 @@ export function ShareDetailScreen() {
       <Divider className="bg-hairline" />
 
       <VStack className="flex-1">
-        <Box className="items-center px-6 pt-6 pb-4">
-          <Box className="h-[164px] w-[116px] items-center justify-center rounded-md bg-surface">
-            <Text size="xs" className="font-semibold tracking-wider text-fg-subtle">
-              PDF
-            </Text>
-          </Box>
-        </Box>
+        {/* The body scrolls and the actions do not.
 
-        <VStack className="items-center px-6">
-          <Text
-            size="lg"
-            numberOfLines={3}
-            className={`text-center font-semibold ${gone ? 'text-fg-muted' : 'text-foreground'}`}>
-            {share.title ?? 'A shared document'}
-          </Text>
-          <Text size="xs" className="mt-1.5 text-fg-subtle">
-            {share.pageCount === null ? 'PDF' : `${share.pageCount} pages`} ·{' '}
-            {formatBytes(share.byteSize)}
-          </Text>
-        </VStack>
+            This screen used to be a fixed column with a centred 164px cover, a
+            centred title, and a `flex-1` spacer pushing the buttons to the
+            bottom bezel — so everything above floated in the top third with a
+            hole in the middle, and a three-line title plus the revoked
+            paragraph ran off a short screen with no way to reach it. Content
+            starts at the top now, in the same left-aligned identity row the
+            share screen uses. */}
+        <ScrollView contentContainerStyle={CONTENT}>
+          <HStack className="items-center px-6 py-3.5" space="md">
+            <Box className="h-[74px] w-[52px] items-center justify-center rounded-md bg-surface">
+              <Text size="2xs" className="font-semibold tracking-wider text-fg-subtle">
+                PDF
+              </Text>
+            </Box>
+            <VStack className="flex-1">
+              <Text
+                size="md"
+                numberOfLines={3}
+                className={`font-semibold ${gone ? 'text-fg-muted' : 'text-foreground'}`}>
+                {share.title ?? 'A shared document'}
+              </Text>
+              <Text size="xs" className="mt-1 text-fg-subtle">
+                {share.pageCount === null ? 'PDF' : `${share.pageCount} pages`} ·{' '}
+                {formatBytes(share.byteSize)}
+              </Text>
+            </VStack>
+          </HStack>
+          <Box className="mx-6 h-px bg-hairline" />
 
-        <Box className="mx-6 mt-5 h-px bg-hairline" />
-        <PersonRow
-          name={who}
-          detail={share.counterpartHandle === null ? null : `@${share.counterpartHandle}`}
-          pictureUrl={share.counterpartPictureUrl}
-        />
-        <Box className="mx-6 h-px bg-hairline" />
+          <PersonRow
+            name={who}
+            detail={share.counterpartHandle === null ? null : `@${share.counterpartHandle}`}
+            pictureUrl={share.counterpartPictureUrl}
+            recyclingKey={share.id}
+          />
+          <Box className="mx-6 h-px bg-hairline" />
 
-        <VStack className="pt-2">
-          <Allowed glyph={Eye} label="Read it" on={!gone} />
-          <Allowed glyph={NotebookPen} label="Keep passages and notes" on={!gone && share.role === 'annotator'} />
-          <Allowed glyph={Download} label="Download a copy" on={!gone && share.canDownload} />
-        </VStack>
+          <VStack className="pt-2">
+            <Allowed glyph={Eye} label="Read it" on={!gone} />
+            <Allowed
+              glyph={NotebookPen}
+              label="Keep passages and notes"
+              on={!gone && share.role === 'annotator'}
+            />
+            <Allowed glyph={Download} label="Download a copy" on={!gone && share.canDownload} />
+            {/* Shown even when off, because a recipient who *can* pass it on
+                had no way of knowing: the first version rendered three rows
+                and `canReshare` was not one of them. */}
+            <Allowed glyph={Share2} label="Share it on" on={!gone && share.canReshare} />
+          </VStack>
 
-        <State share={share} onDevice={localId !== null} />
+          <State share={share} onDevice={localId !== null} />
+        </ScrollView>
 
-        <Box className="flex-1" />
-
+        <Divider className="bg-hairline" />
         <Actions
           share={share}
           busy={busy}
+          transfer={transfer}
           onDevice={localId !== null}
           onAccept={() => void accept()}
           onDecline={() => void decline()}
@@ -272,6 +301,7 @@ function State({ share, onDevice }: { share: LibraryShare; onDevice: boolean }) 
 function Actions({
   share,
   busy,
+  transfer,
   onDevice,
   onAccept,
   onDecline,
@@ -280,12 +310,44 @@ function Actions({
 }: {
   share: LibraryShare;
   busy: boolean;
+  /** Bytes moving right now, or `null`. */
+  transfer: Transfer | null;
   onDevice: boolean;
   onAccept: () => void;
   onDecline: () => void;
   onDownload: () => void;
   onOpen: () => void;
 }) {
+  /**
+   * A bar rather than a spinner, once there is something to say.
+   *
+   * `use-share-download.ts` has always fed `useTransferStore` and nothing read
+   * it, so a forty-megabyte document showed a spinner and then the screen
+   * closed. This is the same `Progress` a document tile draws for the identical
+   * operation — and the same rule `sync-activity.tsx` states: a bar implies a
+   * rate, so it is only drawn when the total is known.
+   */
+  if (transfer !== null) {
+    const percent = transfer.total > 0 ? Math.round((transfer.sent / transfer.total) * 100) : 0;
+    return (
+      <VStack className="px-6 pt-3 pb-4" space="sm">
+        <HStack className="items-center justify-between">
+          <Text size="xs" className="text-fg-muted">
+            Downloading
+          </Text>
+          <Text size="xs" className="text-fg-subtle">
+            {transfer.total > 0
+              ? `${formatBytes(transfer.sent)} of ${formatBytes(transfer.total)}`
+              : formatBytes(transfer.sent)}
+          </Text>
+        </HStack>
+        <Progress value={percent} className="h-0.5 bg-border">
+          <ProgressFilledTrack className="bg-primary" />
+        </Progress>
+      </VStack>
+    );
+  }
+
   if (share.status === 'pending') {
     return (
       <VStack className="px-6 pb-4" space="sm">
@@ -350,3 +412,5 @@ function formatBytes(bytes: number): string {
 function formatDate(at: number): string {
   return new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
 }
+
+const CONTENT = { paddingBottom: 8 } as const;

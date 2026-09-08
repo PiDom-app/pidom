@@ -31,10 +31,19 @@ export function PersonRow({
   onPress,
   onLongPress,
   accessibilityLabel,
+  recyclingKey,
 }: {
   name: string;
   detail?: string | null;
   pictureUrl?: string | null;
+  /**
+   * What identifies this row's photo in a recycled list.
+   *
+   * Defaults to the photo's own URL, which is right almost always. A caller
+   * passes one when two rows can legitimately share a photo and must not share
+   * a decode — or when the same person appears twice.
+   */
+  recyclingKey?: string;
   online?: boolean;
   trailing?: React.ReactNode;
   dim?: boolean;
@@ -47,7 +56,10 @@ export function PersonRow({
       <Box className="relative">
         <Avatar className="h-10 w-10">
           <AvatarFallbackText>{name}</AvatarFallbackText>
-          {pictureUrl == null ? null : <AvatarImage source={{ uri: pictureUrl }} />}
+          {/* No null-check: `AvatarImage` renders nothing without a URI and
+              nothing on a failed load, so the initials underneath show either
+              way. That is the whole point of the wrapper. */}
+          <AvatarImage source={{ uri: pictureUrl }} recyclingKey={recyclingKey} />
         </Avatar>
         {online ? (
           // Outside the avatar rather than an `AvatarBadge`: gluestack's badge

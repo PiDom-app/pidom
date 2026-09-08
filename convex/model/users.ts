@@ -46,6 +46,23 @@ export function toPublicProfile(user: Doc<'users'>): PublicProfile {
 }
 
 /**
+ * The same photo, at a size worth rendering.
+ *
+ * Google's OIDC `picture` claim comes back as `=s96-c`, meaning 96 device-
+ * independent pixels. The account screen draws it at `h-20 w-20` — 80dp, which
+ * is 240 real pixels on a three-times screen — so what shipped was a 96px image
+ * upscaled two and a half times, and it looked it.
+ *
+ * The suffix is Google's own resizing parameter and is safe to rewrite; the
+ * rest of the URL is opaque and is left alone. A URL that carries no `=s`
+ * segment is returned untouched rather than guessed at, and the whole thing is
+ * bounded by the claim being a string Google signed.
+ */
+function atSize(url: string, pixels = 240): string {
+  return /=s\d+/.test(url) ? url.replace(/=s\d+/, `=s${pixels}`) : url;
+}
+
+/**
  * Creates the profile row on first sign-in, refreshes it on every later one.
  *
  * Name and picture are re-read from the token each time because Google is the
@@ -82,7 +99,7 @@ export async function upsertFromIdentity(
     claims.name = identity.name;
   }
   if (identity.pictureUrl !== undefined) {
-    claims.pictureUrl = identity.pictureUrl;
+    claims.pictureUrl = atSize(identity.pictureUrl);
   }
 
   if (existing !== null) {

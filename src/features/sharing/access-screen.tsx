@@ -12,16 +12,17 @@ import { Icon } from '@/components/ui/icon';
 import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
-import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { DocumentCover } from '@/features/library/components/document-cover';
+import { useProfile } from '@/features/auth/use-profile';
+import { useSession } from '@/features/auth/session-provider';
 import { useReaderDocument } from '@/features/reader/use-reader-document';
 
 import { GroupRow, PersonRow, Tag, initialsOf } from './components/person-row';
 import { ProfileSheet } from './components/profile-sheet';
 import { RemoveAccessDialog } from './components/remove-access-dialog';
-import { Empty, Notice, ScreenHeader } from './components/segments';
+import { Empty, ListSkeleton, Notice, ScreenHeader } from './components/segments';
 import { useDocumentPresence } from './data/use-document-presence';
 import { useShareActions } from './data/use-share-actions';
 
@@ -43,6 +44,8 @@ export function AccessScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { document } = useReaderDocument(id);
   const { removeAccess } = useShareActions();
+  const { account: me } = useSession();
+  const { profile } = useProfile();
 
   const remoteId = document?.remoteId ?? null;
   const shares = useQuery(
@@ -89,9 +92,7 @@ export function AccessScreen() {
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader glyph={Users} title="Who can open this" onBack={() => router.back()} />
         <Divider className="bg-hairline" />
-        <Box className="flex-1 items-center justify-center">
-          <Spinner />
-        </Box>
+        <ListSkeleton />
       </Screen>
     );
   }
@@ -134,9 +135,7 @@ export function AccessScreen() {
         <Box className="mx-6 h-px bg-hairline" />
 
         {shares === undefined ? (
-          <Box className="py-12 items-center">
-            <Spinner />
-          </Box>
+          <ListSkeleton />
         ) : people.length === 0 && groups.length === 0 ? (
           <Empty
             glyph={Users}
@@ -146,7 +145,16 @@ export function AccessScreen() {
         ) : (
           <>
             <VStack className="pt-1">
-              <PersonRow name="You" detail="Owner" trailing={<Tag label="Owner" />} online />
+              <PersonRow
+                name="You"
+                detail="Owner"
+                // The reader's own face, from the Google session rather than
+                // the `users` row: the session's copy is refreshed on every
+                // launch and is the one the library header already draws.
+                pictureUrl={me?.photoUrl ?? profile?.pictureUrl ?? null}
+                trailing={<Tag label="Owner" />}
+                online
+              />
 
               {people.map((share) => {
                 const name = share.counterpart?.displayName ?? 'Someone';

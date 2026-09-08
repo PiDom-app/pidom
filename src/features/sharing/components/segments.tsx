@@ -1,10 +1,12 @@
 import React from 'react';
 
+import { Box } from '@/components/ui/box';
 import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ArrowLeft } from 'lucide-react-native';
@@ -137,25 +139,99 @@ export function Notice({
   );
 }
 
-/** The empty state, in the shape the navigator's uses. */
+/**
+ * The empty state, near the top of the screen.
+ *
+ * It opened with `pt-16` and `items-center`, which put "No groups yet" a third
+ * of the way down a screen whose entire content was that sentence — and it is
+ * the *first* thing a new account sees on both Groups and Shared. Half the
+ * padding, and left aligned against the same `px-6` gutter every row uses, so
+ * an empty list and a full one begin in the same place.
+ *
+ * Centred text over two lines reads as an error page. This is not an error.
+ */
 export function Empty({
   glyph,
   title,
   body,
+  action,
 }: {
   glyph: React.ComponentProps<typeof Icon>['as'];
   title: string;
   body: string;
+  /** The one thing to do about it, when there is one. */
+  action?: React.ReactNode;
 }) {
   return (
-    <VStack className="flex-1 items-center px-10 pt-16">
+    <VStack className="px-6 pt-8">
       <Icon as={glyph} size="xl" className="text-fg-subtle" />
-      <Text size="md" className="mt-4 text-center font-semibold text-foreground">
+      <Text size="md" className="mt-3.5 font-semibold text-foreground">
         {title}
       </Text>
-      <Text size="sm" className="mt-1.5 max-w-[286px] text-center text-fg-muted">
+      <Text size="sm" className="mt-1.5 max-w-[300px] text-fg-muted">
         {body}
       </Text>
+      {action === undefined ? null : <Box className="mt-4">{action}</Box>}
+    </VStack>
+  );
+}
+
+/**
+ * A row that has not arrived yet.
+ *
+ * Sharing answered "loading" with a spinner in the middle of the screen, eight
+ * times over. The rest of the app answers it with the shape of what is coming —
+ * `library-skeleton.tsx` keeps the real headings and greys only the covers — so
+ * nothing moves when the answer lands, and the reader can already see they are
+ * waiting for a list of people rather than for a screen.
+ */
+export function PersonRowSkeleton() {
+  return (
+    <HStack className="items-center px-6 py-3" space="md">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <VStack className="flex-1" space="xs">
+        <Skeleton className="h-3 w-1/2 rounded-md" />
+        <Skeleton className="h-2.5 w-1/3 rounded-md" />
+      </VStack>
+    </HStack>
+  );
+}
+
+/** The same, for a document row: a cover-shaped block rather than a face. */
+export function ShareRowSkeleton() {
+  return (
+    <HStack className="items-center px-6 py-3" space="md">
+      <Skeleton className="h-14 w-10 rounded-md" />
+      <VStack className="flex-1" space="xs">
+        <Skeleton className="h-3 w-4/5 rounded-md" />
+        <Skeleton className="h-2.5 w-2/5 rounded-md" />
+      </VStack>
+    </HStack>
+  );
+}
+
+/**
+ * Several of them, which is what a list looks like.
+ *
+ * Four rows rather than one: a single skeleton row reads as a row, and the
+ * point is to show that a *list* is coming.
+ */
+export function ListSkeleton({
+  kind = 'person',
+  rows = 4,
+}: {
+  kind?: 'person' | 'share';
+  rows?: number;
+}) {
+  return (
+    <VStack className="pt-1">
+      {Array.from({ length: rows }, (_, index) =>
+        kind === 'person' ? (
+          <PersonRowSkeleton key={index} />
+        ) : (
+          <ShareRowSkeleton key={index} />
+        ),
+      )}
     </VStack>
   );
 }

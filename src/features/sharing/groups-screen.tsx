@@ -1,19 +1,17 @@
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { ChevronRight, Info, Plus, Users } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 
 import { Screen } from '@/components/layout/screen';
-import { Box } from '@/components/ui/box';
 import { Divider } from '@/components/ui/divider';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
-import { ScrollView } from '@/components/ui/scroll-view';
-import { Spinner } from '@/components/ui/spinner';
 import { GROUP_NAME_MAX } from '@convex/model/limits';
 import { NameDialog } from '@/features/library/components/name-dialog';
 
 import { GroupRow, RowGlyph, initialsOf } from './components/person-row';
-import { Empty, Notice, ScreenHeader } from './components/segments';
+import { Empty, ListSkeleton, Notice, ScreenHeader } from './components/segments';
 import { useShareActions } from './data/use-share-actions';
 import { useGroups } from './data/use-sharing';
 
@@ -69,9 +67,7 @@ export function GroupsScreen() {
       <Divider className="bg-hairline" />
 
       {loading ? (
-        <Box className="flex-1 items-center justify-center">
-          <Spinner />
-        </Box>
+        <ListSkeleton />
       ) : groups.length === 0 ? (
         <Empty
           glyph={Users}
@@ -79,22 +75,28 @@ export function GroupsScreen() {
           body="A group lets you share a document with several people at once — and take it back from all of them by removing one row."
         />
       ) : (
-        <ScrollView contentContainerStyle={CONTENT}>
-          {groups.map((group) => (
+        <FlashList
+          style={FILL}
+          data={groups}
+          keyExtractor={(group) => group.id}
+          contentContainerStyle={CONTENT}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
             <GroupRow
-              key={group.id}
-              name={group.name}
-              detail={describe(group.memberCount, group.role)}
-              initials={initialsOf(group.name)}
+              name={item.name}
+              detail={describe(item.memberCount, item.role)}
+              initials={initialsOf(item.name)}
               trailing={<RowGlyph glyph={ChevronRight} />}
-              onPress={() => router.push({ pathname: '/group', params: { id: group.id } })}
+              onPress={() => router.push({ pathname: '/group', params: { id: item.id } })}
             />
-          ))}
-          <Notice glyph={Info}>
-            A document shared with a group is open to its members straight away — being in the
-            group is the agreement. Leaving one takes those documents with it.
-          </Notice>
-        </ScrollView>
+          )}
+          ListFooterComponent={
+            <Notice glyph={Info}>
+              A document shared with a group is open to its members straight away — being in
+              the group is the agreement. Leaving one takes those documents with it.
+            </Notice>
+          }
+        />
       )}
 
       <NameDialog
@@ -121,4 +123,7 @@ function describe(members: number, role: 'owner' | 'admin' | 'member' | null): s
   return count;
 }
 
+// A vertical FlashList is a ScrollView underneath, and one in a flex column
+// with no flex of its own gets no height to scroll within.
+const FILL = { flex: 1 } as const;
 const CONTENT = { paddingBottom: 32 } as const;
