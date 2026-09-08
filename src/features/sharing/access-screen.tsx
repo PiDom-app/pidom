@@ -252,7 +252,7 @@ export function AccessScreen() {
 
             {groups.length === 0 ? null : (
               <>
-                <Text size="xs" className="px-6 pt-4 pb-1 uppercase tracking-wider text-fg-subtle">
+                <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
                   Groups
                 </Text>
                 {groups.map((share) => (

@@ -9,11 +9,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
 } from '@/components/ui/alert-dialog';
-import { Button, ButtonText } from '@/components/ui/button';
+import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
-import { HStack } from '@/components/ui/hstack';
-import { Icon } from '@/components/ui/icon';
-import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/session-provider';
 import { closeDatabase } from '@/features/library/local/db';
@@ -32,17 +29,18 @@ export function SignOutAction() {
 
   return (
     <>
-      <Pressable
+      {/* A button rather than a row, and the last thing on the screen.
+          Everything above it is a fact or a place to go; this is the one
+          irreversible act, and a destructive act dressed as a list row is a
+          destructive act somebody taps by accident on the way past. */}
+      <Button
+        variant="outline"
+        size="lg"
         onPress={() => setOpen(true)}
-        accessibilityRole="button"
-        className="rounded-md px-1 py-3 data-[active=true]:bg-hover">
-        <HStack className="items-center" space="md">
-          <Icon as={LogOut} size="lg" className="text-destructive" />
-          <Text size="md" className="text-destructive">
-            Sign out
-          </Text>
-        </HStack>
-      </Pressable>
+        className="mt-2 h-11 border-destructive">
+        <ButtonIcon as={LogOut} className="text-destructive" />
+        <ButtonText className="text-destructive">Sign out</ButtonText>
+      </Button>
 
       <AlertDialog isOpen={open} onClose={() => setOpen(false)} size="md">
         <AlertDialogBackdrop />

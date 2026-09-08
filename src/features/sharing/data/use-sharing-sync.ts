@@ -7,6 +7,7 @@ import { database } from '@/features/library/local/db';
 import * as Groups from '@/features/library/local/repository/groups';
 import * as Shares from '@/features/library/local/repository/shares';
 import { log } from '@/lib/logger';
+import { inTransaction } from '@/features/library/local/transaction';
 
 const SCOPE = 'sharing-sync';
 
@@ -152,7 +153,7 @@ export function useSharingSync(): void {
         // for whether it has been read, the account is the authority on both,
         // and fifty rows is a feed rather than an archive — a diff here would
         // be more code to keep two copies of the same list in step.
-        await db.withExclusiveTransactionAsync(async (txn) => {
+        await inTransaction(db, async (txn) => {
           await txn.runAsync('DELETE FROM shareEvents');
           for (const event of events) {
             await txn.runAsync(

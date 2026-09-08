@@ -16,6 +16,7 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 
 import type { FileState } from './types';
+import { inTransaction } from '../transaction';
 
 export type FileRecord = {
   documentId: string;
@@ -131,7 +132,7 @@ export async function reconcileFiles(
 ): Promise<void> {
   const now = Date.now();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     for (const [documentId, size] of found) {
       await txn.runAsync(
         `INSERT INTO documentFiles (documentId, state, localBytes, verifiedAt, updatedAt)

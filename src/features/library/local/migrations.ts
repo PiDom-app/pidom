@@ -7,14 +7,23 @@
  * a phone that has already run it will not run it again, so a change to an old
  * step is a change that only new installs ever see.
  *
- * Each step runs inside `withExclusiveTransactionAsync` rather than
- * `withTransactionAsync`. Expo's documentation is explicit that the ordinary
- * one is non-exclusive and lets queries outside the callback interleave, which
- * for a migration means a screen reading a table that is half-built.
+ * Each step runs inside `inTransaction`, which is `BEGIN IMMEDIATE` on the
+ * connection that holds the key. It used to run inside
+ * `withExclusiveTransactionAsync`, and that was the single defect underneath
+ * every "file is not a database" this project has chased: Expo implements that
+ * method by opening a *second native connection*, and `PRAGMA key` belongs to a
+ * connection rather than to a file, so the second one could not read a page of
+ * an encrypted database. On a brand-new database, for every account, on every
+ * launch. See `./transaction.ts`.
+ *
+ * `IMMEDIATE` keeps the ordering guarantee that was wanted from the exclusive
+ * variant — the write lock is taken up front rather than at the first write —
+ * without a second connection to take it with.
  */
 import { defaultDatabaseDirectory, deleteDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 import { log } from '@/lib/logger';
+import { inTransaction } from './transaction';
 
 const SCOPE = 'local-db';
 
@@ -317,7 +326,7 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
       continue;
     }
     log.debug(SCOPE, `migrating to ${step.to}`);
-    await db.withExclusiveTransactionAsync(async (txn) => {
+    await inTransaction(db, async (txn) => {
       await txn.execAsync(step.sql);
       // `PRAGMA` takes no bound parameters, and `step.to` is a number from the
       // literal above rather than anything that came from outside.

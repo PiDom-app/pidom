@@ -1,6 +1,17 @@
 import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Check, MessageSquare, Plus, Search, Send, Share2, WifiOff, X } from 'lucide-react-native';
+import {
+  Check,
+  ChevronRight,
+  MessageSquare,
+  Plus,
+  Search,
+  Send,
+  Share2,
+  SlidersHorizontal,
+  WifiOff,
+  X,
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import { useQuery } from 'convex/react';
@@ -23,7 +34,7 @@ import { VStack } from '@/components/ui/vstack';
 import { DocumentCover } from '@/features/library/components/document-cover';
 import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import { useReaderDocument } from '@/features/reader/use-reader-document';
-import { useShareStore, type Recipient } from '@/stores/share-store';
+import { useShareStore, type Recipient, type Permission } from '@/stores/share-store';
 
 import { GroupRow, PersonRow, initialsOf } from './components/person-row';
 import { Empty, ListSkeleton, Notice, ScreenHeader } from './components/segments';
@@ -73,6 +84,14 @@ export function ShareScreen() {
   const [term, setTerm] = useState('');
   const [debounced, setDebounced] = useState('');
   const [choosingPermission, setChoosingPermission] = useState(false);
+  /**
+   * Whether the optional half of the screen is showing.
+   *
+   * Closed on arrival. A share has one required decision — who — and two
+   * optional ones, and the optional pair used to occupy the bottom of the
+   * screen on every visit whether or not anybody wanted them.
+   */
+  const [showingOptions, setShowingOptions] = useState(false);
 
   // The reader's own default, once the account has answered. Until then the
   // store holds the narrowest thing a share can be, which is the right thing
@@ -162,6 +181,20 @@ export function ShareScreen() {
         subtitle={document.title}
         onBack={() => router.back()}
         backLabel="Back to the document"
+        trailing={
+          <Pressable
+            onPress={() => setShowingOptions((open) => !open)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showingOptions }}
+            accessibilityLabel={showingOptions ? 'Hide share options' : 'Share options'}
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            <Icon
+              as={SlidersHorizontal}
+              size="lg"
+              className={showingOptions ? 'text-primary' : 'text-fg-muted'}
+            />
+          </Pressable>
+        }
       />
       <Divider className="bg-hairline" />
 
@@ -237,35 +270,49 @@ export function ShareScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}>
-      <Pressable
-        onPress={() => setChoosingPermission(true)}
-        accessibilityRole="button"
-        accessibilityLabel="What they can do"
-        className="data-[active=true]:bg-hover">
-        <HStack className="items-center px-6 py-3" space="md">
-          <Icon as={Check} size="lg" className="text-fg-muted" />
-          <VStack className="flex-1">
-            <Text size="md" className="text-foreground">
-              {permissionLabel(permission)}
-            </Text>
-            <Text size="xs" className="mt-0.5 text-fg-subtle">
-              {permission.canDownload ? 'Downloading allowed' : 'No downloading, no resharing'}
-            </Text>
-          </VStack>
-        </HStack>
-      </Pressable>
+      {/* Both of these are optional, and neither is the decision the reader
+          came here to make. They used to sit above the Share button on every
+          visit — a permission that is already what they asked for, and an empty
+          message field inviting a note nobody needs to write — so the screen
+          asked two questions before letting anybody answer the one that
+          matters. They live behind the control in the header now, and the
+          summary line below says what the current answer is without taking a
+          row to do it. */}
+      {!showingOptions ? null : (
+        <>
+          <Pressable
+            onPress={() => setChoosingPermission(true)}
+            accessibilityRole="button"
+            accessibilityLabel="What they can do"
+            className="data-[active=true]:bg-hover">
+            <HStack className="items-center px-6 py-3" space="md">
+              <Icon as={Check} size="lg" className="text-fg-muted" />
+              <VStack className="flex-1">
+                <Text size="md" className="text-foreground">
+                  {permissionLabel(permission)}
+                </Text>
+                <Text size="xs" className="mt-0.5 text-fg-subtle">
+                  {permission.canDownload ? 'Downloading allowed' : 'No downloading, no resharing'}
+                </Text>
+              </VStack>
+              <Icon as={ChevronRight} size="sm" className="text-fg-subtle" />
+            </HStack>
+          </Pressable>
 
-      <HStack className="items-center px-6 pb-2" space="md">
-        <Icon as={MessageSquare} size="lg" className="text-fg-muted" />
-        <Input className="h-11 flex-1">
-          <InputField
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Say something (optional)"
-            className="text-foreground"
-          />
-        </Input>
-      </HStack>
+          <HStack className="items-center px-6 pb-2" space="md">
+            <Icon as={MessageSquare} size="lg" className="text-fg-muted" />
+            <Input className="h-11 flex-1">
+              <InputField
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Say something (optional)"
+                className="text-foreground"
+                autoFocus
+              />
+            </Input>
+          </HStack>
+        </>
+      )}
 
       {hasNetwork ? null : (
         <Notice glyph={WifiOff}>
@@ -275,6 +322,11 @@ export function ShareScreen() {
       )}
 
       <Box className="px-6 pt-2 pb-3">
+        {showingOptions ? null : (
+          <Text size="xs" numberOfLines={1} className="pb-2 text-fg-subtle">
+            {summaryOf(permission, message)}
+          </Text>
+        )}
         <Button
           size="lg"
           onPress={() => void send()}
@@ -302,6 +354,31 @@ export function ShareScreen() {
       />
     </Screen>
   );
+}
+
+/**
+ * What the collapsed footer says, in one line.
+ *
+ * Hiding a control is only honest if what it decides is still visible, and the
+ * two things behind the header control are exactly the two a sender would be
+ * upset to get wrong: whether the recipient can keep a copy, and whether a
+ * note they typed is actually going. So the permission is always named, the
+ * download and reshare rights are named when they are on — they are the two
+ * that outlive being taken away — and a message is reported as present rather
+ * than quoted back.
+ */
+function summaryOf(permission: Permission, message: string): string {
+  const parts = [permission.role === 'annotator' ? 'Can annotate' : 'Can read'];
+  if (permission.canDownload) {
+    parts.push('can download');
+  }
+  if (permission.canReshare) {
+    parts.push('can share on');
+  }
+  if (message.trim() !== '') {
+    parts.push('with a message');
+  }
+  return parts.join(' · ');
 }
 
 type Person = { id: string; displayName: string; handle: string | null; pictureUrl: string | null };
@@ -355,7 +432,7 @@ function Results({
     <ScrollView contentContainerStyle={RESULTS} keyboardShouldPersistTaps="handled">
       {people === undefined || people.length === 0 ? null : (
         <>
-          <Text size="xs" className="px-6 pt-3 pb-1 uppercase tracking-wider text-fg-subtle">
+          <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
             People
           </Text>
           {people.map((person) => {
@@ -390,7 +467,7 @@ function Results({
 
       {groups.length === 0 ? null : (
         <>
-          <Text size="xs" className="px-6 pt-3 pb-1 uppercase tracking-wider text-fg-subtle">
+          <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
             Groups
           </Text>
           {groups.map((group) => {

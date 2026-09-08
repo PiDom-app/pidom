@@ -15,11 +15,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
 } from '@/components/ui/alert-dialog';
-import { Button, ButtonText } from '@/components/ui/button';
+import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Divider } from '@/components/ui/divider';
 import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
-import { Icon } from '@/components/ui/icon';
 import { Input, InputField } from '@/components/ui/input';
 import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
@@ -173,27 +172,27 @@ export function DataScreen() {
 
         <Divider className="mx-6 mt-2 bg-hairline" />
 
+        {/* A button rather than a row, and the last thing on the screen — the
+            same shape Sign out takes on the account screen, for the same
+            reason. A row that deletes an account is a row somebody taps on the
+            way past. */}
         <Section title="Account">
-          <Pressable
-            onPress={() => {
-              setTyped('');
-              setConfirming(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Delete my account"
-            className="px-6 py-3 data-[active=true]:bg-hover">
-            <HStack className="items-center" space="md">
-              <Icon as={Trash2} size="lg" className="text-destructive" />
-              <VStack className="flex-1">
-                <Text size="md" className="text-destructive">
-                  Delete my account
-                </Text>
-                <Text size="xs" className="mt-0.5 text-fg-subtle">
-                  Every document, note, group and share. This cannot be undone.
-                </Text>
-              </VStack>
-            </HStack>
-          </Pressable>
+          <VStack className="px-6 pt-1" space="sm">
+            <Text size="xs" className="text-fg-subtle">
+              Every document, note, group and share. This cannot be undone.
+            </Text>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => {
+                setTyped('');
+                setConfirming(true);
+              }}
+              className="mt-1 h-11 border-destructive">
+              <ButtonIcon as={Trash2} className="text-destructive" />
+              <ButtonText className="text-destructive">Delete my account</ButtonText>
+            </Button>
+          </VStack>
         </Section>
 
         <Notice glyph={TriangleAlert}>
