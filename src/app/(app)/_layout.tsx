@@ -97,6 +97,8 @@ export default function AppLayout() {
       <Stack.Screen name="group" />
       <Stack.Screen name="sharing-privacy" />
       <Stack.Screen name="notification-settings" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="data" />
     </Stack>
   );
 }

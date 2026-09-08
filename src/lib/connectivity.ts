@@ -20,6 +20,19 @@ import NetInfo from '@react-native-community/netinfo';
 import { useSyncExternalStore } from 'react';
 
 let hasNetwork = true;
+/**
+ * What kind of connection it is, when NetInfo has said.
+ *
+ * Kept beside `hasNetwork` rather than in a second listener, because it comes
+ * off the same `state` object — and because "Wi-Fi only" is a setting about a
+ * transfer that only makes sense while there is a network at all.
+ *
+ * `unknown` before the first answer and whenever the platform will not say. A
+ * Wi-Fi-only download is refused on `cellular` and allowed on everything else:
+ * refusing what cannot be identified would block downloads on any platform
+ * NetInfo is vague about, which is a worse failure than one metered megabyte.
+ */
+let connection: 'wifi' | 'cellular' | 'other' | 'unknown' = 'unknown';
 const listeners = new Set<() => void>();
 let stopNative: (() => void) | null = null;
 
@@ -36,11 +49,20 @@ function start(): void {
     // and reading that as "no internet" makes the notice flap. `isConnected`
     // is the stable half.
     const next = state.isConnected === true;
-    if (next === hasNetwork) {
+    const kind =
+      state.type === 'wifi' || state.type === 'ethernet'
+        ? 'wifi'
+        : state.type === 'cellular'
+          ? 'cellular'
+          : state.type === 'unknown' || state.type === 'none'
+            ? 'unknown'
+            : 'other';
+    if (next === hasNetwork && kind === connection) {
       return;
     }
 
     hasNetwork = next;
+    connection = kind;
     for (const listener of [...listeners]) {
       listener();
     }
@@ -57,6 +79,22 @@ function stopIfIdle(): void {
 /** The last thing `NetInfo` said. `true` before it has said anything. */
 export function hasNetworkNow(): boolean {
   return hasNetwork;
+}
+
+/** What the connection is, as of the last thing `NetInfo` said. */
+export function connectionKind(): 'wifi' | 'cellular' | 'other' | 'unknown' {
+  return connection;
+}
+
+/**
+ * Whether a large transfer should go now, given the reader's Wi-Fi-only choice.
+ *
+ * Here rather than at each call site so there is one answer to "is this
+ * metered", and so the fallback is decided once: only a connection NetInfo
+ * positively identifies as cellular is refused.
+ */
+export function mayTransfer(wifiOnly: boolean): boolean {
+  return !wifiOnly || connection !== 'cellular';
 }
 
 /**
@@ -81,6 +119,15 @@ export function useHasNetwork(): boolean {
     subscribe,
     () => hasNetwork,
     () => true,
+  );
+}
+
+/** The same subscription, for a screen that needs to name the connection. */
+export function useConnectionKind(): 'wifi' | 'cellular' | 'other' | 'unknown' {
+  return useSyncExternalStore(
+    subscribe,
+    () => connection,
+    () => 'unknown' as const,
   );
 }
 

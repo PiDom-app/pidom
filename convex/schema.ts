@@ -50,6 +50,27 @@ export default defineSchema({
      * behalf would put a name they did not choose on a screen strangers read.
      */
     handle: v.optional(v.string()),
+
+    /**
+     * Whether `name` was chosen here rather than read from the Google claim.
+     *
+     * `upsertFromIdentity` refreshes name and picture on every sign-in, which
+     * is right for an account that has never said otherwise and wrong the
+     * moment somebody edits their profile: without this flag the next launch
+     * would quietly put the Google name back and the edit would look like a
+     * bug in the app rather than a rule in it.
+     */
+    nameIsCustom: v.optional(v.boolean()),
+
+    /**
+     * Whether the reader asked for no photo at all.
+     *
+     * A separate flag rather than clearing `pictureUrl`, for the same reason:
+     * the claim is re-read on every sign-in, so a cleared field comes straight
+     * back. `toPublicProfile` is where it takes effect, so one flag covers
+     * every screen anybody else sees them on.
+     */
+    photoHidden: v.optional(v.boolean()),
   })
     .index('by_subject', ['subject'])
     // Discovery, and nothing else. Both of these answer "is there an account
@@ -841,6 +862,11 @@ export default defineSchema({
     .index('by_owner_and_updated', ['ownerId', 'updatedAt'])
     // The idempotency lookup for a share the device queued while offline.
     .index('by_owner_and_op', ['ownerId', 'clientOpId'])
+    // Reshares. A share created by somebody who is not the document's owner is
+    // reachable by neither `by_owner_and_updated` nor `by_recipient_*`, so
+    // without this index deleting an account would leave its reshares behind
+    // on other people's documents. See `convex/account.ts`.
+    .index('by_creator', ['createdBy'])
     // The expiry sweep. `status` first because it is the equality — only
     // `accepted` and `pending` rows can expire — and `expiresAt` orders within
     // it, so the sweep reads exactly the rows that are due and stops.

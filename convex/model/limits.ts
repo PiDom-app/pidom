@@ -299,6 +299,16 @@ export const SWEEP_LIMIT = 2_000;
 export const SHARE_MESSAGE_MAX = 500;
 
 /**
+ * How long a chosen display name may be.
+ *
+ * Wider than a handle because it is not an identifier — it is what somebody
+ * calls themselves, in whatever script they write in, and a limit tight enough
+ * to be tidy is a limit that refuses real names. Narrow enough that it cannot
+ * be used as a message: this string renders in other people's share rows.
+ */
+export const DISPLAY_NAME_MAX = 60;
+
+/**
  * The name somebody can be found by.
  *
  * Long enough for a real name plus a disambiguator, short enough to sit beside
@@ -493,3 +503,17 @@ export function clamp(value: number, min: number, max: number): number {
   }
   return Math.min(max, Math.max(min, value));
 }
+
+/**
+ * How much of one account's data a single deletion step removes.
+ *
+ * Deleting an account is unbounded by nature — it is every row somebody has
+ * written — so it runs as a workflow that takes this many rows of one kind per
+ * step and reschedules itself while there are more. A mutation has a
+ * one-second budget and a read limit, and an account with four thousand
+ * annotations would exceed both.
+ */
+export const ACCOUNT_DELETE_BATCH = 200;
+
+/** How many documents one deletion step hands to the existing document cascade. */
+export const ACCOUNT_DELETE_DOCUMENTS = 10;

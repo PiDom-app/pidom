@@ -17,6 +17,8 @@ import { BadDownload, downloadCover, downloadDocument } from '@/features/library
 import { useLocalLibraryStore } from '@/stores/local-library-store';
 import { useTransferStore } from '@/stores/transfer-store';
 import { log } from '@/lib/logger';
+import { mayTransfer } from '@/lib/connectivity';
+import { wifiOnlyNow } from '@/stores/preferences-store';
 
 const SCOPE = 'share-download';
 
@@ -111,6 +113,18 @@ export function useShareDownload() {
           tone: 'error',
           title: 'This needs a connection',
           description: 'The document is in the sender’s account, not on this phone yet.',
+        });
+        return false;
+      }
+
+      // The reader's own answer about their own connection. Only a link
+      // NetInfo positively calls cellular is refused — see `mayTransfer`.
+      if (!mayTransfer(wifiOnlyNow())) {
+        showToast({
+          id: 'share-download',
+          tone: 'error',
+          title: 'Waiting for Wi-Fi',
+          description: 'Downloads are set to Wi-Fi only. Change that under Sync & data.',
         });
         return false;
       }

@@ -28,18 +28,33 @@ import { useShareStore, type Permission } from '@/stores/share-store';
  * it are the ones that outlive being taken away: a downloaded file is on
  * somebody's disk and no server reaches it, and a reshare is a permission
  * somebody else now holds. Both are off unless turned on, on every share.
+ *
+ * Two callers, two sources of truth, one sheet. Composing a share edits the
+ * draft in `share-store`, which is where the rest of that screen keeps its
+ * state; changing an existing one on the Access screen has a row to edit
+ * instead, so it passes `value` and `onChange` and the store is left alone. A
+ * second copy of these four rows would be a second place for the sentence
+ * about downloads to go stale.
  */
 export function SharePermissionSheet({
   isOpen,
   onClose,
   documentTitle,
+  value,
+  onChange,
 }: {
   isOpen: boolean;
   onClose: () => void;
   documentTitle: string;
+  /** Controlled, for editing a share that already exists. */
+  value?: Permission;
+  onChange?: (permission: Permission) => void;
 }) {
-  const permission = useShareStore((state) => state.permission);
-  const setPermission = useShareStore((state) => state.setPermission);
+  const draft = useShareStore((state) => state.permission);
+  const setDraft = useShareStore((state) => state.setPermission);
+
+  const permission = value ?? draft;
+  const setPermission = onChange ?? setDraft;
 
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>

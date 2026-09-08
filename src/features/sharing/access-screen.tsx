@@ -1,5 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ban, Info, MoreHorizontal, ShieldCheck, User, UserPlus, Users } from 'lucide-react-native';
+import {
+  Ban,
+  Info,
+  MoreHorizontal,
+  ShieldCheck,
+  SlidersHorizontal,
+  User,
+  UserPlus,
+  Users,
+} from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 
@@ -22,9 +31,11 @@ import { useReaderDocument } from '@/features/reader/use-reader-document';
 import { GroupRow, PersonRow, Tag, initialsOf } from './components/person-row';
 import { ProfileSheet } from './components/profile-sheet';
 import { RemoveAccessDialog } from './components/remove-access-dialog';
+import { SharePermissionSheet } from './components/share-permission-sheet';
 import { Empty, ListSkeleton, Notice, ScreenHeader } from './components/segments';
 import { useDocumentPresence } from './data/use-document-presence';
 import { useShareActions } from './data/use-share-actions';
+import type { Permission } from '@/stores/share-store';
 
 /**
  * Who can open this document, from the owner's side.
@@ -43,7 +54,7 @@ export function AccessScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { document } = useReaderDocument(id);
-  const { removeAccess } = useShareActions();
+  const { removeAccess, setPermission } = useShareActions();
   const { account: me } = useSession();
   const { profile } = useProfile();
 
@@ -56,6 +67,19 @@ export function AccessScreen() {
   const [removing, setRemoving] = useState<{ id: string; name: string; downloaded: boolean } | null>(
     null,
   );
+  /**
+   * The share whose permission is being changed, and the draft for it.
+   *
+   * Held here rather than in `share-store`, which is the compose screen's
+   * draft: two screens editing one global permission would mean opening this
+   * sheet quietly rewrote what the reader had set up on the other one.
+   */
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [draft, setDraft] = useState<Permission>({
+    role: 'viewer',
+    canDownload: false,
+    canReshare: false,
+  });
   const [viewing, setViewing] = useState<{
     id: string | null;
     name: string;
@@ -79,6 +103,26 @@ export function AccessScreen() {
     () => (shares ?? []).filter((share) => share.subject === 'group'),
     [shares],
   );
+
+  const openEditor = useCallback(
+    (share: { id: string; role: 'viewer' | 'annotator'; canDownload: boolean; canReshare: boolean }, name: string) => {
+      setDraft({
+        role: share.role,
+        canDownload: share.canDownload,
+        canReshare: share.canReshare,
+      });
+      setEditing({ id: share.id, name });
+    },
+    [],
+  );
+
+  /** Applied on close rather than on each tap: three taps are one decision. */
+  const closeEditor = useCallback(() => {
+    if (editing !== null) {
+      void setPermission(editing.id, draft);
+    }
+    setEditing(null);
+  }, [draft, editing, setPermission]);
 
   const confirmRemove = useCallback(async () => {
     if (removing === null) {
@@ -180,6 +224,11 @@ export function AccessScreen() {
                               online: onlineIds.has(share.counterpart?.id ?? ''),
                             })
                           }
+                          onChange={
+                            share.status === 'revoked' || share.status === 'expired'
+                              ? undefined
+                              : () => openEditor(share, name)
+                          }
                           onRemove={() =>
                             setRemoving({
                               id: share.id,
@@ -211,6 +260,11 @@ export function AccessScreen() {
                       <HStack className="items-center gap-2.5">
                         <Tag label={share.role === 'annotator' ? 'Annotate' : 'Read'} />
                         <RowMenu
+                          onChange={
+                            share.status === 'revoked' || share.status === 'expired'
+                              ? undefined
+                              : () => openEditor(share, share.group?.name ?? 'this group')
+                          }
                           onRemove={() =>
                             setRemoving({
                               id: share.id,
@@ -244,6 +298,14 @@ export function AccessScreen() {
         downloaded={removing?.downloaded ?? false}
       />
 
+      <SharePermissionSheet
+        isOpen={editing !== null}
+        onClose={closeEditor}
+        documentTitle={`${editing?.name ?? 'They'} · ${document.title}`}
+        value={draft}
+        onChange={setDraft}
+      />
+
       <ProfileSheet
         isOpen={viewing !== null}
         onClose={() => setViewing(null)}
@@ -259,10 +321,13 @@ export function AccessScreen() {
 
 function RowMenu({
   onProfile,
+  onChange,
   onRemove,
   removable,
 }: {
   onProfile?: () => void;
+  /** Absent once access is gone: there is no permission left to change. */
+  onChange?: () => void;
   onRemove: () => void;
   removable: boolean;
 }) {
@@ -289,6 +354,14 @@ function RowMenu({
         <MenuItem key="profile" textValue="View profile" onPress={onProfile}>
           <Icon as={User} size="sm" className="mr-2 text-fg-muted" />
           <MenuItemLabel className="text-sm text-foreground">View profile</MenuItemLabel>
+        </MenuItem>
+      )}
+      {onChange === undefined ? (
+        <></>
+      ) : (
+        <MenuItem key="permission" textValue="Change permission" onPress={onChange}>
+          <Icon as={SlidersHorizontal} size="sm" className="mr-2 text-fg-muted" />
+          <MenuItemLabel className="text-sm text-foreground">Change permission</MenuItemLabel>
         </MenuItem>
       )}
       {removable ? (

@@ -6,7 +6,9 @@ import {
   ChevronRight,
   Inbox,
   ShieldCheck,
+  User,
   Users,
+  Wifi,
 } from 'lucide-react-native';
 import React from 'react';
 
@@ -117,6 +119,17 @@ export function AccountScreen() {
 
           <Divider className="bg-hairline" />
 
+          <Section title="You">
+            <NavRow
+              glyph={User}
+              title="Profile"
+              hint="The name and photo other people see on a share you send."
+              onPress={() => router.push('/profile')}
+            />
+          </Section>
+
+          <Divider className="bg-hairline" />
+
           <Section title="Appearance">
             <ThemeControl />
           </Section>
@@ -139,6 +152,13 @@ export function AccountScreen() {
               signing out is the terminal, destructive row on this screen. */}
           <Section title="Sync">
             <SyncSummary />
+            <RowRule />
+            <NavRow
+              glyph={Wifi}
+              title="Sync &amp; data"
+              hint="Wi-Fi-only downloads, the image cache, and deleting your account."
+              onPress={() => router.push('/data')}
+            />
           </Section>
 
           <Divider className="bg-hairline" />

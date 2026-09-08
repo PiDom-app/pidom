@@ -8,6 +8,8 @@ import { useAppToast } from '@/components/feedback/use-app-toast';
 import { log } from '@/lib/logger';
 import { useLocalLibraryStore } from '@/stores/local-library-store';
 import { useTransferStore } from '@/stores/transfer-store';
+import { mayTransfer } from '@/lib/connectivity';
+import { wifiOnlyNow } from '@/stores/preferences-store';
 
 import type { OutlineEntry } from '../components/document-probe';
 import { database } from '../local/db';
@@ -466,6 +468,18 @@ export function useLibraryActions() {
       if (profileId === null || document.remoteId === null) {
         return false;
       }
+      // The reader's own answer about their own connection. Only a link
+      // NetInfo positively calls cellular is refused — see `mayTransfer`.
+      if (!mayTransfer(wifiOnlyNow())) {
+        showToast({
+          id: 'download',
+          tone: 'error',
+          title: 'Waiting for Wi-Fi',
+          description: 'Downloads are set to Wi-Fi only. Change that under Sync & data.',
+        });
+        return false;
+      }
+
       const documentId = document.remoteId as Id<'documents'>;
       const db = await database(profileId);
 

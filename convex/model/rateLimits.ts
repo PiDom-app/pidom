@@ -256,6 +256,17 @@ const LIMITS = {
   editSettings: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
 
   /**
+   * Deleting the account.
+   *
+   * Narrow to the point of being nearly one-shot, because it is: an account is
+   * deleted once, and a stolen session that can spend this bucket forty times
+   * an hour is a stolen session that has already done its damage on the first.
+   * The rate refills slowly enough that a retry after a genuine network
+   * failure still goes through.
+   */
+  deleteAccount: { kind: 'token bucket', rate: 3, period: HOUR, capacity: 2 },
+
+  /**
    * Claiming a handle.
    *
    * The narrowest bucket here, and the only one that is narrow on purpose

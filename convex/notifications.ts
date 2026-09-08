@@ -23,7 +23,11 @@ export const registerDevice = mutation({
     deviceName: v.optional(v.string()),
     appVersion: v.optional(v.string()),
   },
-  returns: v.null(),
+  // The id comes back so the client knows which of the rows in `devices` is
+  // the handset it is running on. It is not a secret — it addresses a row this
+  // account already owns — and it is the only thing that lets the settings
+  // screen say "This device" without the token ever coming back out.
+  returns: v.id('deviceTokens'),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'registerDevice');
@@ -31,7 +35,7 @@ export const registerDevice = mutation({
     // The row first, then the component — the id it is addressed by is the
     // row's, so the row has to exist before it can be recorded.
     await Notifications.recordWithComponent(ctx, deviceId);
-    return null;
+    return deviceId;
   },
 });
 
@@ -44,22 +48,23 @@ export const registerDevice = mutation({
  * receipt poll gets to decide that.
  */
 export const setDeviceEnabled = mutation({
-  args: { token: v.string(), enabled: v.boolean() },
+  // Addressed by row id rather than by token, so a reader can mute the tablet
+  // in the other room from the phone in their hand. `devices` returns ids and
+  // never tokens, which is what makes that safe to expose.
+  args: { deviceId: v.id('deviceTokens'), enabled: v.boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'registerDevice');
 
-    const device = await ctx.db
-      .query('deviceTokens')
-      .withIndex('by_token', (q) => q.eq('token', args.token))
-      .unique();
-    // Somebody else's token is skipped rather than refused, for the same reason
-    // `markEventsRead` skips: a stale client should not be told whose it is.
+    const device = await ctx.db.get('deviceTokens', args.deviceId);
+    // Somebody else's device is skipped rather than refused, for the same
+    // reason `markEventsRead` skips: a stale client should not be told whose
+    // it is.
     if (device === null || device.userId !== user._id) {
       return null;
     }
-    await ctx.db.patch('deviceTokens', device._id, { enabled: args.enabled });
+    await ctx.db.patch('deviceTokens', args.deviceId, { enabled: args.enabled });
     return null;
   },
 });

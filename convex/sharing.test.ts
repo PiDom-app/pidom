@@ -9,8 +9,9 @@ import workflow from '@convex-dev/workflow/test';
 import { convexTest } from 'convex-test';
 import { describe, expect, test } from 'vitest';
 
-import { api } from './_generated/api';
+import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
+import { DISPLAY_NAME_MAX } from './model/limits';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -967,5 +968,256 @@ describe('presence', () => {
         }),
       ).rejects.toThrow();
     }
+  });
+});
+
+/* ── the account itself ─────────────────────────────────────────────── */
+
+describe('a profile edit', () => {
+  test('takes a name and stops the next sign-in overwriting it', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    const updated = await owner.mutation(api.users.updateProfile, {
+      displayName: '  Emmanuel G.  ',
+      showPhoto: true,
+    });
+    expect(updated.name).toBe('Emmanuel G.');
+
+    // The client calls `ensureProfile` on every authenticated launch, and it
+    // re-reads Google's claims. Without `nameIsCustom` this is where the edit
+    // would silently disappear.
+    const relaunched = await owner.mutation(api.users.ensureProfile, {});
+    expect(relaunched.name).toBe('Emmanuel G.');
+  });
+
+  test('refuses a name longer than the limit', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    await expect(
+      owner.mutation(api.users.updateProfile, { displayName: 'e'.repeat(DISPLAY_NAME_MAX + 1) }),
+    ).rejects.toThrow();
+  });
+
+  test('an empty name gives Google’s back', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    await owner.mutation(api.users.updateProfile, { displayName: 'Something else' });
+    await owner.mutation(api.users.updateProfile, { displayName: '' });
+
+    const after = await owner.mutation(api.users.ensureProfile, {});
+    expect(after.name).toBe(OWNER.name);
+  });
+
+  test('hiding the photo hides it from everybody, not just from a column', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+    await sharedWith(t, owner, friend, documentId);
+
+    const ownerId = await userIdOf(t, OWNER);
+    await t.run(async (ctx) => {
+      await ctx.db.patch('users', ownerId, { pictureUrl: 'https://lh3.example/photo=s240' });
+    });
+
+    const before = await friend.query(api.sharing.profile, { userId: ownerId });
+    expect(before?.profile.pictureUrl).not.toBeNull();
+
+    await owner.mutation(api.users.updateProfile, { showPhoto: false });
+
+    const after = await friend.query(api.sharing.profile, { userId: ownerId });
+    expect(after?.profile.pictureUrl).toBeNull();
+  });
+
+  test('cannot be made by somebody who is not signed in', async () => {
+    const t = harness();
+    await expect(t.mutation(api.users.updateProfile, { displayName: 'Nobody' })).rejects.toThrow();
+  });
+});
+
+describe('devices', () => {
+  test('two handsets are two rows, and one can be muted without the other', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    const phone = await owner.mutation(api.notifications.registerDevice, {
+      token: 'ExponentPushToken[phone]',
+      platform: 'android',
+      deviceName: 'Phone',
+    });
+    const tablet = await owner.mutation(api.notifications.registerDevice, {
+      token: 'ExponentPushToken[tablet]',
+      platform: 'android',
+      deviceName: 'Tablet',
+    });
+
+    // The regression the push component's own one-token-per-user shape would
+    // have caused. Keying it on the device row rather than the account is what
+    // keeps these two apart.
+    expect(phone).not.toBe(tablet);
+    expect((await owner.query(api.notifications.devices, {})).length).toBe(2);
+
+    await owner.mutation(api.notifications.setDeviceEnabled, {
+      deviceId: tablet,
+      enabled: false,
+    });
+
+    const after = await owner.query(api.notifications.devices, {});
+    expect(after.find((device) => device.id === phone)?.enabled).toBe(true);
+    expect(after.find((device) => device.id === tablet)?.enabled).toBe(false);
+  });
+
+  test('cannot be muted or forgotten by another account', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const stranger = await signedIn(t, STRANGER);
+
+    const phone = await owner.mutation(api.notifications.registerDevice, {
+      token: 'ExponentPushToken[phone]',
+      platform: 'android',
+    });
+
+    // Skipped rather than refused — a stale client is not told whose device it
+    // is — so the assertion is that nothing moved.
+    await stranger.mutation(api.notifications.setDeviceEnabled, {
+      deviceId: phone,
+      enabled: false,
+    });
+    await stranger.mutation(api.notifications.forgetDevice, { deviceId: phone });
+
+    const mine = await owner.query(api.notifications.devices, {});
+    expect(mine.length).toBe(1);
+    expect(mine[0].enabled).toBe(true);
+  });
+
+  test('a DeviceNotRegistered receipt marks the row and then drops it', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    const phone = await owner.mutation(api.notifications.registerDevice, {
+      token: 'ExponentPushToken[phone]',
+      platform: 'android',
+    });
+
+    const ownerId = await userIdOf(t, OWNER);
+    const deliveryId = await t.run(async (ctx) => {
+      const eventId = await ctx.db.insert('shareEvents', {
+        userId: ownerId,
+        actorId: ownerId,
+        kind: 'shareOffered',
+        createdAt: Date.now(),
+      });
+      return await ctx.db.insert('pushDeliveries', {
+        eventId,
+        userId: ownerId,
+        tokenId: phone,
+        ticketId: 'ticket-1',
+        status: 'sent',
+        sentAt: Date.now(),
+      });
+    });
+
+    await t.mutation(internal.push.applyReceipts, {
+      results: [
+        { id: deliveryId, delivered: false, error: 'DeviceNotRegistered', answered: true },
+      ],
+    });
+
+    // The token is the thing that has to go: Expo has said it is dead, and a
+    // dead token left registered is a send attempt on every future share.
+    expect(await owner.query(api.notifications.devices, {})).toEqual([]);
+    expect(await t.run(async (ctx) => await ctx.db.get('deviceTokens', phone))).toBeNull();
+  });
+});
+
+describe('deleting an account', () => {
+  test('signs the reader out and takes their rows with it', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+    await sharedWith(t, owner, friend, documentId);
+    await owner.mutation(api.notifications.registerDevice, {
+      token: 'ExponentPushToken[phone]',
+      platform: 'android',
+    });
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, {
+      groupId,
+      userId: await userIdOf(t, FRIEND),
+    });
+
+    const ownerId = await userIdOf(t, OWNER);
+    await owner.mutation(api.account.deleteAccount, {});
+    await t.finishAllScheduledFunctions(() => {});
+
+    // Nothing of theirs is left, and the row itself is gone.
+    const left = await t.run(async (ctx) => ({
+      user: await ctx.db.get('users', ownerId),
+      documents: await ctx.db
+        .query('documents')
+        .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
+        .take(5),
+      shares: await ctx.db
+        .query('documentShares')
+        .withIndex('by_creator', (q) => q.eq('createdBy', ownerId))
+        .take(5),
+      groups: await ctx.db
+        .query('groups')
+        .withIndex('by_owner', (q) => q.eq('ownerId', ownerId))
+        .take(5),
+      members: await ctx.db
+        .query('groupMembers')
+        .withIndex('by_user', (q) => q.eq('userId', ownerId))
+        .take(5),
+      events: await ctx.db
+        .query('shareEvents')
+        .withIndex('by_user_and_created', (q) => q.eq('userId', ownerId))
+        .take(5),
+      devices: await ctx.db
+        .query('deviceTokens')
+        .withIndex('by_user', (q) => q.eq('userId', ownerId))
+        .take(5),
+    }));
+
+    expect(left.user).toBeNull();
+    expect(left.documents).toEqual([]);
+    expect(left.shares).toEqual([]);
+    expect(left.groups).toEqual([]);
+    expect(left.members).toEqual([]);
+    expect(left.events).toEqual([]);
+    expect(left.devices).toEqual([]);
+  });
+
+  test('leaves the other account alone', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const theirs = await aSyncedDocument(t, friend, 'theirs');
+
+    const friendId = await userIdOf(t, FRIEND);
+    await owner.mutation(api.account.deleteAccount, {});
+    await t.finishAllScheduledFunctions(() => {});
+
+    expect(await t.run(async (ctx) => await ctx.db.get('users', friendId))).not.toBeNull();
+    expect(await t.run(async (ctx) => await ctx.db.get('documents', theirs))).not.toBeNull();
+    // And they can still use the account they still have.
+    expect(await friend.query(api.sharing.inbox, { filter: 'all' })).toEqual([]);
+  });
+
+  test('takes no argument naming whose account it is', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const ownerId = await userIdOf(t, OWNER);
+
+    // The public mutation deletes whoever is calling and has no user id to
+    // point elsewhere; the cascade that does take one is `internalMutation`.
+    // Unauthenticated it refuses outright rather than picking a default.
+    await expect(t.mutation(api.account.deleteAccount, {})).rejects.toThrow();
+    expect(await t.run(async (ctx) => await ctx.db.get('users', ownerId))).not.toBeNull();
+    void owner;
   });
 });

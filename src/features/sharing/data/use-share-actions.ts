@@ -186,6 +186,16 @@ export function useShareActions() {
     [hasNetwork, revoke, withDb],
   );
 
+  /**
+   * Changes what somebody already has.
+   *
+   * Takes either id. The Manage access screen renders the account's own list
+   * rather than the mirror, so what it holds is the remote id — and
+   * `Shares.shareById` matches on both columns for exactly this reason. When
+   * there is no local row at all, which is the case for a group share the
+   * device has never mirrored, the account is still told: the queue is the
+   * offline path, not the only path.
+   */
   const setPermission = useCallback(
     async (shareId: string, permission: Permission): Promise<void> => {
       const share = await withDb(async (db) => {
@@ -202,12 +212,15 @@ export function useShareActions() {
         return row;
       });
 
-      if (share?.remoteId == null || !hasNetwork) {
+      // The local row's remote id when there is one, and the id we were handed
+      // when there is not — a screen reading the account passes a remote id.
+      const remoteId = share?.remoteId ?? (share === null ? shareId : null);
+      if (remoteId == null || !hasNetwork) {
         return;
       }
       try {
         await changePermission({
-          shareId: share.remoteId as Id<'documentShares'>,
+          shareId: remoteId as Id<'documentShares'>,
           ...permission,
         });
       } catch (error) {

@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 import { api } from '@convex/_generated/api';
 import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import { log } from '@/lib/logger';
+import { useDeviceStore } from '@/stores/device-store';
 
 import { shareIdOf } from './handler';
 import { permissionStatus, register } from './register';
@@ -37,6 +38,7 @@ export function usePushNotifications(): void {
   const router = useRouter();
   const { ready, hasNetwork } = useLibraryStatus();
   const registerDevice = useMutation(api.notifications.registerDevice);
+  const setDeviceId = useDeviceStore((state) => state.setDeviceId);
   const registered = useRef(false);
 
   useEffect(() => {
@@ -54,12 +56,17 @@ export function usePushNotifications(): void {
         return;
       }
       try {
-        await registerDevice({
-          token: outcome.token,
-          platform: outcome.platform,
-          deviceName: Constants.deviceName ?? undefined,
-          appVersion: Constants.expoConfig?.version ?? undefined,
-        });
+        // The id of this handset's row, so the settings screen can mark one of
+        // the account's devices "this device" without the token ever coming
+        // back out. See `stores/device-store.ts`.
+        setDeviceId(
+          await registerDevice({
+            token: outcome.token,
+            platform: outcome.platform,
+            deviceName: Constants.deviceName ?? undefined,
+            appVersion: Constants.expoConfig?.version ?? undefined,
+          }),
+        );
         registered.current = true;
       } catch (error) {
         // Never fatal. A device that could not register still reads its inbox.
@@ -70,7 +77,7 @@ export function usePushNotifications(): void {
     return () => {
       live = false;
     };
-  }, [hasNetwork, ready, registerDevice]);
+  }, [hasNetwork, ready, registerDevice, setDeviceId]);
 
   // A tap while the app is running.
   useEffect(() => {

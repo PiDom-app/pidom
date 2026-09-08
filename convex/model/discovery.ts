@@ -12,6 +12,7 @@ import {
   invalid,
 } from './limits';
 import { isFindableBy } from './settings';
+import { photoOf } from './users';
 
 /**
  * Finding a person, without publishing a directory.
@@ -71,7 +72,7 @@ export function toPublicProfile(user: Doc<'users'>): PublicProfile {
     id: user._id,
     displayName: user.name ?? (user.handle === undefined ? 'Someone' : `@${user.handle}`),
     handle: user.handle ?? null,
-    pictureUrl: user.pictureUrl ?? null,
+    pictureUrl: photoOf(user),
   };
 }
 
