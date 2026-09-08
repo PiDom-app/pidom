@@ -303,10 +303,27 @@ export function NotificationSettingsScreen() {
             is remembered for a build that can.
           </Notice>
         ) : registeredHere ? null : (
-          <Notice glyph={Inbox}>
-            This device is not registered for notifications, so shares arrive in the app rather
-            than on the lock screen. Everything else works exactly the same.
-          </Notice>
+          <>
+            <Notice glyph={Inbox}>
+              This device is not registered for notifications, so shares arrive in the app rather
+              than on the lock screen. Everything else works exactly the same.
+            </Notice>
+            {/* An action, because "not registered" is a state a reader can do
+                something about and could not. Registration is attempted once
+                per launch and gives up quietly on anything that goes wrong — a
+                dropped connection, a token the push service refused — which
+                left this notice as a statement of fact with no way out of it. */}
+            <Box className="px-6 pt-1">
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={() => void ask()}
+                isDisabled={asking}
+                className="h-11">
+                {asking ? <Spinner /> : <ButtonText>Register this device</ButtonText>}
+              </Button>
+            </Box>
+          </>
         )}
       </ScrollView>
 
