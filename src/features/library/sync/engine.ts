@@ -30,6 +30,7 @@ import * as Shares from '../local/repository/shares';
 import { sweepDocument } from '../local/sweep';
 import { classify, type Outcome } from './outcome';
 import { NotYetSynced, send, type Sender } from './operations';
+import { inTransaction } from '../local/transaction';
 
 const SCOPE = 'sync';
 
@@ -527,7 +528,7 @@ async function reconcileGroups({ client, db }: Sender): Promise<void> {
 async function reconcileEvents({ client, db }: Sender): Promise<void> {
   const events = await client.query(api.sharing.events, { limit: 50 });
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM shareEvents');
     for (const event of events) {
       await txn.runAsync(

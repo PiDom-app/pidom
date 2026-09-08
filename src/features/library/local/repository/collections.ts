@@ -22,6 +22,7 @@ import {
   type LibraryCollection,
   type LibraryDocument,
 } from './types';
+import { inTransaction } from '../transaction';
 
 /** Up to four covers on a collection tile, newest first. */
 const MOSAIC = 4;
@@ -177,7 +178,7 @@ export async function renameCollection(
 
 export async function removeCollection(db: SQLiteDatabase, id: string): Promise<void> {
   const now = Date.now();
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     await txn.runAsync(
       `UPDATE collections SET deletedAt = ?, updatedAt = ?, clientUpdatedAt = ?, syncState = 'pending'
         WHERE id = ?`,
@@ -262,7 +263,7 @@ export async function replaceRemoteMembership(
   collectionId: string,
   documentIds: string[],
 ): Promise<void> {
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     // Only the rows that agree with the account are replaced. A membership this
     // device changed and has not sent yet is left where the reader put it.
     await txn.runAsync(
@@ -322,7 +323,7 @@ export async function purgeMembership(db: SQLiteDatabase, entityId: string): Pro
 }
 
 export async function purgeCollection(db: SQLiteDatabase, id: string): Promise<void> {
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM collections WHERE id = ?', id);
     await txn.runAsync('DELETE FROM collectionDocuments WHERE collectionId = ?', id);
   });

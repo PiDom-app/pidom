@@ -21,6 +21,7 @@ import {
   type LibraryGroupMember,
   type SyncState,
 } from './types';
+import { inTransaction } from '../transaction';
 
 type GroupRow = Omit<LibraryGroup, 'role' | 'syncState'> & {
   role: string | null;
@@ -167,7 +168,7 @@ export async function replaceMembers(
   groupId: string,
   members: LibraryGroupMember[],
 ): Promise<void> {
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM groupMembersLocal WHERE groupId = ?', groupId);
     for (const member of members) {
       await txn.runAsync(

@@ -25,6 +25,7 @@ import {
   type LibraryDocument,
   type ReadingMode,
 } from './types';
+import { inTransaction } from '../transaction';
 
 /** Every read hides a soft-deleted row. A delete is pending, not undone. */
 const LIVE = 'd.deletedAt IS NULL';
@@ -484,7 +485,7 @@ export async function softDelete(db: SQLiteDatabase, id: string): Promise<void> 
 
 /** Removes a row for good. Called once the account has been told, and only then. */
 export async function purge(db: SQLiteDatabase, id: string): Promise<void> {
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM documents WHERE id = ?', id);
     await txn.runAsync('DELETE FROM documentFiles WHERE documentId = ?', id);
     await txn.runAsync('DELETE FROM bookmarks WHERE documentId = ?', id);

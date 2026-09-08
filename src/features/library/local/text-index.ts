@@ -1,6 +1,7 @@
 import { log } from '@/lib/logger';
 
 import { database, localSearchAvailable } from './db';
+import { inTransaction } from './transaction';
 
 const SCOPE = 'local-search';
 
@@ -60,7 +61,7 @@ export async function mirrorPages(
     // it answers searches with part of a book and no way to tell. The ordinary
     // transaction is documented as letting outside queries interleave, and a
     // search running mid-write is exactly that.
-    await db.withExclusiveTransactionAsync(async (txn) => {
+    await inTransaction(db, async (txn) => {
       await txn.runAsync('DELETE FROM pages WHERE documentId = ?', documentId);
       for (const entry of pages) {
         await txn.runAsync('INSERT INTO pages (text, documentId, page) VALUES (?, ?, ?)', [
