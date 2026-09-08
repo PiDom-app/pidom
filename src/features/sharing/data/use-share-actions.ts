@@ -44,6 +44,7 @@ export function useShareActions() {
   const revoke = useMutation(api.sharing.revokeShare);
   const addMember = useMutation(api.groups.addMember);
   const removeMember = useMutation(api.groups.removeMember);
+  const setRole = useMutation(api.groups.setRole);
   const markRead = useMutation(api.sharing.markEventsRead);
 
   const withDb = useCallback(
@@ -319,6 +320,65 @@ export function useShareActions() {
   );
 
   /**
+   * Promotes a member to admin, or puts them back.
+   *
+   * Owner-only on the account — `Groups.setRole` refuses anybody else and
+   * refuses the owner's own row — so the menu item that calls this is drawn
+   * only for an owner, and the refusal is the backstop rather than the rule.
+   *
+   * Not queued, for the same reason membership is not: an admin can add people
+   * to the group, so this decides who can decide who can read.
+   */
+  const setMemberRole = useCallback(
+    async (groupId: string, userId: string, role: 'admin' | 'member'): Promise<boolean> => {
+      if (!hasNetwork) {
+        showToast({
+          id: 'group-role',
+          tone: 'error',
+          title: 'This needs a connection',
+          description: 'An admin can add people to the group, so it is not queued.',
+        });
+        return false;
+      }
+
+      const remoteId = await withDb(
+        async (db) => (await Groups.groupById(db!, groupId))?.remoteId ?? null,
+      );
+      if (remoteId == null) {
+        showToast({
+          id: 'group-role',
+          tone: 'error',
+          title: 'This group has not reached your account yet',
+        });
+        return false;
+      }
+
+      try {
+        await setRole({
+          groupId: remoteId as Id<'groups'>,
+          userId: userId as Id<'users'>,
+          role,
+        });
+        // The mirror is what the row renders, so the tag moves now rather than
+        // at the next reconcile.
+        await withDb(async (db) => {
+          await db!.runAsync(
+            'UPDATE groupMembersLocal SET role = ? WHERE groupId = ? AND userId = ?',
+            [role, groupId, userId],
+          );
+        });
+        return true;
+      } catch (error) {
+        log.error(SCOPE, 'role change refused');
+        log.debug(SCOPE, 'role error', error);
+        showToast({ id: 'group-role', tone: 'error', title: 'That could not be changed' });
+        return false;
+      }
+    },
+    [hasNetwork, setRole, showToast, withDb],
+  );
+
+  /**
    * Clears the badge.
    *
    * Locally first, like every other action here. It used to write only to the
@@ -363,6 +423,7 @@ export function useShareActions() {
     renameGroup,
     deleteGroup,
     changeMembership,
+    setMemberRole,
     markEventsRead,
   };
 }

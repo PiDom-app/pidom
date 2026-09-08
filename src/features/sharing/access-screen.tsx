@@ -57,6 +57,7 @@ export function AccessScreen() {
     null,
   );
   const [viewing, setViewing] = useState<{
+    id: string | null;
     name: string;
     handle: string | null;
     pictureUrl: string | null;
@@ -172,6 +173,7 @@ export function AccessScreen() {
                         <RowMenu
                           onProfile={() =>
                             setViewing({
+                              id: share.counterpart?.id ?? null,
                               name,
                               handle: share.counterpart?.handle ?? null,
                               pictureUrl: share.counterpart?.pictureUrl ?? null,
@@ -245,6 +247,7 @@ export function AccessScreen() {
       <ProfileSheet
         isOpen={viewing !== null}
         onClose={() => setViewing(null)}
+        userId={viewing?.id ?? null}
         name={viewing?.name ?? ''}
         handle={viewing?.handle ?? null}
         pictureUrl={viewing?.pictureUrl ?? null}

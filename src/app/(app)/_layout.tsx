@@ -90,6 +90,7 @@ export default function AppLayout() {
           without losing what you picked. */}
       <Stack.Screen name="share" />
       <Stack.Screen name="shared" />
+      <Stack.Screen name="activity" />
       <Stack.Screen name="share-detail" />
       <Stack.Screen name="access" />
       <Stack.Screen name="groups" />

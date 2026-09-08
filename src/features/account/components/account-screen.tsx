@@ -1,9 +1,18 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Bell, ChevronRight, Inbox, ShieldCheck, Users } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Bell,
+  BellRing,
+  ChevronRight,
+  Inbox,
+  ShieldCheck,
+  Users,
+} from 'lucide-react-native';
 import React from 'react';
 
 import { Screen } from '@/components/layout/screen';
 import { Avatar, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
+import { Badge, BadgeText } from '@/components/ui/badge';
 import { Divider } from '@/components/ui/divider';
 import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
@@ -20,6 +29,7 @@ import {
   StorageUsage,
 } from '@/features/library/components/storage-usage';
 import { SyncSummary } from '@/features/library/components/sync-summary';
+import { useInbox, useShareEvents } from '@/features/sharing/data/use-sharing';
 
 import { SignOutAction } from './sign-out-action';
 import { ThemeControl } from './theme-control';
@@ -54,6 +64,11 @@ export function AccountScreen() {
   const router = useRouter();
   const { account } = useSession();
   const { profile, loading } = useProfile();
+
+  // Both read the device's own database, so they are right offline and right
+  // immediately — the live subscription writes into it as things arrive.
+  const { unread } = useShareEvents();
+  const { pending } = useInbox();
 
   // Google's copy is available the instant the sheet closes; the Convex row
   // arrives a round trip later. Preferring the local one keeps the header from
@@ -136,7 +151,16 @@ export function AccountScreen() {
               glyph={Inbox}
               title="Shared"
               hint="Documents other people sent you, and what you sent them."
+              count={pending.length}
               onPress={() => router.push('/shared')}
+            />
+            <RowRule />
+            <NavRow
+              glyph={BellRing}
+              title="Activity"
+              hint="Everything that has happened, whether or not a notification arrived."
+              count={unread}
+              onPress={() => router.push('/activity')}
             />
             <RowRule />
             <NavRow
@@ -195,11 +219,20 @@ function NavRow({
   glyph,
   title,
   hint,
+  count = 0,
   onPress,
 }: {
   glyph: React.ComponentProps<typeof Icon>['as'];
   title: string;
   hint: string;
+  /**
+   * Things waiting behind this row. Zero renders nothing.
+   *
+   * The only filled shape on this screen, and the only number on it somebody
+   * has to act on — which is what separates it from every other piece of
+   * metadata here, all of which is `text-fg-subtle` and stays that way.
+   */
+  count?: number;
   onPress: () => void;
 }) {
   return (
@@ -218,6 +251,11 @@ function NavRow({
             {hint}
           </Text>
         </VStack>
+        {count === 0 ? null : (
+          <Badge className="rounded-full px-2">
+            <BadgeText className="tracking-normal normal-case">{String(count)}</BadgeText>
+          </Badge>
+        )}
         <Icon as={ChevronRight} size="sm" className="text-fg-subtle" />
       </HStack>
     </Pressable>

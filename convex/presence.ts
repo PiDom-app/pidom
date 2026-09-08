@@ -163,6 +163,10 @@ export const heartbeat = mutation({
  * The token is the authorisation: it was minted by `heartbeat`, which checked
  * access, and it cannot be constructed. That is why this takes no room id — a
  * room id is guessable and a token is not.
+ *
+ * No screen calls it. `usePresence` does: the hook's `PresenceAPI` requires
+ * `list` and holds the room token privately, which is why `inRoom` below exists
+ * alongside it for the face row, taking a room id and running the check itself.
  */
 export const list = query({
   args: { roomToken: v.string() },

@@ -3,7 +3,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import * as Annotations from './model/annotations';
-import { accessOf, requireDownloadable, requireReadable } from './model/access';
+import { requireDownloadable, requireReadable } from './model/access';
 import { AuthError, requireUser } from './model/auth';
 import * as Discovery from './model/discovery';
 import { publicProfileValidator } from './model/discovery';
@@ -11,7 +11,7 @@ import { DISCOVERY_LIMIT, DOWNLOAD_URL_SECONDS, SEARCH_TERM_MAX } from './model/
 import * as Notifications from './model/notifications';
 import { limit } from './model/rateLimits';
 import * as Sharing from './model/sharing';
-import { publicShareValidator, sharedDocumentValidator } from './model/sharing';
+import { publicShareValidator } from './model/sharing';
 import { dispatch } from './push';
 import { r2 } from './r2';
 import { queueFanOut } from './workflows/share';
@@ -75,46 +75,6 @@ export const outbox = query({
 });
 
 /**
- * One share, from whichever end the caller is on.
- *
- * `requireAdministrable` covers the sender and `recipientUserId` covers the
- * recipient; a caller who is neither is refused. A group share is readable by
- * its members, which is resolved the same way access to the document is.
- */
-export const shareDetail = query({
-  args: { shareId: v.id('documentShares') },
-  returns: v.union(publicShareValidator, v.null()),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const share = await ctx.db.get('documentShares', args.shareId);
-    if (share === null) {
-      throw new ConvexError({ code: AuthError.forbidden });
-    }
-
-    const isParty =
-      share.ownerId === user._id ||
-      share.createdBy === user._id ||
-      share.recipientUserId === user._id;
-
-    if (!isParty && share.groupId !== undefined) {
-      const membership = await ctx.db
-        .query('groupMembers')
-        .withIndex('by_group_and_user', (q) =>
-          q.eq('groupId', share.groupId!).eq('userId', user._id),
-        )
-        .unique();
-      if (membership === null) {
-        throw new ConvexError({ code: AuthError.forbidden });
-      }
-    } else if (!isParty) {
-      throw new ConvexError({ code: AuthError.forbidden });
-    }
-
-    return await Sharing.toPublicShare(ctx, share, user);
-  },
-});
-
-/**
  * Everybody a document is shared with.
  *
  * **Not readable by everybody who can read the document**, which was the first
@@ -145,54 +105,6 @@ export const accessList = query({
       out.push(await Sharing.toPublicShare(ctx, share, user));
     }
     return out;
-  },
-});
-
-/**
- * What the caller may do with a document, without throwing if the answer is
- * nothing.
- *
- * The reader asks this to decide whether to offer Share and whether to let a
- * selection become a note. It is a question, not a gate — every write re-asks
- * it through `requireAnnotatable` — so `null` is an answer rather than an error.
- */
-export const myAccess = query({
-  args: { documentId: v.id('documents') },
-  returns: v.union(
-    v.null(),
-    v.object({
-      kind: v.union(v.literal('owner'), v.literal('share')),
-      role: v.union(v.literal('viewer'), v.literal('annotator')),
-      canDownload: v.boolean(),
-      canReshare: v.boolean(),
-      sharedBy: v.union(publicProfileValidator, v.null()),
-      shareId: v.union(v.id('documentShares'), v.null()),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const access = await accessOf(ctx, user, args.documentId);
-    if (access === null) {
-      return null;
-    }
-    if (access.kind === 'owner') {
-      return {
-        kind: 'owner' as const,
-        role: 'annotator' as const,
-        canDownload: true,
-        canReshare: true,
-        sharedBy: null,
-        shareId: null,
-      };
-    }
-    return {
-      kind: 'share' as const,
-      role: access.role,
-      canDownload: access.canDownload,
-      canReshare: access.canReshare,
-      sharedBy: await Discovery.profileOf(ctx, access.share.createdBy),
-      shareId: access.share._id,
-    };
   },
 });
 
@@ -243,11 +155,21 @@ export const findPeople = query({
  */
 export const profile = query({
   args: { userId: v.id('users') },
-  returns: v.union(publicProfileValidator, v.null()),
+  returns: v.union(
+    v.object({
+      profile: publicProfileValidator,
+      /** Names of the groups both accounts are in. Empty for a direct share. */
+      sharedGroups: v.array(v.string()),
+      /** How many documents pass between them, counted by document. */
+      sharedDocuments: v.number(),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     if (args.userId === user._id) {
-      return await Discovery.profileOf(ctx, user._id);
+      const self = await Discovery.profileOf(ctx, user._id);
+      return self === null ? null : { profile: self, sharedGroups: [], sharedDocuments: 0 };
     }
     if (!(await Sharing.knowsEachOther(ctx, user, args.userId))) {
       // Null rather than `FORBIDDEN`, for the reason a search refusal is empty
@@ -255,7 +177,19 @@ export const profile = query({
       // you" is the fact being withheld.
       return null;
     }
-    return await Discovery.profileOf(ctx, args.userId);
+    const found = await Discovery.profileOf(ctx, args.userId);
+    if (found === null) {
+      return null;
+    }
+    // The sheet used to take this as two props no call site passed, so it
+    // always said "Nothing shared between you yet" — false by construction on
+    // the Access screen, where the two accounts are looking at one document.
+    const ground = await Sharing.commonGround(ctx, user, args.userId);
+    return {
+      profile: found,
+      sharedGroups: ground.groups,
+      sharedDocuments: ground.documents,
+    };
   },
 });
 
@@ -461,24 +395,6 @@ export const markEventsRead = mutation({
       await ctx.db.patch('shareEvents', eventId, { readAt: now });
     }
     return null;
-  },
-});
-
-/**
- * A shared document's metadata, for a recipient who has not downloaded it.
- *
- * `library.snapshot` is owner-scoped and always will be, so this is how a
- * recipient's device learns a title and a page count. The projection is
- * `SharedDocument`, which is narrower than `PublicDocument` — see
- * `convex/model/sharing.ts` for the four fields it deliberately drops.
- */
-export const sharedDocument = query({
-  args: { documentId: v.id('documents') },
-  returns: v.union(sharedDocumentValidator, v.null()),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const { doc } = await requireReadable(ctx, user, args.documentId);
-    return Sharing.toSharedDocument(doc);
   },
 });
 

@@ -73,26 +73,6 @@ export function useShare(shareId: string | null): { share: LibraryShare | null; 
 }
 
 /**
- * The reader's own grant on a document, if it is not theirs.
- *
- * A hint for the chrome — whether to offer Share, whether a selection can
- * become a note — and never a gate. `null` means the document is the reader's
- * own or the device has not heard otherwise, and both of those render the same
- * way: as an ordinary document.
- */
-export function useGrant(documentId: string | null): LibraryShare | null {
-  const { profileId } = useLibraryStatus();
-
-  const read = useCallback(
-    async (db: SQLiteDatabase) =>
-      documentId === null ? null : await Shares.grantFor(db, documentId),
-    [documentId],
-  );
-
-  return useLocalQuery(profileId, SHARE_TABLES, read).data ?? null;
-}
-
-/**
  * Whether this document is shared at all, either way.
  *
  * The gate in front of presence. A document nobody shares does not get a

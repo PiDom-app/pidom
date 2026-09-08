@@ -45,57 +45,6 @@ export const detail = query({
   },
 });
 
-/** The documents shared into this group. Bounded, and only for members. */
-export const documents = query({
-  args: { groupId: v.id('groups') },
-  returns: v.array(
-    v.object({
-      shareId: v.id('documentShares'),
-      documentId: v.id('documents'),
-      title: v.string(),
-      pageCount: v.union(v.number(), v.null()),
-      byteSize: v.number(),
-      hasCover: v.boolean(),
-      role: v.union(v.literal('viewer'), v.literal('annotator')),
-      canDownload: v.boolean(),
-      sharedBy: v.union(v.string(), v.null()),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    await Groups.requireMember(ctx, user, args.groupId);
-
-    const shares = await ctx.db
-      .query('documentShares')
-      .withIndex('by_group', (q) => q.eq('groupId', args.groupId))
-      .take(100);
-
-    const out = [];
-    for (const share of shares) {
-      if (share.status !== 'accepted') {
-        continue;
-      }
-      const doc = await ctx.db.get('documents', share.documentId);
-      if (doc === null) {
-        continue;
-      }
-      const by = await ctx.db.get('users', share.createdBy);
-      out.push({
-        shareId: share._id,
-        documentId: doc._id,
-        title: doc.title,
-        pageCount: doc.pageCount ?? null,
-        byteSize: doc.byteSize,
-        hasCover: doc.coverStorageKey !== undefined,
-        role: share.role,
-        canDownload: share.canDownload,
-        sharedBy: by?.name ?? null,
-      });
-    }
-    return out;
-  },
-});
-
 export const create = mutation({
   args: {
     name: v.string(),

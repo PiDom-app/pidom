@@ -298,20 +298,59 @@ async function reconcileBookmarks({ client, db }: Sender): Promise<void> {
   await Marks.pruneBookmarks(db, seen);
 }
 
+/**
+ * Every note this reader is entitled to hold, from both directions.
+ *
+ * **Two queries, and the second one was missing.** `library.allAnnotations`
+ * walks `by_owner`, and a note written on a document somebody else owns carries
+ * the *document owner's* `ownerId` — because that is what the delete cascade
+ * walks. So the first pass cannot see them, and with only that pass a reader's
+ * own annotation on a borrowed textbook reached the account once and then
+ * disappeared from every other device they own: absent from the answer, and
+ * therefore pruned as deleted.
+ *
+ * `Annotations.allForAuthor`'s own doc comment has always said "a device runs
+ * both to reconcile". Only one of them was called.
+ *
+ * Both feed the same `seen` set, so the prune sees the whole picture. Splitting
+ * them into two passes with the prune between would delete the foreign ones and
+ * re-insert them on every single reconcile.
+ */
 async function reconcileAnnotations({ client, db }: Sender): Promise<void> {
   const seen = new Set<string>();
+
+  const take = async (remote: {
+    id: string;
+    documentId: string;
+    page: number;
+    kind: 'passage' | 'note';
+    text: string | null;
+    note: string | null;
+    createdAt: number;
+    updatedAt: number;
+  }) => {
+    const localId = await Documents.localIdFor(db, remote.documentId);
+    if (localId === null) {
+      // The document is not on this device, so there is no row to hang the note
+      // off. It arrives with the download.
+      return;
+    }
+    seen.add(remote.id);
+    await Marks.upsertRemoteAnnotation(db, { ...remote, documentId: localId });
+  };
 
   await eachRow(
     (cursor) =>
       client.query(api.library.allAnnotations, { paginationOpts: { numItems: PAGE_SIZE, cursor } }),
-    async (remote) => {
-      const localId = await Documents.localIdFor(db, remote.documentId);
-      if (localId === null) {
-        return;
-      }
-      seen.add(remote.id);
-      await Marks.upsertRemoteAnnotation(db, { ...remote, documentId: localId });
-    },
+    take,
+  );
+
+  await eachRow(
+    (cursor) =>
+      client.query(api.sharing.myAnnotationsElsewhere, {
+        paginationOpts: { numItems: PAGE_SIZE, cursor },
+      }),
+    take,
   );
 
   await Marks.pruneAnnotations(db, seen);

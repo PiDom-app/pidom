@@ -87,19 +87,3 @@ export const useShareStore = create<ShareStore>()((set) => ({
   setSending: (sending) => set({ sending }),
   clear: () => set(EMPTY),
 }));
-
-/**
- * Whether one person or group is in the draft.
- *
- * A selector per row, the same as `useIsOnThisDevice`: selecting the whole
- * array would re-render every result in the list each time one is tapped.
- */
-export function useIsChosen(kind: Recipient['kind'], id: string): boolean {
-  return useShareStore((state) =>
-    state.recipients.some((chosen) => chosen.kind === kind && chosen.id === id),
-  );
-}
-
-export function useChosenCount(): number {
-  return useShareStore((state) => state.recipients.length);
-}

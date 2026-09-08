@@ -1,5 +1,9 @@
+import { useQuery } from 'convex/react';
 import { Share2, User, Users } from 'lucide-react-native';
 import React from 'react';
+
+import { api } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
 
 import {
   Actionsheet,
@@ -31,22 +35,36 @@ import { VStack } from '@/components/ui/vstack';
 export function ProfileSheet({
   isOpen,
   onClose,
+  userId,
   name,
   handle,
   pictureUrl,
   online = false,
-  sharedGroups,
-  sharedDocuments,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Whose profile it is, so the sheet can ask what the two accounts have
+   * between them.
+   *
+   * It used to take `sharedGroups` and `sharedDocuments` as props and neither
+   * call site passed them, so every profile fell through to "Nothing shared
+   * between you yet" — which on the Access screen is false by construction, and
+   * `sharing.profile` existed to answer it and was never called.
+   */
+  userId: string | null;
   name: string;
   handle: string | null;
   pictureUrl: string | null;
   online?: boolean;
-  sharedGroups?: string[];
-  sharedDocuments?: number;
 }) {
+  const context = useQuery(
+    api.sharing.profile,
+    !isOpen || userId === null ? 'skip' : { userId: userId as Id<'users'> },
+  );
+  const sharedGroups = context?.sharedGroups;
+  const sharedDocuments = context?.sharedDocuments;
+
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
       <ActionsheetBackdrop />
@@ -98,8 +116,10 @@ export function ProfileSheet({
               label={`${sharedDocuments} ${sharedDocuments === 1 ? 'document' : 'documents'} between you`}
             />
           )}
-          {(sharedGroups === undefined || sharedGroups.length === 0) &&
-          (sharedDocuments === undefined || sharedDocuments === 0) ? (
+          {context === undefined ? (
+            <Row glyph={User} label="Looking…" />
+          ) : (sharedGroups === undefined || sharedGroups.length === 0) &&
+            (sharedDocuments === undefined || sharedDocuments === 0) ? (
             <Row glyph={User} label="Nothing shared between you yet" />
           ) : null}
 

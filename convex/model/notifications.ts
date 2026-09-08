@@ -164,7 +164,7 @@ export function inQuietHours(
  * is one place to audit. A notification renders on a device nobody has unlocked
  * — often face-up on a desk — so it says that something happened and who by,
  * and never what the document is called. The title, the author and the message
- * are behind `sharing.shareDetail`, which checks the recipient first.
+ * are behind `sharing.inbox`, which returns only the caller's own shares.
  */
 export function bodyFor(kind: EventKind, actorName: string | null): { title: string; body: string } {
   const who = actorName ?? 'Someone';

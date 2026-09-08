@@ -26,6 +26,7 @@ import { VStack } from '@/components/ui/vstack';
 import { NameDialog } from '@/features/library/components/name-dialog';
 import { useLibraryStatus } from '@/features/library/data/use-library-status';
 
+import { ConfirmDialog } from './components/confirm-dialog';
 import { PersonRow, Tag } from './components/person-row';
 import { ProfileSheet } from './components/profile-sheet';
 import { Empty, ListSkeleton, Notice, ScreenHeader, Segments } from './components/segments';
@@ -51,12 +52,16 @@ export function GroupScreen() {
   const { hasNetwork } = useLibraryStatus();
   const { group, members, loading } = useGroup(id ?? null);
   const documents = useGroupDocuments(id ?? null);
-  const { renameGroup, deleteGroup, changeMembership } = useShareActions();
+  const { renameGroup, deleteGroup, changeMembership, setMemberRole } = useShareActions();
 
   const [segment, setSegment] = useState<'members' | 'documents' | 'settings'>('members');
   const [renaming, setRenaming] = useState(false);
   const [adding, setAdding] = useState(false);
+  /** The member the Remove item was tapped on, held until the dialog answers. */
+  const [removing, setRemoving] = useState<{ userId: string; name: string } | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [viewing, setViewing] = useState<{
+    id: string;
     name: string;
     handle: string | null;
     pictureUrl: string | null;
@@ -89,6 +94,7 @@ export function GroupScreen() {
     if (group === null) {
       return;
     }
+    setLeaving(false);
     await deleteGroup(group.id);
     router.back();
   }, [deleteGroup, group, router]);
@@ -168,6 +174,7 @@ export function GroupScreen() {
                           textValue="View profile"
                           onPress={() =>
                             setViewing({
+                              id: member.userId,
                               name: member.name ?? 'Someone',
                               handle: member.handle,
                               pictureUrl: member.pictureUrl,
@@ -177,11 +184,32 @@ export function GroupScreen() {
                             View profile
                           </MenuItemLabel>
                         </MenuItem>
+                        {/* Owner-only, because `Groups.setRole` is: an admin
+                            can add people, so who may promote one is the
+                            narrowest permission in the group. */}
+                        {group.role === 'owner' ? (
+                          <MenuItem
+                            key="role"
+                            textValue={
+                              member.role === 'admin' ? 'Make a member' : 'Make an admin'
+                            }
+                            onPress={() =>
+                              void setMemberRole(
+                                group.id,
+                                member.userId,
+                                member.role === 'admin' ? 'member' : 'admin',
+                              )
+                            }>
+                            <MenuItemLabel className="text-sm text-foreground">
+                              {member.role === 'admin' ? 'Make a member' : 'Make an admin'}
+                            </MenuItemLabel>
+                          </MenuItem>
+                        ) : null}
                         <MenuItem
                           key="remove"
                           textValue="Remove from group"
                           onPress={() =>
-                            void changeMembership(group.id, member.userId, 'remove')
+                            setRemoving({ userId: member.userId, name: member.name ?? 'Someone' })
                           }>
                           <MenuItemLabel className="text-sm text-destructive">
                             Remove from group
@@ -259,7 +287,7 @@ export function GroupScreen() {
             <Box className="mx-6 my-2 h-px bg-hairline" />
 
             <Pressable
-              onPress={() => void leave()}
+              onPress={() => setLeaving(true)}
               accessibilityRole="button"
               accessibilityLabel={group.role === 'owner' ? 'Delete this group' : 'Leave this group'}
               className="px-6 py-3 data-[active=true]:bg-hover">
@@ -307,9 +335,46 @@ export function GroupScreen() {
         groupRemoteId={remoteId}
       />
 
+      <ConfirmDialog
+        isOpen={removing !== null}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => {
+          if (removing !== null) {
+            void changeMembership(group.id, removing.userId, 'remove');
+          }
+          setRemoving(null);
+        }}
+        title={`Remove ${removing?.name ?? 'them'} from ${group.name}?`}
+        lines={[
+          `They lose access to ${countOf(documents.length, 'document')} shared into this group, all at once.`,
+          'Anything they were allowed to download and did is on their device, and this does not delete it.',
+        ]}
+        confirmLabel="Remove"
+      />
+
+      <ConfirmDialog
+        isOpen={leaving}
+        onClose={() => setLeaving(false)}
+        onConfirm={() => void leave()}
+        title={group.role === 'owner' ? `Delete ${group.name}?` : `Leave ${group.name}?`}
+        lines={
+          group.role === 'owner'
+            ? [
+                `Everybody in it loses access to ${countOf(documents.length, 'document')} shared here.`,
+                'The documents themselves stay yours. This cannot be undone.',
+              ]
+            : [
+                `You lose access to ${countOf(documents.length, 'document')} shared here.`,
+                'Somebody in the group would have to add you back.',
+              ]
+        }
+        confirmLabel={group.role === 'owner' ? 'Delete group' : 'Leave'}
+      />
+
       <ProfileSheet
         isOpen={viewing !== null}
         onClose={() => setViewing(null)}
+        userId={viewing?.id ?? null}
         name={viewing?.name ?? ''}
         handle={viewing?.handle ?? null}
         pictureUrl={viewing?.pictureUrl ?? null}
@@ -424,3 +489,8 @@ function AddMemberSheet({
 }
 
 const CONTENT = { paddingBottom: 32 } as const;
+
+/** "1 document" / "3 documents", so the dialogs do not read "1 documents". */
+function countOf(n: number, noun: string): string {
+  return `${n} ${n === 1 ? noun : `${noun}s`}`;
+}

@@ -107,22 +107,3 @@ export const forgetDevice = mutation({
   },
 });
 
-/**
- * How many events this reader has not looked at.
- *
- * Read by the home screen, so it goes through `by_user_and_read` rather than
- * counting a list — an unread badge that reads the whole history to render is
- * an unread badge that gets slower the longer somebody uses the app.
- */
-export const unreadCount = query({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    const user = await requireUser(ctx);
-    const unread = await ctx.db
-      .query('shareEvents')
-      .withIndex('by_user_and_read', (q) => q.eq('userId', user._id).eq('readAt', undefined))
-      .take(50);
-    return unread.length;
-  },
-});

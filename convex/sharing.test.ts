@@ -162,6 +162,32 @@ async function sharedWith(
   return shareId;
 }
 
+/**
+ * Whether this account can reach this document at all.
+ *
+ * `sharing.accessList` is the readability probe the tests use: it is the one
+ * surviving public query that runs `requireReadable` and spends no bucket, so
+ * it can be asked the same question a hundred times in one file.
+ */
+async function reaches(
+  who: Awaited<ReturnType<typeof signedIn>>,
+  documentId: Id<'documents'>,
+): Promise<boolean> {
+  return await who
+    .query(api.sharing.accessList, { documentId })
+    .then(() => true)
+    .catch(() => false);
+}
+
+/** The caller's own view of one share, as their inbox reports it. */
+async function inboxEntry(
+  who: Awaited<ReturnType<typeof signedIn>>,
+  match: (share: { id: string; document: { id: string; title: string } | null }) => boolean,
+) {
+  const shares = await who.query(api.sharing.inbox, { filter: 'all' });
+  return shares.find(match) ?? null;
+}
+
 /* ── the door ───────────────────────────────────────────────────────── */
 
 describe('a stranger', () => {
@@ -171,7 +197,7 @@ describe('a stranger', () => {
     const stranger = await signedIn(t, STRANGER);
     const documentId = await aSyncedDocument(t, owner);
 
-    await expect(stranger.query(api.sharing.sharedDocument, { documentId })).rejects.toThrow();
+    await expect(stranger.query(api.sharing.accessList, { documentId })).rejects.toThrow();
     await expect(stranger.query(api.library.outline, { documentId })).rejects.toThrow();
     await expect(
       stranger.query(api.library.pagesOf, { documentId, after: 0 }),
@@ -188,14 +214,14 @@ describe('a stranger', () => {
     const real = await aSyncedDocument(t, owner);
 
     const onReal = await stranger
-      .query(api.sharing.sharedDocument, { documentId: real })
+      .query(api.sharing.accessList, { documentId: real })
       .catch((error: unknown) => (error as { data?: { code?: string } }).data?.code);
 
     // A well-formed id for a row that was deleted: the same shape of answer.
     const deleted = await aSyncedDocument(t, owner, 'gone');
     await owner.mutation(api.library.remove, { documentId: deleted });
     const onGone = await stranger
-      .query(api.sharing.sharedDocument, { documentId: deleted })
+      .query(api.sharing.accessList, { documentId: deleted })
       .catch((error: unknown) => (error as { data?: { code?: string } }).data?.code);
 
     expect(onReal).toBe('FORBIDDEN');
@@ -250,8 +276,9 @@ describe('a viewer', () => {
     const documentId = await aSyncedDocument(t, owner);
     await sharedWith(t, owner, friend, documentId, { role: 'viewer' });
 
-    const doc = await friend.query(api.sharing.sharedDocument, { documentId });
-    expect(doc?.title).toBe('Thinking, Fast and Slow');
+    expect(await reaches(friend, documentId)).toBe(true);
+    const entry = await inboxEntry(friend, (share) => share.document?.id === documentId);
+    expect(entry?.document?.title).toBe('Thinking, Fast and Slow');
 
     await expect(
       friend.mutation(api.library.addAnnotation, {
@@ -359,7 +386,7 @@ describe('revoking', () => {
     await expect(
       friend.mutation(api.sharing.shareDownloadUrl, { documentId, what: 'document' }),
     ).rejects.toThrow();
-    await expect(friend.query(api.sharing.sharedDocument, { documentId })).rejects.toThrow();
+    expect(await reaches(friend, documentId)).toBe(false);
     await expect(
       friend.mutation(api.library.addAnnotation, { documentId, currentPage: 1, kind: 'note', note: 'x' }),
     ).rejects.toThrow();
@@ -398,7 +425,7 @@ describe('revoking', () => {
 
     await owner.mutation(api.sharing.revokeShare, { shareId });
 
-    const share = await friend.query(api.sharing.shareDetail, { shareId });
+    const share = await inboxEntry(friend, (row) => row.id === shareId);
     expect(share?.status).toBe('revoked');
     expect(share?.revokedAt).toBeTypeOf('number');
   });
@@ -419,7 +446,7 @@ describe('expiry', () => {
     await expect(
       friend.mutation(api.sharing.shareDownloadUrl, { documentId, what: 'document' }),
     ).rejects.toThrow();
-    await expect(friend.query(api.sharing.sharedDocument, { documentId })).rejects.toThrow();
+    expect(await reaches(friend, documentId)).toBe(false);
   });
 
   /**
@@ -655,13 +682,18 @@ describe('a profile lookup by id', () => {
     const documentId = await aSyncedDocument(t, owner);
     await sharedWith(t, owner, friend, documentId);
 
+    const seen = await owner.query(api.sharing.profile, {
+      userId: await userIdOf(t, FRIEND),
+    });
+    expect(seen?.profile.displayName).toBe('A Friend');
+    // And the context that makes the sheet honest: one document has passed
+    // between them, which is why the profile is visible at all.
+    expect(seen?.sharedDocuments).toBe(1);
+    expect(seen?.sharedGroups).toEqual([]);
+
     expect(
-      (await owner.query(api.sharing.profile, { userId: await userIdOf(t, FRIEND) }))
-        ?.displayName,
-    ).toBe('A Friend');
-    expect(
-      (await friend.query(api.sharing.profile, { userId: await userIdOf(t, OWNER) }))
-        ?.displayName,
+      (await friend.query(api.sharing.profile, { userId: await userIdOf(t, OWNER) }))?.profile
+        .displayName,
     ).toBe('Document Owner');
   });
 });
@@ -707,30 +739,24 @@ describe('a group', () => {
       groupId,
       userId: await userIdOf(t, FRIEND),
     });
-    try {
-      await owner.mutation(api.sharing.createShare, {
-        documentId,
-        subject: 'group',
-        groupId,
-        role: 'viewer',
-        canDownload: false,
-        canReshare: false,
-      });
-    } catch (error) {
-      console.log('REAL STACK:\n' + (error as Error).stack);
-      throw error;
-    }
+    await owner.mutation(api.sharing.createShare, {
+      documentId,
+      subject: 'group',
+      groupId,
+      role: 'viewer',
+      canDownload: false,
+      canReshare: false,
+    });
 
     // No accept step: being in the group is the agreement.
-    expect((await friend.query(api.sharing.sharedDocument, { documentId }))?.title).toBe(
-      'Thinking, Fast and Slow',
-    );
+    const seen = await inboxEntry(friend, (share) => share.document?.id === documentId);
+    expect(seen?.document?.title).toBe('Thinking, Fast and Slow');
 
     await owner.mutation(api.groups.removeMember, {
       groupId,
       userId: await userIdOf(t, FRIEND),
     });
-    await expect(friend.query(api.sharing.sharedDocument, { documentId })).rejects.toThrow();
+    expect(await reaches(friend, documentId)).toBe(false);
   });
 
   test('cannot be shared into by somebody who is not in it', async () => {
@@ -770,7 +796,6 @@ describe('a group', () => {
     const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
 
     await expect(stranger.query(api.groups.detail, { groupId })).rejects.toThrow();
-    await expect(stranger.query(api.groups.documents, { groupId })).rejects.toThrow();
     await expect(
       stranger.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, STRANGER) }),
     ).rejects.toThrow();

@@ -692,6 +692,68 @@ export async function knowsEachOther(
   return received.some((share) => share.ownerId === other || share.createdBy === other);
 }
 
+/**
+ * What two accounts actually have between them.
+ *
+ * The same walk `knowsEachOther` does, reporting what it found rather than
+ * stopping at the first hit. It is what `ProfileSheet` renders — and the whole
+ * of what Pidom will tell one person about another beyond a name, a handle and
+ * a picture: how you know them, and how many documents have passed between you.
+ * Not what else they are reading, and not their address.
+ */
+export async function commonGround(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<'users'>,
+  other: Id<'users'>,
+): Promise<{ groups: string[]; documents: number }> {
+  const mine = await ctx.db
+    .query('groupMembers')
+    .withIndex('by_user', (q) => q.eq('userId', user._id))
+    .take(SHARE_LIST_LIMIT);
+
+  const groups: string[] = [];
+  for (const membership of mine) {
+    const theirs = await ctx.db
+      .query('groupMembers')
+      .withIndex('by_group_and_user', (q) =>
+        q.eq('groupId', membership.groupId).eq('userId', other),
+      )
+      .unique();
+    if (theirs === null) {
+      continue;
+    }
+    const group = await ctx.db.get('groups', membership.groupId);
+    if (group !== null) {
+      groups.push(group.name);
+    }
+  }
+
+  const sent = await ctx.db
+    .query('documentShares')
+    .withIndex('by_owner_and_updated', (q) => q.eq('ownerId', user._id))
+    .take(SHARE_LIST_LIMIT);
+  const received = await ctx.db
+    .query('documentShares')
+    .withIndex('by_recipient_and_updated', (q) => q.eq('recipientUserId', user._id))
+    .take(SHARE_LIST_LIMIT);
+
+  // Counted by document rather than by row: the same document reshared back is
+  // one thing between two people, not two.
+  const documents = new Set<string>();
+  for (const share of sent) {
+    if (share.recipientUserId === other) {
+      documents.add(share.documentId);
+    }
+  }
+  for (const share of received) {
+    if (share.ownerId === other || share.createdBy === other) {
+      documents.add(share.documentId);
+    }
+  }
+
+  return { groups, documents: documents.size };
+}
+
 /** Whether this account has said other people may share with it at all. */
 export async function acceptsSharesFrom(
   ctx: QueryCtx | MutationCtx,
