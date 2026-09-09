@@ -324,6 +324,15 @@ export const HANDLE_PATTERN = /^[a-z0-9_]+$/;
 export const GROUP_NAME_MAX = 60;
 
 /**
+ * A group's one-line description.
+ *
+ * Long enough to say what the group is for and short enough that it cannot
+ * become a noticeboard: it renders as a subtitle under a name, and a paragraph
+ * there would push the member list off the screen.
+ */
+export const GROUP_DESCRIPTION_MAX = 140;
+
+/**
  * People in one group.
  *
  * Sharing with a group fans out to every member, so this is the real bound on

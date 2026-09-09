@@ -171,8 +171,15 @@ export async function replaceMembers(
   await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM groupMembersLocal WHERE groupId = ?', groupId);
     for (const member of members) {
+      // `OR REPLACE`, because the primary key is (groupId, userId) and this is
+      // a replace: one repeated id in the incoming list — or a row this pass
+      // has already written — is a value to overwrite rather than a crash.
+      // A plain INSERT here threw `UNIQUE constraint failed` out of an effect
+      // as an unhandled rejection, which is a hard failure for a list that is
+      // only a cache of what the account already told us.
       await txn.runAsync(
-        `INSERT INTO groupMembersLocal (groupId, userId, name, handle, pictureUrl, role, isOwner, addedAt)
+        `INSERT OR REPLACE INTO groupMembersLocal
+           (groupId, userId, name, handle, pictureUrl, role, isOwner, addedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           groupId,
@@ -205,6 +212,20 @@ export async function pruneGroups(
   }
 }
 
+/**
+ * This device's own id for a group the account named.
+ *
+ * **The mirror keys everything by local id**, with `remoteId` as the one join
+ * back to the account — a group created offline has a local id and no remote
+ * one, so a mirror keyed the other way could not hold it at all. Everything
+ * arriving from the account is therefore translated on the way in, and this is
+ * the translation.
+ *
+ * It was there and unused, which is how a group came to read "0 members · 0
+ * documents" while the account plainly held two of one and one of the other:
+ * members and group shares were written under the *remote* id and read back
+ * under the local one, so the two halves never met.
+ */
 export async function localIdFor(
   db: SQLiteDatabase,
   remoteId: string,

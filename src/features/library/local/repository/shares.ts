@@ -23,6 +23,7 @@ import {
   type ShareStatus,
   type SyncState,
 } from './types';
+import * as Groups from './groups';
 
 type ShareRow = Omit<
   LibraryShare,
@@ -299,6 +300,12 @@ export async function upsertRemoteShare(
     return;
   }
 
+  // The account names the group by its own id; every reader here asks by this
+  // device's. Translating on the way in is what keeps `groupId` meaning one
+  // thing in this database. See `Groups.localIdFor`.
+  const groupId =
+    remote.groupId == null ? null : ((await Groups.localIdFor(db, remote.groupId)) ?? remote.groupId);
+
   const values = [
     remote.documentId,
     remote.direction,
@@ -307,7 +314,7 @@ export async function upsertRemoteShare(
     remote.counterpartName,
     remote.counterpartHandle,
     remote.counterpartPictureUrl,
-    remote.groupId,
+    groupId,
     remote.groupName,
     remote.title,
     remote.author,

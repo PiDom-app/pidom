@@ -158,8 +158,12 @@ function EventRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={sentenceFor(event.kind, who)}
-      className="data-[active=true]:bg-hover">
-      <HStack className="items-start px-6 py-3" space="md">
+      className="border-b border-hairline data-[active=true]:bg-hover">
+      {/* `py-3.5` and a hairline, the same as a search result — this is a list
+          of one-line rows and it should read as one. Without the rule the
+          glyph notch on one avatar sat a few pixels from the next avatar and
+          the feed looked like one paragraph of faces. */}
+      <HStack className="items-center px-6 py-3.5" space="md">
         <Box className="relative">
           <Avatar className="h-9 w-9">
             <AvatarFallbackText>{who}</AvatarFallbackText>
@@ -173,7 +177,7 @@ function EventRow({
           </Box>
         </Box>
 
-        <VStack className="flex-1 pt-0.5">
+        <VStack className="flex-1">
           <Text size="sm" className={event.read ? 'text-fg-muted' : 'text-foreground'}>
             {sentenceFor(event.kind, who)}
           </Text>
@@ -183,7 +187,7 @@ function EventRow({
         </VStack>
 
         {event.read ? null : (
-          <Box className="mt-2 h-1.5 w-1.5 rounded-full bg-primary" />
+          <Box className="h-1.5 w-1.5 rounded-full bg-primary" />
         )}
       </HStack>
     </Pressable>

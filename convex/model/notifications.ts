@@ -124,6 +124,7 @@ export async function wantsPush(
   userId: Id<'users'>,
   kind: EventKind,
   now: number,
+  groupId?: Id<'groups'>,
 ): Promise<boolean> {
   const settings = await notificationsOf(ctx, userId);
   if (!settings.allow) {
@@ -131,6 +132,19 @@ export async function wantsPush(
   }
   if (settings[switchFor(kind)] !== true) {
     return false;
+  }
+  // **This member's own answer about this group**, which is a narrower question
+  // than the account-wide "tell me about group activity" switch above. A reader
+  // in a busy group and a quiet one wants to hear about them differently, and
+  // the alternative — turning group activity off entirely — silences both.
+  if (groupId !== undefined) {
+    const membership = await ctx.db
+      .query('groupMembers')
+      .withIndex('by_group_and_user', (q) => q.eq('groupId', groupId).eq('userId', userId))
+      .unique();
+    if (membership?.muted === true) {
+      return false;
+    }
   }
   return !inQuietHours(settings, now);
 }
@@ -166,25 +180,39 @@ export function inQuietHours(
  * and never what the document is called. The title, the author and the message
  * are behind `sharing.inbox`, which returns only the caller's own shares.
  */
-export function bodyFor(kind: EventKind, actorName: string | null): { title: string; body: string } {
+export function bodyFor(
+  kind: EventKind,
+  actorName: string | null,
+): { title: string; body: string } {
   const who = actorName ?? 'Someone';
+
+  // **The person is the title.** Every notification used to be titled "Pidom"
+  // with the name buried in the body, so a lock screen showed the app's name
+  // eight different ways and the reader had to read a sentence to find out who
+  // it was from. A notification is read at a glance and the glance lands on the
+  // title, which is where the one piece of information that varies belongs.
+  //
+  // The body still never names the document. That rule is the whole reason
+  // these strings are generated here rather than at the send site: a lock
+  // screen is a public surface, and the title of somebody's PDF is not
+  // something to put on one. See `docs/security.md`.
   switch (kind) {
     case 'shareOffered':
-      return { title: 'Pidom', body: `${who} shared a PDF with you` };
+      return { title: who, body: 'shared a PDF with you' };
     case 'groupDocumentShared':
-      return { title: 'Pidom', body: `${who} shared a PDF with one of your groups` };
+      return { title: who, body: 'shared a PDF with one of your groups' };
     case 'shareAccepted':
-      return { title: 'Pidom', body: `${who} accepted a PDF you shared` };
+      return { title: who, body: 'accepted a PDF you shared' };
     case 'shareDeclined':
-      return { title: 'Pidom', body: `${who} declined a PDF you shared` };
+      return { title: who, body: 'declined a PDF you shared' };
     case 'accessRevoked':
-      return { title: 'Pidom', body: `${who} removed your access to a PDF` };
+      return { title: who, body: 'removed your access to a PDF' };
     case 'accessChanged':
-      return { title: 'Pidom', body: `${who} changed what you can do with a PDF` };
+      return { title: who, body: 'changed what you can do with a PDF' };
     case 'groupJoined':
-      return { title: 'Pidom', body: `${who} added you to a group` };
+      return { title: who, body: 'added you to a group' };
     case 'annotationAdded':
-      return { title: 'Pidom', body: `${who} wrote a note on a PDF you shared` };
+      return { title: who, body: 'wrote a note on a PDF you shared' };
   }
 }
 

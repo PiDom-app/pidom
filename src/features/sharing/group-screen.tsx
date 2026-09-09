@@ -2,17 +2,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ChevronRight,
-  LogOut,
   MoreHorizontal,
   Search,
-  Trash2,
   UserPlus,
   Users,
 } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
 import { GROUP_NAME_MAX } from '@convex/model/limits';
 import { Screen } from '@/components/layout/screen';
 import { Box } from '@/components/ui/box';
@@ -26,8 +25,11 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { NameDialog } from '@/features/library/components/name-dialog';
 import { useLibraryStatus } from '@/features/library/data/use-library-status';
+import { database } from '@/features/library/local/db';
+import * as Groups from '@/features/library/local/repository/groups';
 
 import { ConfirmDialog } from './components/confirm-dialog';
+import { GroupSettings } from './components/group-settings';
 import { PersonRow, Tag } from './components/person-row';
 import { ProfileSheet } from './components/profile-sheet';
 import { Empty, ListSkeleton, Notice, ScreenHeader, Segments } from './components/segments';
@@ -50,9 +52,79 @@ import { useGroup, useGroupDocuments } from './data/use-sharing';
 export function GroupScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { hasNetwork } = useLibraryStatus();
-  const { group, members, loading } = useGroup(id ?? null);
+  const { hasNetwork, profileId } = useLibraryStatus();
+  const { group, members: mirrored, loading } = useGroup(id ?? null);
   const documents = useGroupDocuments(id ?? null);
+
+  const remoteGroupId = group?.remoteId ?? null;
+  /**
+   * The account's own answer, for the group that is actually open.
+   *
+   * The mirror is written by the reconcile, which runs on a heartbeat and only
+   * when the outbox is empty — so somebody added a minute ago is somebody this
+   * screen would not show for up to half a minute, and the settings below need
+   * a live read anyway. One subscription serves both, and the effect below
+   * writes what it learns back into the mirror so a later cold launch with no
+   * connection still has a member list.
+   */
+  const detail = useQuery(
+    api.groups.detail,
+    remoteGroupId === null ? 'skip' : { groupId: remoteGroupId as Id<'groups'> },
+  );
+
+  const members = useMemo(
+    () =>
+      detail === undefined
+        ? mirrored
+        : detail.members
+            .filter((member) => member.profile !== null)
+            .map((member) => ({
+              groupId: group?.id ?? '',
+              userId: member.profile!.id,
+              name: member.profile!.displayName,
+              handle: member.profile!.handle,
+              pictureUrl: member.profile!.pictureUrl,
+              role: member.role,
+              isOwner: member.isOwner,
+              addedAt: member.addedAt,
+            })),
+    [detail, group?.id, mirrored],
+  );
+
+  /**
+   * Written back, so the list survives the next launch with no connection.
+   *
+   * **Keyed on the account's answer, not on `members`.** Depending on the
+   * rendered list meant depending on the mirror it falls back to — so the write
+   * changed the mirror, the mirror changed the list, and the list ran the write
+   * again. The account's answer is the only thing here that changes when
+   * something has actually changed.
+   */
+  const localGroupId = group?.id ?? null;
+  useEffect(() => {
+    if (detail === undefined || localGroupId === null || profileId === null) {
+      return;
+    }
+    const rows = detail.members
+      .filter((member) => member.profile !== null)
+      .map((member) => ({
+        groupId: localGroupId,
+        userId: member.profile!.id,
+        name: member.profile!.displayName,
+        handle: member.profile!.handle,
+        pictureUrl: member.profile!.pictureUrl,
+        role: member.role,
+        isOwner: member.isOwner,
+        addedAt: member.addedAt,
+      }));
+
+    void (async () => {
+      const db = await database(profileId);
+      if (db !== null) {
+        await Groups.replaceMembers(db, localGroupId, rows);
+      }
+    })();
+  }, [detail, localGroupId, profileId]);
   const { renameGroup, deleteGroup, changeMembership, setMemberRole } = useShareActions();
 
   const [segment, setSegment] = useState<'members' | 'documents' | 'settings'>('members');
@@ -68,7 +140,6 @@ export function GroupScreen() {
     pictureUrl: string | null;
   } | null>(null);
 
-  const remoteId = group?.remoteId ?? null;
 
   const segments = useMemo(
     () => [
@@ -265,52 +336,15 @@ export function GroupScreen() {
             </VStack>
           )
         ) : (
-          <VStack className="pt-2">
-            <Pressable
-              onPress={() => setRenaming(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Rename this group"
-              className="px-6 py-3 data-[active=true]:bg-hover"
-              disabled={!canAdminister}>
-              <HStack className="items-center" space="md">
-                <VStack className="flex-1">
-                  <Text size="md" className="text-foreground">
-                    Name
-                  </Text>
-                </VStack>
-                <Text size="sm" className="text-fg-subtle">
-                  {group.name}
-                </Text>
-                {canAdminister ? <Icon as={ChevronRight} size="sm" className="text-fg-subtle" /> : null}
-              </HStack>
-            </Pressable>
-
-            <Box className="mx-6 my-2 h-px bg-hairline" />
-
-            <Pressable
-              onPress={() => setLeaving(true)}
-              accessibilityRole="button"
-              accessibilityLabel={group.role === 'owner' ? 'Delete this group' : 'Leave this group'}
-              className="px-6 py-3 data-[active=true]:bg-hover">
-              <HStack className="items-center" space="md">
-                <Icon
-                  as={group.role === 'owner' ? Trash2 : LogOut}
-                  size="lg"
-                  className="text-destructive"
-                />
-                <VStack className="flex-1">
-                  <Text size="md" className="text-destructive">
-                    {group.role === 'owner' ? 'Delete this group' : 'Leave this group'}
-                  </Text>
-                  <Text size="xs" className="mt-0.5 text-fg-subtle">
-                    {group.role === 'owner'
-                      ? `Everybody loses access to the ${documents.length} ${documents.length === 1 ? 'document' : 'documents'} shared here.`
-                      : `You lose access to the ${documents.length} ${documents.length === 1 ? 'document' : 'documents'} shared here.`}
-                  </Text>
-                </VStack>
-              </HStack>
-            </Pressable>
-          </VStack>
+          <GroupSettings
+            remoteId={remoteGroupId}
+            isOwner={group.role === 'owner'}
+            canAdminister={canAdminister}
+            documentCount={documents.length}
+            currentName={group.name}
+            onRename={() => setRenaming(true)}
+            onLeave={() => setLeaving(true)}
+          />
         )}
       </ScrollView>
 
@@ -333,7 +367,7 @@ export function GroupScreen() {
           setAdding(false);
         }}
         exclude={new Set(members.map((member) => member.userId))}
-        groupRemoteId={remoteId}
+        groupRemoteId={remoteGroupId}
       />
 
       <ConfirmDialog

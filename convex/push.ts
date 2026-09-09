@@ -86,7 +86,11 @@ export async function dispatch(ctx: MutationCtx, eventId: Id<'shareEvents'>): Pr
   if (event === null) {
     return;
   }
-  if (!(await Notifications.wantsPush(ctx, event.userId, event.kind, Date.now()))) {
+  // The event carries the group it is about when it is about one, so a member
+  // who muted that group is skipped without touching their account-wide switch.
+  if (
+    !(await Notifications.wantsPush(ctx, event.userId, event.kind, Date.now(), event.groupId))
+  ) {
     return;
   }
 
@@ -101,7 +105,21 @@ export async function dispatch(ctx: MutationCtx, eventId: Id<'shareEvents'>): Pr
   const notification = {
     title,
     body,
-    data: { kind: event.kind, shareId: event.shareId ?? null },
+    // **The avatar cannot ride along, and that is the component's limit rather
+    // than a choice.** Expo's push API takes `richContent: { image }`, which
+    // Android renders as the thumbnail in the corner of a notification — an
+    // avatar, exactly. `@convex-dev/expo-push-notifications` 0.3.1 validates
+    // the message against its own `notificationFields`, which has no such key,
+    // so passing one is rejected before it leaves. The day the component
+    // carries it, this is the line that changes.
+    //
+    // What is here instead: the sender's name as the title, the event as the
+    // body, and the group in `data` so a tap lands on the right screen.
+    data: {
+      kind: event.kind,
+      shareId: event.shareId ?? null,
+      groupId: event.groupId ?? null,
+    },
     sound: 'default' as const,
     // Android silently drops a notification sent to a channel that does not
     // exist, and this is the one `register.ts` creates.

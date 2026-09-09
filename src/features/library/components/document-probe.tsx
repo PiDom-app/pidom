@@ -95,7 +95,16 @@ export function DocumentProbe({
     const known = { pageCount: pagesRef.current, outline: outlineRef.current };
 
     try {
-      const shot = await captureRef(hostRef, {
+      // **The view, not the ref object.** `captureRef` used to accept either;
+      // it now inspects what it is given and refuses a plain `{ current }`
+      // with "Argument appears to not be a ReactComponent" — which is exactly
+      // what the log said, on every import, and it cost every document its
+      // cover while the page count and outline still came through.
+      const host = hostRef.current;
+      if (host === null) {
+        throw new Error('the probe canvas was gone before it could be captured');
+      }
+      const shot = await captureRef(host, {
         format: 'jpg',
         quality: 0.9,
         result: 'tmpfile',

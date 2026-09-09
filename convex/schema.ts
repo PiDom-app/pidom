@@ -699,6 +699,70 @@ export default defineSchema({
      */
     memberCount: v.number(),
 
+    /**
+     * What the group is for, in one line the members can read.
+     *
+     * Optional and bounded by `GROUP_DESCRIPTION_MAX`. A group is a list of
+     * people who can open the same documents, and "which reading group is this"
+     * is the question a name alone stops answering at about the fourth one.
+     */
+    description: v.optional(v.string()),
+
+    /**
+     * Who may add somebody to this group.
+     *
+     * Membership decides what a person can open, so this is the narrowest of
+     * the settings here and the only one whose default is not the permissive
+     * option: `admins`. A group where every member can add strangers is a group
+     * whose owner has lost track of who can read their documents.
+     *
+     * Enforced in `Groups.addMember`, not here.
+     */
+    whoCanAdd: v.optional(v.union(v.literal('owner'), v.literal('admins'), v.literal('members'))),
+
+    /**
+     * Who may share a document into this group.
+     *
+     * Separate from `whoCanAdd` because they are different powers: one decides
+     * who sees what is already here, the other decides what arrives. Enforced
+     * in `Sharing.create` when the subject is a group.
+     */
+    whoCanShare: v.optional(v.union(v.literal('admins'), v.literal('members'))),
+
+    /**
+     * What a share into this group starts as, before the sender changes it.
+     *
+     * A ceiling in practice as well as a default: a group set to `viewer` with
+     * no downloading is a group somebody can drop a document into without
+     * having to remember the permission every time. `Sharing.create` reads
+     * these for a group share the way `sharingSettings` is read for a direct
+     * one, and `clampToCeiling` still applies on top — a reshare can never
+     * grant more than the resharer holds, whatever this says.
+     */
+    defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
+    defaultCanDownload: v.optional(v.boolean()),
+
+    /**
+     * Whether members see each other's handles.
+     *
+     * A group is the one place this deployment shows one account another
+     * without either having searched for the other, so it is worth a switch. A
+     * name and a face stay; the handle is the part somebody could use to find
+     * them again outside the group, and `Groups.membersOf` drops it when this
+     * is off.
+     */
+    showMemberHandles: v.optional(v.boolean()),
+
+    /**
+     * Whether being in this group's room shows to the other members.
+     *
+     * The group-room half of `sharingSettings.showReadingActivity`, decided by
+     * the group rather than by each reader — a study group that wants to see
+     * who is around and a department that does not are different rooms.
+     * Checked in `presence.heartbeat`.
+     */
+    showPresence: v.optional(v.boolean()),
+
     /** The id the device gave it. See `documentAnnotations.clientOpId`. */
     clientOpId: v.optional(v.string()),
     clientUpdatedAt: v.optional(v.number()),
@@ -733,6 +797,16 @@ export default defineSchema({
     /** Who did it. Kept so a member can see how they got here. */
     addedBy: v.id('users'),
     addedAt: v.number(),
+
+    /**
+     * This member's own answer about this group's notifications.
+     *
+     * On the membership rather than on the group, because it is a decision
+     * about one person's phone rather than about the group: a busy group one
+     * reader wants to be told about and another does not is the ordinary case.
+     * Read by `Notifications.wantsPush` for the group kinds.
+     */
+    muted: v.optional(v.boolean()),
   })
     // "Is this person in this group?" — asked on every access resolution that
     // goes through a group share, so it has to be one lookup rather than a scan.
