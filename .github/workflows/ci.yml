@@ -115,6 +115,7 @@ jobs:
           BUILD_ID: ${{ steps.apk.outputs.build_id }}
           VERSION_CODE: ${{ steps.apk.outputs.version_code }}
           APK: ${{ steps.apk.outputs.apk }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           APP_VERSION="$(npx expo config --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data).version))')"
           TAG="v${APP_VERSION}-android.${VERSION_CODE}"
