@@ -1,14 +1,7 @@
 import { Lock } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { Heading } from '@/components/ui/heading';
@@ -34,43 +27,35 @@ import { VStack } from '@/components/ui/vstack';
  * `wrong` rather than an error string: there is one thing that can be wrong
  * here and the renderer does not say anything worth repeating about it.
  */
-export function PasswordPrompt({
-  isOpen,
-  onClose,
-  wrong,
-  onSubmit,
-}: {
+type PasswordPromptProps = {
   isOpen: boolean;
   onClose: () => void;
   /** True after a password was tried and the document still would not open. */
   wrong: boolean;
   onSubmit: (password: string, remember: boolean) => void;
-}) {
+};
+
+export function PasswordPrompt(props: PasswordPromptProps) {
+  return <PasswordPromptSheet key={props.isOpen ? 'open' : 'closed'} {...props} />;
+}
+
+function PasswordPromptSheet({
+  isOpen,
+  onClose,
+  wrong,
+  onSubmit,
+}: PasswordPromptProps) {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
 
-  // Cleared every time it opens. A password left in state across a dismissal is
-  // a password held for longer than it was needed.
-  useEffect(() => {
-    if (isOpen) {
-      setPassword('');
-    }
-  }, [isOpen]);
-
   return (
-    <AlertDialog isOpen={isOpen} onClose={onClose} size="md">
-      <AlertDialogBackdrop />
-      <AlertDialogContent className="rounded-md border border-border bg-popover">
-        <AlertDialogHeader>
-          <VStack className="flex-1">
+    <ActionSheetPanel isOpen={isOpen} onClose={onClose}>
+      <VStack space="md">
+        <VStack space="sm">
             <Icon as={Lock} size="lg" className="text-fg-muted" />
-            <Heading size="md" className="mt-3 text-foreground">
-              {wrong ? 'That password did not work' : 'This PDF has a password'}
-            </Heading>
-          </VStack>
-        </AlertDialogHeader>
-
-        <AlertDialogBody className="mt-2 mb-4">
+          <Heading size="md" className="text-foreground">
+            {wrong ? 'That password did not work' : 'This PDF has a password'}
+          </Heading>
           <Text size="sm" className="text-muted-foreground">
             {wrong
               ? 'Check it and try again. Nothing was sent anywhere.'
@@ -100,9 +85,8 @@ export function PasswordPrompt({
               accessibilityLabel="Remember this password on this device"
             />
           </HStack>
-        </AlertDialogBody>
-
-        <AlertDialogFooter>
+        </VStack>
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
@@ -112,8 +96,8 @@ export function PasswordPrompt({
             onPress={() => onSubmit(password, remember)}>
             <ButtonText>Open</ButtonText>
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </HStack>
+      </VStack>
+    </ActionSheetPanel>
   );
 }

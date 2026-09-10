@@ -2,14 +2,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, CloudCheck, HardDrive, Lock, Smartphone, TriangleAlert } from 'lucide-react-native';
 import React, { useState } from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Screen } from '@/components/layout/screen';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Center } from '@/components/ui/center';
@@ -137,20 +130,14 @@ export function DeviceStorageScreen() {
         )}
       </ScrollView>
 
-      <AlertDialog
-        isOpen={confirming !== null}
-        onClose={() => setConfirming(null)}
-        size="md">
-        <AlertDialogBackdrop />
-        <AlertDialogContent className="rounded-md border border-border bg-popover">
-          <AlertDialogHeader>
+      <ActionSheetPanel isOpen={confirming !== null} onClose={() => setConfirming(null)}>
+        <VStack space="md">
+          <VStack space="sm">
             <Heading size="md" className="text-foreground">
               {confirming?.recoverable === true
                 ? 'Remove from this device?'
                 : 'This is the only copy'}
             </Heading>
-          </AlertDialogHeader>
-          <AlertDialogBody className="mt-2 mb-4">
             <Text size="sm" className="text-muted-foreground">
               {confirming === null
                 ? ''
@@ -158,8 +145,8 @@ export function DeviceStorageScreen() {
                   ? `${confirming.document.title} stays in your account. It will need downloading again to read it here, and reading it offline will not be possible until you do.`
                   : `${confirming.document.title} is not in your account, so removing it here deletes it for good. Sync it first if you want to keep it.`}
             </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
+          </VStack>
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirming(null)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -175,9 +162,9 @@ export function DeviceStorageScreen() {
               }}>
               <ButtonText>Remove</ButtonText>
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </HStack>
+        </VStack>
+      </ActionSheetPanel>
     </Screen>
   );
 }

@@ -5,14 +5,7 @@ import React, { useCallback, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
 
 import { Screen } from '@/components/layout/screen';
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Center } from '@/components/ui/center';
@@ -225,23 +218,17 @@ export function CollectionScreen() {
         }}
       />
 
-      <AlertDialog
-        isOpen={confirmingDelete}
-        onClose={() => setConfirmingDelete(false)}
-        size="md">
-        <AlertDialogBackdrop />
-        <AlertDialogContent className="rounded-md border border-border bg-popover">
-          <AlertDialogHeader>
+      <ActionSheetPanel isOpen={confirmingDelete} onClose={() => setConfirmingDelete(false)}>
+        <VStack space="md">
+          <VStack space="sm">
             <Heading size="md" className="text-foreground">
               Delete this collection?
             </Heading>
-          </AlertDialogHeader>
-          <AlertDialogBody className="mt-2 mb-4">
             <Text size="sm" className="text-muted-foreground">
               The documents in it stay in your library. Only the grouping is removed.
             </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
+          </VStack>
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirmingDelete(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -263,9 +250,9 @@ export function CollectionScreen() {
               }}>
               <ButtonText>Delete</ButtonText>
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </HStack>
+        </VStack>
+      </ActionSheetPanel>
     </Screen>
   );
 }

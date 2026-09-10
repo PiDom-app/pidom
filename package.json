@@ -76,6 +76,7 @@
     "convex-test": "^0.0.56",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vite": "^8.2.2",
@@ -90,7 +91,9 @@
     "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/pidom.tsbuildinfo",
     "convex": "convex dev",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "assets:brand": "bash scripts/generate-brand-assets.sh",
+    "postinstall": "patch-package"
   },
   "allowScripts": {
     "esbuild@0.27.0": true

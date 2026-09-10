@@ -6,15 +6,8 @@ import { useMutation } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
 import { useAppToast } from '@/components/feedback/use-app-toast';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Screen } from '@/components/layout/screen';
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Divider } from '@/components/ui/divider';
 import { Heading } from '@/components/ui/heading';
@@ -202,40 +195,36 @@ export function DataScreen() {
         </Notice>
       </ScrollView>
 
-      <AlertDialog
+      <ActionSheetPanel
         isOpen={confirming}
-        onClose={() => (deleting ? undefined : setConfirming(false))}
-        size="md">
-        <AlertDialogBackdrop />
-        <AlertDialogContent className="rounded-md border border-border bg-popover">
-          <AlertDialogHeader>
+        isDismissable={!deleting}
+        onClose={() => setConfirming(false)}>
+        <VStack space="md">
+          <VStack space="sm">
             <Heading size="md" className="text-foreground">
               Delete your account?
             </Heading>
-          </AlertDialogHeader>
-          <AlertDialogBody className="mt-2 mb-4">
-            <VStack space="sm">
-              <Text size="sm" className="text-muted-foreground">
-                This removes every document in your account, every note you have written, every
-                group you own and every share in both directions. It starts immediately and there
-                is no way back.
-              </Text>
-              <Text size="sm" className="text-muted-foreground">
-                Type DELETE to confirm.
-              </Text>
-              <Input className="mt-1 h-11">
-                <InputField
-                  value={typed}
-                  onChangeText={setTyped}
-                  placeholder="DELETE"
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  className="text-foreground"
-                />
-              </Input>
-            </VStack>
-          </AlertDialogBody>
-          <AlertDialogFooter>
+            <Text size="sm" className="text-muted-foreground">
+              This removes every document in your account, every note you have written, every
+              group you own and every share in both directions. It starts immediately and there
+              is no way back.
+            </Text>
+            <Text size="sm" className="text-muted-foreground">
+              Type DELETE to confirm.
+            </Text>
+            <Input className="mt-1 h-11">
+              <InputField
+                value={typed}
+                onChangeText={setTyped}
+                placeholder="DELETE"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoFocus
+                className="text-foreground"
+              />
+            </Input>
+          </VStack>
+          <HStack className="justify-end" space="sm">
             <Button
               variant="outline"
               size="sm"
@@ -250,9 +239,9 @@ export function DataScreen() {
               onPress={() => void confirmDelete()}>
               <ButtonText>{deleting ? 'Deleting…' : 'Delete account'}</ButtonText>
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </HStack>
+        </VStack>
+      </ActionSheetPanel>
     </Screen>
   );
 }

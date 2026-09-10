@@ -1,22 +1,16 @@
 import React from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 
 /**
  * Confirming that access is going away.
  *
- * An `AlertDialog` because it has a consequence, which is the rule
+ * A bottom sheet because it has a consequence, which is the rule
  * `use-app-toast.tsx` states — a toast is for something the reader need not act
  * on, and this is not that.
  *
@@ -43,37 +37,32 @@ export function RemoveAccessDialog({
   downloaded: boolean;
 }) {
   return (
-    <AlertDialog isOpen={isOpen} onClose={onClose} size="md">
-      <AlertDialogBackdrop />
-      <AlertDialogContent className="rounded-md border border-border bg-popover">
-        <AlertDialogHeader>
+    <ActionSheetPanel isOpen={isOpen} onClose={onClose}>
+      <VStack space="md">
+        <VStack space="sm">
           <Heading size="md" className="text-foreground">
             Remove {name}&apos;s access?
           </Heading>
-        </AlertDialogHeader>
-        <AlertDialogBody className="mt-2 mb-4">
-          <VStack space="sm">
+          <Text size="sm" className="text-muted-foreground">
+            They will not be able to open this document again, and anything they wrote on it
+            stops syncing to you.
+          </Text>
+          {downloaded ? (
             <Text size="sm" className="text-muted-foreground">
-              They will not be able to open this document again, and anything they wrote on it
-              stops syncing to you.
+              They were allowed to download it. If they did, that copy is on their device and
+              this does not delete it — no setting here can.
             </Text>
-            {downloaded ? (
-              <Text size="sm" className="text-muted-foreground">
-                They were allowed to download it. If they did, that copy is on their device and
-                this does not delete it — no setting here can.
-              </Text>
-            ) : null}
-          </VStack>
-        </AlertDialogBody>
-        <AlertDialogFooter>
+          ) : null}
+        </VStack>
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
           <Button variant="destructive" size="sm" onPress={onConfirm}>
             <ButtonText>Remove access</ButtonText>
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </HStack>
+      </VStack>
+    </ActionSheetPanel>
   );
 }

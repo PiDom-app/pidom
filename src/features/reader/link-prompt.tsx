@@ -1,17 +1,11 @@
 import { ExternalLink } from 'lucide-react-native';
 import React from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -32,19 +26,13 @@ import type { PdfLink } from './open-pdf-link';
  */
 export function LinkPrompt({ link, onClose }: { link: PdfLink | null; onClose: (open: boolean) => void }) {
   return (
-    <AlertDialog isOpen={link !== null} onClose={() => onClose(false)} size="md">
-      <AlertDialogBackdrop />
-      <AlertDialogContent className="rounded-md border border-border bg-popover">
-        <AlertDialogHeader>
-          <VStack className="flex-1">
+    <ActionSheetPanel isOpen={link !== null} onClose={() => onClose(false)}>
+      <VStack space="md">
+        <VStack space="sm">
             <Icon as={ExternalLink} size="lg" className="text-fg-muted" />
-            <Heading size="md" className="mt-3 text-foreground">
-              Leave Pidom?
-            </Heading>
-          </VStack>
-        </AlertDialogHeader>
-
-        <AlertDialogBody className="mt-2 mb-4">
+          <Heading size="md" className="text-foreground">
+            Leave Pidom?
+          </Heading>
           {/* Both lines ellipsise from the HEAD. A host too long for the
               dialog would otherwise clip on the right — `paypal.com.a…` — and
               the rightmost labels are the ones that decide where this goes.
@@ -75,17 +63,16 @@ export function LinkPrompt({ link, onClose }: { link: PdfLink | null; onClose: (
           <Text size="sm" className="mt-3 text-muted-foreground">
             This link is written into the document, not into Pidom. It opens in your browser.
           </Text>
-        </AlertDialogBody>
-
-        <AlertDialogFooter>
+        </VStack>
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={() => onClose(false)}>
             <ButtonText>Stay here</ButtonText>
           </Button>
           <Button size="sm" onPress={() => onClose(true)}>
             <ButtonText>Open</ButtonText>
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </HStack>
+      </VStack>
+    </ActionSheetPanel>
   );
 }

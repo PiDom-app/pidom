@@ -1,15 +1,9 @@
 import React from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 
@@ -42,32 +36,27 @@ export function ConfirmDialog({
   confirmLabel: string;
 }) {
   return (
-    <AlertDialog isOpen={isOpen} onClose={onClose} size="md">
-      <AlertDialogBackdrop />
-      <AlertDialogContent className="rounded-md border border-border bg-popover">
-        <AlertDialogHeader>
+    <ActionSheetPanel isOpen={isOpen} onClose={onClose}>
+      <VStack space="md">
+        <VStack space="sm">
           <Heading size="md" className="text-foreground">
             {title}
           </Heading>
-        </AlertDialogHeader>
-        <AlertDialogBody className="mt-2 mb-4">
-          <VStack space="sm">
-            {lines.map((line) => (
-              <Text key={line} size="sm" className="text-muted-foreground">
-                {line}
-              </Text>
-            ))}
-          </VStack>
-        </AlertDialogBody>
-        <AlertDialogFooter>
+          {lines.map((line) => (
+            <Text key={line} size="sm" className="text-muted-foreground">
+              {line}
+            </Text>
+          ))}
+        </VStack>
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
           <Button variant="destructive" size="sm" onPress={onConfirm}>
             <ButtonText>{confirmLabel}</ButtonText>
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </HStack>
+      </VStack>
+    </ActionSheetPanel>
   );
 }
