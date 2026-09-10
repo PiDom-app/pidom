@@ -2,9 +2,9 @@ import { LogOut } from 'lucide-react-native';
 import React, { useState } from 'react';
 
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
+import { Box } from '@/components/ui/box';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
-import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useSession } from '@/features/auth/session-provider';
@@ -28,14 +28,16 @@ export function SignOutAction() {
           Everything above it is a fact or a place to go; this is the one
           irreversible act, and a destructive act dressed as a list row is a
           destructive act somebody taps by accident on the way past. */}
-      <Button
-        variant="outline"
-        size="lg"
-        onPress={() => setOpen(true)}
-        className="mt-2 h-11 border-destructive">
-        <ButtonIcon as={LogOut} className="text-destructive" />
-        <ButtonText className="text-destructive">Sign out</ButtonText>
-      </Button>
+      <Box className="px-4">
+        <Button
+          variant="outline"
+          size="lg"
+          onPress={() => setOpen(true)}
+          className="mt-2 h-11 border-destructive">
+          <ButtonIcon as={LogOut} className="text-destructive" />
+          <ButtonText className="text-destructive">Sign out</ButtonText>
+        </Button>
+      </Box>
 
       <ActionSheetPanel isOpen={open} onClose={() => setOpen(false)}>
         <VStack space="md">
@@ -48,7 +50,7 @@ export function SignOutAction() {
               device. Sign back in with Google to pick up where you left off.
             </Text>
           </VStack>
-          <HStack className="justify-end" space="sm">
+          <VStack space="sm">
             <Button variant="outline" size="sm" onPress={() => setOpen(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -75,7 +77,7 @@ export function SignOutAction() {
               }}>
               <ButtonText>Sign out</ButtonText>
             </Button>
-          </HStack>
+          </VStack>
         </VStack>
       </ActionSheetPanel>
     </>

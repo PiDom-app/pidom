@@ -27,10 +27,10 @@ export function LibrarySkeleton() {
 function SkeletonRail({ title }: { title: string }) {
   return (
     <VStack className="mt-7">
-      <Heading size="sm" className="px-6 text-foreground">
+      <Heading size="sm" className="px-4 text-foreground">
         {title}
       </Heading>
-      <HStack className="mt-3 overflow-hidden px-6" space="md">
+      <HStack className="mt-3 overflow-hidden px-4" space="md">
         <SkeletonTile />
         <SkeletonTile />
         <SkeletonTile />

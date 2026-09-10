@@ -162,7 +162,7 @@ export function AllLibraryScreen() {
 
   return (
     <Screen>
-      <HStack className="items-center gap-1.5 px-6 pt-5">
+      <HStack className="items-center gap-1.5 px-4 pt-5">
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -201,7 +201,7 @@ export function AllLibraryScreen() {
       {/* Padding on a wrapper, not `mx-6` on the field. The vendored `Input`
           is `w-full`, so a horizontal margin makes it 100% *plus* 48px and the
           right edge runs off the screen. */}
-      <Box className="mt-4 px-6">
+      <Box className="mt-4 px-4">
         <Input className="h-11">
           <InputSlot className="pl-1">
             <InputIcon as={Search} className="text-fg-muted" />
@@ -223,7 +223,7 @@ export function AllLibraryScreen() {
         </Input>
       </Box>
 
-      <HStack className="mt-3.5 h-11 items-center px-6" space="sm">
+      <HStack className="mt-3.5 h-11 items-center px-4" space="sm">
         {FILTER_CHIPS.map((entry) => (
           <Chip
             key={entry.key}
@@ -243,7 +243,7 @@ export function AllLibraryScreen() {
             router.push({ pathname: "/search", params: { term: searchTerm } })
           }
           accessibilityRole="button"
-          className="mt-1 flex-row items-center gap-2.5 border-b border-hairline px-6 py-3 data-[active=true]:bg-hover"
+          className="mt-1 flex-row items-center gap-2.5 border-b border-hairline px-4 py-2 data-[active=true]:bg-hover"
         >
           <Icon as={TextSearch} size="md" className="text-fg-muted" />
           <Text size="sm" numberOfLines={1} className="flex-1 text-primary">
@@ -433,7 +433,7 @@ function RowRule() {
 
 
 const GRID_PADDING = {
-  paddingHorizontal: 24,
+  paddingHorizontal: 16,
   paddingTop: 4,
   paddingBottom: 32,
 } as const;

@@ -456,7 +456,7 @@ const SEGMENTS = { flexGrow: 0 } as const;
 const SEGMENTS_CONTENT = {
   flexGrow: 0,
   alignItems: 'center',
-  paddingHorizontal: 24,
+  paddingHorizontal: 16,
   paddingBottom: 12,
   gap: 6,
 } as const;

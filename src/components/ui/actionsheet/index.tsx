@@ -64,7 +64,7 @@ export const UIActionsheet = createActionsheet({
 });
 
 const actionsheetStyle = tva({
-  // Deliberately no `justify-*`. Unlike `alert-dialog`, this overlay does not
+  // Deliberately no `justify-*`. This overlay does not
   // position its content with flex: the creator wraps the sheet in a
   // full-height `Animated.View` and slides it down by
   // `containerHeight - sheetHeight`, so the sheet is already pinned to the

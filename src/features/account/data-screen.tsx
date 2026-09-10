@@ -110,7 +110,7 @@ export function DataScreen() {
 
       <ScrollView contentContainerStyle={CONTENT}>
         <Section title="Downloads">
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
                 Download over Wi-Fi only
@@ -137,7 +137,7 @@ export function DataScreen() {
             disabled={clearing}
             accessibilityRole="button"
             accessibilityLabel="Clear image cache"
-            className="px-6 py-3 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover">
             <VStack>
               <Text size="md" className="text-foreground">
                 {clearing ? 'Clearing…' : 'Clear image cache'}
@@ -151,7 +151,7 @@ export function DataScreen() {
             onPress={() => router.push('/storage')}
             accessibilityRole="button"
             accessibilityLabel="Manage what is on this device"
-            className="px-6 py-3 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover">
             <VStack>
               <Text size="md" className="text-foreground">
                 What is on this device
@@ -170,7 +170,7 @@ export function DataScreen() {
             reason. A row that deletes an account is a row somebody taps on the
             way past. */}
         <Section title="Account">
-          <VStack className="px-6 pt-1" space="sm">
+          <VStack className="px-4 pt-1" space="sm">
             <Text size="xs" className="text-fg-subtle">
               Every document, note, group and share. This cannot be undone.
             </Text>
@@ -224,7 +224,7 @@ export function DataScreen() {
               />
             </Input>
           </VStack>
-          <HStack className="justify-end" space="sm">
+          <VStack space="sm">
             <Button
               variant="outline"
               size="sm"
@@ -239,7 +239,7 @@ export function DataScreen() {
               onPress={() => void confirmDelete()}>
               <ButtonText>{deleting ? 'Deleting…' : 'Delete account'}</ButtonText>
             </Button>
-          </HStack>
+          </VStack>
         </VStack>
       </ActionSheetPanel>
     </Screen>

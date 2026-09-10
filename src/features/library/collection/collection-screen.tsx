@@ -112,7 +112,7 @@ export function CollectionScreen() {
 
   return (
     <Screen>
-      <HStack className="items-start gap-1.5 px-6 pt-5">
+      <HStack className="items-start gap-1.5 px-4 pt-5">
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -228,7 +228,7 @@ export function CollectionScreen() {
               The documents in it stay in your library. Only the grouping is removed.
             </Text>
           </VStack>
-          <HStack className="justify-end" space="sm">
+          <VStack space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirmingDelete(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -250,14 +250,14 @@ export function CollectionScreen() {
               }}>
               <ButtonText>Delete</ButtonText>
             </Button>
-          </HStack>
+          </VStack>
         </VStack>
       </ActionSheetPanel>
     </Screen>
   );
 }
 
-const GRID_PADDING = { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 32 } as const;
+const GRID_PADDING = { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 } as const;
 /** Hoisted so `useCoverSync` is not handed a fresh array on every render. */
 const EMPTY: LibraryDocument[] = [];
 // A vertical FlashList is a ScrollView underneath, and a ScrollView in a flex

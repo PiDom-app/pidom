@@ -130,7 +130,7 @@ export function NoteScreen() {
             {`Page ${page}`}
           </Text>
         </VStack>
-        <Button size="sm" isDisabled={!canSave} onPress={() => void save()}>
+        <Button size="sm" className="w-auto self-auto" isDisabled={!canSave} onPress={() => void save()}>
           <ButtonText>{kind === 'bookmark' ? 'Save' : 'Keep'}</ButtonText>
         </Button>
       </HStack>
@@ -189,4 +189,4 @@ export function NoteScreen() {
   );
 }
 
-const BODY = { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 32 } as const;
+const BODY = { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 } as const;

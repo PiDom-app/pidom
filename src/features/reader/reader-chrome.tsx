@@ -255,7 +255,7 @@ export function ReaderChrome({
         importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
         className="absolute inset-x-0 bottom-0 border-t border-hairline bg-background">
         <VStack
-          className="px-6 pt-4"
+          className="px-4 pt-4"
           style={{ paddingBottom: Math.max(insets.bottom, 12) + 8 }}>
           <ReaderScrubber
             page={page}

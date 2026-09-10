@@ -163,7 +163,7 @@ function EventRow({
           of one-line rows and it should read as one. Without the rule the
           glyph notch on one avatar sat a few pixels from the next avatar and
           the feed looked like one paragraph of faces. */}
-      <HStack className="items-center px-6 py-3.5" space="md">
+      <HStack className="items-center px-4 py-2.5" space="md">
         <Box className="relative">
           <Avatar className="h-9 w-9">
             <AvatarFallbackText>{who}</AvatarFallbackText>

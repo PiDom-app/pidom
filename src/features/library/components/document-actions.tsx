@@ -214,7 +214,7 @@ export function DocumentActions({
 
           {document === null ? null : (
             <>
-              <HStack className="w-full items-center px-6 pt-2.5 pb-3.5" space="lg">
+              <HStack className="w-full items-center px-4 pt-2.5 pb-3.5" space="lg">
                 <DocumentCover
                   documentId={document.id}
                   title={document.title}
@@ -472,7 +472,7 @@ export function DocumentActions({
                   : `“${document.title}” will be removed from this device. It is not in your account, so this is the only copy Pidom has. Your original file is not affected.`}
             </Text>
           </VStack>
-          <HStack className="justify-end" space="sm">
+          <VStack space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirmingDelete(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -489,7 +489,7 @@ export function DocumentActions({
               }}>
               <ButtonText>Delete</ButtonText>
             </Button>
-          </HStack>
+          </VStack>
         </VStack>
       </ActionSheetPanel>
 
@@ -574,7 +574,7 @@ export function DocumentActions({
                 : `The copy in your account stays, so you can download it again any time. This frees ${formatBytes(document.byteSize)} here.`}
             </Text>
           </VStack>
-          <HStack className="justify-end" space="sm">
+          <VStack space="sm">
             <Button
               variant="outline"
               size="sm"
@@ -593,7 +593,7 @@ export function DocumentActions({
               }}>
               <ButtonText>Remove</ButtonText>
             </Button>
-          </HStack>
+          </VStack>
         </VStack>
       </ActionSheetPanel>
     </>

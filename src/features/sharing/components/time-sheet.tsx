@@ -56,7 +56,7 @@ export function TimeSheet({
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
 
-        <VStack className="w-full px-6 pt-2.5 pb-3.5">
+        <VStack className="w-full px-4 pt-2.5 pb-3.5">
           <Text size="md" className="font-semibold text-foreground">
             {title}
           </Text>
@@ -76,7 +76,7 @@ export function TimeSheet({
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 accessibilityLabel={formatMinute(minute)}
-                className="px-6 py-3 data-[active=true]:bg-hover">
+                className="px-4 py-2 data-[active=true]:bg-hover">
                 <HStack className="items-center" space="md">
                   <Text
                     size="md"

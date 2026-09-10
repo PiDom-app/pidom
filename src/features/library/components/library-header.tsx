@@ -30,7 +30,7 @@ export function LibraryHeader({
 }) {
   return (
     <VStack>
-      <HStack className="items-start justify-between px-6 pt-5" space="lg">
+      <HStack className="items-start justify-between px-4 pt-5" space="lg">
         <VStack className="flex-1">
           <Text size="xs" className="text-fg-subtle">
             {greeting()}

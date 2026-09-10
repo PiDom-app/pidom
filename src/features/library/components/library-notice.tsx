@@ -152,7 +152,7 @@ export function SyncNotice({
       accessibilityRole="button"
       accessibilityLabel="Try to reach your account again"
       className="mt-5 border-y border-hairline bg-surface data-[active=true]:bg-hover">
-      <HStack className="items-center px-6 py-2.5" space="sm">
+      <HStack className="items-center px-4 py-2.5" space="sm">
         <Icon as={glyph} size="xs" className="text-fg-subtle" />
         <Text size="xs" className="flex-1 text-fg-subtle">
           {message}

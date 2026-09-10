@@ -78,7 +78,7 @@ export function SignInScreen() {
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <VStack className="flex-1 justify-between px-6 pb-8 pt-4">
+      <VStack className="flex-1 justify-between px-4 pb-8 pt-4">
         {/* The identity block, optically centred rather than mathematically —
             the button below carries weight the eye compensates for. */}
         <VStack className="flex-1 items-center justify-center" space="xl">

@@ -180,7 +180,7 @@ export function DocumentRow({
       onLongPress={() => onLongPress(document)}
       accessibilityRole="button"
       accessibilityLabel={`${document.title}. ${meta}`}
-      className="px-6 py-3 data-[active=true]:bg-hover">
+      className="px-4 py-2 data-[active=true]:bg-hover">
       <HStack className="items-center" space="lg">
         {document.processing === 'probing' && onThisDevice ? (
           <Skeleton className="rounded-md" style={{ width: 44, height: coverHeight(44) }} />

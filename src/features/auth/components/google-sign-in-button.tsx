@@ -31,10 +31,10 @@ export function GoogleSignInButton({ onPress }: { onPress: () => Promise<void> }
     <Button
       size="lg"
       variant="outline"
-      // `h-14 w-full` is the whole geometry; the base already supplies
+      // `h-14` is the whole geometry; the base already supplies
       // `flex-row items-center justify-center gap-2`, which is where the 8px
       // between the mark and the label comes from.
-      className="h-14 w-full"
+      className="h-14 self-center"
       isDisabled={pending}
       onPress={handlePress}
       // Tracks the label, so a screen reader is not told "Continue with Google"

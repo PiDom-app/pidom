@@ -130,7 +130,7 @@ export function Notice({
 }) {
   const colour = tone === 'destructive' ? 'text-destructive' : 'text-fg-subtle';
   return (
-    <HStack className="items-start px-6 py-3" space="sm">
+    <HStack className="items-start px-4 py-2" space="sm">
       <Icon as={glyph} size="xs" className={`mt-0.5 ${colour}`} />
       <Text size="xs" className={`flex-1 ${colour}`}>
         {children}
@@ -195,7 +195,7 @@ export function Empty({
  */
 export function PersonRowSkeleton() {
   return (
-    <HStack className="items-center px-6 py-3" space="md">
+    <HStack className="items-center px-4 py-2" space="md">
       <Skeleton className="h-10 w-10 rounded-full" />
       <VStack className="flex-1" space="xs">
         <Skeleton className="h-3 w-1/2 rounded-md" />
@@ -208,7 +208,7 @@ export function PersonRowSkeleton() {
 /** The same, for a document row: a cover-shaped block rather than a face. */
 export function ShareRowSkeleton() {
   return (
-    <HStack className="items-center px-6 py-3" space="md">
+    <HStack className="items-center px-4 py-2" space="md">
       <Skeleton className="h-14 w-10 rounded-md" />
       <VStack className="flex-1" space="xs">
         <Skeleton className="h-3 w-4/5 rounded-md" />
@@ -248,7 +248,7 @@ export function ListSkeleton({
 /**
  * A labelled run of rows, at the density the rest of the app uses.
  *
- * `pt-4 pb-1.5` rather than `pt-6 pb-2`, and the callers' dividers drop their
+ * `pt-2.5 pb-1` rather than `pt-6 pb-2`, and the callers' dividers drop their
  * `mt-4` to `mt-2` — the rows above them already carry `py-3` of their own. It sounds like fiddling and it is not: those three values
  * are added together at every section boundary, and at the old numbers a
  * settings screen spent 40dp between one row and the next heading. The
@@ -262,7 +262,7 @@ export function ListSkeleton({
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <VStack>
-      <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+      <Text size="xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
         {title}
       </Text>
       {children}
@@ -274,7 +274,7 @@ const SEGMENTS = { flexGrow: 0 } as const;
 const SEGMENTS_CONTENT = {
   flexGrow: 0,
   alignItems: 'center',
-  paddingHorizontal: 24,
+  paddingHorizontal: 16,
   paddingBottom: 12,
   gap: 6,
 } as const;

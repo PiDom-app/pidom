@@ -70,7 +70,7 @@ export function DeviceStorageScreen() {
       </HStack>
 
       <ScrollView contentContainerClassName="grow pb-12">
-        <HStack className="items-start px-6 pt-2 pb-5" space="md">
+        <HStack className="items-start px-4 pt-2 pb-5" space="md">
           <Icon as={HardDrive} size="lg" className="text-primary" />
           <VStack className="flex-1" space="xs">
             {loading ? (
@@ -146,7 +146,7 @@ export function DeviceStorageScreen() {
                   : `${confirming.document.title} is not in your account, so removing it here deletes it for good. Sync it first if you want to keep it.`}
             </Text>
           </VStack>
-          <HStack className="justify-end" space="sm">
+          <VStack space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirming(null)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -162,7 +162,7 @@ export function DeviceStorageScreen() {
               }}>
               <ButtonText>Remove</ButtonText>
             </Button>
-          </HStack>
+          </VStack>
         </VStack>
       </ActionSheetPanel>
     </Screen>
@@ -180,7 +180,7 @@ function Notice({
   text: string;
 }) {
   return (
-    <HStack className="items-start px-6 pb-5" space="sm">
+    <HStack className="items-start px-4 pb-5" space="sm">
       <Icon as={glyph} size="sm" className={`mt-0.5 ${tone}`} />
       <Text size="xs" className="flex-1 text-fg-subtle">
         {text}
@@ -193,7 +193,7 @@ function Row({ entry, onRemove }: { entry: StorageEntry; onRemove: () => void })
   const { document, bytes, recoverable } = entry;
 
   return (
-    <HStack className="items-start border-b border-hairline px-6 py-3.5" space="md">
+    <HStack className="items-start border-b border-hairline px-4 py-2.5" space="md">
       <Icon
         as={recoverable ? CloudCheck : Smartphone}
         size="sm"

@@ -200,7 +200,7 @@ export function ShareScreen() {
 
       {/* The document, as the header's subject rather than an object on the
           page. The reader arrived here from it and does not need it sold back. */}
-      <HStack className="items-center px-6 py-3.5" space="md">
+      <HStack className="items-center px-4 py-2.5" space="md">
         <DocumentCover documentId={document.id} title={document.title} width={44} />
         <VStack className="flex-1">
           <Text size="sm" numberOfLines={2} className="font-semibold text-foreground">
@@ -214,7 +214,7 @@ export function ShareScreen() {
 
       <Box className="mx-6 h-px bg-hairline" />
 
-      <Box className="px-6 pt-3.5">
+      <Box className="px-4 pt-3.5">
         <Input className="h-11">
           <Box className="pl-3">
             <Icon as={Search} size="sm" className="text-fg-subtle" />
@@ -285,7 +285,7 @@ export function ShareScreen() {
             accessibilityRole="button"
             accessibilityLabel="What they can do"
             className="data-[active=true]:bg-hover">
-            <HStack className="items-center px-6 py-3" space="md">
+            <HStack className="items-center px-4 py-2" space="md">
               <Icon as={Check} size="lg" className="text-fg-muted" />
               <VStack className="flex-1">
                 <Text size="md" className="text-foreground">
@@ -299,7 +299,7 @@ export function ShareScreen() {
             </HStack>
           </Pressable>
 
-          <HStack className="items-center px-6 pb-2" space="md">
+          <HStack className="items-center px-4 pb-2" space="md">
             <Icon as={MessageSquare} size="lg" className="text-fg-muted" />
             <Input className="h-11 flex-1">
               <InputField
@@ -321,7 +321,7 @@ export function ShareScreen() {
         </Notice>
       )}
 
-      <Box className="px-6 pt-2 pb-3">
+      <Box className="px-4 pt-2 pb-3">
         {showingOptions ? null : (
           <Text size="xs" numberOfLines={1} className="pb-2 text-fg-subtle">
             {summaryOf(permission, message)}
@@ -432,7 +432,7 @@ function Results({
     <ScrollView contentContainerStyle={RESULTS} keyboardShouldPersistTaps="handled">
       {people === undefined || people.length === 0 ? null : (
         <>
-          <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+          <Text size="xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
             People
           </Text>
           {people.map((person) => {
@@ -467,7 +467,7 @@ function Results({
 
       {groups.length === 0 ? null : (
         <>
-          <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+          <Text size="xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
             Groups
           </Text>
           {groups.map((group) => {
@@ -553,4 +553,4 @@ function ChosenChip({
 
 const RESULTS = { paddingBottom: 8 } as const;
 const RAIL = { flexGrow: 0 } as const;
-const RAIL_CONTENT = { paddingHorizontal: 24, paddingTop: 12, gap: 10 } as const;
+const RAIL_CONTENT = { paddingHorizontal: 16, paddingTop: 12, gap: 10 } as const;

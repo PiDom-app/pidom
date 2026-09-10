@@ -92,7 +92,7 @@ export function ReaderModesSheet({
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
 
-        <HStack className="w-full items-center px-6 pt-2.5 pb-3.5" space="lg">
+        <HStack className="w-full items-center px-4 pt-2.5 pb-3.5" space="lg">
           <Icon as={BookOpen} size="lg" className="text-fg-muted" />
           <VStack className="flex-1">
             <Text size="md" className="font-semibold text-foreground">
@@ -121,7 +121,7 @@ export function ReaderModesSheet({
                 accessibilityRole="button"
                 accessibilityState={{ disabled: off, selected: option.mode === mode }}
                 accessibilityLabel={option.label}
-                className="px-6 py-3 data-[active=true]:bg-hover">
+                className="px-4 py-2 data-[active=true]:bg-hover">
                 <HStack className="items-center" space="lg">
                   <Icon
                     as={option.glyph}
@@ -148,7 +148,7 @@ export function ReaderModesSheet({
 
           <Divider className="my-1 bg-hairline" />
 
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <Icon as={Maximize} size="lg" className="text-fg-muted" />
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">

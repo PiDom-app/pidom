@@ -64,7 +64,7 @@ export function SyncSummary() {
       onPress={() => router.push('/sync')}
       accessibilityRole="button"
       accessibilityLabel={`${headline}. ${hint}.`}
-      className="rounded-md px-1 py-3 data-[active=true]:bg-hover">
+      className="rounded-md px-4 py-2 data-[active=true]:bg-hover">
       <HStack className="items-center" space="md">
         <Icon as={glyph} size="lg" className={failed > 0 ? 'text-destructive' : 'text-fg-muted'} />
         <VStack className="flex-1" space="xs">

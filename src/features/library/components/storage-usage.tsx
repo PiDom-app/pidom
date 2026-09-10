@@ -34,7 +34,7 @@ export function StorageUsage() {
 
   if (usage === undefined) {
     return (
-      <VStack className="px-1 py-3" space="xs">
+      <VStack className="px-4 py-2" space="xs">
         <Skeleton className="h-4 w-44 rounded-md" />
         <Skeleton className="h-3 w-56 rounded-md" />
       </VStack>
@@ -42,7 +42,7 @@ export function StorageUsage() {
   }
 
   return (
-    <VStack className="px-1 py-3" space="xs">
+    <VStack className="px-4 py-2" space="xs">
       <Text size="sm" className="text-foreground">
         {usage.syncedCount === 0
           ? 'Nothing synced yet'
@@ -90,7 +90,7 @@ export function DeviceStorageSummary() {
       onPress={() => router.push('/storage')}
       accessibilityRole="button"
       accessibilityLabel={`${headline}. ${hint}`}
-      className="rounded-md px-1 py-3 data-[active=true]:bg-hover">
+      className="rounded-md px-4 py-2 data-[active=true]:bg-hover">
       <HStack className="items-center" space="md">
         <Icon as={HardDrive} size="lg" className="text-fg-muted" />
         <VStack className="flex-1" space="xs">

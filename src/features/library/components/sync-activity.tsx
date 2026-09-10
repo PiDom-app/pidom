@@ -94,7 +94,7 @@ export function SyncActivityScreen() {
                 onDiscard={() => void discard(item.opId)}
               />
             ))}
-            <Text size="xs" className="px-6 pt-4 text-fg-subtle">
+            <Text size="xs" className="px-4 pt-4 text-fg-subtle">
               Discarding drops the change from this queue. It does not undo anything in your
               library — it stays on this phone, and simply never reaches your other devices.
             </Text>
@@ -137,7 +137,7 @@ export function SyncActivityScreen() {
           near the top when the queue was empty, and off the bottom when it was
           long. A control whose position depends on how much work is queued is
           a control nobody can build a habit around. */}
-      <VStack className="border-t border-hairline px-6 pb-2 pt-4" space="md">
+      <VStack className="border-t border-hairline px-4 pb-2 pt-4" space="md">
         <HStack className="items-center" space="sm">
           <Icon as={RefreshCw} size="xs" className="text-fg-subtle" />
           <Text size="xs" className="flex-1 text-fg-subtle">
@@ -224,7 +224,7 @@ function Status({
           : 'Everything below is already saved on this device. This is only your account catching up.';
 
   return (
-    <HStack className="items-start px-6 pt-2 pb-4" space="md">
+    <HStack className="items-start px-4 pt-2 pb-4" space="md">
       <Icon
         as={glyph}
         size="lg"
@@ -244,7 +244,7 @@ function Status({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text size="2xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+    <Text size="2xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
       {children}
     </Text>
   );
@@ -267,7 +267,7 @@ const GLYPHS: Record<ActivityKind, React.ComponentProps<typeof Icon>['as']> = {
 
 function Row({ item }: { item: ActivityItem }) {
   return (
-    <HStack className="items-start border-b border-hairline px-6 py-3.5" space="md">
+    <HStack className="items-start border-b border-hairline px-4 py-2.5" space="md">
       <Icon as={GLYPHS[item.kind]} size="sm" className="mt-0.5 text-fg-muted" />
       <VStack className="flex-1" space="xs">
         <Text size="sm" numberOfLines={2} className="font-semibold text-foreground">
@@ -291,7 +291,7 @@ function DeadLetter({
   onDiscard: () => void;
 }) {
   return (
-    <VStack className="border-b border-hairline px-6 py-3.5">
+    <VStack className="border-b border-hairline px-4 py-2.5">
       <HStack className="items-start" space="md">
         <Icon as={GLYPHS[item.kind]} size="sm" className="mt-0.5 text-destructive" />
         <VStack className="flex-1" space="xs">
@@ -304,14 +304,14 @@ function DeadLetter({
         </VStack>
       </HStack>
 
-      <HStack className="ml-7 mt-3" space="sm">
+      <VStack className="ml-7 mt-3" space="sm">
         <Button variant="outline" size="sm" onPress={onRetry} className="h-8">
           <ButtonText>Try again</ButtonText>
         </Button>
         <Button variant="ghost" size="sm" onPress={onDiscard} className="h-8">
           <ButtonText className="text-fg-muted">Discard</ButtonText>
         </Button>
-      </HStack>
+      </VStack>
     </VStack>
   );
 }
@@ -326,7 +326,7 @@ function Moving({
   const percent = transfer.total > 0 ? Math.round((transfer.sent / transfer.total) * 100) : 0;
 
   return (
-    <HStack className="items-start border-b border-hairline px-6 py-3.5" space="md">
+    <HStack className="items-start border-b border-hairline px-4 py-2.5" space="md">
       <Icon
         as={transfer.kind === 'upload' ? CloudUpload : CloudDownload}
         size="sm"

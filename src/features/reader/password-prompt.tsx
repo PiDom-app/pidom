@@ -86,7 +86,7 @@ function PasswordPromptSheet({
             />
           </HStack>
         </VStack>
-        <HStack className="justify-end" space="sm">
+        <VStack space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
@@ -96,7 +96,7 @@ function PasswordPromptSheet({
             onPress={() => onSubmit(password, remember)}>
             <ButtonText>Open</ButtonText>
           </Button>
-        </HStack>
+        </VStack>
       </VStack>
     </ActionSheetPanel>
   );

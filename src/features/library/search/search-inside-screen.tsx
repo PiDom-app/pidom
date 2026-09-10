@@ -240,7 +240,7 @@ export function SearchInsideScreen() {
           drawn from the copy on this phone, and a reader owed an explanation for
           a short answer should get it before they read the answer. */}
       {offline ? (
-        <HStack className="items-start px-6 pt-4" space="md">
+        <HStack className="items-start px-4 pt-4" space="md">
           <Icon as={CloudOff} size="sm" className="mt-0.5 text-fg-subtle" />
           <Text size="xs" className="flex-1 text-fg-subtle">
             {localSearchAvailable()
@@ -251,7 +251,7 @@ export function SearchInsideScreen() {
       ) : null}
 
       {summary === null ? null : (
-        <Text size="2xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+        <Text size="2xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
           {summary}
         </Text>
       )}
@@ -291,7 +291,7 @@ export function SearchInsideScreen() {
                 }
                 accessibilityRole="button"
                 accessibilityLabel={`${item.title}, page ${item.page}`}
-                className="border-b border-hairline px-6 py-3.5 data-[active=true]:bg-hover">
+                className="border-b border-hairline px-4 py-2.5 data-[active=true]:bg-hover">
                 <HStack className="items-center" space="md">
                   <Text
                     size="sm"
@@ -349,7 +349,7 @@ function Unsearchable({ localOnly, scans }: { localOnly: number; scans: number }
     return null;
   }
   return (
-    <VStack className="px-6 py-5" space="md">
+    <VStack className="px-4 py-5" space="md">
       {scans === 0 ? null : (
         <HStack className="items-start" space="lg">
           <Icon as={ScanText} size="md" className="mt-0.5 text-fg-subtle" />

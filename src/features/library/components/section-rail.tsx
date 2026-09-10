@@ -35,7 +35,7 @@ export function SectionRail<T>({
 }) {
   return (
     <VStack className="mt-7">
-      <Heading size="sm" className="px-6 text-foreground">
+      <Heading size="sm" className="px-4 text-foreground">
         {title}
       </Heading>
 
@@ -60,7 +60,7 @@ export function SectionRail<T>({
 // Plain style objects rather than classNames, because FlashList's own props
 // take styles and are not className-interop'd. Hoisted so they are not rebuilt
 // for every rail on every render.
-const RAIL_PADDING = { paddingHorizontal: 24 } as const;
+const RAIL_PADDING = { paddingHorizontal: 16 } as const;
 const GAP = { width: 14 } as const;
 
 function RailGap() {

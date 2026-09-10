@@ -128,7 +128,7 @@ function ShareRow({ share, onPress }: { share: LibraryShare; onPress: () => void
       accessibilityRole="button"
       accessibilityLabel={share.title ?? 'A shared document'}
       className="data-[active=true]:bg-hover">
-      <HStack className={`items-center px-6 py-3 ${gone ? 'opacity-60' : ''}`} space="md">
+      <HStack className={`items-center px-4 py-2 ${gone ? 'opacity-60' : ''}`} space="md">
         <Box className="h-14 w-10 items-center justify-center rounded-md bg-surface">
           <Text size="2xs" className="font-semibold tracking-wider text-fg-subtle">
             PDF

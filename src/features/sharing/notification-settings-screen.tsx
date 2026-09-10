@@ -148,7 +148,7 @@ export function NotificationSettingsScreen() {
 
       <ScrollView contentContainerStyle={CONTENT}>
         {permission === 'granted' || permission === null || !canPush ? null : (
-          <VStack className="px-6 pt-4" space="sm">
+          <VStack className="px-4 pt-4" space="sm">
             <Text size="md" className="font-semibold text-foreground">
               Know when somebody answers
             </Text>
@@ -232,7 +232,7 @@ export function NotificationSettingsScreen() {
                 disabled={!notifications.allow}
                 onPress={() => setPicking('end')}
               />
-              <Text size="xs" className="px-6 pt-1 pb-2 text-fg-subtle">
+              <Text size="xs" className="px-4 pt-1 pb-2 text-fg-subtle">
                 {quietStart === quietEnd
                   ? 'Start and end are the same, so nothing is held.'
                   : `Held between ${formatMinute(quietStart)} and ${formatMinute(quietEnd)}, your time.`}
@@ -253,7 +253,7 @@ export function NotificationSettingsScreen() {
                   device.deviceName ?? (device.platform === 'ios' ? 'iPhone' : 'Android');
                 const here = device.id === thisDevice;
                 return (
-                  <HStack key={device.id} className="items-center px-6 py-3" space="lg">
+                  <HStack key={device.id} className="items-center px-4 py-2" space="lg">
                     <Icon as={Smartphone} size="lg" className="text-fg-muted" />
                     <VStack className="flex-1">
                       <Text size="md" className="text-foreground">
@@ -297,7 +297,7 @@ export function NotificationSettingsScreen() {
             Offered only once a device is registered, because before that the
             answer is already on the screen. */}
         {!canPush || !registeredHere ? null : (
-          <Box className="px-6 pt-2">
+          <Box className="px-4 pt-2">
             <Button
               variant="outline"
               size="lg"
@@ -342,7 +342,7 @@ export function NotificationSettingsScreen() {
                 per launch and gives up quietly on anything that goes wrong — a
                 dropped connection, a token the push service refused — which
                 left this notice as a statement of fact with no way out of it. */}
-            <Box className="px-6 pt-1">
+            <Box className="px-4 pt-1">
               <Button
                 variant="outline"
                 size="lg"
@@ -403,7 +403,7 @@ function Toggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <HStack className="items-center px-6 py-3" space="lg">
+    <HStack className="items-center px-4 py-2" space="lg">
       <VStack className="flex-1">
         <Text size="md" className={disabled ? 'text-fg-disabled' : 'text-foreground'}>
           {label}
@@ -442,7 +442,7 @@ function TimeRow({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={`${label} ${formatMinute(minute)}`}
-      className="px-6 py-3 data-[active=true]:bg-hover">
+      className="px-4 py-2 data-[active=true]:bg-hover">
       <HStack className="items-center" space="lg">
         <Text size="md" className={disabled ? 'flex-1 text-fg-disabled' : 'flex-1 text-foreground'}>
           {label}

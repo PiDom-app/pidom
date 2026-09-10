@@ -70,14 +70,14 @@ export function DocumentDetails({
 
         {document === null ? null : (
           <VStack className="w-full">
-            <VStack className="px-6 pt-2 pb-3">
+            <VStack className="px-4 pt-2 pb-3">
               <Heading size="sm" numberOfLines={2} className="text-foreground">
                 {document.title}
               </Heading>
             </VStack>
             <Divider className="bg-hairline" />
 
-            <VStack className="px-6 pt-3">
+            <VStack className="px-4 pt-3">
               <Row label="Author" value={document.author ?? 'Not set'} />
               {/* What the file was called when it arrived. Renaming changes the
                   title and nothing else, so this is the only place the original

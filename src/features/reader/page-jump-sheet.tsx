@@ -67,7 +67,7 @@ export function PageJumpSheet({
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
 
-        <HStack className="w-full items-center px-6 pt-2.5 pb-3.5" space="lg">
+        <HStack className="w-full items-center px-4 pt-2.5 pb-3.5" space="lg">
           <Icon as={Target} size="lg" className="text-fg-muted" />
           <VStack className="flex-1">
             <Text size="md" className="font-semibold text-foreground">
@@ -84,7 +84,7 @@ export function PageJumpSheet({
 
         <Divider className="bg-hairline" />
 
-        <VStack className="w-full px-6 pt-5">
+        <VStack className="w-full px-4 pt-5">
           <Input className="h-12 border-primary">
             <InputField
               value={typed}

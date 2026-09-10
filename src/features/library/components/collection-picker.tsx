@@ -112,7 +112,7 @@ export function CollectionPicker({
             <ActionsheetDragIndicator />
           </ActionsheetDragIndicatorWrapper>
 
-          <VStack className="w-full px-6 pt-2 pb-3">
+          <VStack className="w-full px-4 pt-2 pb-3">
             <Heading size="sm" className="text-foreground">
               Add to collection
             </Heading>
@@ -130,7 +130,7 @@ export function CollectionPicker({
                 <Spinner />
               </HStack>
             ) : collections.length === 0 ? (
-              <Text size="sm" className="px-6 py-6 text-center text-fg-subtle">
+              <Text size="sm" className="px-4 py-6 text-center text-fg-subtle">
                 No collections yet.
               </Text>
             ) : (
