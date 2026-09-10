@@ -65,7 +65,8 @@ export function SyncActivityScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          className="rounded-md p-2 data-[active=true]:bg-hover">
+          className="rounded-md p-2 data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
         <Text size="md" className="font-semibold text-foreground">
@@ -95,8 +96,8 @@ export function SyncActivityScreen() {
               />
             ))}
             <Text size="xs" className="px-4 pt-4 text-fg-subtle">
-              Discarding drops the change from this queue. It does not undo anything in your
-              library — it stays on this phone, and simply never reaches your other devices.
+              Discarding drops the change from this queue. It does not undo anything in your library
+              — it stays on this phone, and simply never reaches your other devices.
             </Text>
           </>
         ) : null}
@@ -152,7 +153,8 @@ export function SyncActivityScreen() {
           size="lg"
           onPress={() => void syncNow()}
           isDisabled={offline}
-          className="h-11">
+          className="h-11"
+        >
           <ButtonText>{offline ? 'Waiting for a connection' : 'Sync now'}</ButtonText>
         </Button>
       </VStack>

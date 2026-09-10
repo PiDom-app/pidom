@@ -38,11 +38,7 @@ export type GoogleAccount = {
  * - `network` / `unknown` — worth a retry.
  */
 export type GoogleFailureReason =
-  | 'cancelled'
-  | 'no-saved-credential'
-  | 'play-services'
-  | 'network'
-  | 'unknown';
+  'cancelled' | 'no-saved-credential' | 'play-services' | 'network' | 'unknown';
 
 export type GoogleResult =
   | { ok: true; account: GoogleAccount; idToken: string }

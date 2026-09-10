@@ -320,11 +320,7 @@ type LimitName = keyof typeof LIMITS;
  * error so the client can say *when* rather than only *no*; it is a number of
  * milliseconds, and the screen decides what sentence that becomes.
  */
-export async function limit(
-  ctx: MutationCtx,
-  owner: Doc<'users'>,
-  name: LimitName,
-): Promise<void> {
+export async function limit(ctx: MutationCtx, owner: Doc<'users'>, name: LimitName): Promise<void> {
   const status = await rateLimiter.limit(ctx, name, { key: owner._id });
   if (!status.ok) {
     throw new ConvexError({ code: RATE_LIMITED, retryAfter: status.retryAfter });

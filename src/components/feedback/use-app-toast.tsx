@@ -42,14 +42,11 @@ export function useAppToast() {
           <Toast action={tone} variant="outline">
             {/* All three actions render the same popover surface, so the tone
                 has to come through the title colour. */}
-            <ToastTitle
-              className={tone === 'error' ? 'text-destructive' : 'text-foreground'}>
+            <ToastTitle className={tone === 'error' ? 'text-destructive' : 'text-foreground'}>
               {title}
             </ToastTitle>
             {description === undefined ? null : (
-              <ToastDescription className="text-muted-foreground">
-                {description}
-              </ToastDescription>
+              <ToastDescription className="text-muted-foreground">{description}</ToastDescription>
             )}
           </Toast>
         ),

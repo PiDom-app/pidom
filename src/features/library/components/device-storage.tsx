@@ -1,5 +1,12 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, CloudCheck, HardDrive, Lock, Smartphone, TriangleAlert } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  CloudCheck,
+  HardDrive,
+  Lock,
+  Smartphone,
+  TriangleAlert,
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
@@ -61,7 +68,8 @@ export function DeviceStorageScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          className="rounded-md p-2 data-[active=true]:bg-hover">
+          className="rounded-md p-2 data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
         <Text size="md" className="font-semibold text-foreground">
@@ -159,7 +167,8 @@ export function DeviceStorageScreen() {
                 if (target !== null) {
                   void removeDownload(target.document.id);
                 }
-              }}>
+              }}
+            >
               <ButtonText>Remove</ButtonText>
             </Button>
           </VStack>
@@ -217,7 +226,8 @@ function Row({ entry, onRemove }: { entry: StorageEntry; onRemove: () => void })
           onPress={onRemove}
           accessibilityRole="button"
           accessibilityLabel={`Remove ${document.title} from this device`}
-          className="rounded-md data-[active=true]:bg-hover">
+          className="rounded-md data-[active=true]:bg-hover"
+        >
           <Text size="xs" className="text-primary">
             Remove
           </Text>

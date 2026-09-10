@@ -25,8 +25,8 @@ export function EmptyLibrary({ onImport }: { onImport: () => void }) {
             Nothing here yet
           </Heading>
           <Text size="sm" className="max-w-[286px] text-center text-muted-foreground">
-            Import a PDF and it stays on this device — readable with no connection, and your
-            place is kept on every device you sign in to.
+            Import a PDF and it stays on this device — readable with no connection, and your place
+            is kept on every device you sign in to.
           </Text>
         </VStack>
 

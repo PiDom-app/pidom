@@ -44,10 +44,7 @@ const LIST_SQL = `
    ORDER BY c.createdAt DESC
 `;
 
-async function withCovers(
-  db: SQLiteDatabase,
-  rows: CollectionRow[],
-): Promise<LibraryCollection[]> {
+async function withCovers(db: SQLiteDatabase, rows: CollectionRow[]): Promise<LibraryCollection[]> {
   const collections: LibraryCollection[] = [];
 
   for (const row of rows) {
@@ -109,10 +106,7 @@ export async function documentsIn(
 }
 
 /** Which collections a document is in — the ticks in the picker. */
-export async function collectionsOf(
-  db: SQLiteDatabase,
-  documentId: string,
-): Promise<Set<string>> {
+export async function collectionsOf(db: SQLiteDatabase, documentId: string): Promise<Set<string>> {
   const rows = await db.getAllAsync<{ collectionId: string }>(
     'SELECT collectionId FROM collectionDocuments WHERE documentId = ? AND deletedAt IS NULL',
     documentId,
@@ -223,10 +217,10 @@ export async function attachCollectionRemoteId(
   id: string,
   remoteId: string,
 ): Promise<void> {
-  await db.runAsync(
-    "UPDATE collections SET remoteId = ?, syncState = 'synced' WHERE id = ?",
-    [remoteId, id],
-  );
+  await db.runAsync("UPDATE collections SET remoteId = ?, syncState = 'synced' WHERE id = ?", [
+    remoteId,
+    id,
+  ]);
 }
 
 export async function upsertRemoteCollection(
@@ -316,10 +310,10 @@ export async function purgeMembership(db: SQLiteDatabase, entityId: string): Pro
   if (collectionId === undefined || documentId === undefined) {
     return;
   }
-  await db.runAsync(
-    'DELETE FROM collectionDocuments WHERE collectionId = ? AND documentId = ?',
-    [collectionId, documentId],
-  );
+  await db.runAsync('DELETE FROM collectionDocuments WHERE collectionId = ? AND documentId = ?', [
+    collectionId,
+    documentId,
+  ]);
 }
 
 export async function purgeCollection(db: SQLiteDatabase, id: string): Promise<void> {

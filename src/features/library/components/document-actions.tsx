@@ -242,7 +242,8 @@ export function DocumentActions({
                   onPress={() => {
                     void setFinished(document, !document.isFinished);
                     onClose();
-                  }}>
+                  }}
+                >
                   <ActionsheetIcon
                     as={document.isFinished ? RotateCcw : BookOpenCheck}
                     className="text-fg-muted"
@@ -258,7 +259,8 @@ export function DocumentActions({
                     onPress={() => {
                       void fetchDocument(document);
                       onClose();
-                    }}>
+                    }}
+                  >
                     <ActionsheetIcon as={CloudDownload} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">
                       Download to this device
@@ -279,7 +281,8 @@ export function DocumentActions({
                         void syncDocument(document);
                       }
                       onClose();
-                    }}>
+                    }}
+                  >
                     <ActionsheetIcon
                       as={document.isSynced ? CloudOff : CloudUpload}
                       className="text-fg-muted"
@@ -310,7 +313,8 @@ export function DocumentActions({
                   onPress={() => {
                     void toggleFavorite(document.id, !document.isFavorite);
                     onClose();
-                  }}>
+                  }}
+                >
                   <ActionsheetIcon
                     as={document.isFavorite ? HeartOff : Heart}
                     className="text-fg-muted"
@@ -378,7 +382,8 @@ export function DocumentActions({
                       // the file is. The cloud half runs from the server.
                       setReprobing(target);
                       void reprocess(target);
-                    }}>
+                    }}
+                  >
                     <ActionsheetIcon as={RefreshCw} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">Reprocess</ActionsheetItemText>
                   </ActionsheetItem>
@@ -407,7 +412,8 @@ export function DocumentActions({
                     onPress={() => {
                       onClose();
                       router.push({ pathname: '/share', params: { id: document.id } });
-                    }}>
+                    }}
+                  >
                     <ActionsheetIcon as={Share2} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">
                       {mine ? 'Share with people' : 'Share it on'}
@@ -420,7 +426,8 @@ export function DocumentActions({
                     onPress={() => {
                       onClose();
                       router.push({ pathname: '/access', params: { id: document.id } });
-                    }}>
+                    }}
+                  >
                     <ActionsheetIcon as={Users} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">
                       Who can open this
@@ -458,7 +465,8 @@ export function DocumentActions({
           other one, so it gets an acknowledgement rather than an undo toast. */}
       <ActionSheetPanel
         isOpen={confirmingDelete && document !== null}
-        onClose={() => setConfirmingDelete(false)}>
+        onClose={() => setConfirmingDelete(false)}
+      >
         <VStack space="md">
           <VStack space="sm">
             <Heading size="md" className="text-foreground">
@@ -486,7 +494,8 @@ export function DocumentActions({
                 if (target !== null) {
                   void deleteDocument(target.id);
                 }
-              }}>
+              }}
+            >
               <ButtonText>Delete</ButtonText>
             </Button>
           </VStack>
@@ -562,7 +571,8 @@ export function DocumentActions({
           account copy is safe. */}
       <ActionSheetPanel
         isOpen={confirmingRemoveDownload && document !== null}
-        onClose={() => setConfirmingRemoveDownload(false)}>
+        onClose={() => setConfirmingRemoveDownload(false)}
+      >
         <VStack space="md">
           <VStack space="sm">
             <Heading size="md" className="text-foreground">
@@ -575,10 +585,7 @@ export function DocumentActions({
             </Text>
           </VStack>
           <VStack space="sm">
-            <Button
-              variant="outline"
-              size="sm"
-              onPress={() => setConfirmingRemoveDownload(false)}>
+            <Button variant="outline" size="sm" onPress={() => setConfirmingRemoveDownload(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
             <Button
@@ -590,7 +597,8 @@ export function DocumentActions({
                 if (target !== null) {
                   removeDownload(target.id);
                 }
-              }}>
+              }}
+            >
               <ButtonText>Remove</ButtonText>
             </Button>
           </VStack>

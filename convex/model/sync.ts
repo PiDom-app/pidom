@@ -38,10 +38,7 @@ import type { QueryCtx } from '../_generated/server';
  * a conflict, and refusing one would drop a legitimate write from a device that
  * simply wrote twice in the same millisecond.
  */
-export function isStale(
-  stored: number | undefined,
-  incoming: number | undefined,
-): boolean {
+export function isStale(stored: number | undefined, incoming: number | undefined): boolean {
   if (incoming === undefined || stored === undefined) {
     return false;
   }
@@ -131,8 +128,6 @@ export function isLocalId(value: string): boolean {
 }
 
 /** Marks a row as belonging to a device's create, for the retry that follows. */
-export function localIdField(
-  localId: string | undefined,
-): { localId?: string } {
+export function localIdField(localId: string | undefined): { localId?: string } {
   return localId === undefined ? {} : { localId };
 }

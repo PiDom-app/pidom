@@ -33,7 +33,8 @@ export function SignOutAction() {
           variant="outline"
           size="lg"
           onPress={() => setOpen(true)}
-          className="mt-2 h-11 border-destructive">
+          className="mt-2 h-11 border-destructive"
+        >
           <ButtonIcon as={LogOut} className="text-destructive" />
           <ButtonText className="text-destructive">Sign out</ButtonText>
         </Button>
@@ -46,8 +47,8 @@ export function SignOutAction() {
               Sign out of Pidom?
             </Heading>
             <Text size="sm" className="text-muted-foreground">
-              Your library stays in your account and your documents stay on this
-              device. Sign back in with Google to pick up where you left off.
+              Your library stays in your account and your documents stay on this device. Sign back
+              in with Google to pick up where you left off.
             </Text>
           </VStack>
           <VStack space="sm">
@@ -74,7 +75,8 @@ export function SignOutAction() {
                 // swaps to the sign-in stack as soon as the session clears.
                 setOpen(false);
                 void signOut();
-              }}>
+              }}
+            >
               <ButtonText>Sign out</ButtonText>
             </Button>
           </VStack>

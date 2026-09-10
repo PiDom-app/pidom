@@ -209,7 +209,8 @@ export async function reconcile(sender: Sender, profileId: string): Promise<void
   const seenDocuments = new Set<string>();
 
   await eachRow(
-    (cursor) => client.query(api.library.snapshot, { paginationOpts: { numItems: PAGE_SIZE, cursor } }),
+    (cursor) =>
+      client.query(api.library.snapshot, { paginationOpts: { numItems: PAGE_SIZE, cursor } }),
     async (remote) => {
       seenDocuments.add(remote.id);
       await Documents.upsertFromRemote(db, remote);

@@ -65,7 +65,8 @@ export function AnnotationsList({
           onPress={onWriteNote}
           accessibilityRole="button"
           accessibilityLabel="Write a note about this page"
-          className="mt-5 flex-row items-center gap-2 rounded-md border border-border px-3.5 py-2 data-[active=true]:bg-hover">
+          className="mt-5 flex-row items-center gap-2 rounded-md border border-border px-3.5 py-2 data-[active=true]:bg-hover"
+        >
           <Icon as={NotebookPen} size="sm" className="text-foreground" />
           <Text size="sm" className="font-medium text-foreground">
             Write a note
@@ -99,13 +100,15 @@ export function AnnotationsList({
                 item.text ?? item.note ?? ''
               }`}
               accessibilityHint="Double tap and hold to edit the note"
-              className="flex-1 py-3.5 pl-6 data-[active=true]:bg-hover">
+              className="flex-1 py-3.5 pl-6 data-[active=true]:bg-hover"
+            >
               <HStack className="w-full items-start" space="md">
                 <VStack className="flex-1">
                   <Text
                     size="sm"
                     numberOfLines={3}
-                    className={quoted ? 'text-foreground' : 'text-fg-muted'}>
+                    className={quoted ? 'text-foreground' : 'text-fg-muted'}
+                  >
                     {quoted ? `“${item.text}”` : item.note}
                   </Text>
                   {quoted && item.note !== null ? (
@@ -123,7 +126,8 @@ export function AnnotationsList({
               onPress={() => onRemove(item.id)}
               accessibilityRole="button"
               accessibilityLabel={`Remove this ${quoted ? 'passage' : 'note'} from page ${item.page}`}
-              className="w-12 items-center justify-center rounded-md data-[active=true]:bg-hover">
+              className="w-12 items-center justify-center rounded-md data-[active=true]:bg-hover"
+            >
               <Icon as={Trash2} size="sm" className="text-fg-subtle" />
             </Pressable>
           </Box>

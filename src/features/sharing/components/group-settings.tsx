@@ -105,12 +105,7 @@ export function GroupSettings({
   return (
     <VStack>
       <Section title="About">
-        <Row
-          label="Name"
-          value={currentName}
-          onPress={onRename}
-          disabled={!canAdminister}
-        />
+        <Row label="Name" value={currentName} onPress={onRename} disabled={!canAdminister} />
         <Row
           label="Description"
           value={s.description ?? 'None'}
@@ -212,7 +207,8 @@ export function GroupSettings({
         onPress={onLeave}
         accessibilityRole="button"
         accessibilityLabel={isOwner ? 'Delete this group' : 'Leave this group'}
-        className="px-4 py-2.5 data-[active=true]:bg-hover">
+        className="px-4 py-2.5 data-[active=true]:bg-hover"
+      >
         <HStack className="items-center" space="md">
           <Icon as={isOwner ? Trash2 : LogOut} size="lg" className="text-destructive" />
           <VStack className="flex-1">
@@ -259,7 +255,8 @@ function Row({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="px-4 py-2.5 data-[active=true]:bg-hover">
+      className="px-4 py-2.5 data-[active=true]:bg-hover"
+    >
       <HStack className="items-center" space="md">
         <Text size="md" className={disabled ? 'flex-1 text-fg-disabled' : 'flex-1 text-foreground'}>
           {label}
@@ -324,7 +321,8 @@ function Choice({
           {...props}
           accessibilityRole="button"
           accessibilityLabel={`${label}: ${current}`}
-          className="px-4 py-2.5 data-[active=true]:bg-hover">
+          className="px-4 py-2.5 data-[active=true]:bg-hover"
+        >
           <HStack className="items-center" space="md">
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
@@ -340,11 +338,13 @@ function Choice({
             <Icon as={ChevronRight} size="sm" className="text-fg-subtle" />
           </HStack>
         </Pressable>
-      )}>
+      )}
+    >
       {options.map((option) => (
         <MenuItem key={option.key} textValue={option.label} onPress={() => onPick(option.key)}>
           <MenuItemLabel
-            className={option.key === value ? 'text-sm text-primary' : 'text-sm text-foreground'}>
+            className={option.key === value ? 'text-sm text-primary' : 'text-sm text-foreground'}
+          >
             {option.label}
           </MenuItemLabel>
         </MenuItem>

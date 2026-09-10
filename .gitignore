@@ -29,6 +29,7 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+!certs/eas-update.pem
 
 # local env files
 .env*.local
@@ -45,8 +46,9 @@ GoogleService-Info.plist
 /ios
 /android
 
-# Convex codegen. Written by `npx convex dev`; see docs/setup.md.
-convex/_generated/
+# Convex codegen. The runtime interfaces are tracked so public fork PRs can
+# typecheck without a deployment credential; AI guidance remains local-only.
+convex/_generated/ai/
 
 # Agent tooling — about how the code was written, not what it does.
 .agents/

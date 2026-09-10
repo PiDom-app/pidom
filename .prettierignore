@@ -1,0 +1,11 @@
+node_modules/
+.expo/
+.design/
+agent/
+dist/
+web-build/
+docs/screens/
+convex/_generated/
+*.svg
+*.png
+*.lock

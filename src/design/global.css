@@ -30,10 +30,10 @@
  * platforms, and the three blocks must be edited together.
  */
 
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
-@import "tailwindcss/utilities.css";
-@import "nativewind/theme";
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import 'tailwindcss/utilities.css';
+@import 'nativewind/theme';
 
 /* ─── Typography ────────────────────────────────────────────────────────── */
 @layer theme {

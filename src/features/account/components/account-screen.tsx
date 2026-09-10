@@ -26,10 +26,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useProfile } from '@/features/auth/use-profile';
 import { useSession } from '@/features/auth/session-provider';
-import {
-  DeviceStorageSummary,
-  StorageUsage,
-} from '@/features/library/components/storage-usage';
+import { DeviceStorageSummary, StorageUsage } from '@/features/library/components/storage-usage';
 import { SyncSummary } from '@/features/library/components/sync-summary';
 import { useInbox, useShareEvents } from '@/features/sharing/data/use-sharing';
 
@@ -88,7 +85,7 @@ export function AccountScreen() {
   // `null` when the reader has turned their photo off, and the session's copy
   // knows nothing about that — so preferring the session here would show
   // somebody the face they have just hidden from everybody else.
-  const photo = profile === null ? account?.photoUrl ?? null : profile.pictureUrl;
+  const photo = profile === null ? (account?.photoUrl ?? null) : profile.pictureUrl;
 
   return (
     <Screen>
@@ -99,7 +96,8 @@ export function AccountScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          className="rounded-md p-2 data-[active=true]:bg-hover">
+          className="rounded-md p-2 data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
       </HStack>
@@ -271,7 +269,8 @@ function NavRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="rounded-md px-4 py-2 data-[active=true]:bg-hover">
+      className="rounded-md px-4 py-2 data-[active=true]:bg-hover"
+    >
       <HStack className="items-center" space="md">
         <Icon as={glyph} size="lg" className="text-fg-muted" />
         <VStack className="flex-1" space="xs">

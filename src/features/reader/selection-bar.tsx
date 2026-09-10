@@ -72,10 +72,9 @@ export function SelectionBar({
     <Box
       className="absolute inset-x-0 items-center"
       style={{ bottom: Math.max(insets.bottom, 12) + 108 }}
-      pointerEvents="box-none">
-      <HStack
-        className="rounded-md border border-border bg-elevated px-1.5 py-1"
-        space="xs">
+      pointerEvents="box-none"
+    >
+      <HStack className="rounded-md border border-border bg-elevated px-1.5 py-1" space="xs">
         <Pressable
           onPress={() => {
             Clipboard.setStringAsync(selected)
@@ -92,7 +91,8 @@ export function SelectionBar({
           }}
           accessibilityRole="button"
           accessibilityLabel="Copy the selected text"
-          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover"
+        >
           <Icon as={Copy} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Copy
@@ -106,7 +106,8 @@ export function SelectionBar({
           }}
           accessibilityRole="button"
           accessibilityLabel="Keep the selected passage"
-          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover"
+        >
           <Icon as={Highlighter} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Keep
@@ -120,7 +121,8 @@ export function SelectionBar({
           }}
           accessibilityRole="button"
           accessibilityLabel="Write a note about the selected passage"
-          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover"
+        >
           <Icon as={NotebookPen} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Note
@@ -136,7 +138,8 @@ export function SelectionBar({
           }}
           accessibilityRole="button"
           accessibilityLabel="Find the selected text in this document"
-          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover">
+          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover"
+        >
           <Icon as={Search} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Find

@@ -278,7 +278,8 @@ export function NotificationSettingsScreen() {
                       onPress={() => setForgetting({ id: device.id, name })}
                       accessibilityRole="button"
                       accessibilityLabel={`Forget ${name}`}
-                      className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+                      className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+                    >
                       <Icon as={X} size="md" className="text-fg-subtle" />
                     </Pressable>
                   </HStack>
@@ -309,13 +310,15 @@ export function NotificationSettingsScreen() {
                       id: 'push-test',
                       tone: 'success',
                       title: 'Test sent',
-                      description: 'It should arrive in a moment, on every device that is not muted.',
+                      description:
+                        'It should arrive in a moment, on every device that is not muted.',
                     }),
                   () =>
                     showToast({ id: 'push-test', tone: 'error', title: 'That could not be sent' }),
                 );
               }}
-              className="h-11">
+              className="h-11"
+            >
               <ButtonText>Send a test notification</ButtonText>
             </Button>
           </Box>
@@ -327,9 +330,9 @@ export function NotificationSettingsScreen() {
             them. */}
         {!canPush ? (
           <Notice glyph={Inbox}>
-            This build cannot receive notifications — remote push needs a development build
-            rather than Expo Go. Shares still arrive in the app, and everything on this screen
-            is remembered for a build that can.
+            This build cannot receive notifications — remote push needs a development build rather
+            than Expo Go. Shares still arrive in the app, and everything on this screen is
+            remembered for a build that can.
           </Notice>
         ) : registeredHere ? null : (
           <>
@@ -348,7 +351,8 @@ export function NotificationSettingsScreen() {
                 size="lg"
                 onPress={() => void ask()}
                 isDisabled={asking}
-                className="h-11">
+                className="h-11"
+              >
                 {asking ? <Spinner /> : <ButtonText>Register this device</ButtonText>}
               </Button>
             </Box>
@@ -442,7 +446,8 @@ function TimeRow({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={`${label} ${formatMinute(minute)}`}
-      className="px-4 py-2 data-[active=true]:bg-hover">
+      className="px-4 py-2 data-[active=true]:bg-hover"
+    >
       <HStack className="items-center" space="lg">
         <Text size="md" className={disabled ? 'flex-1 text-fg-disabled' : 'flex-1 text-foreground'}>
           {label}

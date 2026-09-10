@@ -47,8 +47,7 @@ export function useCoverSync(documents: readonly LibraryDocument[]): void {
     // the account has never met has no cover to fetch and is not in this list.
     return documents
       .filter(
-        (doc) =>
-          doc.hasCover && doc.remoteId !== null && localCoverUri(profileId, doc.id) === null,
+        (doc) => doc.hasCover && doc.remoteId !== null && localCoverUri(profileId, doc.id) === null,
       )
       .map((doc) => `${doc.id}:${doc.remoteId ?? ''}`)
       .join(',');

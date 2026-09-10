@@ -547,10 +547,7 @@ export type RemoteDocument = {
  * putting the document back until it lands would make it flicker into the
  * library and out again.
  */
-export async function upsertFromRemote(
-  db: SQLiteDatabase,
-  remote: RemoteDocument,
-): Promise<void> {
+export async function upsertFromRemote(db: SQLiteDatabase, remote: RemoteDocument): Promise<void> {
   const existing = await db.getFirstAsync<{
     id: string;
     syncState: string;
@@ -684,10 +681,7 @@ export async function markSynced(
 }
 
 /** This device's id for an account id, or `null` if it has never seen it. */
-export async function localIdFor(
-  db: SQLiteDatabase,
-  remoteId: string,
-): Promise<string | null> {
+export async function localIdFor(db: SQLiteDatabase, remoteId: string): Promise<string | null> {
   const row = await db.getFirstAsync<{ id: string }>(
     'SELECT id FROM documents WHERE remoteId = ? OR id = ? LIMIT 1',
     [remoteId, remoteId],

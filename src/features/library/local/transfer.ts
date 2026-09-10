@@ -172,7 +172,10 @@ export async function downloadCover(
       return true;
     }
 
-    const partial = new File(coverFile(profileId, documentId).parentDirectory, `${documentId}.part`);
+    const partial = new File(
+      coverFile(profileId, documentId).parentDirectory,
+      `${documentId}.part`,
+    );
     if (partial.exists) {
       partial.delete();
     }

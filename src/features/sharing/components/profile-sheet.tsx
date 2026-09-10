@@ -147,8 +147,8 @@ export function ProfileSheet({
 
         <VStack className="w-full px-4 pt-3">
           <Text size="xs" className="text-fg-subtle">
-            This is everything Pidom will tell you about another account. Not their email, not
-            what else they are reading, not when they were last here.
+            This is everything Pidom will tell you about another account. Not their email, not what
+            else they are reading, not when they were last here.
           </Text>
         </VStack>
       </ActionsheetContent>

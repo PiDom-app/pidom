@@ -51,14 +51,16 @@ export function ContentsList({
               ? 'w-full bg-hover py-3 pr-6'
               : 'w-full py-3 pr-6 data-[active=true]:bg-hover'
           }
-          style={{ paddingLeft: 24 + item.depth * 18 }}>
+          style={{ paddingLeft: 24 + item.depth * 18 }}
+        >
           <HStack className="w-full items-center" space="md">
             <Text
               size={item.depth === 0 ? 'md' : 'sm'}
               numberOfLines={1}
               className={
                 item.depth === 0 ? 'flex-1 font-semibold text-foreground' : 'flex-1 text-fg-muted'
-              }>
+              }
+            >
               {item.title}
             </Text>
             <Text size="xs" className={index === here ? 'text-primary' : 'text-fg-subtle'}>

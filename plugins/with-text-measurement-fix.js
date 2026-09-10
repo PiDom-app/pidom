@@ -48,10 +48,7 @@ const MARKER = 'pidom:font-weight-adjustment';
  * So the block is replaced rather than skipped. The comment marker opens it and
  * the function it introduces closes it, which is what this matches.
  */
-const EXISTING = new RegExp(
-  `\\n?\\s*// ${MARKER}[\\s\\S]*?\\n  \\}\\n`,
-  'm',
-);
+const EXISTING = new RegExp(`\\n?\\s*// ${MARKER}[\\s\\S]*?\\n  \\}\\n`, 'm');
 
 /**
  * `attachBaseContext`, not `applyOverrideConfiguration`.

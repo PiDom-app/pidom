@@ -61,7 +61,8 @@ export function ReaderOpening({
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Back to your library"
-          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
       </HStack>
@@ -75,7 +76,8 @@ export function ReaderOpening({
           </Box>
           <Progress
             value={Math.round(Math.min(1, Math.max(0, progress)) * 100)}
-            className="mt-7 h-0.5 w-[132px] bg-border">
+            className="mt-7 h-0.5 w-[132px] bg-border"
+          >
             <ProgressFilledTrack className="bg-primary" />
           </Progress>
           <Text size="sm" className="mt-3.5 text-center text-fg-muted">
@@ -129,7 +131,8 @@ export function ReaderFailed({
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            className="mt-4 rounded-md px-3 py-2 data-[active=true]:bg-hover">
+            className="mt-4 rounded-md px-3 py-2 data-[active=true]:bg-hover"
+          >
             <Text size="sm" className="text-primary">
               Back to your library
             </Text>
@@ -162,7 +165,8 @@ export function ReaderMissing({
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            className="rounded-md px-3 py-2 data-[active=true]:bg-hover">
+            className="rounded-md px-3 py-2 data-[active=true]:bg-hover"
+          >
             <Text size="sm" className="text-primary">
               Back to your library
             </Text>

@@ -83,10 +83,7 @@ export async function send(sender: Sender, operation: QueuedOperation): Promise<
 
 /* ── documents ──────────────────────────────────────────────────────── */
 
-async function sendDocument(
-  { client, db }: Sender,
-  operation: QueuedOperation,
-): Promise<void> {
+async function sendDocument({ client, db }: Sender, operation: QueuedOperation): Promise<void> {
   const document = await Documents.documentById(db, operation.entityId);
   if (document === null) {
     // The row went away underneath the queue. There is nothing to send and

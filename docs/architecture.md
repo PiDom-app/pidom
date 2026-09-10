@@ -24,7 +24,7 @@ That is also why the row is written before the file moves: the row's id is the
 filename. If the move fails the row is deleted again, because a row with no file
 reads as permanently "not on this device" with nothing the reader can do.
 
-`storageKey` says a document *can* be fetched. It does not say it has been, and
+`storageKey` says a document _can_ be fetched. It does not say it has been, and
 no field says that — a row cannot know what is on a given phone's disk, and a
 stale flag would put a wrong badge on the one screen whose job is to say what
 opens offline. There is no `file://` URI and no download state.
@@ -210,7 +210,7 @@ The middle line is what makes a force-quit survivable. Position used to land
 only on unmount and on backgrounding, which is right for the exits that are
 exits and loses the chapter for the one that is not — an OOM kill, a battery, a
 swipe-up from the app switcher. The store write is cheap enough to do on every
-page and is read back *before* Convex answers, so reopening lands on the right
+page and is read back _before_ Convex answers, so reopening lands on the right
 page instantly and offline.
 
 The last line stays expensive and therefore stays rare: fifteen seconds of
@@ -248,7 +248,7 @@ read `Page 142` however deliberately somebody had stopped there. A long press on
 a row names it now.
 
 **Notes are what an annotation can be on this renderer.** `react-native-pdf`
-reports the *text* of a selection and no geometry: `onTextSelectionChange` hands
+reports the _text_ of a selection and no geometry: `onTextSelectionChange` hands
 back a string, and `onPageSingleTap` hands back `MotionEvent.getX()`, which is
 where a finger touched the view rather than where the words sit on the page and
 stops meaning anything the moment somebody scrolls. There is no page-rect API
@@ -261,7 +261,7 @@ rather than a migration over everybody's notes.
 
 The renderer's selection is iOS-only — the Android view manager has no selection
 code at all — so the selection bar's **Keep** and **Note** exist on one platform
-and the capability does not: the reader's overflow offers *Write a note* on both,
+and the capability does not: the reader's overflow offers _Write a note_ on both,
 anchored to the page instead of to words. Keeping a passage carries a Convex
 optimistic update, which bookmarks do not: a bookmark's feedback is an icon that
 fills before a thumb leaves the glass, while a kept passage puts a row in a list
@@ -309,7 +309,7 @@ is — on Android there is no bar rather than a button that cannot work.
 
 **The page tint is a layer, not an inversion.** `react-native-pdf` cannot invert
 a page, and a dark reading treatment is a different feature from a dark
-application. So the switch is phrased the right way round: *Follow the document*
+application. So the switch is phrased the right way round: _Follow the document_
 is on by default and means pages render as they were authored, which is what a
 PDF reader owes a PDF. Turning it off puts a dim or warm overlay between the
 page and the chrome — the controls stay at full contrast while the document
@@ -513,7 +513,7 @@ in a database on their phone is a delete that did not happen.
 
 ## Opening a PDF from another app
 
-`app.json` registers Pidom as a PDF handler: an Android `intentFilters` entry for
+`app.config.ts` registers Pidom as a PDF handler: an Android `intentFilters` entry for
 `VIEW` on `application/pdf`, and iOS `CFBundleDocumentTypes` with
 `LSSupportsOpeningDocumentsInPlace`. That is the "Open with" and "Open in" entry
 from Files, Drive, Mail and a browser download.
@@ -546,7 +546,7 @@ document per sync.
 
 The page-text collector is worth naming, because the first version of it did not
 work. It scanned the head of `documentPages` looking for rows whose document was
-gone — which reads the *oldest* pages in the deployment, almost always a document
+gone — which reads the _oldest_ pages in the deployment, almost always a document
 that is perfectly fine. It swept nothing, every night, while orphaned text sat
 further down the table. Orphans are now **recorded** rather than searched for:
 `detachUpload` and `removeDocument` delete as much as a mutation's read budget
@@ -610,7 +610,7 @@ inbox is legible with no connection and before a single byte has been fetched.
 **Writes go through the outbox like everything else**, with two exceptions that
 are deliberate:
 
-- **Group membership is never queued.** Adding somebody changes what *they* can
+- **Group membership is never queued.** Adding somebody changes what _they_ can
   open, and a device that invented memberships offline would be deciding who can
   read another person's documents with nothing to check against. Refused with a
   sentence instead.
@@ -648,7 +648,7 @@ deployment-wide worker rather than by every client polling. There is no
 know that and a number invented to fill the space is a number somebody would
 believe.
 
-The hook has no disabled state, so the heartbeat is *mounted* rather than
+The hook has no disabled state, so the heartbeat is _mounted_ rather than
 skipped: `use-document-presence.tsx` returns a `beat` node that the reader and
 the Access screen render, and it is `null` when there is no room. Passing an
 empty room id instead — which is what the first version did — meant a refused
@@ -676,7 +676,7 @@ those words rather than claiming the device merely is not registered.
 
 The type import stays, and is erased at compile time, so call sites are fully
 typed and cost nothing at runtime. Metro still bundles the module: a literal
-`require` is statically analysed, so a development build that *does* have the
+`require` is statically analysed, so a development build that _does_ have the
 native module gets the real thing.
 
 ### The Expo access token is set and not yet reachable
@@ -686,8 +686,8 @@ native module gets the real thing.
 component is `defineComponent("pushNotifications")` with no env vars declared,
 and its send posts to `exp.host/--/api/v2/push/send` with `Accept`,
 `Accept-encoding` and `Content-Type` and no `Authorization` header. Passing the
-variable is refused at push time: *Component [pushNotifications] has no env var
-named EXPO_ACCESS_TOKEN*.
+variable is refused at push time: _Component [pushNotifications] has no env var
+named EXPO_ACCESS_TOKEN_.
 
 The token is therefore set on the deployment (`npx convex env set
 EXPO_ACCESS_TOKEN`) and never written into this repository, ready for the

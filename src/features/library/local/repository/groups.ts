@@ -84,11 +84,7 @@ export async function createGroup(db: SQLiteDatabase, name: string): Promise<str
   return id;
 }
 
-export async function renameGroup(
-  db: SQLiteDatabase,
-  id: string,
-  name: string,
-): Promise<void> {
+export async function renameGroup(db: SQLiteDatabase, id: string, name: string): Promise<void> {
   const now = Date.now();
   await db.runAsync(
     `UPDATE groupsLocal SET name = ?, updatedAt = ?, clientUpdatedAt = ?,
@@ -142,7 +138,15 @@ export async function upsertRemoteGroup(
     await db.runAsync(
       `INSERT INTO groupsLocal (id, remoteId, name, memberCount, role, createdAt, updatedAt, clientUpdatedAt, syncState)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'synced')`,
-      [remote.id, remote.id, remote.name, remote.memberCount, remote.role, remote.createdAt, remote.updatedAt],
+      [
+        remote.id,
+        remote.id,
+        remote.name,
+        remote.memberCount,
+        remote.role,
+        remote.createdAt,
+        remote.updatedAt,
+      ],
     );
     return;
   }
@@ -151,7 +155,15 @@ export async function upsertRemoteGroup(
     `UPDATE groupsLocal SET remoteId = ?, name = ?, memberCount = ?, role = ?,
             createdAt = ?, updatedAt = ?, deletedAt = NULL, syncState = 'synced'
       WHERE id = ?`,
-    [remote.id, remote.name, remote.memberCount, remote.role, remote.createdAt, remote.updatedAt, existing.id],
+    [
+      remote.id,
+      remote.name,
+      remote.memberCount,
+      remote.role,
+      remote.createdAt,
+      remote.updatedAt,
+      existing.id,
+    ],
   );
 }
 
@@ -197,10 +209,7 @@ export async function replaceMembers(
 }
 
 /** Drops groups the account no longer has. */
-export async function pruneGroups(
-  db: SQLiteDatabase,
-  keep: ReadonlySet<string>,
-): Promise<void> {
+export async function pruneGroups(db: SQLiteDatabase, keep: ReadonlySet<string>): Promise<void> {
   const rows = await db.getAllAsync<{ id: string; remoteId: string | null }>(
     "SELECT id, remoteId FROM groupsLocal WHERE syncState = 'synced' AND remoteId IS NOT NULL",
   );
@@ -226,10 +235,7 @@ export async function pruneGroups(
  * members and group shares were written under the *remote* id and read back
  * under the local one, so the two halves never met.
  */
-export async function localIdFor(
-  db: SQLiteDatabase,
-  remoteId: string,
-): Promise<string | null> {
+export async function localIdFor(db: SQLiteDatabase, remoteId: string): Promise<string | null> {
   const row = await db.getFirstAsync<{ id: string }>(
     'SELECT id FROM groupsLocal WHERE remoteId = ? LIMIT 1',
     remoteId,

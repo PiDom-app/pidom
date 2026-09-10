@@ -150,8 +150,7 @@ export async function toPublicShare(
   const doc = await ctx.db.get('documents', share.documentId);
 
   const counterpartId = outgoing ? share.recipientUserId : share.createdBy;
-  const group =
-    share.groupId === undefined ? null : await ctx.db.get('groups', share.groupId);
+  const group = share.groupId === undefined ? null : await ctx.db.get('groups', share.groupId);
 
   return {
     id: share._id,
@@ -243,9 +242,7 @@ export async function create(
   const doc = ceiling.doc;
 
   if (doc.storageKey === undefined) {
-    invalid(
-      'This document is only on this device. Turn on syncing for it before sharing it.',
-    );
+    invalid('This document is only on this device. Turn on syncing for it before sharing it.');
   }
 
   if (input.clientOpId !== undefined) {

@@ -478,11 +478,7 @@ const INVISIBLE = /[\u200b-\u200f\u2028\u2029\u2060\ufeff]/g;
  * padding a title with zero-width joiners cannot get it past the limit.
  */
 export function cleanText(value: string, max: number, field: string): string {
-  const stripped = value
-    .replace(CONTROL, ' ')
-    .replace(INVISIBLE, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const stripped = value.replace(CONTROL, ' ').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim();
 
   if (stripped === '') {
     invalid(`${field} cannot be empty.`);

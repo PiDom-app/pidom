@@ -37,10 +37,7 @@ export async function bookmarksOf(
 export const idOfBookmark = bookmarkId;
 
 /** One bookmark by its id, deleted or not — what the outbox reads before it sends. */
-export async function bookmarkRow(
-  db: SQLiteDatabase,
-  id: string,
-): Promise<LibraryBookmark | null> {
+export async function bookmarkRow(db: SQLiteDatabase, id: string): Promise<LibraryBookmark | null> {
   const row = await db.getFirstAsync<LibraryBookmark>(
     'SELECT id, documentId, page, label, createdAt, clientUpdatedAt FROM bookmarks WHERE id = ?',
     id,
@@ -253,10 +250,10 @@ export async function attachAnnotationRemoteId(
   id: string,
   remoteId: string,
 ): Promise<void> {
-  await db.runAsync(
-    "UPDATE annotations SET remoteId = ?, syncState = 'synced' WHERE id = ?",
-    [remoteId, id],
-  );
+  await db.runAsync("UPDATE annotations SET remoteId = ?, syncState = 'synced' WHERE id = ?", [
+    remoteId,
+    id,
+  ]);
 }
 
 export async function upsertRemoteAnnotation(

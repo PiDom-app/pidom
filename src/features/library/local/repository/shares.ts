@@ -27,7 +27,14 @@ import * as Groups from './groups';
 
 type ShareRow = Omit<
   LibraryShare,
-  'hasCover' | 'canDownload' | 'canReshare' | 'role' | 'status' | 'direction' | 'subject' | 'syncState'
+  | 'hasCover'
+  | 'canDownload'
+  | 'canReshare'
+  | 'role'
+  | 'status'
+  | 'direction'
+  | 'subject'
+  | 'syncState'
 > & {
   hasCover: number;
   canDownload: number;
@@ -287,10 +294,7 @@ export type RemoteShare = LibraryShare & { remoteId: string };
  * reconcile that overwrote a pending local change would silently undo a reader
  * who accepted a share in a tunnel.
  */
-export async function upsertRemoteShare(
-  db: SQLiteDatabase,
-  remote: RemoteShare,
-): Promise<void> {
+export async function upsertRemoteShare(db: SQLiteDatabase, remote: RemoteShare): Promise<void> {
   const existing = await db.getFirstAsync<{ id: string; syncState: string }>(
     'SELECT id, syncState FROM shares WHERE remoteId = ? OR id = ? LIMIT 1',
     [remote.remoteId, remote.remoteId],
@@ -304,7 +308,9 @@ export async function upsertRemoteShare(
   // device's. Translating on the way in is what keeps `groupId` meaning one
   // thing in this database. See `Groups.localIdFor`.
   const groupId =
-    remote.groupId == null ? null : ((await Groups.localIdFor(db, remote.groupId)) ?? remote.groupId);
+    remote.groupId == null
+      ? null
+      : ((await Groups.localIdFor(db, remote.groupId)) ?? remote.groupId);
 
   const values = [
     remote.documentId,

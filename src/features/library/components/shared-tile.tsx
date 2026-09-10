@@ -55,11 +55,13 @@ export function SharedTile({
       onPress={() => onPress(share)}
       accessibilityRole="button"
       accessibilityLabel={`${share.title ?? 'A shared document'} from ${share.counterpartName ?? 'someone'}`}
-      className="rounded-md data-[active=true]:bg-hover">
+      className="rounded-md data-[active=true]:bg-hover"
+    >
       <VStack style={{ width: COVER_WIDTH }}>
         <Box
           className="items-center justify-center rounded-md bg-surface"
-          style={{ width: COVER_WIDTH, height }}>
+          style={{ width: COVER_WIDTH, height }}
+        >
           <Text size="xs" className="font-semibold tracking-wider text-fg-subtle">
             PDF
           </Text>
@@ -84,7 +86,8 @@ export function SharedTile({
           <Text
             size="2xs"
             numberOfLines={1}
-            className={waiting ? 'flex-1 text-primary' : 'flex-1 text-fg-subtle'}>
+            className={waiting ? 'flex-1 text-primary' : 'flex-1 text-fg-subtle'}
+          >
             {transfer === null
               ? `${share.groupName ?? share.counterpartName ?? 'Someone'} · ${waiting ? 'decide' : 'download'}`
               : `Downloading · ${percent}%`}

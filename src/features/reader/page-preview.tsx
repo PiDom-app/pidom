@@ -42,7 +42,8 @@ export function PagePreview({
       // Decorative: the page number and chapter beside it carry the meaning,
       // and a screen reader has no use for a picture of a page.
       accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants">
+      importantForAccessibility="no-hide-descendants"
+    >
       <Pdf
         source={{ uri }}
         page={page}

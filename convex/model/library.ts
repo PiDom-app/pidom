@@ -236,10 +236,7 @@ export async function recentlyAdded(
     .take(RAIL_LIMIT);
 }
 
-export async function favorites(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-): Promise<Doc<'documents'>[]> {
+export async function favorites(ctx: QueryCtx, ownerId: Id<'users'>): Promise<Doc<'documents'>[]> {
   return await ctx.db
     .query('documents')
     .withIndex('by_owner_and_favorite', (q) => q.eq('ownerId', ownerId).eq('isFavorite', true))
@@ -248,10 +245,7 @@ export async function favorites(
 }
 
 /** The other half of `by_owner_and_finished`. */
-export async function finished(
-  ctx: QueryCtx,
-  ownerId: Id<'users'>,
-): Promise<Doc<'documents'>[]> {
+export async function finished(ctx: QueryCtx, ownerId: Id<'users'>): Promise<Doc<'documents'>[]> {
   return await ctx.db
     .query('documents')
     .withIndex('by_owner_and_finished', (q) => q.eq('ownerId', ownerId).eq('isFinished', true))
@@ -388,7 +382,9 @@ export async function importDocument(
     ...(originalFileName === undefined ? {} : { originalFileName }),
     ...(mimeType === undefined ? {} : { mimeType }),
     ...(pageCount === undefined ? {} : { pageCount }),
-    ...(input.fingerprint === undefined ? {} : { fingerprint: cleanFingerprint(input.fingerprint) }),
+    ...(input.fingerprint === undefined
+      ? {}
+      : { fingerprint: cleanFingerprint(input.fingerprint) }),
     ...localIdField(input.localId),
     ...clientClock(input.clientUpdatedAt),
     byteSize: Math.round(input.byteSize),

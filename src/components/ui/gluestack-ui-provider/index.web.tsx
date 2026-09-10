@@ -6,8 +6,7 @@ import { script } from './script';
 
 export type ModeType = 'light' | 'dark' | 'system';
 
-export const useSafeLayoutEffect =
-  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+export const useSafeLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export function GluestackUIProvider({
   mode = 'light',

@@ -64,9 +64,11 @@ export function AccessScreen() {
     remoteId === null ? 'skip' : { documentId: remoteId as never },
   );
 
-  const [removing, setRemoving] = useState<{ id: string; name: string; downloaded: boolean } | null>(
-    null,
-  );
+  const [removing, setRemoving] = useState<{
+    id: string;
+    name: string;
+    downloaded: boolean;
+  } | null>(null);
   /**
    * The share whose permission is being changed, and the draft for it.
    *
@@ -93,10 +95,7 @@ export function AccessScreen() {
     remoteId,
     shares !== undefined && shares.length > 0,
   );
-  const onlineIds = useMemo(
-    () => new Set(watchers.map((person) => person.id)),
-    [watchers],
-  );
+  const onlineIds = useMemo(() => new Set(watchers.map((person) => person.id)), [watchers]);
 
   const people = useMemo(
     () => (shares ?? []).filter((share) => share.subject === 'user'),
@@ -108,7 +107,15 @@ export function AccessScreen() {
   );
 
   const openEditor = useCallback(
-    (share: { id: string; role: 'viewer' | 'annotator'; canDownload: boolean; canReshare: boolean }, name: string) => {
+    (
+      share: {
+        id: string;
+        role: 'viewer' | 'annotator';
+        canDownload: boolean;
+        canReshare: boolean;
+      },
+      name: string,
+    ) => {
       setDraft({
         role: share.role,
         canDownload: share.canDownload,
@@ -158,7 +165,8 @@ export function AccessScreen() {
             onPress={() => router.push({ pathname: '/share', params: { id: document.id } })}
             accessibilityRole="button"
             accessibilityLabel="Share with somebody else"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={UserPlus} size="lg" className="text-foreground" />
           </Pressable>
         }
@@ -175,9 +183,7 @@ export function AccessScreen() {
               {document.title}
             </Text>
             <Text size="xs" className="mt-0.5 text-fg-subtle">
-              {shares === undefined
-                ? 'Checking…'
-                : summarise(people.length, groups.length)}
+              {shares === undefined ? 'Checking…' : summarise(people.length, groups.length)}
             </Text>
           </VStack>
         </HStack>
@@ -201,7 +207,7 @@ export function AccessScreen() {
                 // only until then. The account is the half that knows the
                 // photo has been turned off, and this row sits in a list of
                 // what other people can see.
-                pictureUrl={profile === null ? me?.photoUrl ?? null : profile.pictureUrl}
+                pictureUrl={profile === null ? (me?.photoUrl ?? null) : profile.pictureUrl}
                 trailing={<Tag label="Owner" />}
                 online
               />
@@ -252,7 +258,10 @@ export function AccessScreen() {
 
             {groups.length === 0 ? null : (
               <>
-                <Text size="xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
+                <Text
+                  size="xs"
+                  className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle"
+                >
                   Groups
                 </Text>
                 {groups.map((share) => (
@@ -345,10 +354,12 @@ function RowMenu({
           {...props}
           accessibilityRole="button"
           accessibilityLabel="Access actions"
-          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+        >
           <Icon as={MoreHorizontal} size="lg" className="text-fg-subtle" />
         </Pressable>
-      )}>
+      )}
+    >
       {/* A group has no profile to show, so the item is absent rather than
           present and inert. gluestack's `MenuItem` has no disabled state, and
           a row that looks tappable and is not is worse than one that is not

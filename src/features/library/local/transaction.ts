@@ -88,6 +88,9 @@ export async function inTransaction(
 
   // The queue holds a settled-either-way promise so one failure does not stop
   // every later transaction on this connection.
-  queues.set(db, run.catch(() => undefined));
+  queues.set(
+    db,
+    run.catch(() => undefined),
+  );
   await run;
 }

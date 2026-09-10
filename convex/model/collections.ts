@@ -193,7 +193,11 @@ export async function membershipPage(
   ownerId: Id<'users'>,
   paginationOpts: PaginationOptions,
 ): Promise<
-  PaginationResult<{ collectionId: Id<'collections'>; documentId: Id<'documents'>; addedAt: number }>
+  PaginationResult<{
+    collectionId: Id<'collections'>;
+    documentId: Id<'documents'>;
+    addedAt: number;
+  }>
 > {
   const page = await ctx.db
     .query('collectionDocuments')

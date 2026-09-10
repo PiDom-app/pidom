@@ -143,7 +143,8 @@ export function DocumentProbe({
       pointerEvents="none"
       // Android collapses single-child views out of the hierarchy, and a view
       // that is not in the hierarchy cannot be captured.
-      collapsable={false}>
+      collapsable={false}
+    >
       <View ref={hostRef} collapsable={false} style={CANVAS}>
         <Pdf
           source={{ uri: pdfUri }}

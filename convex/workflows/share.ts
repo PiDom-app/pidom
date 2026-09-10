@@ -116,10 +116,7 @@ export const tellSome = internalMutation({
  * skips it entirely — one recipient is one event, written inline, and spinning
  * up a workflow to tell one person would cost more than the telling.
  */
-export async function queueFanOut(
-  ctx: MutationCtx,
-  shareId: Id<'documentShares'>,
-): Promise<void> {
+export async function queueFanOut(ctx: MutationCtx, shareId: Id<'documentShares'>): Promise<void> {
   await workflow.start(
     ctx,
     internal.workflows.share.fanOutGroupShare,

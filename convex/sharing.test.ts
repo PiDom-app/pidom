@@ -102,11 +102,12 @@ async function signedIn(t: ReturnType<typeof harness>, identity: typeof OWNER) {
 
 async function userIdOf(t: ReturnType<typeof harness>, identity: typeof OWNER) {
   const subject = identity.subject.slice(identity.subject.lastIndexOf('|') + 1);
-  const row = await t.run(async (ctx) =>
-    await ctx.db
-      .query('users')
-      .withIndex('by_subject', (q) => q.eq('subject', subject))
-      .unique(),
+  const row = await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query('users')
+        .withIndex('by_subject', (q) => q.eq('subject', subject))
+        .unique(),
   );
   if (row === null) {
     throw new Error('no profile');
@@ -200,9 +201,7 @@ describe('a stranger', () => {
 
     await expect(stranger.query(api.sharing.accessList, { documentId })).rejects.toThrow();
     await expect(stranger.query(api.library.outline, { documentId })).rejects.toThrow();
-    await expect(
-      stranger.query(api.library.pagesOf, { documentId, after: 0 }),
-    ).rejects.toThrow();
+    await expect(stranger.query(api.library.pagesOf, { documentId, after: 0 })).rejects.toThrow();
     await expect(
       stranger.mutation(api.sharing.shareDownloadUrl, { documentId, what: 'document' }),
     ).rejects.toThrow();
@@ -261,9 +260,7 @@ describe('a stranger', () => {
     const documentId = await aSyncedDocument(t, owner);
     const shareId = await sharedWith(t, owner, friend, documentId);
 
-    await expect(
-      stranger.mutation(api.sharing.revokeShare, { shareId }),
-    ).rejects.toThrow();
+    await expect(stranger.mutation(api.sharing.revokeShare, { shareId })).rejects.toThrow();
   });
 });
 
@@ -319,11 +316,12 @@ describe('an annotator', () => {
       note: 'Chapter 4 is the one we argued about',
     });
 
-    const rows = await t.run(async (ctx) =>
-      await ctx.db
-        .query('documentAnnotations')
-        .withIndex('by_document_and_created', (q) => q.eq('documentId', documentId))
-        .collect(),
+    const rows = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('documentAnnotations')
+          .withIndex('by_document_and_created', (q) => q.eq('documentId', documentId))
+          .collect(),
     );
 
     expect(rows).toHaveLength(1);
@@ -389,7 +387,12 @@ describe('revoking', () => {
     ).rejects.toThrow();
     expect(await reaches(friend, documentId)).toBe(false);
     await expect(
-      friend.mutation(api.library.addAnnotation, { documentId, currentPage: 1, kind: 'note', note: 'x' }),
+      friend.mutation(api.library.addAnnotation, {
+        documentId,
+        currentPage: 1,
+        kind: 'note',
+        note: 'x',
+      }),
     ).rejects.toThrow();
   });
 
@@ -408,11 +411,12 @@ describe('revoking', () => {
     });
     await owner.mutation(api.sharing.revokeShare, { shareId });
 
-    const rows = await t.run(async (ctx) =>
-      await ctx.db
-        .query('documentAnnotations')
-        .withIndex('by_document_and_created', (q) => q.eq('documentId', documentId))
-        .collect(),
+    const rows = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('documentAnnotations')
+          .withIndex('by_document_and_created', (q) => q.eq('documentId', documentId))
+          .collect(),
     );
     expect(rows).toHaveLength(0);
   });
@@ -472,18 +476,18 @@ describe('expiry', () => {
     await friend
       .mutation(api.sharing.shareDownloadUrl, { documentId, what: 'document' })
       .catch(() => undefined);
-    expect(
-      (await t.run(async (ctx) => await ctx.db.get('documentShares', shareId)))?.status,
-    ).toBe('accepted');
+    expect((await t.run(async (ctx) => await ctx.db.get('documentShares', shareId)))?.status).toBe(
+      'accepted',
+    );
 
     await t.run(async (ctx) => {
       const { expireDue } = await import('./model/sharing');
       await expireDue(ctx, 100);
     });
 
-    expect(
-      (await t.run(async (ctx) => await ctx.db.get('documentShares', shareId)))?.status,
-    ).toBe('expired');
+    expect((await t.run(async (ctx) => await ctx.db.get('documentShares', shareId)))?.status).toBe(
+      'expired',
+    );
   });
 });
 
@@ -560,12 +564,7 @@ describe('finding people', () => {
 
     const found = await owner.query(api.sharing.findPeople, { term: 'friend@example.com' });
     expect(found).toHaveLength(1);
-    expect(Object.keys(found[0]).sort()).toEqual([
-      'displayName',
-      'handle',
-      'id',
-      'pictureUrl',
-    ]);
+    expect(Object.keys(found[0]).sort()).toEqual(['displayName', 'handle', 'id', 'pictureUrl']);
   });
 
   test('respects an account that has turned discovery off', async () => {
@@ -576,9 +575,9 @@ describe('finding people', () => {
     await friend.mutation(api.settings.updateSharing, { findableBy: 'nobody' });
 
     expect(await owner.query(api.sharing.findPeople, { term: '@afriend' })).toHaveLength(0);
-    expect(
-      await owner.query(api.sharing.findPeople, { term: 'friend@example.com' }),
-    ).toHaveLength(0);
+    expect(await owner.query(api.sharing.findPeople, { term: 'friend@example.com' })).toHaveLength(
+      0,
+    );
   });
 
   test('refuses a share to somebody who accepts none', async () => {
@@ -606,9 +605,7 @@ describe('finding people', () => {
     const friend = await signedIn(t, FRIEND);
 
     await owner.mutation(api.settings.setHandle, { handle: 'reader' });
-    await expect(
-      friend.mutation(api.settings.setHandle, { handle: 'Reader' }),
-    ).rejects.toThrow();
+    await expect(friend.mutation(api.settings.setHandle, { handle: 'Reader' })).rejects.toThrow();
   });
 });
 
@@ -644,9 +641,7 @@ describe('a profile', () => {
 
     const after = await renamed.query(api.users.me, {});
     expect(after?.name).toBe('Renamed Friend');
-    expect(after?.pictureUrl).toBe(
-      'https://lh3.googleusercontent.com/a/different=s240-c',
-    );
+    expect(after?.pictureUrl).toBe('https://lh3.googleusercontent.com/a/different=s240-c');
   });
 
   test('leaves a photo URL that carries no size alone', async () => {
@@ -654,9 +649,7 @@ describe('a profile', () => {
     const as = t.withIdentity({ ...OWNER, pictureUrl: 'https://example.test/face.png' });
     await as.mutation(api.users.ensureProfile, {});
 
-    expect((await as.query(api.users.me, {}))?.pictureUrl).toBe(
-      'https://example.test/face.png',
-    );
+    expect((await as.query(api.users.me, {}))?.pictureUrl).toBe('https://example.test/face.png');
   });
 });
 
@@ -915,9 +908,10 @@ describe('a recipient with full access', () => {
     // document is navigable only by scrubbing, and without the second it
     // cannot be searched offline like every other document in the library.
     await expect(friend.query(api.library.outline, { documentId })).resolves.toEqual([]);
-    await expect(
-      friend.query(api.library.pagesOf, { documentId, after: 0 }),
-    ).resolves.toEqual({ pages: [], isDone: true });
+    await expect(friend.query(api.library.pagesOf, { documentId, after: 0 })).resolves.toEqual({
+      pages: [],
+      isDone: true,
+    });
   });
 });
 
@@ -1181,9 +1175,7 @@ describe('devices', () => {
     });
 
     await t.mutation(internal.push.applyReceipts, {
-      results: [
-        { id: deliveryId, delivered: false, error: 'DeviceNotRegistered', answered: true },
-      ],
+      results: [{ id: deliveryId, delivered: false, error: 'DeviceNotRegistered', answered: true }],
     });
 
     // The token is the thing that has to go: Expo has said it is dead, and a

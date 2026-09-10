@@ -84,13 +84,19 @@ export function DocumentCover({
             className="font-semibold"
             // Scaled with the cover so a 44px list thumbnail and a 120px rail
             // cover read as the same object rather than two designs.
-            style={{ ...ink, fontSize: Math.max(7, 12.5 * scale), lineHeight: Math.max(9, 16 * scale) }}>
+            style={{
+              ...ink,
+              fontSize: Math.max(7, 12.5 * scale),
+              lineHeight: Math.max(9, 16 * scale),
+            }}
+          >
             {title}
           </Text>
           {width >= 70 ? (
             <Text
               className="absolute right-2 bottom-1.5 font-semibold tracking-widest opacity-50"
-              style={{ ...ink, fontSize: 8 * scale }}>
+              style={{ ...ink, fontSize: 8 * scale }}
+            >
               PDF
             </Text>
           ) : null}
@@ -111,7 +117,10 @@ export function DocumentCover({
       {/* A hairline inside the edge, so a pale cover on a white background
           still has a shape. Absolute rather than a border so it does not
           change the cover's size. */}
-      <Box className="absolute inset-0 rounded-md border border-foreground/5" pointerEvents="none" />
+      <Box
+        className="absolute inset-0 rounded-md border border-foreground/5"
+        pointerEvents="none"
+      />
     </Box>
   );
 }

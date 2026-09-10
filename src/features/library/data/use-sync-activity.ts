@@ -148,7 +148,8 @@ async function describe(
         ...base,
         kind: 'bookmark',
         title: `A bookmark in ${title}`,
-        detail: operation.op === 'remove' ? `Page ${bookmark.page}, removed.` : `Page ${bookmark.page}.`,
+        detail:
+          operation.op === 'remove' ? `Page ${bookmark.page}, removed.` : `Page ${bookmark.page}.`,
       };
     }
 

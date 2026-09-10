@@ -130,8 +130,7 @@ export function ShareDetailScreen() {
           <ListSkeleton kind="share" rows={1} />
         ) : (
           <Notice glyph={Ban}>
-            That share is gone. It was withdrawn, or the document it named was
-            deleted.
+            That share is gone. It was withdrawn, or the document it named was deleted.
           </Notice>
         )}
       </Screen>
@@ -178,7 +177,8 @@ export function ShareDetailScreen() {
               <Text
                 size="md"
                 numberOfLines={3}
-                className={`font-semibold ${gone ? 'text-fg-muted' : 'text-foreground'}`}>
+                className={`font-semibold ${gone ? 'text-fg-muted' : 'text-foreground'}`}
+              >
                 {share.title ?? 'A shared document'}
               </Text>
               <Text size="xs" className="mt-1 text-fg-subtle">

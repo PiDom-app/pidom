@@ -67,12 +67,8 @@ export const mine = query({
  */
 export const updateSharing = mutation({
   args: {
-    findableBy: v.optional(
-      v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
-    ),
-    shareableBy: v.optional(
-      v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
-    ),
+    findableBy: v.optional(v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody'))),
+    shareableBy: v.optional(v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody'))),
     defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
     defaultCanDownload: v.optional(v.boolean()),
     defaultCanReshare: v.optional(v.boolean()),

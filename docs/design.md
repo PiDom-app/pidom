@@ -144,7 +144,7 @@ anyway; the scrolling screens set `flexGrow: 1` on their content style (or
 without a ceiling. Short content centres, long content scrolls exactly as
 before.
 
-The one screen that had a centred *hero* — a 164px identity block with an
+The one screen that had a centred _hero_ — a 164px identity block with an
 explicit `<Box className="flex-1" />` under it — went the other way, to a
 left-aligned identity row over a scroller. It was not an empty state; it was a
 screen full of content pretending to be one, and the spacer is what clipped

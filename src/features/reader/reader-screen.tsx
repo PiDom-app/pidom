@@ -68,11 +68,7 @@ type Phase = 'opening' | 'ready' | 'locked' | 'failed';
  * legitimately sit over one of these.
  */
 type Overlay =
-  | { kind: 'none' }
-  | { kind: 'jump' }
-  | { kind: 'modes' }
-  | { kind: 'settings' }
-  | { kind: 'find' };
+  { kind: 'none' } | { kind: 'jump' } | { kind: 'modes' } | { kind: 'settings' } | { kind: 'find' };
 
 const CLOSED: Overlay = { kind: 'none' };
 
@@ -430,44 +426,44 @@ export function ReaderScreen() {
           cheaper thing to be wrong about. `attempt` reuses the same mechanism
           for Retry and for a password that has just been entered. */}
       {session.resumeAt === null || !passwordChecked ? null : (
-      <ReaderCanvas
-        key={`${mode}-${fit}-${attempt}`}
-        ref={canvas}
-        uri={uri}
-        // Live only for the spread, whose right pane has no ref and is driven
-        // entirely by this prop. Everywhere else the renderer owns the page
-        // after the resume, and echoing every `pageChanged` straight back as a
-        // `page` prop pushed a navigation command into a view the reader was
-        // still scrolling.
-        page={mode === 'spread' ? session.page : (session.resumeAt ?? 1)}
-        pageCount={session.pageCount ?? document.pageCount}
-        title={document.title}
-        mode={mode}
-        fit={fit}
-        password={password}
-        theme={theme}
-        onLoadComplete={(count, tableContents) => {
-          setPhase('ready');
-          setTriedPassword(false);
-          session.onLoaded(count);
-          recoverOutline(count, tableContents);
-        }}
-        onPageChanged={session.onPageChanged}
-        onError={onError}
-        onTap={commands.toggleControls}
-        onScaleChanged={(next) => {
-          // Zooming in is somebody looking closely at the page, which is the
-          // one moment the controls are certainly in the way. Zooming back out
-          // is them finished — so this is a toggle, not a latch that only ever
-          // hides.
-          if (next > 1.05) {
-            setChrome(false);
-          }
-        }}
-        onPressLink={onPressLink}
-        onSelectionChange={setSelection}
-        onLoadProgress={setLoadProgress}
-      />
+        <ReaderCanvas
+          key={`${mode}-${fit}-${attempt}`}
+          ref={canvas}
+          uri={uri}
+          // Live only for the spread, whose right pane has no ref and is driven
+          // entirely by this prop. Everywhere else the renderer owns the page
+          // after the resume, and echoing every `pageChanged` straight back as a
+          // `page` prop pushed a navigation command into a view the reader was
+          // still scrolling.
+          page={mode === 'spread' ? session.page : (session.resumeAt ?? 1)}
+          pageCount={session.pageCount ?? document.pageCount}
+          title={document.title}
+          mode={mode}
+          fit={fit}
+          password={password}
+          theme={theme}
+          onLoadComplete={(count, tableContents) => {
+            setPhase('ready');
+            setTriedPassword(false);
+            session.onLoaded(count);
+            recoverOutline(count, tableContents);
+          }}
+          onPageChanged={session.onPageChanged}
+          onError={onError}
+          onTap={commands.toggleControls}
+          onScaleChanged={(next) => {
+            // Zooming in is somebody looking closely at the page, which is the
+            // one moment the controls are certainly in the way. Zooming back out
+            // is them finished — so this is a toggle, not a latch that only ever
+            // hides.
+            if (next > 1.05) {
+              setChrome(false);
+            }
+          }}
+          onPressLink={onPressLink}
+          onSelectionChange={setSelection}
+          onLoadProgress={setLoadProgress}
+        />
       )}
 
       {/* Over the page and under the chrome, so the controls stay at full
@@ -479,9 +475,7 @@ export function ReaderScreen() {
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           className={
-            tint === 'warm'
-              ? 'absolute inset-0 bg-warn/20'
-              : 'absolute inset-0 bg-overlay/35'
+            tint === 'warm' ? 'absolute inset-0 bg-warn/20' : 'absolute inset-0 bg-overlay/35'
           }
         />
       )}
@@ -623,7 +617,6 @@ export function ReaderScreen() {
           openNote(null);
         }}
       />
-
     </Box>
   );
 }

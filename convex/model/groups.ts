@@ -101,12 +101,7 @@ export const publicGroupValidator = v.object({
   id: v.id('groups'),
   name: v.string(),
   memberCount: v.number(),
-  role: v.union(
-    v.literal('owner'),
-    v.literal('admin'),
-    v.literal('member'),
-    v.null(),
-  ),
+  role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.null()),
   muted: v.boolean(),
   settings: groupSettingsValidator,
   createdAt: v.number(),

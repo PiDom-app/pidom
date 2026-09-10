@@ -58,7 +58,8 @@ export function GroupsScreen() {
             onPress={() => setNaming(true)}
             accessibilityRole="button"
             accessibilityLabel="New group"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={Plus} size="lg" className="text-foreground" />
           </Pressable>
         }
@@ -92,8 +93,8 @@ export function GroupsScreen() {
           )}
           ListFooterComponent={
             <Notice glyph={Info}>
-              A document shared with a group is open to its members straight away — being in
-              the group is the agreement. Leaving one takes those documents with it.
+              A document shared with a group is open to its members straight away — being in the
+              group is the agreement. Leaving one takes those documents with it.
             </Notice>
           }
         />

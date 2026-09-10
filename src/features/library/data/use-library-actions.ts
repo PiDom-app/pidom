@@ -144,12 +144,10 @@ export function useLibraryActions() {
 
   const rename = useCallback(
     async (documentId: string, title: string, author?: string): Promise<boolean> => {
-      return await patch(
-        profileId,
-        documentId,
-        { title, author: author ?? null },
-        ['title', 'author'],
-      );
+      return await patch(profileId, documentId, { title, author: author ?? null }, [
+        'title',
+        'author',
+      ]);
     },
     [profileId],
   );
@@ -173,12 +171,11 @@ export function useLibraryActions() {
           ? document.progress
           : Math.min(1, currentPage / document.pageCount);
 
-      return await patch(
-        profileId,
-        document.id,
-        { isFinished, currentPage, progress },
-        ['isFinished', 'currentPage', 'progress'],
-      );
+      return await patch(profileId, document.id, { isFinished, currentPage, progress }, [
+        'isFinished',
+        'currentPage',
+        'progress',
+      ]);
     },
     [profileId],
   );
@@ -491,7 +488,11 @@ export function useLibraryActions() {
       try {
         const url = await downloadUrl({ documentId, what: 'document' });
         if (url === null) {
-          showToast({ id: 'download', tone: 'error', title: 'That document is not in your account' });
+          showToast({
+            id: 'download',
+            tone: 'error',
+            title: 'That document is not in your account',
+          });
           if (db !== null) {
             await Files.setState(db, document.id, 'missing');
           }

@@ -15,10 +15,7 @@ export type OutlineEntry = { title: string; page: number; depth: number };
  * by page — a PDF can, and does, declare bookmarks out of order — so a binary
  * search would be wrong before it was fast.
  */
-export function lastStartingBefore(
-  entries: readonly { page: number }[],
-  page: number,
-): number {
+export function lastStartingBefore(entries: readonly { page: number }[], page: number): number {
   let best = -1;
   let bestPage = 0;
   for (let i = 0; i < entries.length; i++) {

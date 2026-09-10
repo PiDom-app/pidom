@@ -88,11 +88,7 @@ export function DocumentDetails({
               )}
               <Row
                 label="Pages"
-                value={
-                  document.pageCount === null
-                    ? 'Not counted yet'
-                    : `${document.pageCount}`
-                }
+                value={document.pageCount === null ? 'Not counted yet' : `${document.pageCount}`}
               />
               <Row label="Size" value={exactBytes(document.byteSize)} />
               <Row label="Added" value={fullDate(document.createdAt)} />
@@ -107,9 +103,7 @@ export function DocumentDetails({
               <Row
                 label="In your account"
                 value={
-                  document.isSynced
-                    ? 'Yes — any device can download it'
-                    : 'No — this device only'
+                  document.isSynced ? 'Yes — any device can download it' : 'No — this device only'
                 }
               />
 

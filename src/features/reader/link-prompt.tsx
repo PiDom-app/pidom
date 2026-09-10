@@ -23,12 +23,18 @@ import type { PdfLink } from './open-pdf-link';
  * The last sentence is the one that matters: a reader should know that what
  * they are about to open was written by whoever made the PDF and not by Pidom.
  */
-export function LinkPrompt({ link, onClose }: { link: PdfLink | null; onClose: (open: boolean) => void }) {
+export function LinkPrompt({
+  link,
+  onClose,
+}: {
+  link: PdfLink | null;
+  onClose: (open: boolean) => void;
+}) {
   return (
     <ActionSheetPanel isOpen={link !== null} onClose={() => onClose(false)}>
       <VStack space="md">
         <VStack space="sm">
-            <Icon as={ExternalLink} size="lg" className="text-fg-muted" />
+          <Icon as={ExternalLink} size="lg" className="text-fg-muted" />
           <Heading size="md" className="text-foreground">
             Leave Pidom?
           </Heading>
@@ -47,7 +53,8 @@ export function LinkPrompt({ link, onClose }: { link: PdfLink | null; onClose: (
               numberOfLines={1}
               ellipsizeMode="head"
               accessibilityLabel={link === null ? undefined : `Host ${link.host}`}
-              className="font-semibold text-foreground">
+              className="font-semibold text-foreground"
+            >
               {link?.host ?? ''}
             </Text>
             <Text
@@ -55,7 +62,8 @@ export function LinkPrompt({ link, onClose }: { link: PdfLink | null; onClose: (
               numberOfLines={1}
               ellipsizeMode="head"
               accessibilityLabel={link?.url}
-              className="mt-0.5 text-fg-subtle">
+              className="mt-0.5 text-fg-subtle"
+            >
               {link?.url ?? ''}
             </Text>
           </Box>

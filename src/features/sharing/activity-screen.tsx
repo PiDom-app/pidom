@@ -126,9 +126,9 @@ export function ActivityScreen() {
           )}
           ListFooterComponent={
             <Notice glyph={Lock}>
-              A row here never says which document. The title comes from a query that checks you
-              can still read it — a feed that cached titles would go on showing them after access
-              was removed.
+              A row here never says which document. The title comes from a query that checks you can
+              still read it — a feed that cached titles would go on showing them after access was
+              removed.
             </Notice>
           }
         />
@@ -144,13 +144,7 @@ export function ActivityScreen() {
  * of twenty washed rows stops meaning anything by the third one, and this list
  * is usually mostly unread.
  */
-function EventRow({
-  event,
-  onPress,
-}: {
-  event: LibraryShareEvent;
-  onPress: () => void;
-}) {
+function EventRow({ event, onPress }: { event: LibraryShareEvent; onPress: () => void }) {
   const who = event.actorName ?? 'Someone';
 
   return (
@@ -158,7 +152,8 @@ function EventRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={sentenceFor(event.kind, who)}
-      className="border-b border-hairline data-[active=true]:bg-hover">
+      className="border-b border-hairline data-[active=true]:bg-hover"
+    >
       {/* `py-3.5` and a hairline, the same as a search result — this is a list
           of one-line rows and it should read as one. Without the rule the
           glyph notch on one avatar sat a few pixels from the next avatar and
@@ -186,9 +181,7 @@ function EventRow({
           </Text>
         </VStack>
 
-        {event.read ? null : (
-          <Box className="h-1.5 w-1.5 rounded-full bg-primary" />
-        )}
+        {event.read ? null : <Box className="h-1.5 w-1.5 rounded-full bg-primary" />}
       </HStack>
     </Pressable>
   );
