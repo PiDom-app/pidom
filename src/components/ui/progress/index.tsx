@@ -31,28 +31,23 @@ const progressFilledTrackStyle = tva({
   },
 });
 
-type IProgressProps = VariantProps<typeof progressStyle> &
-  React.ComponentProps<typeof UIProgress>;
+type IProgressProps = VariantProps<typeof progressStyle> & React.ComponentProps<typeof UIProgress>;
 type IProgressFilledTrackProps = VariantProps<typeof progressFilledTrackStyle> &
   React.ComponentProps<typeof UIProgress.FilledTrack>;
 
-const Progress = React.forwardRef<
-  React.ComponentRef<typeof UIProgress>,
-  IProgressProps
->(function Progress(
-  { className, orientation = 'horizontal', ...props },
-  ref
-) {
-  return (
-    <UIProgress
-      ref={ref}
-      {...props}
-      className={progressStyle({ orientation, class: className })}
-      context={{ orientation }}
-      orientation={orientation}
-    />
-  );
-});
+const Progress = React.forwardRef<React.ComponentRef<typeof UIProgress>, IProgressProps>(
+  function Progress({ className, orientation = 'horizontal', ...props }, ref) {
+    return (
+      <UIProgress
+        ref={ref}
+        {...props}
+        className={progressStyle({ orientation, class: className })}
+        context={{ orientation }}
+        orientation={orientation}
+      />
+    );
+  },
+);
 
 const ProgressFilledTrack = React.forwardRef<
   React.ComponentRef<typeof UIProgress.FilledTrack>,

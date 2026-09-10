@@ -47,7 +47,8 @@ export function ScreenHeader({
         onPress={onBack}
         accessibilityRole="button"
         accessibilityLabel={backLabel}
-        className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+        className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+      >
         <Icon as={ArrowLeft} size="lg" className="text-foreground" />
       </Pressable>
       <Icon as={glyph} size="md" className="ml-1.5 text-fg-muted" />
@@ -84,7 +85,8 @@ export function Segments({
         horizontal
         showsHorizontalScrollIndicator={false}
         style={SEGMENTS}
-        contentContainerStyle={SEGMENTS_CONTENT}>
+        contentContainerStyle={SEGMENTS_CONTENT}
+      >
         {segments.map((segment) => {
           const on = segment.key === active;
           return (
@@ -98,7 +100,8 @@ export function Segments({
                 on
                   ? 'shrink-0 rounded-md bg-primary-tint px-3 py-1.5'
                   : 'shrink-0 rounded-md px-3 py-1.5 data-[active=true]:bg-hover'
-              }>
+              }
+            >
               <Text size="xs" className={on ? 'text-primary' : 'text-fg-muted'}>
                 {segment.label}
               </Text>
@@ -234,11 +237,7 @@ export function ListSkeleton({
   return (
     <VStack className="pt-1">
       {Array.from({ length: rows }, (_, index) =>
-        kind === 'person' ? (
-          <PersonRowSkeleton key={index} />
-        ) : (
-          <ShareRowSkeleton key={index} />
-        ),
+        kind === 'person' ? <PersonRowSkeleton key={index} /> : <ShareRowSkeleton key={index} />,
       )}
     </VStack>
   );

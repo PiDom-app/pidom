@@ -148,12 +148,13 @@ export async function lookupExact(
     return [];
   }
 
-  const found = trimmed.includes('@') && !trimmed.startsWith('@')
-    ? await ctx.db
-        .query('users')
-        .withIndex('by_email', (q) => q.eq('email', trimmed.toLowerCase()))
-        .unique()
-    : await handleLookup(ctx, trimmed);
+  const found =
+    trimmed.includes('@') && !trimmed.startsWith('@')
+      ? await ctx.db
+          .query('users')
+          .withIndex('by_email', (q) => q.eq('email', trimmed.toLowerCase()))
+          .unique()
+      : await handleLookup(ctx, trimmed);
 
   if (found === null || found._id === caller._id) {
     return [];

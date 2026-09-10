@@ -50,10 +50,7 @@ export function NoteScreen() {
   const kind = params.kind === 'bookmark' ? 'bookmark' : 'note';
   const page = Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1);
   const passage = params.passage ?? null;
-  const annotationId =
-    params.annotationId === undefined
-      ? null
-      : params.annotationId;
+  const annotationId = params.annotationId === undefined ? null : params.annotationId;
 
   // The initialiser, not an effect: re-seeding on every render would fight the
   // reader's next keystroke, and the route is remounted per composition anyway.
@@ -119,7 +116,8 @@ export function NoteScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
         <VStack className="ml-2.5 flex-1">
@@ -130,7 +128,12 @@ export function NoteScreen() {
             {`Page ${page}`}
           </Text>
         </VStack>
-        <Button size="sm" className="w-auto self-auto" isDisabled={!canSave} onPress={() => void save()}>
+        <Button
+          size="sm"
+          className="w-auto self-auto"
+          isDisabled={!canSave}
+          onPress={() => void save()}
+        >
           <ButtonText>{kind === 'bookmark' ? 'Save' : 'Keep'}</ButtonText>
         </Button>
       </HStack>

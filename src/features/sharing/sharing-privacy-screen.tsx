@@ -89,7 +89,8 @@ export function SharingPrivacyScreen() {
             onPress={() => setClaiming(true)}
             accessibilityRole="button"
             accessibilityLabel="Your handle"
-            className="px-4 py-2 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
             <HStack className="items-center" space="md">
               <Icon as={AtSign} size="lg" className="text-fg-muted" />
               <VStack className="flex-1">
@@ -166,8 +167,8 @@ export function SharingPrivacyScreen() {
             onChange={(allowGroupInvites) => void update({ allowGroupInvites })}
           />
           <Notice glyph={Users}>
-            A document shared with a group is open to its members straight away — being in the
-            group is the agreement. Leaving one takes those documents with it.
+            A document shared with a group is open to its members straight away — being in the group
+            is the agreement. Leaving one takes those documents with it.
           </Notice>
         </Section>
       </ScrollView>
@@ -239,7 +240,8 @@ function Choice({
         onPress={() => setOpen((was) => !was)}
         accessibilityRole="button"
         accessibilityLabel={label}
-        className="px-4 py-2 data-[active=true]:bg-hover">
+        className="px-4 py-2 data-[active=true]:bg-hover"
+      >
         <HStack className="items-center" space="md">
           <VStack className="flex-1">
             <Text size="md" className="text-foreground">
@@ -267,16 +269,16 @@ function Choice({
               }}
               accessibilityRole="radio"
               accessibilityState={{ selected: option === value }}
-              className="pl-12 pr-6 py-2.5 data-[active=true]:bg-hover">
+              className="pl-12 pr-6 py-2.5 data-[active=true]:bg-hover"
+            >
               <HStack className="items-center" space="md">
                 <Text
                   size="sm"
-                  className={option === value ? 'flex-1 text-primary' : 'flex-1 text-fg-muted'}>
+                  className={option === value ? 'flex-1 text-primary' : 'flex-1 text-fg-muted'}
+                >
                   {LABELS[option]}
                 </Text>
-                {option === value ? (
-                  <Icon as={Check} size="sm" className="text-primary" />
-                ) : null}
+                {option === value ? <Icon as={Check} size="sm" className="text-primary" /> : null}
               </HStack>
             </Pressable>
           ))

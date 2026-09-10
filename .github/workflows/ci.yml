@@ -14,18 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Checks
+  quality:
+    name: quality
     runs-on: ubuntu-latest
-    # Job-level, because the `secrets` context is not available in a step's
-    # `if` — only `env` is. This is what lets the codegen step below skip
-    # cleanly on a fork or before the key is configured.
-    env:
-      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
           cache: npm
@@ -33,18 +28,17 @@ jobs:
       - name: Install
         run: npm ci
 
-      # `convex/_generated` is written by the Convex CLI and is not committed,
-      # so a typecheck without it fails on every import of the generated API.
-      # This job runs when a deploy key is configured and skips cleanly when it
-      # is not — a check that is always red teaches nobody anything.
-      - name: Convex codegen
-        id: codegen
-        if: env.CONVEX_DEPLOY_KEY != ''
-        run: npx convex codegen
+      - name: Format
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
 
       - name: Typecheck
-        if: steps.codegen.outcome == 'success'
         run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
 
       # These need no deployment, and they catch the class of bug that has
       # actually shipped here: a colour utility naming a token that does not
@@ -52,5 +46,90 @@ jobs:
       - name: Every colour resolves to a token
         run: node scripts/check-tokens.mjs
 
-      - name: Design artboards build
-        run: node .design/build.mjs && node .design/screens.mjs
+      - name: Expo Doctor
+        run: npm run doctor
+
+      - name: Expo Android configuration
+        run: npm run config:check
+
+  release:
+    name: Production release
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+    concurrency:
+      group: production-release
+      cancel-in-progress: false
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      EAS_UPDATE_PRIVATE_KEY: ${{ secrets.EAS_UPDATE_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e
+        with:
+          eas-version: 23.2.0
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Validate release credentials
+        run: |
+          test -n "$EXPO_TOKEN"
+          test -n "$CONVEX_DEPLOY_KEY"
+          test -n "$EAS_UPDATE_PRIVATE_KEY"
+
+      - name: Deploy Convex production
+        run: npx convex deploy --typecheck enable --codegen enable --message "GitHub $GITHUB_SHA"
+
+      - name: Build signed Android APK
+        run: eas build --platform android --profile production --non-interactive --wait --freeze-credentials --json > eas-build.json
+
+      - name: Download and checksum APK
+        id: apk
+        run: |
+          BUILD_ID="$(node -e 'const build=require("./eas-build.json"); process.stdout.write((Array.isArray(build) ? build[0] : build).id)')"
+          VERSION_CODE="$(node -e 'const build=Array.isArray(require("./eas-build.json")) ? require("./eas-build.json")[0] : require("./eas-build.json"); process.stdout.write(String(build.androidVersionCode ?? build.versionCode))')"
+          mkdir release
+          (cd release && eas build:download --build-id "$BUILD_ID" --non-interactive)
+          APK="$(find release -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          RELEASE_APK="release/Pidom-${VERSION_CODE}.apk"
+          mv "$APK" "$RELEASE_APK"
+          sha256sum "$RELEASE_APK" > "${RELEASE_APK}.sha256"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "apk=$RELEASE_APK" >> "$GITHUB_OUTPUT"
+
+      - name: Create public GitHub Release
+        env:
+          BUILD_ID: ${{ steps.apk.outputs.build_id }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          APK: ${{ steps.apk.outputs.apk }}
+        run: |
+          APP_VERSION="$(npx expo config --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data).version))')"
+          TAG="v${APP_VERSION}-android.${VERSION_CODE}"
+          gh release create "$TAG" "$APK" "${APK}.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "Pidom ${APP_VERSION} (Android ${VERSION_CODE})" \
+            --generate-notes \
+            --notes "EAS build ID: ${BUILD_ID}\nCommit: ${GITHUB_SHA}"
+
+      - name: Publish signed EAS Update
+        run: |
+          KEY_PATH="$RUNNER_TEMP/eas-update-private-key.pem"
+          trap 'rm -f "$KEY_PATH"' EXIT
+          printf '%s' "$EAS_UPDATE_PRIVATE_KEY" > "$KEY_PATH"
+          eas update --channel production --environment production --non-interactive \
+            --private-key-path "$KEY_PATH" \
+            --message "GitHub ${GITHUB_SHA}"

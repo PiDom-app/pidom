@@ -168,9 +168,19 @@ export function ReaderScrubber({
     <VStack>
       {scrubbing ? (
         <View className="items-center pb-3" pointerEvents="none">
-          <HStack className="items-center rounded-md border border-border bg-elevated p-2" space="md">
+          <HStack
+            className="items-center rounded-md border border-border bg-elevated p-2"
+            space="md"
+          >
             {showPreview ? (
-              <PagePreview uri={uri} page={preview} password={password} theme={theme} width={38} height={54} />
+              <PagePreview
+                uri={uri}
+                page={preview}
+                password={password}
+                theme={theme}
+                width={38}
+                height={54}
+              />
             ) : null}
             <VStack>
               <Text size="sm" className="font-semibold text-foreground">
@@ -192,7 +202,8 @@ export function ReaderScrubber({
           accessibilityLabel={
             pageCount > 0 ? `Page ${page} of ${pageCount}. Go to a page.` : `Page ${page}`
           }
-          className="-mx-2 rounded-md px-2 py-1 data-[active=true]:bg-hover">
+          className="-mx-2 rounded-md px-2 py-1 data-[active=true]:bg-hover"
+        >
           <Text size="xs" className={scrubbing ? 'text-foreground' : 'text-fg-muted'}>
             {pageCount > 0 ? `${scrubbing ? preview : page} of ${pageCount}` : `Page ${page}`}
           </Text>
@@ -206,7 +217,8 @@ export function ReaderScrubber({
             onPress={onOpenSettings}
             accessibilityRole="button"
             accessibilityLabel="Reading settings"
-            className="-mr-1.5 h-8 w-8 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="-mr-1.5 h-8 w-8 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={Rows3} size="sm" className="text-fg-muted" />
           </Pressable>
         </HStack>
@@ -232,7 +244,8 @@ export function ReaderScrubber({
               onStep(-1);
             }
           }}
-          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+        >
           <View className={scrubbing ? 'h-1 rounded-md bg-border' : 'h-0.5 rounded-md bg-border'}>
             <Animated.View
               style={fillStyle}
@@ -244,7 +257,9 @@ export function ReaderScrubber({
                     key={`${entry.page}-${entry.title}`}
                     pointerEvents="none"
                     className="absolute -top-1.5 h-1.5 w-px bg-border-strong"
-                    style={{ left: `${Math.min(100, (entry.page / Math.max(1, pageCount)) * 100)}%` }}
+                    style={{
+                      left: `${Math.min(100, (entry.page / Math.max(1, pageCount)) * 100)}%`,
+                    }}
                   />
                 ))
               : null}

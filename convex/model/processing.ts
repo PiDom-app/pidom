@@ -166,10 +166,7 @@ export async function outlineFor(
 }
 
 /** Drops a document's outline. Called from the delete cascade. */
-export async function deleteOutline(
-  ctx: MutationCtx,
-  documentId: Id<'documents'>,
-): Promise<void> {
+export async function deleteOutline(ctx: MutationCtx, documentId: Id<'documents'>): Promise<void> {
   const row = await ctx.db
     .query('documentOutline')
     .withIndex('by_document', (q) => q.eq('documentId', documentId))
@@ -180,10 +177,7 @@ export async function deleteOutline(
 }
 
 /** Drops a document's job row, for the same reason. */
-export async function deleteJob(
-  ctx: MutationCtx,
-  documentId: Id<'documents'>,
-): Promise<void> {
+export async function deleteJob(ctx: MutationCtx, documentId: Id<'documents'>): Promise<void> {
   const row = await ctx.db
     .query('documentJobs')
     .withIndex('by_document', (q) => q.eq('documentId', documentId))
@@ -287,9 +281,8 @@ export function snippetOf(text: string, term: string): string {
   const collapsed = text.replace(/\s+/g, ' ').trim();
   const firstWord = term.trim().split(/\s+/)[0] ?? '';
 
-  const at = firstWord === ''
-    ? -1
-    : collapsed.toLocaleLowerCase().indexOf(firstWord.toLocaleLowerCase());
+  const at =
+    firstWord === '' ? -1 : collapsed.toLocaleLowerCase().indexOf(firstWord.toLocaleLowerCase());
 
   if (at === -1) {
     return collapsed.slice(0, SNIPPET_CHARS * 2);
@@ -378,10 +371,7 @@ export async function deletePages(
  * cannot finish. Idempotent: a document already queued is left where it is,
  * because moving it to the back would let a long book starve behind newer ones.
  */
-export async function queuePagePrune(
-  ctx: MutationCtx,
-  documentId: Id<'documents'>,
-): Promise<void> {
+export async function queuePagePrune(ctx: MutationCtx, documentId: Id<'documents'>): Promise<void> {
   const existing = await ctx.db
     .query('pagePruneQueue')
     .withIndex('by_document', (q) => q.eq('documentId', documentId))

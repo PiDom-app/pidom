@@ -81,8 +81,7 @@ export function LibraryScreen() {
    * document gets read. See `usePendingProbe`.
    */
   const documents = useMemo(
-    () =>
-      sections.flatMap((section) => (section.kind === 'documents' ? section.documents : [])),
+    () => sections.flatMap((section) => (section.kind === 'documents' ? section.documents : [])),
     [sections],
   );
   const pending = usePendingProbe(documents);
@@ -295,19 +294,14 @@ export function LibraryScreen() {
 const FILL = { flex: 1 } as const;
 
 /** The way out of the home screen, and the way to add to it. */
-function ViewAllFooter({
-  onViewAll,
-  onImport,
-}: {
-  onViewAll: () => void;
-  onImport: () => void;
-}) {
+function ViewAllFooter({ onViewAll, onImport }: { onViewAll: () => void; onImport: () => void }) {
   return (
     <Box className="mt-6 border-t border-hairline">
       <Pressable
         onPress={onViewAll}
         accessibilityRole="button"
-        className="h-14 flex-row items-center justify-center gap-1.5 data-[active=true]:bg-hover">
+        className="h-14 flex-row items-center justify-center gap-1.5 data-[active=true]:bg-hover"
+      >
         <Text size="sm" className="font-medium text-primary">
           View all library
         </Text>
@@ -318,7 +312,8 @@ function ViewAllFooter({
         onPress={onImport}
         accessibilityRole="button"
         accessibilityLabel="Import PDF"
-        className="h-14 flex-row items-center justify-center gap-2 border-t border-hairline data-[active=true]:bg-hover">
+        className="h-14 flex-row items-center justify-center gap-2 border-t border-hairline data-[active=true]:bg-hover"
+      >
         <Icon as={FilePlus2} size="sm" className="text-fg-muted" />
         <Text size="sm" className="text-fg-muted">
           Import PDF

@@ -243,29 +243,29 @@ export function ReaderCanvas({
     // `ViewProps` — without it the largest thing on screen is unnamed to a
     // screen reader.
     <View style={FILL} accessibilityLabel={title}>
-    <Pdf
-      {...guarded}
-      ref={pdf}
-      source={{ uri }}
-      page={page}
-      password={password}
-      onError={onError}
-      horizontal={horizontal}
-      enablePaging={horizontal}
-      // Fit-to-width in continuous, so the measure is the same on every page
-      // however the pages themselves are proportioned. One page at a time gets
-      // the whole page on screen instead.
-      fitPolicy={horizontal ? FIT_POLICY.both : FIT_POLICY[fit]}
-      spacing={horizontal ? 0 : 8}
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-      onPageSingleTap={onTap}
-      onScaleChanged={onScaleChanged}
-      onLoadComplete={(count, _p, _sz, toc) => onLoadComplete(count, toc)}
-      onPageChanged={(current) => onPageChanged(current)}
-      onLoadProgress={onLoadProgress}
-      style={style}
-    />
+      <Pdf
+        {...guarded}
+        ref={pdf}
+        source={{ uri }}
+        page={page}
+        password={password}
+        onError={onError}
+        horizontal={horizontal}
+        enablePaging={horizontal}
+        // Fit-to-width in continuous, so the measure is the same on every page
+        // however the pages themselves are proportioned. One page at a time gets
+        // the whole page on screen instead.
+        fitPolicy={horizontal ? FIT_POLICY.both : FIT_POLICY[fit]}
+        spacing={horizontal ? 0 : 8}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        onPageSingleTap={onTap}
+        onScaleChanged={onScaleChanged}
+        onLoadComplete={(count, _p, _sz, toc) => onLoadComplete(count, toc)}
+        onPageChanged={(current) => onPageChanged(current)}
+        onLoadProgress={onLoadProgress}
+        style={style}
+      />
     </View>
   );
 }

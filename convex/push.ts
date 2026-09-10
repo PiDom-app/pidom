@@ -3,7 +3,12 @@ import { v } from 'convex/values';
 
 import { components, internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalAction, internalMutation, internalQuery, type MutationCtx } from './_generated/server';
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from './_generated/server';
 import { profileOf } from './model/discovery';
 import { PUSH_RECEIPT_BATCH, PUSH_RECEIPT_DELAY_MS } from './model/limits';
 import * as Notifications from './model/notifications';
@@ -88,9 +93,7 @@ export async function dispatch(ctx: MutationCtx, eventId: Id<'shareEvents'>): Pr
   }
   // The event carries the group it is about when it is about one, so a member
   // who muted that group is skipped without touching their account-wide switch.
-  if (
-    !(await Notifications.wantsPush(ctx, event.userId, event.kind, Date.now(), event.groupId))
-  ) {
+  if (!(await Notifications.wantsPush(ctx, event.userId, event.kind, Date.now(), event.groupId))) {
     return;
   }
 
@@ -160,9 +163,14 @@ export async function dispatch(ctx: MutationCtx, eventId: Id<'shareEvents'>): Pr
   }
 
   if (pending) {
-    await receipts.enqueueAction(ctx, internal.push.collectReceipts, {}, {
-      runAfter: PUSH_RECEIPT_DELAY_MS,
-    });
+    await receipts.enqueueAction(
+      ctx,
+      internal.push.collectReceipts,
+      {},
+      {
+        runAfter: PUSH_RECEIPT_DELAY_MS,
+      },
+    );
   }
 }
 

@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -9,16 +9,16 @@ updates:
       # Expo pins its own packages to the SDK. Bumping one at a time produces
       # combinations Expo never tested, so they move together or not at all.
       expo:
-        patterns: ["expo", "expo-*", "@expo/*"]
+        patterns: ['expo', 'expo-*', '@expo/*']
       react-native:
-        patterns: ["react-native", "react-native-*", "@react-native-*"]
+        patterns: ['react-native', 'react-native-*', '@react-native-*']
       gluestack:
-        patterns: ["@gluestack-ui/*", "nativewind", "tailwindcss", "@tailwindcss/*"]
+        patterns: ['@gluestack-ui/*', 'nativewind', 'tailwindcss', '@tailwindcss/*']
     ignore:
       # Held at 1.30.1 by an override; see package.json.
       - dependency-name: lightningcss
 
   - package-ecosystem: github-actions
-    directory: "/"
+    directory: '/'
     schedule:
       interval: monthly

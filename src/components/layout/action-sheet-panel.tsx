@@ -32,10 +32,7 @@ export function ActionSheetPanel({
   const close = isDismissable ? onClose : () => {};
 
   return (
-    <Actionsheet
-      isOpen={isOpen}
-      onClose={close}
-      closeOnOverlayClick={isDismissable}>
+    <Actionsheet isOpen={isOpen} onClose={close} closeOnOverlayClick={isDismissable}>
       <ActionsheetBackdrop />
       <ActionsheetContent className="max-h-none rounded-t-md border-t border-border bg-elevated p-0">
         {isDismissable ? (
@@ -50,7 +47,8 @@ export function ActionSheetPanel({
         <ActionsheetScrollView
           className="w-full max-h-[60vh]"
           keyboardDismissMode="interactive"
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+        >
           <VStack className="w-full px-4 pt-2 pb-7">{children}</VStack>
         </ActionsheetScrollView>
       </ActionsheetContent>

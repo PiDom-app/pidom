@@ -99,20 +99,22 @@ async function storedDocument(t: ReturnType<typeof harness>, documentId: Id<'doc
 }
 
 async function storedBookmarks(t: ReturnType<typeof harness>, documentId: Id<'documents'>) {
-  return await t.run(async (ctx) =>
-    await ctx.db
-      .query('documentBookmarks')
-      .withIndex('by_document', (q) => q.eq('documentId', documentId))
-      .collect(),
+  return await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query('documentBookmarks')
+        .withIndex('by_document', (q) => q.eq('documentId', documentId))
+        .collect(),
   );
 }
 
 async function storedAnnotations(t: ReturnType<typeof harness>, documentId: Id<'documents'>) {
-  return await t.run(async (ctx) =>
-    await ctx.db
-      .query('documentAnnotations')
-      .withIndex('by_document_and_created', (q) => q.eq('documentId', documentId))
-      .collect(),
+  return await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query('documentAnnotations')
+        .withIndex('by_document_and_created', (q) => q.eq('documentId', documentId))
+        .collect(),
   );
 }
 
@@ -216,9 +218,7 @@ describe('deletes delivered twice', () => {
     await as.mutation(api.library.removeAnnotation, { annotationId });
     // This is the one that used to throw `FORBIDDEN` and jam the queue for
     // ever, over a note that was already deleted.
-    await expect(
-      as.mutation(api.library.removeAnnotation, { annotationId }),
-    ).resolves.toBeNull();
+    await expect(as.mutation(api.library.removeAnnotation, { annotationId })).resolves.toBeNull();
   });
 
   test('removeAnnotation still refuses somebody else s note', async () => {
@@ -234,9 +234,7 @@ describe('deletes delivered twice', () => {
       note: 'Mine.',
     });
 
-    await expect(
-      theirs.mutation(api.library.removeAnnotation, { annotationId }),
-    ).rejects.toThrow();
+    await expect(theirs.mutation(api.library.removeAnnotation, { annotationId })).rejects.toThrow();
   });
 
   test('removeBookmark is silent on a page that was never marked', async () => {

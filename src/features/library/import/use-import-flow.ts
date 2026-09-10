@@ -494,17 +494,7 @@ export function useImportFlow() {
     }
 
     setStage('done');
-  }, [
-    picked,
-    profileId,
-    title,
-    author,
-    sync,
-    canSync,
-    duplicate,
-    markPresent,
-    showToast,
-  ]);
+  }, [picked, profileId, title, author, sync, canSync, duplicate, markPresent, showToast]);
 
   stagedRef.current = picked === null ? null : { pdf: picked.uri, cover: picked.coverUri };
 

@@ -104,9 +104,7 @@ export function SearchInsideScreen() {
    */
   const remoteScope = useMemo(
     () =>
-      scope === null
-        ? null
-        : ((catalogue ?? []).find((row) => row.id === scope)?.remoteId ?? null),
+      scope === null ? null : ((catalogue ?? []).find((row) => row.id === scope)?.remoteId ?? null),
     [scope, catalogue],
   );
 
@@ -142,7 +140,9 @@ export function SearchInsideScreen() {
     let cancelled = false;
     void searchLocally(profileId, trimmed, scope, SEARCH_LIMIT).then((rows) => {
       if (!cancelled) {
-        setLocal(rows.map((row) => ({ documentId: row.documentId, page: row.page, snippet: row.snippet })));
+        setLocal(
+          rows.map((row) => ({ documentId: row.documentId, page: row.page, snippet: row.snippet })),
+        );
       }
     });
     return () => {
@@ -190,9 +190,7 @@ export function SearchInsideScreen() {
     // In page order within a document, which is reading order. Both indexes
     // return by relevance, and stepping through a book by relevance is not
     // something a reader can follow.
-    return [...merged.values()].sort(
-      (a, b) => a.title.localeCompare(b.title) || a.page - b.page,
-    );
+    return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title) || a.page - b.page);
   }, [long, local, online, titles]);
 
   // Only for a library-wide search. Searching inside one document the reader
@@ -216,7 +214,8 @@ export function SearchInsideScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
         <Input className="h-10 flex-1">
@@ -270,8 +269,7 @@ export function SearchInsideScreen() {
             </Text>
             {offline ? (
               <Text size="xs" className="mt-2 text-center text-fg-subtle">
-                Only documents downloaded to this phone are searched with no
-                connection.
+                Only documents downloaded to this phone are searched with no connection.
               </Text>
             ) : null}
           </Center>
@@ -291,12 +289,14 @@ export function SearchInsideScreen() {
                 }
                 accessibilityRole="button"
                 accessibilityLabel={`${item.title}, page ${item.page}`}
-                className="border-b border-hairline px-4 py-2.5 data-[active=true]:bg-hover">
+                className="border-b border-hairline px-4 py-2.5 data-[active=true]:bg-hover"
+              >
                 <HStack className="items-center" space="md">
                   <Text
                     size="sm"
                     numberOfLines={1}
-                    className="flex-1 font-semibold text-foreground">
+                    className="flex-1 font-semibold text-foreground"
+                  >
                     {item.title}
                   </Text>
                   <Text size="2xs" className="text-fg-subtle">

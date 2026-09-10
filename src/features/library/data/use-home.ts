@@ -8,11 +8,7 @@ import { useSyncStore } from '@/stores/sync-store';
 import * as Collections from '../local/repository/collections';
 import * as Documents from '../local/repository/documents';
 import * as Shares from '../local/repository/shares';
-import type {
-  LibraryCollection,
-  LibraryDocument,
-  LibraryShare,
-} from '../local/repository/types';
+import type { LibraryCollection, LibraryDocument, LibraryShare } from '../local/repository/types';
 import { useLocalQuery } from '../local/use-local-query';
 import { useSyncNow } from '../sync/use-sync-engine';
 import { useCoverSync } from './use-cover-sync';

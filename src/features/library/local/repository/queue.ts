@@ -238,11 +238,7 @@ export async function defer(
  * that failed loudly — the change is in their library and not in their account,
  * and nothing anywhere would say so.
  */
-export async function markFailed(
-  db: SQLiteDatabase,
-  opId: string,
-  reason: string,
-): Promise<void> {
+export async function markFailed(db: SQLiteDatabase, opId: string, reason: string): Promise<void> {
   await db.runAsync(
     "UPDATE syncQueue SET status = 'failed', attempts = attempts + 1, lastError = ? WHERE opId = ?",
     [reason, opId],

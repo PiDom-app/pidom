@@ -55,9 +55,7 @@ export function PageJumpSheet({
   }, [isOpen, page]);
 
   const parsed = Number.parseInt(typed, 10);
-  const target = Number.isFinite(parsed)
-    ? Math.min(pageCount, Math.max(1, parsed))
-    : null;
+  const target = Number.isFinite(parsed) ? Math.min(pageCount, Math.max(1, parsed)) : null;
 
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
@@ -112,7 +110,8 @@ export function PageJumpSheet({
                 onJump(target);
                 onClose();
               }
-            }}>
+            }}
+          >
             <ButtonText>{target === null ? 'Enter a page' : `Go to page ${target}`}</ButtonText>
           </Button>
 

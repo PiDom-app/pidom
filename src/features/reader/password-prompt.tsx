@@ -39,12 +39,7 @@ export function PasswordPrompt(props: PasswordPromptProps) {
   return <PasswordPromptSheet key={props.isOpen ? 'open' : 'closed'} {...props} />;
 }
 
-function PasswordPromptSheet({
-  isOpen,
-  onClose,
-  wrong,
-  onSubmit,
-}: PasswordPromptProps) {
+function PasswordPromptSheet({ isOpen, onClose, wrong, onSubmit }: PasswordPromptProps) {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
 
@@ -52,7 +47,7 @@ function PasswordPromptSheet({
     <ActionSheetPanel isOpen={isOpen} onClose={onClose}>
       <VStack space="md">
         <VStack space="sm">
-            <Icon as={Lock} size="lg" className="text-fg-muted" />
+          <Icon as={Lock} size="lg" className="text-fg-muted" />
           <Heading size="md" className="text-foreground">
             {wrong ? 'That password did not work' : 'This PDF has a password'}
           </Heading>
@@ -93,7 +88,8 @@ function PasswordPromptSheet({
           <Button
             size="sm"
             isDisabled={password.length === 0}
-            onPress={() => onSubmit(password, remember)}>
+            onPress={() => onSubmit(password, remember)}
+          >
             <ButtonText>Open</ButtonText>
           </Button>
         </VStack>

@@ -233,9 +233,7 @@ export const finalize = internalMutation({
         ? { pageCount: args.totalPages }
         : {}),
       // `author` only when the row has none. The reader's title always wins.
-      ...(doc.author === undefined && args.author !== undefined
-        ? { author: args.author }
-        : {}),
+      ...(doc.author === undefined && args.author !== undefined ? { author: args.author } : {}),
       updatedAt: Date.now(),
     });
 
@@ -350,9 +348,7 @@ export async function queueExtraction(
       // Cancelling stops it starting or retrying; it cannot stop a step already
       // in flight. That step's writes are cleared by the new run's own
       // `clearPages` pass, which is why that pass exists at all.
-      await workflow
-        .cancel(ctx, existing.workflowId as WorkflowId)
-        .catch(() => undefined);
+      await workflow.cancel(ctx, existing.workflowId as WorkflowId).catch(() => undefined);
     }
 
     // `startAsync`, so this returns as soon as the workflow row exists rather

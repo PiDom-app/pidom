@@ -48,7 +48,7 @@ export function useShareActions() {
   const markRead = useMutation(api.sharing.markEventsRead);
 
   const withDb = useCallback(
-    async <T,>(run: (db: Awaited<ReturnType<typeof database>>) => Promise<T>): Promise<T | null> => {
+    async <T>(run: (db: Awaited<ReturnType<typeof database>>) => Promise<T>): Promise<T | null> => {
       if (profileId === null) {
         return null;
       }
@@ -204,11 +204,7 @@ export function useShareActions() {
           return null;
         }
         await Shares.setPermissionLocally(db!, row.id, permission);
-        await Queue.enqueue(db!, 'share', row.id, 'update', [
-          'role',
-          'canDownload',
-          'canReshare',
-        ]);
+        await Queue.enqueue(db!, 'share', row.id, 'update', ['role', 'canDownload', 'canReshare']);
         return row;
       });
 
@@ -268,17 +264,14 @@ export function useShareActions() {
    * Adds or removes a member. Never queued — see the note at the top.
    */
   const changeMembership = useCallback(
-    async (
-      groupId: string,
-      userId: string,
-      action: 'add' | 'remove',
-    ): Promise<boolean> => {
+    async (groupId: string, userId: string, action: 'add' | 'remove'): Promise<boolean> => {
       if (!hasNetwork) {
         showToast({
           id: 'group-member',
           tone: 'error',
           title: 'This needs a connection',
-          description: 'Changing who is in a group decides what they can open, so it is not queued.',
+          description:
+            'Changing who is in a group decides what they can open, so it is not queued.',
         });
         return false;
       }

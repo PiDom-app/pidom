@@ -44,7 +44,8 @@ export function LibraryHeader({
           onPress={onOpenAccount}
           accessibilityRole="button"
           accessibilityLabel="Account"
-          className="rounded-full">
+          className="rounded-full"
+        >
           <Avatar className="h-9 w-9">
             <AvatarFallbackText>{name ?? email ?? 'Reader'}</AvatarFallbackText>
             <AvatarImage source={{ uri: photoUrl }} />
@@ -56,7 +57,8 @@ export function LibraryHeader({
         onPress={onOpenSearch}
         accessibilityRole="search"
         accessibilityLabel="Search your library"
-        className="mx-6 mt-5 h-11 flex-row items-center gap-2.5 rounded-md border border-hairline bg-surface px-3 data-[active=true]:bg-hover">
+        className="mx-6 mt-5 h-11 flex-row items-center gap-2.5 rounded-md border border-hairline bg-surface px-3 data-[active=true]:bg-hover"
+      >
         <Icon as={Search} size="md" className="text-fg-subtle" />
         <Text size="sm" className="text-fg-subtle">
           Search your library

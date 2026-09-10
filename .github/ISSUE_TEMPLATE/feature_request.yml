@@ -1,6 +1,6 @@
 name: Feature request
 description: Something Pidom should be able to do
-labels: ["enhancement"]
+labels: ['enhancement']
 body:
   - type: markdown
     attributes:

@@ -49,13 +49,13 @@ export function FindBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
-  const count =
-    hits.length === 0 ? '' : `${at + 1} of ${hits.length}`;
+  const count = hits.length === 0 ? '' : `${at + 1} of ${hits.length}`;
 
   return (
     <Box
       className="absolute inset-x-0 top-0 border-b border-hairline bg-background"
-      style={{ paddingTop: insets.top + 8 }}>
+      style={{ paddingTop: insets.top + 8 }}
+    >
       <VStack className="px-4 pb-3">
         <HStack className="items-center" space="sm">
           <Input className="h-10 flex-1">
@@ -84,7 +84,8 @@ export function FindBar({
             disabled={hits.length === 0}
             accessibilityRole="button"
             accessibilityLabel="Previous match"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon
               as={ChevronUp}
               size="md"
@@ -96,7 +97,8 @@ export function FindBar({
             disabled={hits.length === 0}
             accessibilityRole="button"
             accessibilityLabel="Next match"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon
               as={ChevronDown}
               size="md"
@@ -107,7 +109,8 @@ export function FindBar({
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Close find"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={X} size="md" className="text-foreground" />
           </Pressable>
         </HStack>

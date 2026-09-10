@@ -155,9 +155,7 @@ export const updateSettings = mutation({
   args: {
     groupId: v.id('groups'),
     description: v.optional(v.string()),
-    whoCanAdd: v.optional(
-      v.union(v.literal('owner'), v.literal('admins'), v.literal('members')),
-    ),
+    whoCanAdd: v.optional(v.union(v.literal('owner'), v.literal('admins'), v.literal('members'))),
     whoCanShare: v.optional(v.union(v.literal('admins'), v.literal('members'))),
     defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
     defaultCanDownload: v.optional(v.boolean()),

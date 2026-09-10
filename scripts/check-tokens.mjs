@@ -21,7 +21,8 @@ const UTILITY =
 
 /** Suffixes that are not colours: `text-center`, `border-t`, `text-sm`. */
 const NOT_A_COLOUR = new Set(
-  ('none auto solid dashed dotted hidden left right center start end top bottom x y xs sm md lg ' +
+  (
+    'none auto solid dashed dotted hidden left right center start end top bottom x y xs sm md lg ' +
     'xl base px wrap nowrap balance pretty clip ellipsis uppercase lowercase normal collapse ' +
     'separate inline block full screen fit min max reverse wide wider widest tight loose snug ' +
     'transparent current line through no underline offset opacity t b l r transform safe decoration'
@@ -33,6 +34,7 @@ const IMPORT = /^\s*(?:import|export)\b[^;]*from\s+['"]/;
 
 const problems = [];
 (function walk(dir) {
+  let inBlockComment = false;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -40,9 +42,28 @@ const problems = [];
       continue;
     }
     if (!/\.tsx?$/.test(file)) continue;
+    inBlockComment = false;
     fs.readFileSync(file, 'utf8')
       .split('\n')
-      .forEach((line, i) => {
+      .forEach((originalLine, i) => {
+        let line = originalLine;
+        if (inBlockComment) {
+          const end = line.indexOf('*/');
+          if (end === -1) return;
+          line = line.slice(end + 2);
+          inBlockComment = false;
+        }
+        const start = line.indexOf('/*');
+        if (start !== -1) {
+          const end = line.indexOf('*/', start + 2);
+          if (end === -1) {
+            inBlockComment = true;
+            line = line.slice(0, start);
+          } else {
+            line = `${line.slice(0, start)}${line.slice(end + 2)}`;
+          }
+        }
+        line = line.replace(/\/\/.*$/, '');
         // A module path is not a className. `from './text-index'` and
         // `from '../data/use-text-mirror'` both read as `text-index` /
         // `text-mirror` to the pattern below, and a filename is not something a
@@ -63,7 +84,9 @@ const problems = [];
 if (problems.length > 0) {
   console.error('Colour utilities with no token behind them:\n');
   for (const p of problems) console.error(`  ${p}`);
-  console.error(`\n${problems.length} problem(s). Every colour must resolve to a token in src/design/global.css.`);
+  console.error(
+    `\n${problems.length} problem(s). Every colour must resolve to a token in src/design/global.css.`,
+  );
   process.exit(1);
 }
 console.log('Every colour utility in src/ resolves to a token.');

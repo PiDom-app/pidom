@@ -124,7 +124,8 @@ export function PageGrid({
               accessibilityRole="button"
               accessibilityState={{ selected: here }}
               accessibilityLabel={`Page ${page} of ${pageCount}`}
-              style={{ width: cellWidth, marginBottom: ROW_GAP }}>
+              style={{ width: cellWidth, marginBottom: ROW_GAP }}
+            >
               <VStack className="items-center">
                 <Box
                   style={{ width: cellWidth, height: cellHeight }}
@@ -132,7 +133,8 @@ export function PageGrid({
                     here
                       ? 'overflow-hidden rounded-md border-2 border-primary bg-sunken'
                       : 'overflow-hidden rounded-md border border-border bg-sunken'
-                  }>
+                  }
+                >
                   {file === null ? null : (
                     <Image
                       source={{ uri: file }}

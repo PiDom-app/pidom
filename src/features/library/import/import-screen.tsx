@@ -257,7 +257,8 @@ export function ImportScreen() {
             size="lg"
             className="h-12"
             isDisabled={picked === null || title.trim() === '' || committing}
-            onPress={() => void commit()}>
+            onPress={() => void commit()}
+          >
             {committing ? <ButtonSpinner /> : null}
             <ButtonText>{committing ? 'Adding' : 'Add to library'}</ButtonText>
           </Button>
@@ -281,8 +282,7 @@ function metaFor(picked: { byteSize: number; pageCount: number | null; outline: 
     // joined by two more facts.
     return 'Checking this PDF…';
   }
-  const contents =
-    picked.outline.length === 0 ? '' : ` · ${picked.outline.length} in contents`;
+  const contents = picked.outline.length === 0 ? '' : ` · ${picked.outline.length} in contents`;
   return `PDF · ${formatBytes(picked.byteSize)} · ${picked.pageCount} pages${contents}`;
 }
 
@@ -321,7 +321,7 @@ function Refused({
       body: 'It starts like a PDF and then stops making sense partway through, which usually means the download was interrupted.',
     },
     'no-size': {
-      title: "That file is empty",
+      title: 'That file is empty',
       body: 'There are no bytes in it to read. If it came from a download, it may not have finished.',
     },
     'no-space': {

@@ -113,7 +113,12 @@ export function useBookmarks({ documentId }: { documentId: string | undefined })
         if (db === null) {
           return false;
         }
-        const id = await Marks.addBookmark(db, documentId, page, label.trim() === '' ? null : label);
+        const id = await Marks.addBookmark(
+          db,
+          documentId,
+          page,
+          label.trim() === '' ? null : label,
+        );
         await Queue.enqueue(db, 'bookmark', id, 'create');
         return true;
       } catch (error: unknown) {

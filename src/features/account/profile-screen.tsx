@@ -17,7 +17,12 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useSession } from '@/features/auth/session-provider';
-import { ListSkeleton, Notice, ScreenHeader, Section } from '@/features/sharing/components/segments';
+import {
+  ListSkeleton,
+  Notice,
+  ScreenHeader,
+  Section,
+} from '@/features/sharing/components/segments';
 
 /**
  * The name and the face other people see.
@@ -99,7 +104,7 @@ export function ProfileScreen() {
     );
   }
 
-  const shown = showPhoto ? googlePhoto ?? profile?.pictureUrl ?? null : null;
+  const shown = showPhoto ? (googlePhoto ?? profile?.pictureUrl ?? null) : null;
   const dirty = name.trim() !== savedName || showPhoto !== savedPhoto;
 
   return (
@@ -204,7 +209,12 @@ export function ProfileScreen() {
 
       <Divider className="bg-hairline" />
       <VStack className="px-4 pt-3 pb-2">
-        <Button size="lg" className="h-11" isDisabled={!dirty || saving} onPress={() => void save()}>
+        <Button
+          size="lg"
+          className="h-11"
+          isDisabled={!dirty || saving}
+          onPress={() => void save()}
+        >
           <ButtonText>{saving ? 'Saving…' : 'Save'}</ButtonText>
         </Button>
       </VStack>

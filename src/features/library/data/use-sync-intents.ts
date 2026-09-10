@@ -35,10 +35,7 @@ export function useSyncIntents(): void {
   const { offline, profileId } = useLibraryStatus();
   const { performUpload } = useLibraryActions();
 
-  const read = useCallback(
-    async (db: SQLiteDatabase) => await Documents.pendingUploads(db),
-    [],
-  );
+  const read = useCallback(async (db: SQLiteDatabase) => await Documents.pendingUploads(db), []);
 
   const { data } = useLocalQuery(profileId, TABLES, read);
 

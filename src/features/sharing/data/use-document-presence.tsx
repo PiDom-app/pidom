@@ -46,17 +46,11 @@ export function useDocumentPresence(
   // same access check the heartbeat does — a room id is a guessable string.
   const people = useQuery(api.presence.inRoom, roomId === null ? 'skip' : { roomId });
 
-  const online = useMemo(
-    () => (people ?? []).filter((person) => person.online),
-    [people],
-  );
+  const online = useMemo(() => (people ?? []).filter((person) => person.online), [people]);
 
   return {
     people: online,
-    beat:
-      roomId === null ? null : (
-        <Beat roomId={roomId} sessionKey={profileId ?? 'anonymous'} />
-      ),
+    beat: roomId === null ? null : <Beat roomId={roomId} sessionKey={profileId ?? 'anonymous'} />,
   };
 }
 

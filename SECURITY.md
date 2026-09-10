@@ -4,7 +4,7 @@
 
 **Do not open a public issue.** Use GitHub's private advisory form:
 
-<https://github.com/BotCoder254/pidom/security/advisories/new>
+<https://github.com/PiDom-app/pidom/security/advisories/new>
 
 Anything that could expose a reader's documents, their Google identity, or
 another account's data belongs there. Expect an acknowledgement within a few
@@ -47,7 +47,7 @@ vulnerability:
   token is a write, and a Convex query cannot write. They stay bounded by
   `.take(n)` instead.
 - **`EXPO_PUBLIC_*` values are in the bundle.** A Convex deployment URL and
-  OAuth client IDs are public identifiers. The Google *client secret* is not
+  OAuth client IDs are public identifiers. The Google _client secret_ is not
   among them and must never be — the native ID token flow never needs one.
 
 ## Not vulnerabilities

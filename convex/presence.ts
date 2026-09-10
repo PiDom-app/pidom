@@ -83,9 +83,7 @@ async function mayEnter(
   }
   const membership = await ctx.db
     .query('groupMembers')
-    .withIndex('by_group_and_user', (q) =>
-      q.eq('groupId', room.groupId).eq('userId', user._id),
-    )
+    .withIndex('by_group_and_user', (q) => q.eq('groupId', room.groupId).eq('userId', user._id))
     .unique();
   return membership !== null;
 }
@@ -156,9 +154,7 @@ export const heartbeat = mutation({
     // rooms, and that is not something each member should have to answer.
     const groupShowsPresence =
       room.kind === 'group'
-        ? Groups.settingsOf(
-            (await ctx.db.get('groups', room.groupId)) ?? refuse(),
-          ).showPresence
+        ? Groups.settingsOf((await ctx.db.get('groups', room.groupId)) ?? refuse()).showPresence
         : true;
 
     const visible =
@@ -170,13 +166,7 @@ export const heartbeat = mutation({
       // Enter, then leave. The component hands back the tokens the hook needs
       // and the room is left without this account in it — invisible rather
       // than refused, which is what the setting says.
-      const tokens = await presence.heartbeat(
-        ctx,
-        args.roomId,
-        user._id,
-        args.sessionId,
-        interval,
-      );
+      const tokens = await presence.heartbeat(ctx, args.roomId, user._id, args.sessionId, interval);
       await presence.removeRoomUser(ctx, args.roomId, user._id);
       return tokens;
     }

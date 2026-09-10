@@ -43,13 +43,13 @@ export function RemoveAccessDialog({
             Remove {name}&apos;s access?
           </Heading>
           <Text size="sm" className="text-muted-foreground">
-            They will not be able to open this document again, and anything they wrote on it
-            stops syncing to you.
+            They will not be able to open this document again, and anything they wrote on it stops
+            syncing to you.
           </Text>
           {downloaded ? (
             <Text size="sm" className="text-muted-foreground">
-              They were allowed to download it. If they did, that copy is on their device and
-              this does not delete it — no setting here can.
+              They were allowed to download it. If they did, that copy is on their device and this
+              does not delete it — no setting here can.
             </Text>
           ) : null}
         </VStack>

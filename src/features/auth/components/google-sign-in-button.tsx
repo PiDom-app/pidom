@@ -39,7 +39,8 @@ export function GoogleSignInButton({ onPress }: { onPress: () => Promise<void> }
       onPress={handlePress}
       // Tracks the label, so a screen reader is not told "Continue with Google"
       // while the button reads "Signing in".
-      accessibilityLabel={pending ? 'Signing in with Google' : 'Continue with Google'}>
+      accessibilityLabel={pending ? 'Signing in with Google' : 'Continue with Google'}
+    >
       {pending ? <ButtonSpinner className="text-foreground" /> : <GoogleIcon size={18} />}
       <ButtonText className="text-base font-medium text-foreground">
         {pending ? 'Signing in' : 'Continue with Google'}

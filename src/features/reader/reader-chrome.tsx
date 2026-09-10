@@ -134,15 +134,15 @@ export function ReaderChrome({
         // out over a document that shows none of it.
         accessibilityElementsHidden={!shown}
         importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
-        className="absolute inset-x-0 top-0 border-b border-hairline bg-background">
-        <HStack
-          className="items-center gap-1.5 px-4 pb-3"
-          style={{ paddingTop: insets.top + 8 }}>
+        className="absolute inset-x-0 top-0 border-b border-hairline bg-background"
+      >
+        <HStack className="items-center gap-1.5 px-4 pb-3" style={{ paddingTop: insets.top + 8 }}>
           <Pressable
             onPress={onBack}
             accessibilityRole="button"
             accessibilityLabel="Back to your library"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={ArrowLeft} size="lg" className="text-foreground" />
           </Pressable>
 
@@ -162,7 +162,8 @@ export function ReaderChrome({
             onPress={onNavigator}
             accessibilityRole="button"
             accessibilityLabel="Contents, bookmarks and notes"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={ListTree} size="lg" className="text-foreground" />
           </Pressable>
 
@@ -174,7 +175,8 @@ export function ReaderChrome({
               onPress={onSearch}
               accessibilityRole="button"
               accessibilityLabel="Search inside this document"
-              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+            >
               <Icon as={TextSearch} size="lg" className="text-foreground" />
             </Pressable>
           ) : null}
@@ -184,7 +186,8 @@ export function ReaderChrome({
             accessibilityRole="button"
             accessibilityState={{ selected: isBookmarked }}
             accessibilityLabel={isBookmarked ? 'Remove this bookmark' : 'Bookmark this page'}
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             {/* Filled when the page is marked. A bookmark is the one control
                 here whose state is worth reading off the icon rather than off a
                 sheet two taps away. */}
@@ -207,7 +210,8 @@ export function ReaderChrome({
               onPress={onShare}
               accessibilityRole="button"
               accessibilityLabel="Share this document"
-              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+            >
               <Icon as={Share2} size="lg" className="text-foreground" />
             </Pressable>
           )}
@@ -216,7 +220,8 @@ export function ReaderChrome({
             onPress={onMore}
             accessibilityRole="button"
             accessibilityLabel="Document actions"
-            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={MoreHorizontal} size="lg" className="text-foreground" />
           </Pressable>
         </HStack>
@@ -233,7 +238,8 @@ export function ReaderChrome({
               {readers.slice(0, 3).map((reader, index) => (
                 <Box
                   key={reader.id}
-                  className={index === 0 ? 'rounded-full' : '-ml-2 rounded-full'}>
+                  className={index === 0 ? 'rounded-full' : '-ml-2 rounded-full'}
+                >
                   <Avatar className="h-5 w-5">
                     <AvatarFallbackText>{reader.displayName}</AvatarFallbackText>
                     <AvatarImage source={{ uri: reader.pictureUrl }} recyclingKey={reader.id} />
@@ -253,10 +259,9 @@ export function ReaderChrome({
         pointerEvents={shown ? 'auto' : 'none'}
         accessibilityElementsHidden={!shown}
         importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
-        className="absolute inset-x-0 bottom-0 border-t border-hairline bg-background">
-        <VStack
-          className="px-4 pt-4"
-          style={{ paddingBottom: Math.max(insets.bottom, 12) + 8 }}>
+        className="absolute inset-x-0 bottom-0 border-t border-hairline bg-background"
+      >
+        <VStack className="px-4 pt-4" style={{ paddingBottom: Math.max(insets.bottom, 12) + 8 }}>
           <ReaderScrubber
             page={page}
             pageCount={total}
@@ -283,9 +288,7 @@ export function ReaderChrome({
  * Past two it becomes a count, since a list of five names is a line of
  * ellipsis.
  */
-function describeReaders(
-  readers: readonly { displayName: string }[],
-): string {
+function describeReaders(readers: readonly { displayName: string }[]): string {
   const names = readers.map((reader) => reader.displayName.split(' ')[0]);
   if (names.length === 1) {
     return `${names[0]} is reading this`;

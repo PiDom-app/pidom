@@ -130,9 +130,7 @@ async function parse(ctx: ActionCtx, documentId: Id<'documents'>, bytes: Uint8Ar
     // book is never all in memory at once and the Details sheet can say
     // "218 of 499" instead of spinning.
     const content = await (await pdf.getPage(page)).getTextContent();
-    const text = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ');
+    const text = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
 
     batch.push({ page, text });
 

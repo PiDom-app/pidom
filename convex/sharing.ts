@@ -46,11 +46,7 @@ export const inbox = query({
   returns: v.array(publicShareValidator),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    const shares = await Sharing.inboxFor(
-      ctx,
-      user,
-      args.filter === 'all' ? null : args.filter,
-    );
+    const shares = await Sharing.inboxFor(ctx, user, args.filter === 'all' ? null : args.filter);
     const out = [];
     for (const share of shares) {
       out.push(await Sharing.toPublicShare(ctx, share, user));
@@ -95,9 +91,7 @@ export const accessList = query({
 
     const shares = await Sharing.accessListFor(ctx, args.documentId);
     const visible =
-      access.kind === 'owner'
-        ? shares
-        : shares.filter((share) => share.createdBy === user._id);
+      access.kind === 'owner' ? shares : shares.filter((share) => share.createdBy === user._id);
     void doc;
 
     const out = [];

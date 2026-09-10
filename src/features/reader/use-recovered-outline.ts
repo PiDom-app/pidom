@@ -106,9 +106,7 @@ export function useRecoveredOutline({
  * perfectly ordinary.
  */
 function isDegenerate(stored: readonly OutlineEntry[], pageCount: number): boolean {
-  return (
-    pageCount > 1 && stored.length > 1 && stored.every((entry) => entry.page === 1)
-  );
+  return pageCount > 1 && stored.length > 1 && stored.every((entry) => entry.page === 1);
 }
 
 /**

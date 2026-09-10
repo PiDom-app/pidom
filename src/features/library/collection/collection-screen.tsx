@@ -106,9 +106,7 @@ export function CollectionScreen() {
     );
   }
 
-  const onDevice = (data?.documents ?? []).filter(
-    (doc) => doc.fileState === 'available',
-  ).length;
+  const onDevice = (data?.documents ?? []).filter((doc) => doc.fileState === 'available').length;
 
   return (
     <Screen>
@@ -117,7 +115,8 @@ export function CollectionScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          className="-ml-2 h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+          className="-ml-2 h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+        >
           <Icon as={ChevronLeft} size="xl" className="text-foreground" />
         </Pressable>
 
@@ -143,21 +142,19 @@ export function CollectionScreen() {
               {...props}
               accessibilityRole="button"
               accessibilityLabel="Collection actions"
-              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+            >
               <Icon as={MoreHorizontal} size="lg" className="text-foreground" />
             </Pressable>
-          )}>
+          )}
+        >
           <MenuItem key="rename" textValue="Rename" onPress={() => setRenaming(true)}>
             <Icon as={Pencil} size="sm" className="mr-2 text-fg-muted" />
-            <MenuItemLabel className="text-sm text-foreground">
-              Rename
-            </MenuItemLabel>
+            <MenuItemLabel className="text-sm text-foreground">Rename</MenuItemLabel>
           </MenuItem>
           <MenuItem key="delete" textValue="Delete" onPress={() => setConfirmingDelete(true)}>
             <Icon as={Trash2} size="sm" className="mr-2 text-destructive" />
-            <MenuItemLabel className="text-sm text-destructive">
-              Delete collection
-            </MenuItemLabel>
+            <MenuItemLabel className="text-sm text-destructive">Delete collection</MenuItemLabel>
           </MenuItem>
         </Menu>
       </HStack>
@@ -247,7 +244,8 @@ export function CollectionScreen() {
                       description: messageOf(error, 'Try again in a moment.'),
                     });
                   });
-              }}>
+              }}
+            >
               <ButtonText>Delete</ButtonText>
             </Button>
           </VStack>

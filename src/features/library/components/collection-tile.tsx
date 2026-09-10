@@ -35,7 +35,8 @@ export function CollectionTile({
       onPress={() => onPress(collection)}
       accessibilityRole="button"
       accessibilityLabel={`${collection.name}, ${count} ${count === 1 ? 'document' : 'documents'}`}
-      className="w-[148px]">
+      className="w-[148px]"
+    >
       <HStack space="xs">
         {covers.length === 0 ? (
           // An empty collection still needs a shape, or the name floats with
@@ -43,12 +44,7 @@ export function CollectionTile({
           <HStack className="h-12 w-[148px] rounded-md bg-surface" />
         ) : (
           covers.map((documentId) => (
-            <DocumentCover
-              key={documentId}
-              documentId={documentId}
-              title=""
-              width={MOSAIC_COVER}
-            />
+            <DocumentCover key={documentId} documentId={documentId} title="" width={MOSAIC_COVER} />
           ))
         )}
       </HStack>

@@ -1,12 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ChevronRight,
-  MoreHorizontal,
-  Search,
-  UserPlus,
-  Users,
-} from 'lucide-react-native';
+import { ChevronRight, MoreHorizontal, Search, UserPlus, Users } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 
@@ -140,7 +134,6 @@ export function GroupScreen() {
     pictureUrl: string | null;
   } | null>(null);
 
-
   const segments = useMemo(
     () => [
       { key: 'members', label: `Members · ${members.length}` },
@@ -202,7 +195,8 @@ export function GroupScreen() {
               onPress={() => setAdding(true)}
               accessibilityRole="button"
               accessibilityLabel="Add someone"
-              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+              className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+            >
               <Icon as={UserPlus} size="lg" className="text-foreground" />
             </Pressable>
           ) : undefined
@@ -227,7 +221,11 @@ export function GroupScreen() {
                 pictureUrl={member.pictureUrl}
                 trailing={
                   <HStack className="items-center gap-2.5">
-                    <Tag label={member.isOwner ? 'Owner' : member.role === 'admin' ? 'Admin' : 'Member'} />
+                    <Tag
+                      label={
+                        member.isOwner ? 'Owner' : member.role === 'admin' ? 'Admin' : 'Member'
+                      }
+                    />
                     {canAdminister && !member.isOwner ? (
                       <Menu
                         placement="bottom right"
@@ -237,10 +235,12 @@ export function GroupScreen() {
                             {...props}
                             accessibilityRole="button"
                             accessibilityLabel="Member actions"
-                            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+                            className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+                          >
                             <Icon as={MoreHorizontal} size="lg" className="text-fg-subtle" />
                           </Pressable>
-                        )}>
+                        )}
+                      >
                         <MenuItem
                           key="profile"
                           textValue="View profile"
@@ -251,7 +251,8 @@ export function GroupScreen() {
                               handle: member.handle,
                               pictureUrl: member.pictureUrl,
                             })
-                          }>
+                          }
+                        >
                           <MenuItemLabel className="text-sm text-foreground">
                             View profile
                           </MenuItemLabel>
@@ -262,16 +263,15 @@ export function GroupScreen() {
                         {group.role === 'owner' ? (
                           <MenuItem
                             key="role"
-                            textValue={
-                              member.role === 'admin' ? 'Make a member' : 'Make an admin'
-                            }
+                            textValue={member.role === 'admin' ? 'Make a member' : 'Make an admin'}
                             onPress={() =>
                               void setMemberRole(
                                 group.id,
                                 member.userId,
                                 member.role === 'admin' ? 'member' : 'admin',
                               )
-                            }>
+                            }
+                          >
                             <MenuItemLabel className="text-sm text-foreground">
                               {member.role === 'admin' ? 'Make a member' : 'Make an admin'}
                             </MenuItemLabel>
@@ -282,7 +282,8 @@ export function GroupScreen() {
                           textValue="Remove from group"
                           onPress={() =>
                             setRemoving({ userId: member.userId, name: member.name ?? 'Someone' })
-                          }>
+                          }
+                        >
                           <MenuItemLabel className="text-sm text-destructive">
                             Remove from group
                           </MenuItemLabel>
@@ -310,10 +311,13 @@ export function GroupScreen() {
               {documents.map((share) => (
                 <Pressable
                   key={share.id}
-                  onPress={() => router.push({ pathname: '/share-detail', params: { id: share.id } })}
+                  onPress={() =>
+                    router.push({ pathname: '/share-detail', params: { id: share.id } })
+                  }
                   accessibilityRole="button"
                   accessibilityLabel={share.title ?? 'A shared document'}
-                  className="data-[active=true]:bg-hover">
+                  className="data-[active=true]:bg-hover"
+                >
                   <HStack className="items-center px-4 py-2" space="md">
                     <Box className="h-14 w-10 items-center justify-center rounded-md bg-surface">
                       <Text size="2xs" className="font-semibold tracking-wider text-fg-subtle">
@@ -464,67 +468,67 @@ function AddMemberSheet({
     // not a route, so it takes the same view directly.
     <Box className="absolute inset-0 bg-background">
       <SafeAreaView style={FILL} edges={SHEET_EDGES}>
-      <ScreenHeader glyph={UserPlus} title="Add someone" onBack={onClose} backLabel="Cancel" />
-      <Box className="mx-6 h-px bg-hairline" />
+        <ScreenHeader glyph={UserPlus} title="Add someone" onBack={onClose} backLabel="Cancel" />
+        <Box className="mx-6 h-px bg-hairline" />
 
-      <Box className="px-4 pt-3.5">
-        <Input className="h-11">
-          <Box className="pl-3">
-            <Icon as={Search} size="sm" className="text-fg-subtle" />
-          </Box>
-          <InputField
-            value={term}
-            onChangeText={setTerm}
-            placeholder="An exact @handle or email address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            className="text-foreground"
-          />
-        </Input>
-      </Box>
+        <Box className="px-4 pt-3.5">
+          <Input className="h-11">
+            <Box className="pl-3">
+              <Icon as={Search} size="sm" className="text-fg-subtle" />
+            </Box>
+            <InputField
+              value={term}
+              onChangeText={setTerm}
+              placeholder="An exact @handle or email address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              className="text-foreground"
+            />
+          </Input>
+        </Box>
 
-      <ScrollView contentContainerStyle={CONTENT}>
-        {offline ? (
-          <Empty
-            glyph={Search}
-            title="This needs a connection"
-            body="Changing who is in a group decides what they can open, so it is not queued."
-          />
-        ) : groupRemoteId === null ? (
-          <Empty
-            glyph={Search}
-            title="This group has not reached your account yet"
-            body="It goes out with the next sync. People can be added after that."
-          />
-        ) : debounced.length === 0 ? (
-          <Empty
-            glyph={Search}
-            title="Who are you adding?"
-            body="Pidom does not list accounts, so a handle or an address has to match exactly."
-          />
-        ) : people === undefined ? (
-          <ListSkeleton />
-        ) : people.filter((person) => !exclude.has(person.id)).length === 0 ? (
-          <Empty
-            glyph={Search}
-            title={`No account matching ${debounced}`}
-            body="Handles and email addresses have to match exactly."
-          />
-        ) : (
-          people
-            .filter((person) => !exclude.has(person.id))
-            .map((person) => (
-              <PersonRow
-                key={person.id}
-                name={person.displayName}
-                detail={person.handle === null ? null : `@${person.handle}`}
-                pictureUrl={person.pictureUrl}
-                trailing={<Icon as={UserPlus} size="sm" className="text-primary" />}
-                onPress={() => onPick(person.id)}
-              />
-            ))
-        )}
-      </ScrollView>
+        <ScrollView contentContainerStyle={CONTENT}>
+          {offline ? (
+            <Empty
+              glyph={Search}
+              title="This needs a connection"
+              body="Changing who is in a group decides what they can open, so it is not queued."
+            />
+          ) : groupRemoteId === null ? (
+            <Empty
+              glyph={Search}
+              title="This group has not reached your account yet"
+              body="It goes out with the next sync. People can be added after that."
+            />
+          ) : debounced.length === 0 ? (
+            <Empty
+              glyph={Search}
+              title="Who are you adding?"
+              body="Pidom does not list accounts, so a handle or an address has to match exactly."
+            />
+          ) : people === undefined ? (
+            <ListSkeleton />
+          ) : people.filter((person) => !exclude.has(person.id)).length === 0 ? (
+            <Empty
+              glyph={Search}
+              title={`No account matching ${debounced}`}
+              body="Handles and email addresses have to match exactly."
+            />
+          ) : (
+            people
+              .filter((person) => !exclude.has(person.id))
+              .map((person) => (
+                <PersonRow
+                  key={person.id}
+                  name={person.displayName}
+                  detail={person.handle === null ? null : `@${person.handle}`}
+                  pictureUrl={person.pictureUrl}
+                  trailing={<Icon as={UserPlus} size="sm" className="text-primary" />}
+                  onPress={() => onPick(person.id)}
+                />
+              ))
+          )}
+        </ScrollView>
       </SafeAreaView>
     </Box>
   );

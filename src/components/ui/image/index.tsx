@@ -31,13 +31,13 @@ const imageStyle = tva({
   variants: {
     size: {
       '2xs': 'h-6 w-6',
-      'xs': 'h-10 w-10',
-      'sm': 'h-16 w-16',
-      'md': 'h-20 w-20',
-      'lg': 'h-24 w-24',
-      'xl': 'h-32 w-32',
+      xs: 'h-10 w-10',
+      sm: 'h-16 w-16',
+      md: 'h-20 w-20',
+      lg: 'h-24 w-24',
+      xl: 'h-32 w-32',
       '2xl': 'h-64 w-64',
-      'full': 'h-full w-full',
+      full: 'h-full w-full',
     },
   },
 });
@@ -49,26 +49,27 @@ type IImageProps = Omit<ExpoImageProps, 'alt'> &
     alt: string;
   };
 
-const Image = React.forwardRef<React.ComponentRef<typeof ExpoImage>, IImageProps>(
-  function Image({ className, size = 'md', alt, ...props }, ref) {
-    return (
-      <StyledImage
-        ref={ref}
-        // Defaults rather than requirements: a call site that wants `contain`
-        // or no fade passes its own and wins, because these come before the
-        // spread.
-        contentFit="cover"
-        cachePolicy="memory-disk"
-        transition={120}
-        accessible={alt !== ''}
-        accessibilityRole="image"
-        accessibilityLabel={alt === '' ? undefined : alt}
-        {...props}
-        className={imageStyle({ size, class: className })}
-      />
-    );
-  },
-);
+const Image = React.forwardRef<React.ComponentRef<typeof ExpoImage>, IImageProps>(function Image(
+  { className, size = 'md', alt, ...props },
+  ref,
+) {
+  return (
+    <StyledImage
+      ref={ref}
+      // Defaults rather than requirements: a call site that wants `contain`
+      // or no fade passes its own and wins, because these come before the
+      // spread.
+      contentFit="cover"
+      cachePolicy="memory-disk"
+      transition={120}
+      accessible={alt !== ''}
+      accessibilityRole="image"
+      accessibilityLabel={alt === '' ? undefined : alt}
+      {...props}
+      className={imageStyle({ size, class: className })}
+    />
+  );
+});
 
 Image.displayName = 'Image';
 

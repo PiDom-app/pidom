@@ -25,7 +25,10 @@ import type { MutationCtx, QueryCtx } from '../_generated/server';
  *   deployment cannot reach.
  */
 
-export type SharingSettings = Omit<Doc<'sharingSettings'>, '_id' | '_creationTime' | 'userId' | 'updatedAt'>;
+export type SharingSettings = Omit<
+  Doc<'sharingSettings'>,
+  '_id' | '_creationTime' | 'userId' | 'updatedAt'
+>;
 export type NotificationSettings = Omit<
   Doc<'notificationSettings'>,
   '_id' | '_creationTime' | 'userId' | 'updatedAt'

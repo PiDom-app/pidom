@@ -108,15 +108,13 @@ export function DocumentTile({
       onLongPress={() => onLongPress(document)}
       accessibilityRole="button"
       accessibilityLabel={`${document.title}. ${meta}`}
-      style={{ width, height: tileHeight(width, showProgress) }}>
+      style={{ width, height: tileHeight(width, showProgress) }}
+    >
       {/* The probe has not reported, so there is no cover to draw and no tint
           worth drawing either — the tint is the *fallback*, and showing it here
           would mean replacing it a second later. */}
       {document.processing === 'probing' && onThisDevice ? (
-        <Skeleton
-          className="rounded-md"
-          style={{ width, height: coverHeight(width) }}
-        />
+        <Skeleton className="rounded-md" style={{ width, height: coverHeight(width) }} />
       ) : (
         <DocumentCover
           documentId={document.id}
@@ -129,7 +127,8 @@ export function DocumentTile({
       <Text
         size="xs"
         numberOfLines={2}
-        className={`mt-2 ${onThisDevice ? 'text-foreground' : 'text-fg-muted'}`}>
+        className={`mt-2 ${onThisDevice ? 'text-foreground' : 'text-fg-muted'}`}
+      >
         {document.title}
       </Text>
 
@@ -150,7 +149,8 @@ export function DocumentTile({
         <Text
           size="2xs"
           numberOfLines={1}
-          className={`flex-1 ${placement === 'fetchable' ? 'text-fg-muted' : 'text-fg-subtle'}`}>
+          className={`flex-1 ${placement === 'fetchable' ? 'text-fg-muted' : 'text-fg-subtle'}`}
+        >
           {meta}
         </Text>
       </HStack>
@@ -180,7 +180,8 @@ export function DocumentRow({
       onLongPress={() => onLongPress(document)}
       accessibilityRole="button"
       accessibilityLabel={`${document.title}. ${meta}`}
-      className="px-4 py-2 data-[active=true]:bg-hover">
+      className="px-4 py-2 data-[active=true]:bg-hover"
+    >
       <HStack className="items-center" space="lg">
         {document.processing === 'probing' && onThisDevice ? (
           <Skeleton className="rounded-md" style={{ width: 44, height: coverHeight(44) }} />
@@ -197,7 +198,8 @@ export function DocumentRow({
           <Text
             size="sm"
             numberOfLines={2}
-            className={onThisDevice ? 'text-foreground' : 'text-fg-muted'}>
+            className={onThisDevice ? 'text-foreground' : 'text-fg-muted'}
+          >
             {document.title}
           </Text>
 
@@ -212,7 +214,8 @@ export function DocumentRow({
             <Text
               size="xs"
               numberOfLines={1}
-              className={`flex-1 ${placement === 'fetchable' ? 'text-fg-muted' : 'text-fg-subtle'}`}>
+              className={`flex-1 ${placement === 'fetchable' ? 'text-fg-muted' : 'text-fg-subtle'}`}
+            >
               {document.author === null ? meta : `${document.author} · ${meta}`}
             </Text>
           </HStack>
@@ -220,13 +223,15 @@ export function DocumentRow({
           {transfer !== null ? (
             <Progress
               value={transfer.total > 0 ? Math.round((transfer.sent / transfer.total) * 100) : 0}
-              className="mt-2 h-0.5 w-32 bg-border">
+              className="mt-2 h-0.5 w-32 bg-border"
+            >
               <ProgressFilledTrack className="bg-primary" />
             </Progress>
           ) : onThisDevice && document.pageCount !== null && document.progress > 0 ? (
             <Progress
               value={Math.round(document.progress * 100)}
-              className="mt-2 h-0.5 w-32 bg-border">
+              className="mt-2 h-0.5 w-32 bg-border"
+            >
               <ProgressFilledTrack className="bg-primary" />
             </Progress>
           ) : null}

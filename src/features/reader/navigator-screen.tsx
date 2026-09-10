@@ -102,8 +102,7 @@ export function NavigatorScreen() {
     };
   }, [documentId]);
 
-  const entries: readonly OutlineEntry[] | undefined =
-    document?.hasOutline === true ? outline : [];
+  const entries: readonly OutlineEntry[] | undefined = document?.hasOutline === true ? outline : [];
   const pageCount = document?.pageCount ?? null;
 
   // Past this many pages a grid is a long scroll past pages nobody is looking
@@ -156,7 +155,8 @@ export function NavigatorScreen() {
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Back to the document"
-          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover">
+          className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
+        >
           <Icon as={ArrowLeft} size="lg" className="text-foreground" />
         </Pressable>
         <Icon as={heading.glyph} size="md" className="ml-1.5 text-fg-muted" />
@@ -187,7 +187,8 @@ export function NavigatorScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={SEGMENTS}
-        contentContainerStyle={SEGMENTS_CONTENT}>
+        contentContainerStyle={SEGMENTS_CONTENT}
+      >
         <Segment
           label="Contents"
           on={segment === 'contents'}
@@ -335,7 +336,8 @@ function Empty({ onSearch }: { onSearch: () => void }) {
         onPress={onSearch}
         accessibilityRole="button"
         accessibilityLabel="Search inside this document"
-        className="mt-5 flex-row items-center gap-2 rounded-md border border-border px-3.5 py-2 data-[active=true]:bg-hover">
+        className="mt-5 flex-row items-center gap-2 rounded-md border border-border px-3.5 py-2 data-[active=true]:bg-hover"
+      >
         <Icon as={TextSearch} size="sm" className="text-foreground" />
         <Text size="sm" className="font-medium text-foreground">
           Search inside
@@ -363,7 +365,8 @@ function Segment({ label, on, onPress }: { label: string; on: boolean; onPress: 
         on
           ? 'shrink-0 rounded-md bg-primary-tint px-3 py-1.5'
           : 'shrink-0 rounded-md px-3 py-1.5 data-[active=true]:bg-hover'
-      }>
+      }
+    >
       <Text size="xs" className={on ? 'text-primary' : 'text-fg-muted'}>
         {label}
       </Text>
@@ -415,26 +418,30 @@ function Bookmarks({
         // notch cut out of it where the delete button was.
         <Box
           key={row.id}
-          className={row.page === currentPage ? 'w-full flex-row bg-hover' : 'w-full flex-row'}>
+          className={row.page === currentPage ? 'w-full flex-row bg-hover' : 'w-full flex-row'}
+        >
           <Pressable
             onPress={() => onJump(row.page)}
             onLongPress={() => onRename(row)}
             accessibilityRole="button"
             accessibilityLabel={`${row.label ?? `Page ${row.page}`}, page ${row.page}`}
             accessibilityHint="Double tap and hold to name this bookmark"
-            className="flex-1 py-3.5 pl-6 data-[active=true]:bg-hover">
+            className="flex-1 py-3.5 pl-6 data-[active=true]:bg-hover"
+          >
             <HStack className="w-full items-center" space="md">
               <Text
                 size="md"
                 numberOfLines={1}
                 className={
                   row.page === currentPage ? 'flex-1 text-foreground' : 'flex-1 text-fg-muted'
-                }>
+                }
+              >
                 {row.label ?? `Page ${row.page}`}
               </Text>
               <Text
                 size="xs"
-                className={row.page === currentPage ? 'text-primary' : 'text-fg-subtle'}>
+                className={row.page === currentPage ? 'text-primary' : 'text-fg-subtle'}
+              >
                 {row.page}
               </Text>
             </HStack>
@@ -443,7 +450,8 @@ function Bookmarks({
             onPress={() => onRemove(row.page)}
             accessibilityRole="button"
             accessibilityLabel={`Remove the bookmark on page ${row.page}`}
-            className="w-12 items-center justify-center rounded-md data-[active=true]:bg-hover">
+            className="w-12 items-center justify-center rounded-md data-[active=true]:bg-hover"
+          >
             <Icon as={Trash2} size="sm" className="text-fg-subtle" />
           </Pressable>
         </Box>

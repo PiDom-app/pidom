@@ -53,7 +53,8 @@ export function CollectionPicker({
   const read = useCallback(
     async (db: SQLiteDatabase) => ({
       collections: await Collections.listCollections(db),
-      inside: documentId === null ? new Set<string>() : await Collections.collectionsOf(db, documentId),
+      inside:
+        documentId === null ? new Set<string>() : await Collections.collectionsOf(db, documentId),
     }),
     [documentId],
   );

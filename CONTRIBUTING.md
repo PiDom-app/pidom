@@ -58,7 +58,7 @@ from the lines around it.
    about an approach in prose.
 2. Branch from `main`.
 3. Keep the diff to one thing.
-4. Fill in the pull request template — particularly *how to check it*.
+4. Fill in the pull request template — particularly _how to check it_.
 
 ## Commits
 

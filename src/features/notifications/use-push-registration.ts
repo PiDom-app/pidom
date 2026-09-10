@@ -111,7 +111,9 @@ export function usePushNotifications(): void {
     const subscription = api.addNotificationResponseReceivedListener((response) => {
       const shareId = shareIdOf(response);
       router.push(
-        shareId === null ? { pathname: '/shared' } : { pathname: '/share-detail', params: { id: shareId } },
+        shareId === null
+          ? { pathname: '/shared' }
+          : { pathname: '/share-detail', params: { id: shareId } },
       );
     });
     return () => subscription.remove();

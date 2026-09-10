@@ -137,15 +137,15 @@ your phone where you left off on your tablet.
 
 ## Stack
 
-| | |
-| --- | --- |
-| **App** | Expo SDK 57, React Native 0.86 (New Architecture), Expo Router |
-| **UI** | gluestack-ui v5, NativeWind v5, Tailwind v4 tokens |
+|             |                                                                              |
+| ----------- | ---------------------------------------------------------------------------- |
+| **App**     | Expo SDK 57, React Native 0.86 (New Architecture), Expo Router               |
+| **UI**      | gluestack-ui v5, NativeWind v5, Tailwind v4 tokens                           |
 | **Backend** | Convex — schema, queries, mutations, crons, Workflow, Workpool, Rate Limiter |
-| **Auth** | Google Sign-In, verified by Convex as an OIDC provider |
-| **Files** | Cloudflare R2 via `@convex-dev/r2`; PDFs on-device via `expo-file-system` |
-| **Text** | `unpdf` (PDF.js) in a Convex Node action; `expo-sqlite` FTS5 on the device |
-| **Lists** | FlashList v2 |
+| **Auth**    | Google Sign-In, verified by Convex as an OIDC provider                       |
+| **Files**   | Cloudflare R2 via `@convex-dev/r2`; PDFs on-device via `expo-file-system`    |
+| **Text**    | `unpdf` (PDF.js) in a Convex Node action; `expo-sqlite` FTS5 on the device   |
+| **Lists**   | FlashList v2                                                                 |
 
 ## Getting started
 
@@ -165,13 +165,14 @@ Cloudflare R2 bucket if you want documents on more than one device.
 
 ## Documentation
 
-| | |
-| --- | --- |
-| [Setup](docs/setup.md) | Google, Cloudflare, environment variables, scripts |
+|                                      |                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| [Setup](docs/setup.md)               | Google, Cloudflare, environment variables, scripts                  |
 | [Architecture](docs/architecture.md) | Where a PDF lives, syncing, offline, processing, search, the reader |
-| [Security](docs/security.md) | Identity, ownership, and the reasoning behind both |
-| [Design](docs/design.md) | Tokens, the type scale, and the design canvas |
-| [Contributing](CONTRIBUTING.md) | How to propose a change |
+| [Security](docs/security.md)         | Identity, ownership, and the reasoning behind both                  |
+| [Android releases](docs/release.md)  | Signed APKs, EAS Update, and the production release flow            |
+| [Design](docs/design.md)             | Tokens, the type scale, and the design canvas                       |
+| [Contributing](CONTRIBUTING.md)      | How to propose a change                                             |
 
 ## Status
 

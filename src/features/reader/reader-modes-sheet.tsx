@@ -121,7 +121,8 @@ export function ReaderModesSheet({
                 accessibilityRole="button"
                 accessibilityState={{ disabled: off, selected: option.mode === mode }}
                 accessibilityLabel={option.label}
-                className="px-4 py-2 data-[active=true]:bg-hover">
+                className="px-4 py-2 data-[active=true]:bg-hover"
+              >
                 <HStack className="items-center" space="lg">
                   <Icon
                     as={option.glyph}
@@ -176,10 +177,12 @@ export function ReaderModesSheet({
                       option.fit === fit
                         ? 'rounded-md bg-primary-tint px-2.5 py-1.5'
                         : 'rounded-md px-2.5 py-1.5 data-[active=true]:bg-hover'
-                    }>
+                    }
+                  >
                     <Text
                       size="xs"
-                      className={option.fit === fit ? 'text-primary' : 'text-fg-muted'}>
+                      className={option.fit === fit ? 'text-primary' : 'text-fg-muted'}
+                    >
                       {option.label}
                     </Text>
                   </Pressable>

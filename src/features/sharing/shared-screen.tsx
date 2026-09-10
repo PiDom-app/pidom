@@ -46,10 +46,7 @@ export function SharedScreen() {
 
   // Pending is its own list, so the main one is everything that has been
   // settled — an accepted share, and a revoked one that still explains itself.
-  const settled = useMemo(
-    () => incoming.filter((share) => share.status !== 'pending'),
-    [incoming],
-  );
+  const settled = useMemo(() => incoming.filter((share) => share.status !== 'pending'), [incoming]);
 
   const rows = segment === 'pending' ? pending : segment === 'sent' ? outgoing : settled;
 
@@ -127,7 +124,8 @@ function ShareRow({ share, onPress }: { share: LibraryShare; onPress: () => void
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={share.title ?? 'A shared document'}
-      className="data-[active=true]:bg-hover">
+      className="data-[active=true]:bg-hover"
+    >
       <HStack className={`items-center px-4 py-2 ${gone ? 'opacity-60' : ''}`} space="md">
         <Box className="h-14 w-10 items-center justify-center rounded-md bg-surface">
           <Text size="2xs" className="font-semibold tracking-wider text-fg-subtle">

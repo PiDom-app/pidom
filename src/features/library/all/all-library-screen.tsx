@@ -1,6 +1,6 @@
-import { FlashList } from "@shopify/flash-list";
-import type { SQLiteDatabase } from "expo-sqlite";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { FlashList } from '@shopify/flash-list';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowUpDown,
   Check,
@@ -10,31 +10,31 @@ import {
   Search,
   TextSearch,
   X,
-} from "lucide-react-native";
-import React, { useCallback, useDeferredValue, useMemo, useState } from "react";
-import { useWindowDimensions } from "react-native";
+} from 'lucide-react-native';
+import React, { useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 
-import { Screen } from "@/components/layout/screen";
-import { Box } from "@/components/ui/box";
-import { Center } from "@/components/ui/center";
-import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
-import { Icon } from "@/components/ui/icon";
-import { Input, InputField, InputIcon, InputSlot } from "@/components/ui/input";
-import { Menu, MenuItem, MenuItemLabel } from "@/components/ui/menu";
-import { Pressable } from "@/components/ui/pressable";
-import { Spinner } from "@/components/ui/spinner";
-import { Text } from "@/components/ui/text";
-import { SEARCH_TERM_MAX } from "@convex/model/limits";
+import { Screen } from '@/components/layout/screen';
+import { Box } from '@/components/ui/box';
+import { Center } from '@/components/ui/center';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { Icon } from '@/components/ui/icon';
+import { Input, InputField, InputIcon, InputSlot } from '@/components/ui/input';
+import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
+import { Pressable } from '@/components/ui/pressable';
+import { Spinner } from '@/components/ui/spinner';
+import { Text } from '@/components/ui/text';
+import { SEARCH_TERM_MAX } from '@convex/model/limits';
 
-import { DocumentActions } from "../components/document-actions";
-import { DocumentRow, DocumentTile } from "../components/document-tile";
-import * as Documents from "../local/repository/documents";
-import { useLocalQuery } from "../local/use-local-query";
-import type { LibraryDocument } from "../data/types";
-import { useCoverSync } from "../data/use-cover-sync";
-import { useLibraryActions } from "../data/use-library-actions";
-import { useLibraryStatus } from "../data/use-library-status";
+import { DocumentActions } from '../components/document-actions';
+import { DocumentRow, DocumentTile } from '../components/document-tile';
+import * as Documents from '../local/repository/documents';
+import { useLocalQuery } from '../local/use-local-query';
+import type { LibraryDocument } from '../data/types';
+import { useCoverSync } from '../data/use-cover-sync';
+import { useLibraryActions } from '../data/use-library-actions';
+import { useLibraryStatus } from '../data/use-library-status';
 
 /**
  * The whole library, behind "View all".
@@ -53,27 +53,27 @@ import { useLibraryStatus } from "../data/use-library-status";
  * with no connection.
  */
 
-type Sort = "recent" | "opened" | "title";
-type Filter = "all" | "favorites" | "finished" | "device";
-type Mode = "grid" | "list";
+type Sort = 'recent' | 'opened' | 'title';
+type Filter = 'all' | 'favorites' | 'finished' | 'device';
+type Mode = 'grid' | 'list';
 
 /** How many rows a page asks for. */
 const PAGE = 24;
 
 /** What this screen is built from. A write to anything else is not its business. */
-const TABLES = ["documents", "documentFiles"] as const;
+const TABLES = ['documents', 'documentFiles'] as const;
 
 const SORT_LABELS: Record<Sort, string> = {
-  recent: "Recently added",
-  opened: "Recently opened",
-  title: "Title",
+  recent: 'Recently added',
+  opened: 'Recently opened',
+  title: 'Title',
 };
 
-const FILTER_CHIPS: { key: Filter | "device"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "favorites", label: "Favourites" },
-  { key: "device", label: "On this device" },
-  { key: "finished", label: "Finished" },
+const FILTER_CHIPS: { key: Filter | 'device'; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'favorites', label: 'Favourites' },
+  { key: 'device', label: 'On this device' },
+  { key: 'finished', label: 'Finished' },
 ];
 
 /** Three columns, 24px page padding, 12px gutters. */
@@ -89,8 +89,7 @@ const GRID_GUTTER = 12;
  * on a tablet it leaves the grid stranded at the left.
  */
 function gridTileWidth(windowWidth: number): number {
-  const usable =
-    windowWidth - GRID_PAGE_PADDING * 2 - GRID_GUTTER * (GRID_COLUMNS - 1);
+  const usable = windowWidth - GRID_PAGE_PADDING * 2 - GRID_GUTTER * (GRID_COLUMNS - 1);
   return Math.floor(usable / GRID_COLUMNS);
 }
 
@@ -98,10 +97,10 @@ export function AllLibraryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ focus?: string }>();
 
-  const [term, setTerm] = useState("");
-  const [sort, setSort] = useState<Sort>("recent");
-  const [chip, setChip] = useState<Filter>("all");
-  const [mode, setMode] = useState<Mode>("grid");
+  const [term, setTerm] = useState('');
+  const [sort, setSort] = useState<Sort>('recent');
+  const [chip, setChip] = useState<Filter>('all');
+  const [mode, setMode] = useState<Mode>('grid');
   const [acting, setActing] = useState<LibraryDocument | null>(null);
 
   const { profileId } = useLibraryStatus();
@@ -112,7 +111,7 @@ export function AllLibraryScreen() {
   // Typing should not read the database per keystroke. `useDeferredValue` lets
   // the field stay responsive while the results catch up on their own.
   const searchTerm = useDeferredValue(term.trim());
-  const searching = searchTerm !== "";
+  const searching = searchTerm !== '';
 
   /**
    * One page at a time, from this device.
@@ -151,11 +150,11 @@ export function AllLibraryScreen() {
     (document: LibraryDocument) => {
       // Same rule as home: a tap on something the account has and this phone
       // does not means fetch it. Anything here opens.
-      if (document.fileState !== "available" && document.isSynced) {
+      if (document.fileState !== 'available' && document.isSynced) {
         void fetchDocument(document);
         return;
       }
-      router.push({ pathname: "/reader", params: { id: document.id } });
+      router.push({ pathname: '/reader', params: { id: document.id } });
     },
     [fetchDocument, router],
   );
@@ -176,24 +175,20 @@ export function AllLibraryScreen() {
           Library
         </Heading>
 
-        <SortControl
-          sort={sort}
-          disabled={chip !== "all" || searching}
-          onChange={setSort}
-        />
+        <SortControl sort={sort} disabled={chip !== 'all' || searching} onChange={setSort} />
 
         <HStack className="ml-1 gap-0.5 rounded-md bg-surface p-0.5">
           <ModeToggle
             icon={LayoutGrid}
             label="Grid"
-            active={mode === "grid"}
-            onPress={() => setMode("grid")}
+            active={mode === 'grid'}
+            onPress={() => setMode('grid')}
           />
           <ModeToggle
             icon={List}
             label="List"
-            active={mode === "list"}
-            onPress={() => setMode("list")}
+            active={mode === 'list'}
+            onPress={() => setMode('list')}
           />
         </HStack>
       </HStack>
@@ -210,13 +205,13 @@ export function AllLibraryScreen() {
             value={term}
             onChangeText={setTerm}
             maxLength={SEARCH_TERM_MAX}
-            autoFocus={params.focus === "search"}
+            autoFocus={params.focus === 'search'}
             placeholder="Search your library"
             returnKeyType="search"
             className="text-foreground"
           />
-          {term === "" ? null : (
-            <InputSlot onPress={() => setTerm("")} className="pr-1">
+          {term === '' ? null : (
+            <InputSlot onPress={() => setTerm('')} className="pr-1">
               <InputIcon as={X} className="text-fg-muted" />
             </InputSlot>
           )}
@@ -239,9 +234,7 @@ export function AllLibraryScreen() {
           than being told their library is empty. */}
       {searching ? (
         <Pressable
-          onPress={() =>
-            router.push({ pathname: "/search", params: { term: searchTerm } })
-          }
+          onPress={() => router.push({ pathname: '/search', params: { term: searchTerm } })}
           accessibilityRole="button"
           className="mt-1 flex-row items-center gap-2.5 border-b border-hairline px-4 py-2 data-[active=true]:bg-hover"
         >
@@ -261,12 +254,12 @@ export function AllLibraryScreen() {
           <Text size="sm" className="text-center text-fg-subtle">
             {searching
               ? `No titles match “${searchTerm}”.`
-              : chip === "device"
-                ? "No documents are stored on this device yet."
-                : "Nothing here yet."}
+              : chip === 'device'
+                ? 'No documents are stored on this device yet.'
+                : 'Nothing here yet.'}
           </Text>
         </Center>
-      ) : mode === "grid" ? (
+      ) : mode === 'grid' ? (
         <FlashList
           key="grid"
           style={FILL}
@@ -299,11 +292,7 @@ export function AllLibraryScreen() {
           data={documents}
           keyExtractor={(document) => document.id}
           renderItem={({ item }) => (
-            <DocumentRow
-              document={item}
-              onPress={openDocument}
-              onLongPress={setActing}
-            />
+            <DocumentRow document={item} onPress={openDocument} onLongPress={setActing} />
           )}
           contentContainerStyle={LIST_PADDING}
           ItemSeparatorComponent={RowRule}
@@ -343,7 +332,7 @@ function SortControl({
           accessibilityRole="button"
           accessibilityLabel={
             disabled
-              ? "Sorting is unavailable while a filter is on"
+              ? 'Sorting is unavailable while a filter is on'
               : `Sort by ${SORT_LABELS[sort]}`
           }
           className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
@@ -351,23 +340,17 @@ function SortControl({
           <Icon
             as={ArrowUpDown}
             size="md"
-            className={disabled ? "text-fg-disabled" : "text-foreground"}
+            className={disabled ? 'text-fg-disabled' : 'text-foreground'}
           />
         </Pressable>
       )}
     >
       {(Object.keys(SORT_LABELS) as Sort[]).map((key) => (
-        <MenuItem
-          key={key}
-          textValue={SORT_LABELS[key]}
-          onPress={() => onChange(key)}
-        >
+        <MenuItem key={key} textValue={SORT_LABELS[key]} onPress={() => onChange(key)}>
           <MenuItemLabel className="text-sm flex-1 text-foreground">
             {SORT_LABELS[key]}
           </MenuItemLabel>
-          {key === sort ? (
-            <Icon as={Check} size="sm" className="text-primary" />
-          ) : null}
+          {key === sort ? <Icon as={Check} size="sm" className="text-primary" /> : null}
         </MenuItem>
       ))}
     </Menu>
@@ -380,7 +363,7 @@ function ModeToggle({
   active,
   onPress,
 }: {
-  icon: React.ComponentProps<typeof Icon>["as"];
+  icon: React.ComponentProps<typeof Icon>['as'];
   label: string;
   active: boolean;
   onPress: () => void;
@@ -391,36 +374,24 @@ function ModeToggle({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
-      className={`h-8 w-8 items-center justify-center rounded-md ${active ? "bg-hover" : ""}`}
+      className={`h-8 w-8 items-center justify-center rounded-md ${active ? 'bg-hover' : ''}`}
     >
-      <Icon
-        as={icon}
-        size="sm"
-        className={active ? "text-foreground" : "text-fg-subtle"}
-      />
+      <Icon as={icon} size="sm" className={active ? 'text-foreground' : 'text-fg-subtle'} />
     </Pressable>
   );
 }
 
-function Chip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       className={`h-9 items-center justify-center rounded-md border px-3 ${
-        active ? "border-primary bg-primary-tint" : "border-border"
+        active ? 'border-primary bg-primary-tint' : 'border-border'
       }`}
     >
-      <Text size="xs" className={active ? "text-primary" : "text-fg-muted"}>
+      <Text size="xs" className={active ? 'text-primary' : 'text-fg-muted'}>
         {label}
       </Text>
     </Pressable>
@@ -430,7 +401,6 @@ function Chip({
 function RowRule() {
   return <Box className="ml-[82px] h-px bg-hairline" />;
 }
-
 
 const GRID_PADDING = {
   paddingHorizontal: 16,

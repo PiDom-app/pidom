@@ -101,7 +101,8 @@ export function ReaderSettingsSheet({
             onPress={onOpenModes}
             accessibilityRole="button"
             accessibilityLabel={`How it reads. ${MODE_LABEL[mode]}.`}
-            className="px-4 py-2 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
             <HStack className="items-center" space="lg">
               <Icon as={Rows3} size="lg" className="text-fg-muted" />
               <Text size="md" className="flex-1 text-foreground">
@@ -181,10 +182,12 @@ export function ReaderSettingsSheet({
                       option.tint === tint
                         ? 'rounded-md bg-primary-tint px-2.5 py-1.5'
                         : 'rounded-md px-2.5 py-1.5 data-[active=true]:bg-hover'
-                    }>
+                    }
+                  >
                     <Text
                       size="xs"
-                      className={option.tint === tint ? 'text-primary' : 'text-fg-muted'}>
+                      className={option.tint === tint ? 'text-primary' : 'text-fg-muted'}
+                    >
                       {option.label}
                     </Text>
                   </Pressable>
@@ -194,8 +197,8 @@ export function ReaderSettingsSheet({
           )}
 
           <Text size="xs" className="px-4 pt-2 pb-1 text-fg-subtle">
-            How it reads follows the document to your other devices. Everything else stays on
-            this phone.
+            How it reads follows the document to your other devices. Everything else stays on this
+            phone.
           </Text>
         </VStack>
       </ActionsheetContent>

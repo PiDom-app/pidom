@@ -137,7 +137,8 @@ export function DataScreen() {
             disabled={clearing}
             accessibilityRole="button"
             accessibilityLabel="Clear image cache"
-            className="px-4 py-2 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
             <VStack>
               <Text size="md" className="text-foreground">
                 {clearing ? 'Clearing…' : 'Clear image cache'}
@@ -151,7 +152,8 @@ export function DataScreen() {
             onPress={() => router.push('/storage')}
             accessibilityRole="button"
             accessibilityLabel="Manage what is on this device"
-            className="px-4 py-2 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
             <VStack>
               <Text size="md" className="text-foreground">
                 What is on this device
@@ -181,7 +183,8 @@ export function DataScreen() {
                 setTyped('');
                 setConfirming(true);
               }}
-              className="mt-1 h-11 border-destructive">
+              className="mt-1 h-11 border-destructive"
+            >
               <ButtonIcon as={Trash2} className="text-destructive" />
               <ButtonText className="text-destructive">Delete my account</ButtonText>
             </Button>
@@ -198,16 +201,17 @@ export function DataScreen() {
       <ActionSheetPanel
         isOpen={confirming}
         isDismissable={!deleting}
-        onClose={() => setConfirming(false)}>
+        onClose={() => setConfirming(false)}
+      >
         <VStack space="md">
           <VStack space="sm">
             <Heading size="md" className="text-foreground">
               Delete your account?
             </Heading>
             <Text size="sm" className="text-muted-foreground">
-              This removes every document in your account, every note you have written, every
-              group you own and every share in both directions. It starts immediately and there
-              is no way back.
+              This removes every document in your account, every note you have written, every group
+              you own and every share in both directions. It starts immediately and there is no way
+              back.
             </Text>
             <Text size="sm" className="text-muted-foreground">
               Type DELETE to confirm.
@@ -229,14 +233,16 @@ export function DataScreen() {
               variant="outline"
               size="sm"
               isDisabled={deleting}
-              onPress={() => setConfirming(false)}>
+              onPress={() => setConfirming(false)}
+            >
               <ButtonText>Cancel</ButtonText>
             </Button>
             <Button
               variant="destructive"
               size="sm"
               isDisabled={typed.trim().toUpperCase() !== 'DELETE' || deleting}
-              onPress={() => void confirmDelete()}>
+              onPress={() => void confirmDelete()}
+            >
               <ButtonText>{deleting ? 'Deleting…' : 'Delete account'}</ButtonText>
             </Button>
           </VStack>

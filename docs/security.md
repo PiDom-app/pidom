@@ -28,7 +28,7 @@ Three rules follow from that, and the code holds to all three:
 - **`convex/model/auth.ts` is the only door.** `requireIdentity`, `requireUser`
   and `assertOwner` live there, and owner-scoped reads go through a `by_owner`
   index rather than a filter. A membership write names two ids and checks both:
-  the collection *and* the document.
+  the collection _and_ the document.
 - **A type validator is not a value validator.** `v.string()` accepts a
   megabyte. `convex/model/limits.ts` holds every bound the public surface
   enforces, each with the reason for its number, and every list read is
@@ -36,7 +36,7 @@ Three rules follow from that, and the code holds to all three:
 - **The client gates on the profile, not on the token.** Every library function
   starts with `requireUser`, which throws `NO_PROFILE` when a token verifies
   before `ensureProfile` has written the row — and `convex/react`'s `useQuery`
-  re-throws a query error *during render*. On a first sign-in the authenticated
+  re-throws a query error _during render_. On a first sign-in the authenticated
   layout mounts the bootstrap and the home screen in the same commit, so without
   `useLibraryStatus().ready` in front of every query, a new account's first
   launch renders a thrown error instead of a library. Softening `requireUser`
@@ -75,7 +75,7 @@ and each does real work. `syncMetadata` schedules an R2 HEAD and a component
 write per call against a bucket Pidom is billed for. `ensureProfile` is the more
 interesting one: it is the only mutation reachable with nothing but a verified
 Google token, because every other write needs the profile row that this call
-creates. Its bucket is therefore spent *after* the row exists rather than
+creates. Its bucket is therefore spent _after_ the row exists rather than
 before — `limit` is keyed on the profile's id, and on a first sign-in there is
 no profile to key on. So an account's very first call is always allowed and
 every call after it is metered, which is the right way round: refusing the first
@@ -89,7 +89,7 @@ writes a minute at the very worst, against a ceiling of 240 an hour.
 
 `setProcessed` was the one the first pass missed, and it writes the most per
 call: a patch on `documents` plus a whole replacement `documentOutline` row. It
-also used to *accept* four times the table of contents it kept — 2,000 entries
+also used to _accept_ four times the table of contents it kept — 2,000 entries
 validated in order to store 500 — so the limit in `limits.ts` was a claim about
 what got in rather than a fact. It refuses at the number it honours now.
 
@@ -165,7 +165,7 @@ megabyte pointing at page `1e9`.
 
 The import checks that a file is a PDF and refuses one with a password, and
 `convex/node/extract.ts` parses it under a bound on every axis. All of that is
-about a file *arriving*. The reader is about a file being **rendered**, on the
+about a file _arriving_. The reader is about a file being **rendered**, on the
 device, by a native viewer, and it has its own surface.
 
 Two of `react-native-pdf`'s defaults are not defaults this application should
@@ -191,7 +191,7 @@ constructor never validates a single-argument call and whose every getter is a
 regex over the raw string. Expo overwrites it: `expo/src/Expo.fx.tsx` imports
 `./winter` as its first statement, and that installs `whatwg-url-minimum`. So
 the app gets a real WHATWG parser — and that package's own README says it
-*"drops punycode/unicode support"*.
+_"drops punycode/unicode support"_.
 
 No IDNA is the part that matters, because the host **is** the security control
 here. `https://аpple.com` with a Cyrillic `а` keeps its Cyrillic host through
@@ -219,7 +219,7 @@ re-checks both, because a client bound is a convenience and not a control.
 
 A note is the same content by a different route, and `documentAnnotations`
 carries it under the rules every other owned table follows: the client never
-names an owner, every read is owner-checked on the *document* before a row is
+names an owner, every read is owner-checked on the _document_ before a row is
 touched — so an id the caller does not own answers `FORBIDDEN` rather than an
 empty list, which would have said the document exists — and a write that names
 an annotation checks the annotation **and** the document behind it, so a row
@@ -276,8 +276,8 @@ two thousand rows". Every object belonging to a newer row was, by construction,
 an orphan.
 
 The comment that justified it said a library past the limit gets swept over
-several nights. That is true of the *candidate* list and false of the
-*reference* set. A list of candidates can be paged. An allowlist cannot: one
+several nights. That is true of the _candidate_ list and false of the
+_reference_ set. A list of candidates can be paged. An allowlist cannot: one
 with holes in it is a delete list.
 
 It needed no attacker — two thousand local-only imports across the whole user
@@ -330,7 +330,7 @@ book can be searched with no connection. One database per profile, named after
 the profile id — the same rule the library directory follows, and for the same
 reason: signing in as somebody else must not reach the previous reader's words.
 `library.pagesOf` is the one query in the whole backend that hands a client
-document *content* rather than metadata, and it is owner-checked on the document
+document _content_ rather than metadata, and it is owner-checked on the document
 before a single page row is read.
 
 The mirrored copy follows the file. `deleteDocument` and `removeDownload` both
@@ -346,12 +346,12 @@ synced, so it is opened under **SQLCipher**: `PRAGMA key` is the first statement
 on the connection, and the key is 256 bits from the platform's own generator,
 kept in `expo-secure-store` under `WHEN_UNLOCKED_THIS_DEVICE_ONLY` and never
 derived from anything a person types. It is a raw key rather than a passphrase,
-so there is no KDF to get wrong. `app.json` turns the cipher on through the
+so there is no KDF to get wrong. `app.config.ts` turns the cipher on through the
 `expo-sqlite` config plugin (`useSQLCipher`), which is a **build** flag.
 
 Which was the hole, and it was not theoretical. A build made without the flag
 opens the same file unencrypted and SQLite does not complain: `PRAGMA key` on a
-plain build is accepted and ignored. `app.json` carried `useSQLCipher: true`
+plain build is accepted and ignored. `app.config.ts` carries `useSQLCipher: true`
 the whole time — but the config plugin only runs during `prebuild`, and this
 project commits `android/` and `ios/`, which were generated before the flag was
 added. It never reached a build. The database on a real device began with the
@@ -388,7 +388,6 @@ orphans, which reads the oldest rows in the deployment and therefore almost
 always a document that is fine. It collected nothing, every night, while
 orphaned text — the reader's own content, outliving their decision to remove it
 — accumulated. Orphans are recorded on the way out now, not hunted for.
-
 
 ## Sharing
 
@@ -527,7 +526,7 @@ group and run the same access check the reader does.
 
 **Two settings, two questions.** `showOnlineStatus` is whether this account
 appears beside its name anywhere at all — a member list, a Manage access row.
-`showReadingActivity` is narrower: whether being in a *document* right now is
+`showReadingActivity` is narrower: whether being in a _document_ right now is
 something the people that document is shared with get to see. A document room
 needs both; a group room needs only the first, because being a member who is
 around says nothing about what anybody is reading. Neither refuses the
@@ -537,7 +536,7 @@ settings say.
 
 `showReadingActivity` governed nothing until this was written. It defaulted to
 `false`, which read as caution and was not: a switch wired to no behaviour is
-not a protection, and leaving it off once it *did* govern something would have
+not a protection, and leaving it off once it _did_ govern something would have
 meant the feature was disabled by a default rather than by anybody's decision.
 It defaults to `true` now, and the audience is never the deployment — it is the
 handful of accounts that can already open the file.
@@ -545,7 +544,7 @@ handful of accounts that can already open the file.
 **The heartbeat is mounted, not skipped.** `usePresence` has no disabled state:
 it fires on its interval whatever room id it is handed. The first version passed
 an empty string for a document with nobody to show it to, so every synced
-document beat a mutation every ten seconds that the server refused *after*
+document beat a mutation every ten seconds that the server refused _after_
 spending a token from the 600-an-hour presence bucket — a reader exhausting
 their own budget doing nothing. The hook now lives in a component rendered only
 when there is a room to be in.
@@ -609,7 +608,7 @@ shape is exactly what must never be reachable from a client; the public
 
 An account can set a display name and can turn its Google photo off. It cannot
 supply a photo URL, and the omission is deliberate: a string the reader supplies
-and this deployment then renders on *other people's* screens is a tracking pixel
+and this deployment then renders on _other people's_ screens is a tracking pixel
 with a profile around it — whoever controls that host learns the address and the
 moment of everyone who opens a screen the reader appears on. It also buys
 nothing, because the photo people expect is the one on the account they signed

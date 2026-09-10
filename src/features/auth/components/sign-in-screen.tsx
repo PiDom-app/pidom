@@ -18,9 +18,7 @@ import { GoogleSignInButton } from './google-sign-in-button';
  * dismissed the sheet or has simply never signed in; telling them so is noise
  * about something they already know.
  */
-function messageFor(
-  reason: GoogleFailureReason,
-): { title: string; description: string } | null {
+function messageFor(reason: GoogleFailureReason): { title: string; description: string } | null {
   switch (reason) {
     case 'cancelled':
     case 'no-saved-credential':
@@ -97,8 +95,8 @@ export function SignInScreen() {
         <VStack space="md">
           <GoogleSignInButton onPress={signIn} />
           <Text size="xs" className="px-2 text-center text-fg-subtle">
-            Pidom uses your Google account to keep your library in sync. Nothing is
-            shared with anyone else.
+            Pidom uses your Google account to keep your library in sync. Nothing is shared with
+            anyone else.
           </Text>
         </VStack>
       </VStack>

@@ -317,7 +317,9 @@ async function adoptPlaintext(profileId: string, key: string): Promise<boolean> 
       // and the rows and not `user_version`, so without this the migration
       // runner would replay every step over a database that already has them.
       const version = await plain.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-      await plain.execAsync(`PRAGMA encrypted.user_version = ${Number(version?.user_version ?? 0)}`);
+      await plain.execAsync(
+        `PRAGMA encrypted.user_version = ${Number(version?.user_version ?? 0)}`,
+      );
     } finally {
       await plain.execAsync('DETACH DATABASE encrypted').catch(() => undefined);
     }

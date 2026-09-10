@@ -95,7 +95,8 @@ export function PersonRow({
       onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? name}
-      className="data-[active=true]:bg-hover">
+      className="data-[active=true]:bg-hover"
+    >
       {body}
     </Pressable>
   );
@@ -150,7 +151,8 @@ export function GroupRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={name}
-      className="data-[active=true]:bg-hover">
+      className="data-[active=true]:bg-hover"
+    >
       {body}
     </Pressable>
   );
@@ -176,7 +178,8 @@ export function Tag({ label, tone = 'quiet' }: { label: string; tone?: 'quiet' |
         tone === 'primary'
           ? 'shrink-0 rounded-md bg-primary-tint px-2 py-1'
           : 'shrink-0 rounded-md bg-surface px-2 py-1'
-      }>
+      }
+    >
       <Text size="2xs" className={tone === 'primary' ? 'text-primary' : 'text-fg-muted'}>
         {label}
       </Text>
@@ -197,11 +200,7 @@ export function RowGlyph({
       as={glyph}
       size="sm"
       className={
-        tone === 'primary'
-          ? 'text-primary'
-          : tone === 'muted'
-            ? 'text-fg-muted'
-            : 'text-fg-subtle'
+        tone === 'primary' ? 'text-primary' : tone === 'muted' ? 'text-fg-muted' : 'text-fg-subtle'
       }
     />
   );

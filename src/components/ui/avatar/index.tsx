@@ -38,45 +38,30 @@ const avatarImageStyle = tva({
   base: 'h-full w-full rounded-full absolute',
 });
 
-type IAvatarProps = Omit<
-  React.ComponentPropsWithoutRef<typeof UIAvatar>,
-  'context'
-> &
+type IAvatarProps = Omit<React.ComponentPropsWithoutRef<typeof UIAvatar>, 'context'> &
   VariantProps<typeof avatarStyle>;
 
-const Avatar = React.forwardRef<
-  React.ComponentRef<typeof UIAvatar>,
-  IAvatarProps
->(function Avatar({ className, ...props }, ref) {
+const Avatar = React.forwardRef<React.ComponentRef<typeof UIAvatar>, IAvatarProps>(function Avatar(
+  { className, ...props },
+  ref,
+) {
   return (
-    <UIAvatar
-      ref={ref}
-      {...props}
-      className={avatarStyle({ class: className })}
-      context={{}}
-    />
+    <UIAvatar ref={ref} {...props} className={avatarStyle({ class: className })} context={{}} />
   );
 });
 
 type IAvatarBadgeProps = React.ComponentPropsWithoutRef<typeof UIAvatar.Badge> &
   VariantProps<typeof avatarBadgeStyle>;
 
-const AvatarBadge = React.forwardRef<
-  React.ComponentRef<typeof UIAvatar.Badge>,
-  IAvatarBadgeProps
->(function AvatarBadge({ className, ...props }, ref) {
-  return (
-    <UIAvatar.Badge
-      ref={ref}
-      {...props}
-      className={avatarBadgeStyle({ class: className })}
-    />
-  );
-});
+const AvatarBadge = React.forwardRef<React.ComponentRef<typeof UIAvatar.Badge>, IAvatarBadgeProps>(
+  function AvatarBadge({ className, ...props }, ref) {
+    return (
+      <UIAvatar.Badge ref={ref} {...props} className={avatarBadgeStyle({ class: className })} />
+    );
+  },
+);
 
-type IAvatarFallbackTextProps = React.ComponentPropsWithoutRef<
-  typeof UIAvatar.FallbackText
-> &
+type IAvatarFallbackTextProps = React.ComponentPropsWithoutRef<typeof UIAvatar.FallbackText> &
   VariantProps<typeof avatarFallbackTextStyle>;
 const AvatarFallbackText = React.forwardRef<
   React.ComponentRef<typeof UIAvatar.FallbackText>,
@@ -120,10 +105,7 @@ const AvatarFallbackText = React.forwardRef<
  */
 const StyledAvatarImage = styled(ExpoImage, { className: 'style' });
 
-type IAvatarImageProps = Omit<
-  React.ComponentPropsWithoutRef<typeof StyledAvatarImage>,
-  'source'
-> &
+type IAvatarImageProps = Omit<React.ComponentPropsWithoutRef<typeof StyledAvatarImage>, 'source'> &
   VariantProps<typeof avatarImageStyle> & {
     /**
      * Widened to allow a missing photo, which is the common case.
@@ -136,67 +118,58 @@ type IAvatarImageProps = Omit<
     source?: { uri?: string | null } | null;
   };
 
-const AvatarImage = React.forwardRef<
-  React.ComponentRef<typeof ExpoImage>,
-  IAvatarImageProps
->(function AvatarImage({ className, source, recyclingKey, ...props }, ref) {
-  const uri =
-    source !== null && typeof source === 'object' && typeof source.uri === 'string'
-      ? source.uri
-      : null;
+const AvatarImage = React.forwardRef<React.ComponentRef<typeof ExpoImage>, IAvatarImageProps>(
+  function AvatarImage({ className, source, recyclingKey, ...props }, ref) {
+    const uri =
+      source !== null && typeof source === 'object' && typeof source.uri === 'string'
+        ? source.uri
+        : null;
 
-  const [failed, setFailed] = React.useState(false);
-  // Resets when the photo changes, which is what the creator's version never
-  // did. A row recycled onto a different person gets a fresh attempt.
-  React.useEffect(() => setFailed(false), [uri]);
+    const [failed, setFailed] = React.useState(false);
+    // Resets when the photo changes, which is what the creator's version never
+    // did. A row recycled onto a different person gets a fresh attempt.
+    React.useEffect(() => setFailed(false), [uri]);
 
-  if (uri === null || failed) {
-    return null;
-  }
+    if (uri === null || failed) {
+      return null;
+    }
 
-  return (
-    <StyledAvatarImage
-      ref={ref}
-      contentFit="cover"
-      cachePolicy="memory-disk"
-      transition={120}
-      // Defaults to the photo itself: two rows showing the same person should
-      // share a decode, and a row recycled onto somebody else should not.
-      recyclingKey={recyclingKey ?? uri}
-      {...props}
-      source={{ uri }}
-      onError={() => setFailed(true)}
-      className={avatarImageStyle({ class: className })}
-    />
-  );
-});
+    return (
+      <StyledAvatarImage
+        ref={ref}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={120}
+        // Defaults to the photo itself: two rows showing the same person should
+        // share a decode, and a row recycled onto somebody else should not.
+        recyclingKey={recyclingKey ?? uri}
+        {...props}
+        source={{ uri }}
+        onError={() => setFailed(true)}
+        className={avatarImageStyle({ class: className })}
+      />
+    );
+  },
+);
 
 type IAvatarGroupProps = React.ComponentPropsWithoutRef<typeof UIAvatar.Group> &
   VariantProps<typeof avatarGroupStyle>;
 
-const AvatarGroup = React.forwardRef<
-  React.ComponentRef<typeof UIAvatar.Group>,
-  IAvatarGroupProps
->(function AvatarGroup({ className, ...props }, ref) {
-  return (
-    <UIAvatar.Group
-      ref={ref}
-      {...props}
-      className={avatarGroupStyle({
-        class: className,
-      })}
-    />
-  );
-});
+const AvatarGroup = React.forwardRef<React.ComponentRef<typeof UIAvatar.Group>, IAvatarGroupProps>(
+  function AvatarGroup({ className, ...props }, ref) {
+    return (
+      <UIAvatar.Group
+        ref={ref}
+        {...props}
+        className={avatarGroupStyle({
+          class: className,
+        })}
+      />
+    );
+  },
+);
 
 // Alias for shadcn compatibility
 const AvatarFallback = AvatarFallbackText;
 
-export {
-  Avatar,
-  AvatarBadge,
-  AvatarFallback,
-  AvatarFallbackText,
-  AvatarGroup,
-  AvatarImage
-};
+export { Avatar, AvatarBadge, AvatarFallback, AvatarFallbackText, AvatarGroup, AvatarImage };

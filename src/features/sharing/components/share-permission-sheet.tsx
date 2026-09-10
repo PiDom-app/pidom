@@ -138,7 +138,8 @@ function Row({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      className="px-4 py-2 data-[active=true]:bg-hover">
+      className="px-4 py-2 data-[active=true]:bg-hover"
+    >
       <HStack className="items-center" space="lg">
         <Icon as={glyph} size="lg" className={selected ? 'text-primary' : 'text-fg-muted'} />
         <VStack className="flex-1">

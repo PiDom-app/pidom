@@ -43,10 +43,7 @@ export function TimeSheet({
   value: number;
   onPick: (minute: number) => void;
 }) {
-  const times = React.useMemo(
-    () => Array.from({ length: 48 }, (_, index) => index * 30),
-    [],
-  );
+  const times = React.useMemo(() => Array.from({ length: 48 }, (_, index) => index * 30), []);
 
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
@@ -76,11 +73,13 @@ export function TimeSheet({
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 accessibilityLabel={formatMinute(minute)}
-                className="px-4 py-2 data-[active=true]:bg-hover">
+                className="px-4 py-2 data-[active=true]:bg-hover"
+              >
                 <HStack className="items-center" space="md">
                   <Text
                     size="md"
-                    className={selected ? 'flex-1 text-primary' : 'flex-1 text-foreground'}>
+                    className={selected ? 'flex-1 text-primary' : 'flex-1 text-foreground'}
+                  >
                     {formatMinute(minute)}
                   </Text>
                   {selected ? <Icon as={Check} size="md" className="text-primary" /> : null}

@@ -37,7 +37,11 @@ export async function fileOf(db: SQLiteDatabase, documentId: string): Promise<Fi
   );
   return row === null
     ? null
-    : { ...row, state: row.state as FileState, coverState: row.coverState as 'missing' | 'available' };
+    : {
+        ...row,
+        state: row.state as FileState,
+        coverState: row.coverState as 'missing' | 'available',
+      };
 }
 
 export async function setState(

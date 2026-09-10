@@ -38,11 +38,7 @@ export function OfflineState({
   return (
     <Center className="flex-1 px-10">
       <VStack className="items-center" space="lg">
-        <Icon
-          as={hasNetwork ? CloudOff : WifiOff}
-          size="xl"
-          className="h-10 w-10 text-fg-subtle"
-        />
+        <Icon as={hasNetwork ? CloudOff : WifiOff} size="xl" className="h-10 w-10 text-fg-subtle" />
 
         <VStack className="items-center" space="sm">
           <Heading size="lg" className="text-center text-foreground">
@@ -95,7 +91,11 @@ export function LibraryUnavailable({ fault }: { fault: DatabaseFault }) {
   return (
     <Center className="flex-1 px-10">
       <VStack className="items-center" space="lg">
-        <Icon as={fault === 'no-keychain' ? Lock : ShieldAlert} size="xl" className="h-10 w-10 text-fg-subtle" />
+        <Icon
+          as={fault === 'no-keychain' ? Lock : ShieldAlert}
+          size="xl"
+          className="h-10 w-10 text-fg-subtle"
+        />
         <VStack className="items-center" space="sm">
           <Heading size="lg" className="text-center text-foreground">
             {headline}
@@ -151,7 +151,8 @@ export function SyncNotice({
       onPress={onRetry}
       accessibilityRole="button"
       accessibilityLabel="Try to reach your account again"
-      className="mt-5 border-y border-hairline bg-surface data-[active=true]:bg-hover">
+      className="mt-5 border-y border-hairline bg-surface data-[active=true]:bg-hover"
+    >
       <HStack className="items-center px-4 py-2.5" space="sm">
         <Icon as={glyph} size="xs" className="text-fg-subtle" />
         <Text size="xs" className="flex-1 text-fg-subtle">

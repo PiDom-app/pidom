@@ -90,7 +90,8 @@ export function DeviceStorageSummary() {
       onPress={() => router.push('/storage')}
       accessibilityRole="button"
       accessibilityLabel={`${headline}. ${hint}`}
-      className="rounded-md px-4 py-2 data-[active=true]:bg-hover">
+      className="rounded-md px-4 py-2 data-[active=true]:bg-hover"
+    >
       <HStack className="items-center" space="md">
         <Icon as={HardDrive} size="lg" className="text-fg-muted" />
         <VStack className="flex-1" space="xs">
