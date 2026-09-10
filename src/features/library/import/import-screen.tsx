@@ -146,7 +146,7 @@ export function ImportScreen() {
       <VStack className="flex-1">
         <ImportHeader onCancel={leave} disabled={committing} />
 
-        <VStack className="flex-1 px-6">
+        <VStack className="flex-1 px-4">
           <Box className="mt-6 items-center">
             {picked === null || picked.coverUri === null ? (
               <Skeleton className="rounded-md" style={COVER_BOX} />
@@ -252,7 +252,7 @@ export function ImportScreen() {
           </HStack>
         </VStack>
 
-        <Box className="px-6 pb-6">
+        <Box className="px-4 pb-6">
           <Button
             size="lg"
             className="h-12"
@@ -357,7 +357,7 @@ function Refused({
           </Text>
         </Center>
 
-        <VStack className="px-6 pb-6" space="md">
+        <VStack className="px-4 pb-6" space="md">
           <Button size="lg" className="h-12" onPress={onChoose}>
             <ButtonText>Choose another file</ButtonText>
           </Button>
@@ -374,7 +374,7 @@ function Refused({
 
 function ImportHeader({ onCancel, disabled }: { onCancel: () => void; disabled: boolean }) {
   return (
-    <HStack className="items-center justify-between px-6 pt-5">
+    <HStack className="items-center justify-between px-4 pt-5">
       <Pressable onPress={onCancel} accessibilityRole="button" disabled={disabled}>
         <Text size="sm" className={disabled ? 'text-fg-disabled' : 'text-fg-muted'}>
           Cancel

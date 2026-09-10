@@ -168,7 +168,7 @@ export function ShareDetailScreen() {
             starts at the top now, in the same left-aligned identity row the
             share screen uses. */}
         <ScrollView contentContainerStyle={CONTENT}>
-          <HStack className="items-center px-6 py-3.5" space="md">
+          <HStack className="items-center px-4 py-2.5" space="md">
             <Box className="h-[74px] w-[52px] items-center justify-center rounded-md bg-surface">
               <Text size="2xs" className="font-semibold tracking-wider text-fg-subtle">
                 PDF
@@ -244,7 +244,7 @@ function Allowed({
   on: boolean;
 }) {
   return (
-    <HStack className="items-center px-6 py-2.5" space="lg">
+    <HStack className="items-center px-4 py-2.5" space="lg">
       <Icon as={glyph} size="md" className={on ? 'text-fg-muted' : 'text-fg-disabled'} />
       <Text size="sm" className={`flex-1 ${on ? 'text-foreground' : 'text-fg-disabled'}`}>
         {label}
@@ -292,7 +292,7 @@ function State({ share, onDevice }: { share: LibraryShare; onDevice: boolean }) 
         who sent it.
       </Notice>
     ) : (
-      <HStack className="items-start px-6 py-3" space="sm">
+      <HStack className="items-start px-4 py-2" space="sm">
         <Icon as={Quote} size="xs" className="mt-0.5 text-fg-muted" />
         <Text size="sm" className="flex-1 text-fg-muted">
           {share.message}
@@ -341,7 +341,7 @@ function Actions({
   if (transfer !== null) {
     const percent = transfer.total > 0 ? Math.round((transfer.sent / transfer.total) * 100) : 0;
     return (
-      <VStack className="px-6 pt-3 pb-4" space="sm">
+      <VStack className="px-4 pt-3 pb-4" space="sm">
         <HStack className="items-center justify-between">
           <Text size="xs" className="text-fg-muted">
             Downloading
@@ -372,7 +372,7 @@ function Actions({
 
   if (share.status === 'pending') {
     return (
-      <VStack className="px-6 pb-4" space="sm">
+      <VStack className="px-4 pb-4" space="sm">
         <Button size="lg" onPress={onAccept} isDisabled={busy} className="h-12">
           {busy ? (
             <Spinner />
@@ -392,7 +392,7 @@ function Actions({
 
   if (onDevice) {
     return (
-      <Box className="px-6 pb-4">
+      <Box className="px-4 pb-4">
         <Button size="lg" onPress={onOpen} className="h-12">
           <ButtonIcon as={BookOpen} />
           <ButtonText>Open</ButtonText>
@@ -403,7 +403,7 @@ function Actions({
 
   if (share.status === 'accepted' && share.canDownload) {
     return (
-      <Box className="px-6 pb-4">
+      <Box className="px-4 pb-4">
         <Button size="lg" onPress={onDownload} isDisabled={busy} className="h-12">
           {busy ? (
             <Spinner />

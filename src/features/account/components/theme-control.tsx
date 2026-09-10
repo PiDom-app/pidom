@@ -35,7 +35,7 @@ export function ThemeControl() {
             onPress={() => setMode(option.mode)}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
-            className="rounded-md px-1 py-3 data-[active=true]:bg-hover">
+            className="rounded-md px-4 py-2 data-[active=true]:bg-hover">
             <HStack className="items-center" space="md">
               <Icon
                 as={option.icon}

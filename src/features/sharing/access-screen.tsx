@@ -168,7 +168,7 @@ export function AccessScreen() {
       {beat}
 
       <ScrollView contentContainerStyle={CONTENT}>
-        <HStack className="items-center px-6 py-3.5" space="md">
+        <HStack className="items-center px-4 py-2.5" space="md">
           <DocumentCover documentId={document.id} title={document.title} width={44} />
           <VStack className="flex-1">
             <Text size="sm" numberOfLines={2} className="font-semibold text-foreground">
@@ -252,7 +252,7 @@ export function AccessScreen() {
 
             {groups.length === 0 ? null : (
               <>
-                <Text size="xs" className="px-6 pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+                <Text size="xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
                   Groups
                 </Text>
                 {groups.map((share) => (

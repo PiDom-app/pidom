@@ -115,7 +115,7 @@ export function ProfileScreen() {
       <ScrollView contentContainerStyle={CONTENT}>
         {/* Left-aligned rather than a centred hero: this is a preview of a row
             in somebody else's list, and that is what it should look like. */}
-        <HStack className="items-center px-6 pt-4 pb-1" space="md">
+        <HStack className="items-center px-4 pt-4 pb-1" space="md">
           <Avatar className="h-14 w-14">
             <AvatarFallbackText>{name === '' ? 'Reader' : name}</AvatarFallbackText>
             <AvatarImage source={{ uri: shown }} />
@@ -131,7 +131,7 @@ export function ProfileScreen() {
         </HStack>
 
         <Section title="Display name">
-          <VStack className="px-6 pt-1" space="xs">
+          <VStack className="px-4 pt-1" space="xs">
             <Input className="h-11">
               <InputField
                 value={name}
@@ -152,7 +152,7 @@ export function ProfileScreen() {
         <Divider className="mx-6 mt-2 bg-hairline" />
 
         <Section title="Photo">
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
                 Show my Google photo
@@ -174,7 +174,7 @@ export function ProfileScreen() {
         <Divider className="mx-6 mt-2 bg-hairline" />
 
         <Section title="Account">
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
                 {profile?.email ?? account?.email ?? 'Your address'}
@@ -184,7 +184,7 @@ export function ProfileScreen() {
               </Text>
             </VStack>
           </HStack>
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
                 Handle
@@ -203,7 +203,7 @@ export function ProfileScreen() {
       </ScrollView>
 
       <Divider className="bg-hairline" />
-      <VStack className="px-6 pt-3 pb-2">
+      <VStack className="px-4 pt-3 pb-2">
         <Button size="lg" className="h-11" isDisabled={!dirty || saving} onPress={() => void save()}>
           <ButtonText>{saving ? 'Saving…' : 'Save'}</ButtonText>
         </Button>

@@ -314,7 +314,7 @@ export function GroupScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={share.title ?? 'A shared document'}
                   className="data-[active=true]:bg-hover">
-                  <HStack className="items-center px-6 py-3" space="md">
+                  <HStack className="items-center px-4 py-2" space="md">
                     <Box className="h-14 w-10 items-center justify-center rounded-md bg-surface">
                       <Text size="2xs" className="font-semibold tracking-wider text-fg-subtle">
                         PDF
@@ -467,7 +467,7 @@ function AddMemberSheet({
       <ScreenHeader glyph={UserPlus} title="Add someone" onBack={onClose} backLabel="Cancel" />
       <Box className="mx-6 h-px bg-hairline" />
 
-      <Box className="px-6 pt-3.5">
+      <Box className="px-4 pt-3.5">
         <Input className="h-11">
           <Box className="pl-3">
             <Icon as={Search} size="sm" className="text-fg-subtle" />

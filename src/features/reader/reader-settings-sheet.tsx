@@ -82,7 +82,7 @@ export function ReaderSettingsSheet({
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
 
-        <HStack className="w-full items-center px-6 pt-2.5 pb-3.5" space="lg">
+        <HStack className="w-full items-center px-4 pt-2.5 pb-3.5" space="lg">
           <Icon as={Settings} size="lg" className="text-fg-muted" />
           <VStack className="flex-1">
             <Text size="md" className="font-semibold text-foreground">
@@ -101,7 +101,7 @@ export function ReaderSettingsSheet({
             onPress={onOpenModes}
             accessibilityRole="button"
             accessibilityLabel={`How it reads. ${MODE_LABEL[mode]}.`}
-            className="px-6 py-3 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover">
             <HStack className="items-center" space="lg">
               <Icon as={Rows3} size="lg" className="text-fg-muted" />
               <Text size="md" className="flex-1 text-foreground">
@@ -113,7 +113,7 @@ export function ReaderSettingsSheet({
             </HStack>
           </Pressable>
 
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <Icon as={Maximize} size="lg" className="text-fg-muted" />
             <Text size="md" className="flex-1 text-foreground">
               Fit
@@ -125,7 +125,7 @@ export function ReaderSettingsSheet({
 
           <Divider className="my-1 bg-hairline" />
 
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <Icon as={Eye} size="lg" className="text-fg-muted" />
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
@@ -142,7 +142,7 @@ export function ReaderSettingsSheet({
             />
           </HStack>
 
-          <HStack className="items-center px-6 py-3" space="lg">
+          <HStack className="items-center px-4 py-2" space="lg">
             <Icon as={Sun} size="lg" className="text-fg-muted" />
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
@@ -160,7 +160,7 @@ export function ReaderSettingsSheet({
           </HStack>
 
           {faithful ? null : (
-            <HStack className="items-center px-6 pt-1 pb-3" space="lg">
+            <HStack className="items-center px-4 pt-1 pb-3" space="lg">
               <VStack className="flex-1">
                 <Text size="sm" className="text-fg-muted">
                   Over the page
@@ -193,7 +193,7 @@ export function ReaderSettingsSheet({
             </HStack>
           )}
 
-          <Text size="xs" className="px-6 pt-2 pb-1 text-fg-subtle">
+          <Text size="xs" className="px-4 pt-2 pb-1 text-fg-subtle">
             How it reads follows the document to your other devices. Everything else stays on
             this phone.
           </Text>

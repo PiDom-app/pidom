@@ -49,14 +49,14 @@ import { ThemeControl } from './theme-control';
  * because that is the densest list in the app and nobody has ever called it
  * cramped: rows at `py-3.5` separated by a hairline, and nothing else between
  * them. A heading needs air above it and almost none below — it belongs to the
- * rows under it, not to the divider over it — so the label carries `pt-4 pb-1.5`
+ * rows under it, not to the divider over it — so the label carries `pt-2.5 pb-1`
  * and the group closes with `pb-1`, the rows' own `py-3` being most of the gap
  * before the next rule already.
  */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <VStack>
-      <Text size="xs" className="pt-4 pb-1.5 uppercase tracking-wider text-fg-subtle">
+      <Text size="xs" className="px-4 pt-2.5 pb-1 uppercase tracking-wider text-fg-subtle">
         {title}
       </Text>
       <VStack className="pb-1">{children}</VStack>
@@ -104,7 +104,7 @@ export function AccountScreen() {
         </Pressable>
       </HStack>
 
-      <ScrollView contentContainerClassName="px-6 pb-10">
+      <ScrollView contentContainerClassName="pb-8">
         <VStack>
           <VStack className="items-center pt-2 pb-6" space="md">
             {/* gluestack v5's Avatar has no size variant — it is fixed at
@@ -219,7 +219,7 @@ export function AccountScreen() {
           <Divider className="bg-hairline" />
 
           <Section title="Account">
-            <VStack className="px-1 py-3" space="xs">
+            <VStack className="px-4 py-2" space="xs">
               <Text size="sm" className="text-foreground">
                 Signed in with Google
               </Text>
@@ -271,7 +271,7 @@ function NavRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="rounded-md px-1 py-3 data-[active=true]:bg-hover">
+      className="rounded-md px-4 py-2 data-[active=true]:bg-hover">
       <HStack className="items-center" space="md">
         <Icon as={glyph} size="lg" className="text-fg-muted" />
         <VStack className="flex-1" space="xs">

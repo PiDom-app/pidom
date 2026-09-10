@@ -64,7 +64,7 @@ export function SharePermissionSheet({
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
 
-        <HStack className="w-full items-center px-6 pt-2.5 pb-3.5" space="lg">
+        <HStack className="w-full items-center px-4 pt-2.5 pb-3.5" space="lg">
           <Icon as={ShieldCheck} size="lg" className="text-fg-muted" />
           <VStack className="flex-1">
             <Text size="md" className="font-semibold text-foreground">
@@ -110,7 +110,7 @@ export function SharePermissionSheet({
             onPress={() => setPermission({ ...permission, canReshare: !permission.canReshare })}
           />
 
-          <Text size="xs" className="px-6 pt-3 pb-1 text-fg-subtle">
+          <Text size="xs" className="px-4 pt-3 pb-1 text-fg-subtle">
             Both of the last two are off unless you turn them on, on every share.
           </Text>
         </VStack>
@@ -138,7 +138,7 @@ function Row({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      className="px-6 py-3 data-[active=true]:bg-hover">
+      className="px-4 py-2 data-[active=true]:bg-hover">
       <HStack className="items-center" space="lg">
         <Icon as={glyph} size="lg" className={selected ? 'text-primary' : 'text-fg-muted'} />
         <VStack className="flex-1">

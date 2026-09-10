@@ -51,7 +51,7 @@ export function ActionSheetPanel({
           className="w-full max-h-[60vh]"
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled">
-          <VStack className="w-full px-6 pt-2 pb-7">{children}</VStack>
+          <VStack className="w-full px-4 pt-2 pb-7">{children}</VStack>
         </ActionsheetScrollView>
       </ActionsheetContent>
     </Actionsheet>

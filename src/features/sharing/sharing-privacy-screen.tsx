@@ -89,7 +89,7 @@ export function SharingPrivacyScreen() {
             onPress={() => setClaiming(true)}
             accessibilityRole="button"
             accessibilityLabel="Your handle"
-            className="px-6 py-3 data-[active=true]:bg-hover">
+            className="px-4 py-2 data-[active=true]:bg-hover">
             <HStack className="items-center" space="md">
               <Icon as={AtSign} size="lg" className="text-fg-muted" />
               <VStack className="flex-1">
@@ -198,7 +198,7 @@ function Toggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <HStack className="items-center px-6 py-3" space="lg">
+    <HStack className="items-center px-4 py-2" space="lg">
       <VStack className="flex-1">
         <Text size="md" className="text-foreground">
           {label}
@@ -239,7 +239,7 @@ function Choice({
         onPress={() => setOpen((was) => !was)}
         accessibilityRole="button"
         accessibilityLabel={label}
-        className="px-6 py-3 data-[active=true]:bg-hover">
+        className="px-4 py-2 data-[active=true]:bg-hover">
         <HStack className="items-center" space="md">
           <VStack className="flex-1">
             <Text size="md" className="text-foreground">

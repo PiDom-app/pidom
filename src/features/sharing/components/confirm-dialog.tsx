@@ -3,7 +3,6 @@ import React from 'react';
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
-import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 
@@ -48,14 +47,14 @@ export function ConfirmDialog({
             </Text>
           ))}
         </VStack>
-        <HStack className="justify-end" space="sm">
+        <VStack space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
           <Button variant="destructive" size="sm" onPress={onConfirm}>
             <ButtonText>{confirmLabel}</ButtonText>
           </Button>
-        </HStack>
+        </VStack>
       </VStack>
     </ActionSheetPanel>
   );

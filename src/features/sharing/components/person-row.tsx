@@ -52,7 +52,7 @@ export function PersonRow({
   accessibilityLabel?: string;
 }) {
   const body = (
-    <HStack className={`items-center px-6 py-3 ${dim ? 'opacity-60' : ''}`} space="md">
+    <HStack className={`items-center px-4 py-2 ${dim ? 'opacity-60' : ''}`} space="md">
       <Box className="relative">
         <Avatar className="h-10 w-10">
           <AvatarFallbackText>{name}</AvatarFallbackText>
@@ -122,7 +122,7 @@ export function GroupRow({
   onPress?: () => void;
 }) {
   const body = (
-    <HStack className="items-center px-6 py-3" space="md">
+    <HStack className="items-center px-4 py-2" space="md">
       <Box className="h-10 w-10 items-center justify-center rounded-md bg-surface">
         <Text size="sm" className="font-semibold text-fg-muted">
           {initials}

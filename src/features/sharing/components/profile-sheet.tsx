@@ -78,7 +78,7 @@ export function ProfileSheet({
             sheet about one person has a single subject and no list to line up
             with, so putting it left with an empty right half is a layout
             imitating a row that is not there. */}
-        <VStack className="w-full items-center px-6 pt-3 pb-4" space="md">
+        <VStack className="w-full items-center px-4 pt-3 pb-4" space="md">
           <Box className="relative">
             <Avatar className="h-20 w-20">
               <AvatarFallbackText>{name}</AvatarFallbackText>
@@ -122,7 +122,7 @@ export function ProfileSheet({
         {/* What the two accounts have between them, as two counts rather than
             a list of sentences. `commonGround` counts by document, so the same
             document reshared back is one thing between two people. */}
-        <HStack className="w-full px-6 py-4" space="md">
+        <HStack className="w-full px-4 py-4" space="md">
           <Stat
             glyph={Share2}
             value={context === undefined ? '—' : String(sharedDocuments ?? 0)}
@@ -145,7 +145,7 @@ export function ProfileSheet({
 
         <Divider className="bg-hairline" />
 
-        <VStack className="w-full px-6 pt-3">
+        <VStack className="w-full px-4 pt-3">
           <Text size="xs" className="text-fg-subtle">
             This is everything Pidom will tell you about another account. Not their email, not
             what else they are reading, not when they were last here.
@@ -197,7 +197,7 @@ function Row({
   detail?: string;
 }) {
   return (
-    <HStack className="items-center px-6 py-3" space="lg">
+    <HStack className="items-center px-4 py-2" space="lg">
       <Icon as={glyph} size="lg" className="text-fg-muted" />
       <VStack className="flex-1">
         <Text size="md" className="text-foreground">

@@ -212,7 +212,7 @@ export function GroupSettings({
         onPress={onLeave}
         accessibilityRole="button"
         accessibilityLabel={isOwner ? 'Delete this group' : 'Leave this group'}
-        className="px-6 py-3.5 data-[active=true]:bg-hover">
+        className="px-4 py-2.5 data-[active=true]:bg-hover">
         <HStack className="items-center" space="md">
           <Icon as={isOwner ? Trash2 : LogOut} size="lg" className="text-destructive" />
           <VStack className="flex-1">
@@ -259,7 +259,7 @@ function Row({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="px-6 py-3.5 data-[active=true]:bg-hover">
+      className="px-4 py-2.5 data-[active=true]:bg-hover">
       <HStack className="items-center" space="md">
         <Text size="md" className={disabled ? 'flex-1 text-fg-disabled' : 'flex-1 text-foreground'}>
           {label}
@@ -299,7 +299,7 @@ function Choice({
 
   if (disabled) {
     return (
-      <HStack className="items-center px-6 py-3.5" space="md">
+      <HStack className="items-center px-4 py-2.5" space="md">
         <VStack className="flex-1">
           <Text size="md" className="text-fg-disabled">
             {label}
@@ -324,7 +324,7 @@ function Choice({
           {...props}
           accessibilityRole="button"
           accessibilityLabel={`${label}: ${current}`}
-          className="px-6 py-3.5 data-[active=true]:bg-hover">
+          className="px-4 py-2.5 data-[active=true]:bg-hover">
           <HStack className="items-center" space="md">
             <VStack className="flex-1">
               <Text size="md" className="text-foreground">
@@ -368,7 +368,7 @@ function Toggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <HStack className="items-center px-6 py-3.5" space="lg">
+    <HStack className="items-center px-4 py-2.5" space="lg">
       <VStack className="flex-1">
         <Text size="md" className={disabled ? 'text-fg-disabled' : 'text-foreground'}>
           {label}
