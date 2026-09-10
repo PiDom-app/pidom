@@ -99,7 +99,7 @@ jobs:
         id: apk
         run: |
           BUILD_ID="$(node -e 'const build=require(process.argv[1]); process.stdout.write((Array.isArray(build) ? build[0] : build).id)' "$RUNNER_TEMP/eas-build.json")"
-          VERSION_CODE="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; process.stdout.write(String(result.androidVersionCode ?? result.versionCode))' "$RUNNER_TEMP/eas-build.json")"
+          VERSION_CODE="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; const versionCode=result.androidVersionCode ?? result.versionCode ?? result.appBuildVersion; if (versionCode == null) process.exit(1); process.stdout.write(String(versionCode))' "$RUNNER_TEMP/eas-build.json")"
           APK_URL="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; const url=result.artifacts?.applicationArchiveUrl ?? result.artifacts?.buildUrl; if (!url) process.exit(1); process.stdout.write(url)' "$RUNNER_TEMP/eas-build.json")"
           mkdir -p release
           RELEASE_APK="release/Pidom-${VERSION_CODE}.apk"
@@ -128,6 +128,11 @@ jobs:
       - name: Publish signed EAS Update
         run: |
           KEY_PATH="$RUNNER_TEMP/eas-update-private-key.pem"
+          # The APK and checksum have already been attached to the GitHub
+          # Release. Remove those generated files before EAS enforces its
+          # clean-working-tree release guard.
+          rm -rf release
+          test -z "$(git status --porcelain)"
           trap 'rm -f "$KEY_PATH"' EXIT
           printf '%s' "$EAS_UPDATE_PRIVATE_KEY" > "$KEY_PATH"
           eas update --channel production --environment production --non-interactive \
