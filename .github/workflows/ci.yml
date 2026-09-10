@@ -100,12 +100,11 @@ jobs:
         run: |
           BUILD_ID="$(node -e 'const build=require(process.argv[1]); process.stdout.write((Array.isArray(build) ? build[0] : build).id)' "$RUNNER_TEMP/eas-build.json")"
           VERSION_CODE="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; process.stdout.write(String(result.androidVersionCode ?? result.versionCode))' "$RUNNER_TEMP/eas-build.json")"
-          mkdir release
-          (cd release && eas build:download --build-id "$BUILD_ID" --non-interactive)
-          APK="$(find release -type f -name '*.apk' -print -quit)"
-          test -n "$APK"
+          APK_URL="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; const url=result.artifacts?.applicationArchiveUrl ?? result.artifacts?.buildUrl; if (!url) process.exit(1); process.stdout.write(url)' "$RUNNER_TEMP/eas-build.json")"
+          mkdir -p release
           RELEASE_APK="release/Pidom-${VERSION_CODE}.apk"
-          mv "$APK" "$RELEASE_APK"
+          curl --fail --location --retry 3 --retry-all-errors --output "$RELEASE_APK" "$APK_URL"
+          test -s "$RELEASE_APK"
           sha256sum "$RELEASE_APK" > "${RELEASE_APK}.sha256"
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
