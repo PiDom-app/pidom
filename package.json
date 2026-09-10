@@ -91,7 +91,9 @@
     "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/pidom.tsbuildinfo",
     "convex": "convex dev",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "assets:brand": "bash scripts/generate-brand-assets.sh",
+    "postinstall": "patch-package"
   },
   "allowScripts": {
     "esbuild@0.27.0": true

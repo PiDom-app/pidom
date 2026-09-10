@@ -10,7 +10,7 @@ import { VStack } from '@/components/ui/vstack';
 /**
  * Confirming that access is going away.
  *
- * An `AlertDialog` because it has a consequence, which is the rule
+ * A bottom sheet because it has a consequence, which is the rule
  * `use-app-toast.tsx` states — a toast is for something the reader need not act
  * on, and this is not that.
  *

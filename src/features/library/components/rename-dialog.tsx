@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
@@ -20,31 +20,32 @@ import { AUTHOR_MAX, TITLE_MAX } from '@convex/model/limits';
  * a long title is stopped by the keyboard rather than by a round trip that
  * comes back as an error.
  */
-export function RenameDialog({
-  isOpen,
-  initialTitle,
-  initialAuthor,
-  onClose,
-  onSubmit,
-}: {
+type RenameDialogProps = {
   isOpen: boolean;
   initialTitle: string;
   initialAuthor: string | null;
   onClose: () => void;
   onSubmit: (title: string, author: string) => Promise<boolean>;
-}) {
+};
+
+export function RenameDialog(props: RenameDialogProps) {
+  const session = props.isOpen
+    ? `open:${props.initialTitle}:${props.initialAuthor ?? ''}`
+    : 'closed';
+
+  return <RenameDialogForm key={session} {...props} />;
+}
+
+function RenameDialogForm({
+  isOpen,
+  initialTitle,
+  initialAuthor,
+  onClose,
+  onSubmit,
+}: RenameDialogProps) {
   const [title, setTitle] = useState(initialTitle);
   const [author, setAuthor] = useState(initialAuthor ?? '');
   const [saving, setSaving] = useState(false);
-
-  // Reset when a different document opens the same dialog, which is every time
-  // after the first — the component stays mounted with the screen.
-  useEffect(() => {
-    if (isOpen) {
-      setTitle(initialTitle);
-      setAuthor(initialAuthor ?? '');
-    }
-  }, [isOpen, initialTitle, initialAuthor]);
 
   const canSave = title.trim() !== '' && !saving;
 

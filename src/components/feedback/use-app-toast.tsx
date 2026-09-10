@@ -21,7 +21,7 @@ export type AppToastOptions = {
  *
  * Toasts are for things the reader need not act on: a cancelled sign-in, a
  * dropped connection, a saved change. Anything requiring an acknowledgement, or
- * with a consequence, belongs in an `AlertDialog`.
+ * with a consequence, belongs in a confirmation sheet.
  */
 export function useAppToast() {
   const toast = useToast();

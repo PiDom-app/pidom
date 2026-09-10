@@ -1,0 +1,49 @@
+diff --git a/node_modules/@gluestack-ui/core/lib/esm/actionsheet/creator/ActionsheetDragIndicatorWrapper.jsx b/node_modules/@gluestack-ui/core/lib/esm/actionsheet/creator/ActionsheetDragIndicatorWrapper.jsx
+index 666d179..b530665 100644
+--- a/node_modules/@gluestack-ui/core/lib/esm/actionsheet/creator/ActionsheetDragIndicatorWrapper.jsx
++++ b/node_modules/@gluestack-ui/core/lib/esm/actionsheet/creator/ActionsheetDragIndicatorWrapper.jsx
+@@ -1,6 +1,5 @@
+ import React, { forwardRef } from 'react';
+ import { Animated, Dimensions, PanResponder } from 'react-native';
+-import { mergeRefs } from '@gluestack-ui/utils/common';
+ import { useActionsheetContent } from './ActionsheetContentContext';
+ const windowHeight = Dimensions.get('window').height;
+ export function ActionsheetDragIndicatorWrapper(StyledActionsheetDragIndicatorWrapper) {
+@@ -31,7 +30,12 @@ export function ActionsheetDragIndicatorWrapper(StyledActionsheetDragIndicatorWr
+                             toValue: { x: 0, y: contentSheetHeight.current },
+                             duration: 200,
+                             useNativeDriver: true,
+-                        }).start(() => handleCloseRef.current());
++                        }).start(() => {
++                            const close = handleCloseRef.current;
++                            if (typeof close === 'function') {
++                                close();
++                            }
++                        });
+                     }
+                     else {
+                         Animated.spring(pan, {
+@@ -49,7 +53,12 @@ export function ActionsheetDragIndicatorWrapper(StyledActionsheetDragIndicatorWr
+                             toValue: { x: 0, y: contentSheetHeightWithSnapPoint },
+                             duration: 200,
+                             useNativeDriver: true,
+-                        }).start(() => handleCloseRef.current());
++                        }).start(() => {
++                            const close = handleCloseRef.current;
++                            if (typeof close === 'function') {
++                                close();
++                            }
++                        });
+                     }
+                     else {
+                         Animated.spring(pan, {
+@@ -61,8 +70,7 @@ export function ActionsheetDragIndicatorWrapper(StyledActionsheetDragIndicatorWr
+                 }
+             },
+         })).current;
+-        const mergedRef = mergeRefs([ref, handleCloseRef]);
+-        return (<StyledActionsheetDragIndicatorWrapper {...panResponder.panHandlers} {...props} ref={mergedRef}/>);
++        return (<StyledActionsheetDragIndicatorWrapper {...panResponder.panHandlers} {...props} ref={ref}/>);
+     });
+ }
+ //# sourceMappingURL=ActionsheetDragIndicatorWrapper.jsx.map

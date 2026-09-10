@@ -8,6 +8,7 @@ import {
   ActionsheetDragIndicatorWrapper,
   ActionsheetScrollView,
 } from '@/components/ui/actionsheet';
+import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 
 /**
@@ -37,9 +38,15 @@ export function ActionSheetPanel({
       closeOnOverlayClick={isDismissable}>
       <ActionsheetBackdrop />
       <ActionsheetContent className="max-h-none rounded-t-md border-t border-border bg-elevated p-0">
-        <ActionsheetDragIndicatorWrapper>
-          <ActionsheetDragIndicator />
-        </ActionsheetDragIndicatorWrapper>
+        {isDismissable ? (
+          <ActionsheetDragIndicatorWrapper>
+            <ActionsheetDragIndicator />
+          </ActionsheetDragIndicatorWrapper>
+        ) : (
+          <Box className="w-full items-center py-1" pointerEvents="none">
+            <ActionsheetDragIndicator />
+          </Box>
+        )}
         <ActionsheetScrollView
           className="w-full max-h-[60vh]"
           keyboardDismissMode="interactive"

@@ -1,60 +1,20 @@
 import React from 'react';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
-import { palette, themeColors } from '@/design/tokens';
+import { themeColors } from '@/design/tokens';
 import { useResolvedTheme } from '@/providers/theme-provider';
 
 /**
- * The Pidom mark: an open book, drawn as two leaves with text lines.
- *
- * Solid fills and strokes only, no gradient and no background plate, so it sits
- * on any surface at any size. The spine gap is what makes the silhouette
- * readable once it shrinks to a tab bar or a favicon — a closed rectangle at
- * 24px is just a rectangle.
- *
- * The left leaf is brand purple and the right leaf takes the foreground colour,
- * which is the whole reason the mark needs the resolved theme: purple holds
- * against both grounds, but the right leaf has to invert with them.
+ * The supplied Pidom mark, filled with the current theme's foreground colour.
  */
 export function PidomMark({ size = 48 }: { size?: number }) {
   const ink = themeColors[useResolvedTheme()].foreground;
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      {/* Left leaf. Drawn from the spine outward so the two halves meet on the
-          centre line without overlapping. */}
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill={ink}>
       <Path
-        d="M24 12.5C21.2 10.2 17.6 9 13.5 9H6.5C5.7 9 5 9.7 5 10.5V35.5C5 36.3 5.7 37 6.5 37H13.5C17.6 37 21.2 38.2 24 40.5"
-        stroke={palette.purple}
-        strokeWidth={2.75}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M 30 4 C 14.561 4 2 16.561 2 32 C 2 47.439 14.561 60 30 60 L 33 60 C 48.439 60 61 47.439 61 32 C 61 26.600951 59.460842 21.556431 56.802734 17.275391 L 62.039062 12.039062 L 59.210938 9.2109375 L 54.423828 13.998047 C 49.283425 7.890176 41.589024 4 33 4 L 30 4 z M 33 8 C 40.486401 8 47.18112 11.446946 51.585938 16.835938 L 33.375 35.046875 L 21.664062 23.335938 L 18.835938 26.164062 L 33.375 40.703125 L 53.882812 20.195312 C 55.862819 23.683904 57 27.710097 57 32 C 57 45.234 46.233 56 33 56 C 19.767 56 9 45.234 9 32 C 9 18.766 19.767 8 33 8 z"
       />
-      {/* Right leaf. */}
-      <Path
-        d="M24 12.5C26.8 10.2 30.4 9 34.5 9H41.5C42.3 9 43 9.7 43 10.5V35.5C43 36.3 42.3 37 41.5 37H34.5C30.4 37 26.8 38.2 24 40.5"
-        stroke={ink}
-        strokeWidth={2.75}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* The spine, running the full height between them. */}
-      <Path
-        d="M24 12.5V40.5"
-        stroke={palette.purple}
-        strokeWidth={2.75}
-        strokeLinecap="round"
-      />
-      {/* Text lines. Rects rather than strokes so they keep their weight
-          independently of the leaf stroke, and stay crisp when the mark is
-          rasterised for the app icon. */}
-      <Rect x={9.5} y={16.5} width={9} height={2.25} rx={1.125} fill={palette.purple} />
-      <Rect x={9.5} y={22} width={11} height={2.25} rx={1.125} fill={palette.purple} />
-      <Rect x={9.5} y={27.5} width={7} height={2.25} rx={1.125} fill={palette.purple} />
-
-      <Rect x={29.5} y={16.5} width={9} height={2.25} rx={1.125} fill={ink} />
-      <Rect x={27.5} y={22} width={11} height={2.25} rx={1.125} fill={ink} />
-      <Rect x={31.5} y={27.5} width={7} height={2.25} rx={1.125} fill={ink} />
     </Svg>
   );
 }

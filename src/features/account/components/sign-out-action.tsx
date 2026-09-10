@@ -13,7 +13,7 @@ import { closeDatabase } from '@/features/library/local/db';
 /**
  * Sign out, behind a confirmation.
  *
- * An `AlertDialog` rather than a `Modal` because this needs acknowledging: it
+ * A bottom sheet because this needs acknowledging: it
  * ends the session, and once local documents arrive it will have consequences
  * for what stays on the device. A `Toast` would be the wrong shape entirely —
  * there would be nothing to confirm.

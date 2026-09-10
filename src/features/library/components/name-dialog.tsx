@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
@@ -21,17 +21,7 @@ import { COLLECTION_NAME_MAX } from '@convex/model/limits';
  * and saving is how a reader takes a name back off one, and the server reads an
  * empty string as exactly that.
  */
-export function NameDialog({
-  isOpen,
-  title,
-  label,
-  placeholder,
-  initialValue = '',
-  maxLength = COLLECTION_NAME_MAX,
-  allowEmpty = false,
-  onClose,
-  onSubmit,
-}: {
+type NameDialogProps = {
   isOpen: boolean;
   title: string;
   label: string;
@@ -43,15 +33,27 @@ export function NameDialog({
   allowEmpty?: boolean;
   onClose: () => void;
   onSubmit: (value: string) => Promise<boolean>;
-}) {
+};
+
+export function NameDialog(props: NameDialogProps) {
+  const session = props.isOpen ? `open:${props.initialValue ?? ''}` : 'closed';
+
+  return <NameDialogForm key={session} {...props} />;
+}
+
+function NameDialogForm({
+  isOpen,
+  title,
+  label,
+  placeholder,
+  initialValue = '',
+  maxLength = COLLECTION_NAME_MAX,
+  allowEmpty = false,
+  onClose,
+  onSubmit,
+}: NameDialogProps) {
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setValue(initialValue);
-    }
-  }, [isOpen, initialValue]);
 
   const canSave = (allowEmpty || value.trim() !== '') && !saving;
 
