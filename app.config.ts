@@ -6,7 +6,8 @@ const config: ExpoConfig = {
   name: 'Pidom',
   slug: 'pidom',
   owner: 'teum254s-team',
-  version: '1.0.0',
+  // Unsigned EAS Update is a separate runtime from the prior signed build.
+  version: '1.0.1',
   orientation: 'default',
   icon: './assets/images/icon.png',
   scheme: 'pidom',
@@ -86,8 +87,6 @@ const config: ExpoConfig = {
     url: `https://u.expo.dev/${projectId}`,
     checkAutomatically: 'ON_LOAD',
     fallbackToCacheTimeout: 0,
-    codeSigningCertificate: './certs/eas-update.pem',
-    codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
   },
   // Expo SDK 57 currently fingerprints CNG projects differently before and
   // after EAS generates /android. Keep the runtime explicit and bump `version`

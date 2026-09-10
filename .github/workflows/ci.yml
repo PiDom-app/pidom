@@ -66,7 +66,6 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      EAS_UPDATE_PRIVATE_KEY: ${{ secrets.EAS_UPDATE_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
@@ -87,7 +86,6 @@ jobs:
         run: |
           test -n "$EXPO_TOKEN"
           test -n "$CONVEX_DEPLOY_KEY"
-          test -n "$EAS_UPDATE_PRIVATE_KEY"
 
       - name: Deploy Convex production
         run: npx convex deploy --typecheck enable --codegen enable --message "GitHub $GITHUB_SHA"
@@ -125,16 +123,12 @@ jobs:
             --generate-notes \
             --notes "EAS build ID: ${BUILD_ID}\nCommit: ${GITHUB_SHA}"
 
-      - name: Publish signed EAS Update
+      - name: Publish EAS Update
         run: |
-          KEY_PATH="$RUNNER_TEMP/eas-update-private-key.pem"
           # The APK and checksum have already been attached to the GitHub
           # Release. Remove those generated files before EAS enforces its
           # clean-working-tree release guard.
           rm -rf release
           test -z "$(git status --porcelain)"
-          trap 'rm -f "$KEY_PATH"' EXIT
-          printf '%s' "$EAS_UPDATE_PRIVATE_KEY" > "$KEY_PATH"
           eas update --channel production --environment production --non-interactive \
-            --private-key-path "$KEY_PATH" \
             --message "GitHub ${GITHUB_SHA}"

@@ -13,6 +13,11 @@ fingerprint-runtime mismatch for Continuous Native Generation projects after
 EAS creates the ignored `/android` directory, so `appVersion` is the stable
 runtime boundary for this project.
 
+The project uses standard EAS Update on Expo's Free plan. Updates travel over
+TLS but are not end-to-end code-signed. A code-signed update requires an EAS
+Production or Enterprise subscription. The Android APK itself remains signed
+with the EAS-managed Android keystore.
+
 ## One-time production setup
 
 - EAS owns the Android signing keystore for `com.pidom.app` add it to the
@@ -20,9 +25,6 @@ runtime boundary for this project.
 - EAS production contains the public app identifiers and the secret
   `GOOGLE_SERVICES_JSON` file. The app config reads that file only while EAS
   builds; local builds use the ignored `google-services.json` fallback.
-- The public update certificate is `certs/eas-update.pem`. Its private key is
-  the GitHub `production` environment secret `EAS_UPDATE_PRIVATE_KEY` and must
-  never be committed or copied into an Expo environment variable.
 - GitHub `production` also needs `EXPO_TOKEN` from a dedicated Expo robot user
   and a `CONVEX_DEPLOY_KEY` scoped to the production deployment with only the
   `deployment:deploy` permission.
@@ -31,4 +33,5 @@ runtime boundary for this project.
 
 A successful push to `main` deploys Convex, creates a frozen-credential EAS APK
 build, uploads the APK and SHA-256 checksum to a GitHub Release, and publishes a
-signed update to the `production` channel. Pull requests run quality checks only.
+compatible update to the `production` channel. Pull requests run quality checks
+only.
