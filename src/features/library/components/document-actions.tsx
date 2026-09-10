@@ -33,14 +33,7 @@ import {
   ActionsheetItem,
   ActionsheetItemText,
 } from '@/components/ui/actionsheet';
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Divider } from '@/components/ui/divider';
 import { Heading } from '@/components/ui/heading';
@@ -463,18 +456,14 @@ export function DocumentActions({
 
       {/* Deleting removes the file from this device and the record from every
           other one, so it gets an acknowledgement rather than an undo toast. */}
-      <AlertDialog
+      <ActionSheetPanel
         isOpen={confirmingDelete && document !== null}
-        onClose={() => setConfirmingDelete(false)}
-        size="md">
-        <AlertDialogBackdrop />
-        <AlertDialogContent className="rounded-md border border-border bg-popover">
-          <AlertDialogHeader>
+        onClose={() => setConfirmingDelete(false)}>
+        <VStack space="md">
+          <VStack space="sm">
             <Heading size="md" className="text-foreground">
               Delete this document?
             </Heading>
-          </AlertDialogHeader>
-          <AlertDialogBody className="mt-2 mb-4">
             <Text size="sm" className="text-muted-foreground">
               {document === null
                 ? ''
@@ -482,8 +471,8 @@ export function DocumentActions({
                   ? `“${document.title}” will be removed from this device, from your account, and from every other device. Your original file is not affected.`
                   : `“${document.title}” will be removed from this device. It is not in your account, so this is the only copy Pidom has. Your original file is not affected.`}
             </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
+          </VStack>
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirmingDelete(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -500,9 +489,9 @@ export function DocumentActions({
               }}>
               <ButtonText>Delete</ButtonText>
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </HStack>
+        </VStack>
+      </ActionSheetPanel>
 
       <RenameDialog
         isOpen={renaming && document !== null}
@@ -571,25 +560,21 @@ export function DocumentActions({
       {/* Removing the local copy destroys data on this phone, so it is
           acknowledged — and the sentence that matters is the one saying the
           account copy is safe. */}
-      <AlertDialog
+      <ActionSheetPanel
         isOpen={confirmingRemoveDownload && document !== null}
-        onClose={() => setConfirmingRemoveDownload(false)}
-        size="md">
-        <AlertDialogBackdrop />
-        <AlertDialogContent className="rounded-md border border-border bg-popover">
-          <AlertDialogHeader>
+        onClose={() => setConfirmingRemoveDownload(false)}>
+        <VStack space="md">
+          <VStack space="sm">
             <Heading size="md" className="text-foreground">
               Remove from this device?
             </Heading>
-          </AlertDialogHeader>
-          <AlertDialogBody className="mt-2 mb-4">
             <Text size="sm" className="text-muted-foreground">
               {document === null
                 ? ''
                 : `The copy in your account stays, so you can download it again any time. This frees ${formatBytes(document.byteSize)} here.`}
             </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
+          </VStack>
+          <HStack className="justify-end" space="sm">
             <Button
               variant="outline"
               size="sm"
@@ -608,9 +593,9 @@ export function DocumentActions({
               }}>
               <ButtonText>Remove</ButtonText>
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </HStack>
+        </VStack>
+      </ActionSheetPanel>
     </>
   );
 }

@@ -1,14 +1,7 @@
 import { Lock } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { Heading } from '@/components/ui/heading';
@@ -58,19 +51,13 @@ export function PasswordPrompt({
   }, [isOpen]);
 
   return (
-    <AlertDialog isOpen={isOpen} onClose={onClose} size="md">
-      <AlertDialogBackdrop />
-      <AlertDialogContent className="rounded-md border border-border bg-popover">
-        <AlertDialogHeader>
-          <VStack className="flex-1">
+    <ActionSheetPanel isOpen={isOpen} onClose={onClose}>
+      <VStack space="md">
+        <VStack space="sm">
             <Icon as={Lock} size="lg" className="text-fg-muted" />
-            <Heading size="md" className="mt-3 text-foreground">
-              {wrong ? 'That password did not work' : 'This PDF has a password'}
-            </Heading>
-          </VStack>
-        </AlertDialogHeader>
-
-        <AlertDialogBody className="mt-2 mb-4">
+          <Heading size="md" className="text-foreground">
+            {wrong ? 'That password did not work' : 'This PDF has a password'}
+          </Heading>
           <Text size="sm" className="text-muted-foreground">
             {wrong
               ? 'Check it and try again. Nothing was sent anywhere.'
@@ -100,9 +87,8 @@ export function PasswordPrompt({
               accessibilityLabel="Remember this password on this device"
             />
           </HStack>
-        </AlertDialogBody>
-
-        <AlertDialogFooter>
+        </VStack>
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
@@ -112,8 +98,8 @@ export function PasswordPrompt({
             onPress={() => onSubmit(password, remember)}>
             <ButtonText>Open</ButtonText>
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </HStack>
+      </VStack>
+    </ActionSheetPanel>
   );
 }

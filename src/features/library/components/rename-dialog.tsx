@@ -1,15 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Input, InputField } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -69,61 +63,53 @@ export function RenameDialog({
   }
 
   return (
-    <AlertDialog isOpen={isOpen} onClose={onClose} size="md">
-      <AlertDialogBackdrop />
-      <AlertDialogContent className="rounded-md border border-border bg-popover">
-        <AlertDialogHeader>
+    <ActionSheetPanel isOpen={isOpen} onClose={onClose} isDismissable={!saving}>
+      <VStack space="md">
+        <VStack space="sm">
           <Heading size="md" className="text-foreground">
             Rename
           </Heading>
-        </AlertDialogHeader>
-
-        <AlertDialogBody className="mt-3 mb-4">
-          <VStack space="md">
-            <VStack space="xs">
-              <Text size="xs" className="text-fg-subtle">
-                Title
-              </Text>
-              <Input className="h-11">
-                <InputField
-                  value={title}
-                  onChangeText={setTitle}
-                  maxLength={TITLE_MAX}
-                  autoFocus
-                  selectTextOnFocus
-                  placeholder="Title"
-                  className="text-foreground"
-                />
-              </Input>
-            </VStack>
-
-            <VStack space="xs">
-              <Text size="xs" className="text-fg-subtle">
-                Author
-              </Text>
-              <Input className="h-11">
-                <InputField
-                  value={author}
-                  onChangeText={setAuthor}
-                  maxLength={AUTHOR_MAX}
-                  placeholder="Optional"
-                  onSubmitEditing={() => void save()}
-                  className="text-foreground"
-                />
-              </Input>
-            </VStack>
+          <VStack space="xs">
+            <Text size="xs" className="text-fg-subtle">
+              Title
+            </Text>
+            <Input className="h-11">
+              <InputField
+                value={title}
+                onChangeText={setTitle}
+                maxLength={TITLE_MAX}
+                autoFocus
+                selectTextOnFocus
+                placeholder="Title"
+                className="text-foreground"
+              />
+            </Input>
           </VStack>
-        </AlertDialogBody>
-
-        <AlertDialogFooter>
+          <VStack space="xs">
+            <Text size="xs" className="text-fg-subtle">
+              Author
+            </Text>
+            <Input className="h-11">
+              <InputField
+                value={author}
+                onChangeText={setAuthor}
+                maxLength={AUTHOR_MAX}
+                placeholder="Optional"
+                onSubmitEditing={() => void save()}
+                className="text-foreground"
+              />
+            </Input>
+          </VStack>
+        </VStack>
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
           <Button size="sm" isDisabled={!canSave} onPress={() => void save()}>
             <ButtonText>Save</ButtonText>
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </HStack>
+      </VStack>
+    </ActionSheetPanel>
   );
 }

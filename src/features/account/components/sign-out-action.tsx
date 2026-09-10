@@ -1,17 +1,12 @@
 import { LogOut } from 'lucide-react-native';
 import React, { useState } from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogBackdrop,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '@/components/ui/alert-dialog';
+import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
 import { useSession } from '@/features/auth/session-provider';
 import { closeDatabase } from '@/features/library/local/db';
 
@@ -42,21 +37,18 @@ export function SignOutAction() {
         <ButtonText className="text-destructive">Sign out</ButtonText>
       </Button>
 
-      <AlertDialog isOpen={open} onClose={() => setOpen(false)} size="md">
-        <AlertDialogBackdrop />
-        <AlertDialogContent className="rounded-md border border-border bg-popover">
-          <AlertDialogHeader>
+      <ActionSheetPanel isOpen={open} onClose={() => setOpen(false)}>
+        <VStack space="md">
+          <VStack space="sm">
             <Heading size="md" className="text-foreground">
               Sign out of Pidom?
             </Heading>
-          </AlertDialogHeader>
-          <AlertDialogBody className="mt-2 mb-4">
             <Text size="sm" className="text-muted-foreground">
               Your library stays in your account and your documents stay on this
               device. Sign back in with Google to pick up where you left off.
             </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
+          </VStack>
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setOpen(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -83,9 +75,9 @@ export function SignOutAction() {
               }}>
               <ButtonText>Sign out</ButtonText>
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </HStack>
+        </VStack>
+      </ActionSheetPanel>
     </>
   );
 }
