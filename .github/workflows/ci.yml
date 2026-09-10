@@ -93,13 +93,13 @@ jobs:
         run: npx convex deploy --typecheck enable --codegen enable --message "GitHub $GITHUB_SHA"
 
       - name: Build signed Android APK
-        run: eas build --platform android --profile production --non-interactive --wait --freeze-credentials --json > eas-build.json
+        run: eas build --platform android --profile production --non-interactive --wait --freeze-credentials --json > "$RUNNER_TEMP/eas-build.json"
 
       - name: Download and checksum APK
         id: apk
         run: |
-          BUILD_ID="$(node -e 'const build=require("./eas-build.json"); process.stdout.write((Array.isArray(build) ? build[0] : build).id)')"
-          VERSION_CODE="$(node -e 'const build=Array.isArray(require("./eas-build.json")) ? require("./eas-build.json")[0] : require("./eas-build.json"); process.stdout.write(String(build.androidVersionCode ?? build.versionCode))')"
+          BUILD_ID="$(node -e 'const build=require(process.argv[1]); process.stdout.write((Array.isArray(build) ? build[0] : build).id)' "$RUNNER_TEMP/eas-build.json")"
+          VERSION_CODE="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; process.stdout.write(String(result.androidVersionCode ?? result.versionCode))' "$RUNNER_TEMP/eas-build.json")"
           mkdir release
           (cd release && eas build:download --build-id "$BUILD_ID" --non-interactive)
           APK="$(find release -type f -name '*.apk' -print -quit)"
