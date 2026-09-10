@@ -89,7 +89,10 @@ const config: ExpoConfig = {
     codeSigningCertificate: './certs/eas-update.pem',
     codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
   },
-  runtimeVersion: { policy: 'fingerprint' },
+  // Expo SDK 57 currently fingerprints CNG projects differently before and
+  // after EAS generates /android. Keep the runtime explicit and bump `version`
+  // whenever a native dependency or native configuration changes.
+  runtimeVersion: { policy: 'appVersion' },
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
