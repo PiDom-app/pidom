@@ -77,7 +77,13 @@ export type PickedFile = {
  * it. `refused` is the terminal state for a file Pidom will not take.
  */
 export type ImportStage =
-  'idle' | 'picking' | 'ready' | 'saving' | 'done' | 'cancelled' | 'refused';
+  | 'idle'
+  | 'picking'
+  | 'ready'
+  | 'saving'
+  | 'done'
+  | 'cancelled'
+  | 'refused';
 
 /** Why a file was refused, in the terms the screen renders a sentence from. */
 export type Refusal = 'not-a-pdf' | 'encrypted' | 'unreadable' | 'no-size' | 'no-space';

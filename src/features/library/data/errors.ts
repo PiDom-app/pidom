@@ -9,7 +9,12 @@ import { ConvexError } from 'convex/values';
  */
 
 export type LibraryErrorCode =
-  'UNAUTHENTICATED' | 'NO_PROFILE' | 'FORBIDDEN' | 'INVALID' | 'RATE_LIMITED' | 'UNKNOWN';
+  | 'UNAUTHENTICATED'
+  | 'NO_PROFILE'
+  | 'FORBIDDEN'
+  | 'INVALID'
+  | 'RATE_LIMITED'
+  | 'UNKNOWN';
 
 type ErrorPayload = { code?: unknown; message?: unknown; retryAfter?: unknown };
 

@@ -27,7 +27,8 @@ import { formatBytes } from '../data/types';
 export const HEADROOM_BYTES = 64 * 1024 * 1024;
 
 export type SpaceCheck =
-  { ok: true } | { ok: false; needed: number; available: number; message: string };
+  | { ok: true }
+  | { ok: false; needed: number; available: number; message: string };
 
 /**
  * Whether `bytes` can be written.

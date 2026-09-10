@@ -43,7 +43,8 @@ export const presence = new Presence(components.presence);
 
 /** `document:<id>` or `group:<id>`. Anything else is refused rather than created. */
 type Room =
-  { kind: 'document'; documentId: Id<'documents'> } | { kind: 'group'; groupId: Id<'groups'> };
+  | { kind: 'document'; documentId: Id<'documents'> }
+  | { kind: 'group'; groupId: Id<'groups'> };
 
 /**
  * Takes a room name apart, without trusting either half.

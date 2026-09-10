@@ -68,7 +68,11 @@ type Phase = 'opening' | 'ready' | 'locked' | 'failed';
  * legitimately sit over one of these.
  */
 type Overlay =
-  { kind: 'none' } | { kind: 'jump' } | { kind: 'modes' } | { kind: 'settings' } | { kind: 'find' };
+  | { kind: 'none' }
+  | { kind: 'jump' }
+  | { kind: 'modes' }
+  | { kind: 'settings' }
+  | { kind: 'find' };
 
 const CLOSED: Overlay = { kind: 'none' };
 
