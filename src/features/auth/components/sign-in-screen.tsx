@@ -99,14 +99,14 @@ export function SignInScreen() {
             By Signing in, you agree to our{' '}
             <Text
               onPress={() => Linking.openURL('https://pidom.app/terms')}
-              className="text-fg-accent underline"
+              className="text-link underline"
             >
               Terms of Service
             </Text>{' '}
             and{' '}
             <Text
               onPress={() => Linking.openURL('https://pidom.app/privacy')}
-              className="text-fg-accent underline"
+              className="text-link underline"
             >
               Privacy Policy
             </Text>
