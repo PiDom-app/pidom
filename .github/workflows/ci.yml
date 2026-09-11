@@ -117,11 +117,95 @@ jobs:
         run: |
           APP_VERSION="$(npx expo config --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data).version))')"
           TAG="v${APP_VERSION}-android.${VERSION_CODE}"
+          PREVIOUS_TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          GENERATED_NOTES="$RUNNER_TEMP/generated-release-notes.json"
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f previous_tag_name="$PREVIOUS_TAG" > "$GENERATED_NOTES"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f target_commitish="$GITHUB_SHA" > "$GENERATED_NOTES"
+          fi
+
+          RELEASE_NOTES="$RUNNER_TEMP/release-notes.md"
+          APP_VERSION="$APP_VERSION" \
+            VERSION_CODE="$VERSION_CODE" \
+            BUILD_ID="$BUILD_ID" \
+            TAG="$TAG" \
+            APK="$APK" \
+            GENERATED_NOTES="$GENERATED_NOTES" \
+            RELEASE_NOTES="$RELEASE_NOTES" \
+            node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const generated = JSON.parse(fs.readFileSync(process.env.GENERATED_NOTES, 'utf8'));
+          const generatedBody = String(generated.body || '').trim();
+          const apkName = path.basename(process.env.APK);
+          const checksumName = `${apkName}.sha256`;
+
+          const notes = `## Release
+
+          Pidom ${process.env.APP_VERSION} for Android, build ${process.env.VERSION_CODE}.
+
+          - APK: \`${apkName}\`
+          - SHA-256 checksum: \`${checksumName}\`
+          - EAS build ID: \`${process.env.BUILD_ID}\`
+          - Commit: \`${process.env.GITHUB_SHA}\`
+
+          ## Install and Verify
+
+          Download \`${apkName}\` and \`${checksumName}\` from this release, then verify the APK before installing:
+
+          \`\`\`sh
+          sha256sum -c ${checksumName}
+          \`\`\`
+
+          A matching checksum means the APK is byte-for-byte the file produced and attached by this release workflow.
+
+          ## What's Changed
+
+          ${generatedBody || 'No GitHub changelog entries were generated for this release.'}
+
+          ## Security and Integrity
+
+          - The APK is signed by the EAS-managed Android keystore for \`com.pidom.app\`.
+          - No local Firebase files, EAS tokens, Convex deploy keys, R2 credentials, keystores, or private keys are committed to this repository.
+          - Release assets include a SHA-256 checksum for independent download verification.
+          - Production builds upload JavaScript source maps for EAS Observe symbolication; Expo removes embedded source content before storing them.
+          - PDF rendering keeps certificate validation enabled by explicitly setting \`trustAllCerts={false}\` on every \`react-native-pdf\` mount.
+
+          ## Observability
+
+          - EAS Observe is enabled for production startup metrics.
+          - Expo Router navigation metrics are enabled with sensitive route/query parameters filtered from exported events.
+          - SDK 57 JavaScript error reporting is enabled for unhandled and render errors; handled-error reporting is intentionally left out until each recovered error path has a dedicated redaction review.
+
+          ## Updates and Runtime
+
+          This release adds the native \`expo-observe\` dependency, so it ships as a new APK on app version runtime \`${process.env.APP_VERSION}\`. Future JavaScript-only fixes can be published with EAS Update to the matching production runtime.
+
+          Release tag: https://github.com/${process.env.GITHUB_REPOSITORY}/releases/tag/${process.env.TAG}
+          `;
+
+          fs.writeFileSync(
+            process.env.RELEASE_NOTES,
+            notes
+              .split('\n')
+              .map((line) => line.replace(/^ {10}/, ''))
+              .join('\n')
+              .trimStart(),
+          );
+          NODE
+
           gh release create "$TAG" "$APK" "${APK}.sha256" \
             --target "$GITHUB_SHA" \
             --title "Pidom ${APP_VERSION} (Android ${VERSION_CODE})" \
-            --generate-notes \
-            --notes "EAS build ID: ${BUILD_ID}\nCommit: ${GITHUB_SHA}"
+            --notes-file "$RELEASE_NOTES"
 
       - name: Publish EAS Update
         run: |

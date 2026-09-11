@@ -60,6 +60,24 @@ Three rules follow from that, and the code holds to all three:
 `Stack.Protected` in `src/app/_layout.tsx` decides what renders. It is not
 access control — the backend checks stand on their own.
 
+## Observability
+
+EAS Observe is enabled in the root layout for production startup and Expo Router
+navigation metrics. Debug builds keep Observe's default dispatch behaviour, so
+development timings are not sent unless a future test build opts in explicitly.
+
+Route and query parameters are treated as document/user context rather than
+telemetry. The router integration filters `id`, `documentId`, `incoming`,
+`incomingName`, `term`, `page`, `segment`, and `focus`, which also hides the
+resolved URL on events where any of those keys were present. That keeps share
+ids, local file handoff paths, search text, and reader position out of the
+Observe dashboard.
+
+Unhandled JavaScript errors and render errors are captured by SDK 57's Observe
+integration. Handled errors are not reported to Observe from catch blocks in
+this pass, because recovered errors can carry document titles, local paths,
+tokens, or PDF parser messages unless each call site is redacted on purpose.
+
 ## Rate limits
 
 Per-user write limiting is `@convex-dev/rate-limiter`, configured in
