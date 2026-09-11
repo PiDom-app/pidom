@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Linking } from 'react-native';
 
 import { PidomMark } from '@/components/brand/pidom-mark';
 import { Screen } from '@/components/layout/screen';
@@ -95,8 +96,21 @@ export function SignInScreen() {
         <VStack space="md">
           <GoogleSignInButton onPress={signIn} />
           <Text size="xs" className="px-2 text-center text-fg-subtle">
-            Pidom uses your Google account to keep your library in sync. Nothing is shared with
-            anyone else.
+            By Signing in, you agree to our{' '}
+            <Text
+              onPress={() => Linking.openURL('https://pidom.app/terms')}
+              className="text-link underline"
+            >
+              Terms of Service
+            </Text>{' '}
+            and{' '}
+            <Text
+              onPress={() => Linking.openURL('https://pidom.app/privacy')}
+              className="text-link underline"
+            >
+              Privacy Policy
+            </Text>
+            .
           </Text>
         </VStack>
       </VStack>

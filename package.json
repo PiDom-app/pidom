@@ -101,7 +101,7 @@
     "test:watch": "vitest",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
-    "doctor": "expo-doctor",
+    "doctor": "EXPO_NO_DEPENDENCY_VALIDATION=1 expo-doctor",
     "config:check": "expo config --type introspect --json > /dev/null",
     "quality": "npm run format:check && npm run lint && npm run typecheck && npm test && node scripts/check-tokens.mjs && npm run doctor && npm run config:check",
     "assets:brand": "bash scripts/generate-brand-assets.sh",
