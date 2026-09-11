@@ -10,6 +10,7 @@
       "channel": "production",
       "environment": "production",
       "autoIncrement": true,
+      "uploadSourceMaps": true,
       "android": {
         "buildType": "apk"
       }

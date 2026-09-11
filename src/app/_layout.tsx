@@ -1,18 +1,46 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { Observe, ObserveRoot, type ObserveErrorBoundaryFallbackProps } from 'expo-observe';
 import React, { useEffect } from 'react';
 
+import { ScreenError } from '@/components/feedback/screen-error';
 import { useSession } from '@/features/auth/session-provider';
 import { AppProviders } from '@/providers/app-providers';
 import { useThemeStore } from '@/stores/theme-store';
 
 import '@/design/global.css';
 
+Observe.configure({
+  integrations: {
+    'expo-router': {
+      filteredParams: [
+        'id',
+        'documentId',
+        'incoming',
+        'incomingName',
+        'term',
+        'page',
+        'segment',
+        'focus',
+      ],
+    },
+  },
+});
+
 // Held until the session and the stored theme have both resolved, so the first
 // frame the reader sees is the right screen in the right theme rather than a
 // flash of one followed by the other.
 void SplashScreen.preventAutoHideAsync();
+
+function ObserveErrorFallback({ error, resetError }: ObserveErrorBoundaryFallbackProps) {
+  return (
+    <ScreenError
+      error={error instanceof Error ? error : new Error(String(error))}
+      retry={async () => resetError()}
+    />
+  );
+}
 
 /**
  * The routing gate.
@@ -30,6 +58,7 @@ function RootNavigator() {
   useEffect(() => {
     if (ready) {
       void SplashScreen.hideAsync();
+      Observe.markInteractive();
     }
   }, [ready]);
 
@@ -54,9 +83,11 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AppProviders>
-      <StatusBar style="auto" />
-      <RootNavigator />
-    </AppProviders>
+    <ObserveRoot errorBoundaryFallback={ObserveErrorFallback}>
+      <AppProviders>
+        <StatusBar style="auto" />
+        <RootNavigator />
+      </AppProviders>
+    </ObserveRoot>
   );
 }

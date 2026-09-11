@@ -18,6 +18,11 @@ TLS but are not end-to-end code-signed. A code-signed update requires an EAS
 Production or Enterprise subscription. The Android APK itself remains signed
 with the EAS-managed Android keystore.
 
+Production APK builds upload JavaScript source maps for EAS Observe error
+symbolication. Expo strips embedded source content before storing those maps;
+the release build still carries file names and position mappings so production
+JavaScript stack traces can point back to source locations.
+
 ## One-time production setup
 
 - EAS owns the Android signing keystore for `com.pidom.app` add it to the
@@ -34,4 +39,6 @@ with the EAS-managed Android keystore.
 A successful push to `main` deploys Convex, creates a frozen-credential EAS APK
 build, uploads the APK and SHA-256 checksum to a GitHub Release, and publishes a
 compatible update to the `production` channel. Pull requests run quality checks
-only.
+only. The public GitHub Release body includes the generated changelog, the EAS
+build ID, the commit, checksum verification instructions, the update/runtime
+boundary, and the active Observe/security notes for that APK.
