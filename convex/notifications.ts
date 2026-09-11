@@ -4,7 +4,6 @@ import { mutation, query } from './_generated/server';
 import { requireUser } from './model/auth';
 import { DEVICE_TOKENS_PER_USER } from './model/limits';
 import * as Notifications from './model/notifications';
-import { dispatch } from './push';
 import { limit } from './model/rateLimits';
 
 /**
@@ -109,40 +108,6 @@ export const forgetDevice = mutation({
       return null;
     }
     await Notifications.forgetDevice(ctx, args.deviceId);
-    return null;
-  },
-});
-
-/**
- * Sends one notification to the caller's own devices, and nowhere else.
- *
- * There is no way to find out whether push works without a push arriving, and
- * "share a document with a second account and hope" is not a test — it takes
- * two accounts, two devices and a document, and it fails for eight reasons that
- * look alike. This takes none of them.
- *
- * **It can only ever address the caller.** The recipient is `requireUser`, not
- * an argument, so this is not a way to make somebody else's phone buzz. It goes
- * through the same `dispatch` as everything else, which means a device that is
- * muted stays quiet and quiet hours still hold it — a test that ignored the
- * settings would be testing something the reader does not have.
- */
-export const sendTest = mutation({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const user = await requireUser(ctx);
-    await limit(ctx, user, 'registerDevice');
-
-    // A real event, so the tap lands somewhere and Activity shows it happened.
-    // `record` is what every other notification goes through, and dispatch
-    // reads the row rather than being handed a message.
-    const eventId = await Notifications.record(ctx, {
-      userId: user._id,
-      kind: 'shareAccepted',
-      actorId: user._id,
-    });
-    await dispatch(ctx, eventId);
     return null;
   },
 });
