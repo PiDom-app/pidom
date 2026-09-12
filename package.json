@@ -9,7 +9,7 @@
     "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/workflow": "^0.4.6",
     "@convex-dev/workpool": "^0.4.11",
-    "@expo/html-elements": "^0.12.5",
+    "@expo/html-elements": "^57.0.0",
     "@expo/ui": "~57.0.17",
     "@gluestack-ui/core": "^5.0.15",
     "@gluestack-ui/utils": "^5.0.6",
