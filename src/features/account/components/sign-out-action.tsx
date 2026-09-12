@@ -5,6 +5,7 @@ import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useSession } from '@/features/auth/session-provider';
@@ -51,7 +52,7 @@ export function SignOutAction() {
               in with Google to pick up where you left off.
             </Text>
           </VStack>
-          <VStack space="sm">
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setOpen(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -79,7 +80,7 @@ export function SignOutAction() {
             >
               <ButtonText>Sign out</ButtonText>
             </Button>
-          </VStack>
+          </HStack>
         </VStack>
       </ActionSheetPanel>
     </>

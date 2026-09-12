@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -86,6 +87,12 @@ export function AccountScreen() {
   // knows nothing about that — so preferring the session here would show
   // somebody the face they have just hidden from everybody else.
   const photo = profile === null ? (account?.photoUrl ?? null) : profile.pictureUrl;
+
+  // The version the reader is actually running, read from the build's embedded
+  // config — the same field `notification-settings-screen.tsx` reports to the
+  // backend. It sits under Sign out so a bug report can quote it without the
+  // reader hunting: the last, quietest line on the screen.
+  const version = Constants.expoConfig?.version ?? null;
 
   return (
     <Screen>
@@ -230,6 +237,11 @@ export function AccountScreen() {
               </Text>
             </VStack>
             <SignOutAction />
+            {version === null ? null : (
+              <Text size="xs" className="px-4 pt-3 text-center text-fg-subtle">
+                Version {version}
+              </Text>
+            )}
           </Section>
         </VStack>
       </ScrollView>

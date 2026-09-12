@@ -154,7 +154,7 @@ export function DeviceStorageScreen() {
                   : `${confirming.document.title} is not in your account, so removing it here deletes it for good. Sync it first if you want to keep it.`}
             </Text>
           </VStack>
-          <VStack space="sm">
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirming(null)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -171,7 +171,7 @@ export function DeviceStorageScreen() {
             >
               <ButtonText>Remove</ButtonText>
             </Button>
-          </VStack>
+          </HStack>
         </VStack>
       </ActionSheetPanel>
     </Screen>

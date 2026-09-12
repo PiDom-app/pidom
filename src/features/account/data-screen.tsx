@@ -228,7 +228,7 @@ export function DataScreen() {
               />
             </Input>
           </VStack>
-          <VStack space="sm">
+          <HStack className="justify-end" space="sm">
             <Button
               variant="outline"
               size="sm"
@@ -245,7 +245,7 @@ export function DataScreen() {
             >
               <ButtonText>{deleting ? 'Deleting…' : 'Delete account'}</ButtonText>
             </Button>
-          </VStack>
+          </HStack>
         </VStack>
       </ActionSheetPanel>
     </Screen>

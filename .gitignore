@@ -37,6 +37,9 @@ yarn-error.*
 # machine and in EAS secrets, never in the repo.
 google-services.json
 GoogleService-Info.plist
+# Firebase Admin SDK service-account private keys. A server credential with
+# full project access — never in the repo, on any branch.
+*-firebase-adminsdk-*.json
 
 # typescript
 *.tsbuildinfo

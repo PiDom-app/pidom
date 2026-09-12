@@ -5,6 +5,7 @@ import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -71,14 +72,14 @@ export function LinkPrompt({
             This link is written into the document, not into Pidom. It opens in your browser.
           </Text>
         </VStack>
-        <VStack space="sm">
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={() => onClose(false)}>
             <ButtonText>Stay here</ButtonText>
           </Button>
           <Button size="sm" onPress={() => onClose(true)}>
             <ButtonText>Open</ButtonText>
           </Button>
-        </VStack>
+        </HStack>
       </VStack>
     </ActionSheetPanel>
   );
