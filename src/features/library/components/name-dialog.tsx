@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Input, InputField } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -92,14 +93,14 @@ function NameDialogForm({
             />
           </Input>
         </VStack>
-        <VStack space="sm">
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
           <Button size="sm" isDisabled={!canSave} onPress={() => void save()}>
             <ButtonText>Save</ButtonText>
           </Button>
-        </VStack>
+        </HStack>
       </VStack>
     </ActionSheetPanel>
   );

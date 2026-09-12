@@ -225,7 +225,7 @@ export function CollectionScreen() {
               The documents in it stay in your library. Only the grouping is removed.
             </Text>
           </VStack>
-          <VStack space="sm">
+          <HStack className="justify-end" space="sm">
             <Button variant="outline" size="sm" onPress={() => setConfirmingDelete(false)}>
               <ButtonText>Cancel</ButtonText>
             </Button>
@@ -248,7 +248,7 @@ export function CollectionScreen() {
             >
               <ButtonText>Delete</ButtonText>
             </Button>
-          </VStack>
+          </HStack>
         </VStack>
       </ActionSheetPanel>
     </Screen>

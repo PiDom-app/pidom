@@ -81,7 +81,7 @@ function PasswordPromptSheet({ isOpen, onClose, wrong, onSubmit }: PasswordPromp
             />
           </HStack>
         </VStack>
-        <VStack space="sm">
+        <HStack className="justify-end" space="sm">
           <Button variant="outline" size="sm" onPress={onClose}>
             <ButtonText>Cancel</ButtonText>
           </Button>
@@ -92,7 +92,7 @@ function PasswordPromptSheet({ isOpen, onClose, wrong, onSubmit }: PasswordPromp
           >
             <ButtonText>Open</ButtonText>
           </Button>
-        </VStack>
+        </HStack>
       </VStack>
     </ActionSheetPanel>
   );
