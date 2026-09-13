@@ -35,6 +35,7 @@ import { LibraryUnavailable, OfflineState, SyncNotice } from './library-notice';
 import { LibrarySkeleton } from './library-skeleton';
 import { SectionRail } from './section-rail';
 import { SharedTile } from './shared-tile';
+import { isOpenable } from '../data/types';
 
 /**
  * Home.
@@ -106,7 +107,7 @@ export function LibraryScreen() {
       // has and this phone does not, and one whose file is here and would not
       // open. The second is why this is `fileState` rather than a presence
       // check — a corrupt file is present, and opening it shows nothing.
-      if (document.fileState !== 'available' && document.isSynced) {
+      if (!isOpenable(document) && document.isSynced) {
         void fetchDocument(document);
         return;
       }

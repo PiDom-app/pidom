@@ -127,6 +127,25 @@ export function DataScreen() {
               accessibilityLabel="Download over Wi-Fi only"
             />
           </HStack>
+
+          {/* The switch above is the one somebody came here for; everything
+              else about downloads now has a screen of its own, and duplicating
+              a dozen rows here would be two places to change one setting. */}
+          <Pressable
+            onPress={() => router.push('/downloads')}
+            accessibilityRole="button"
+            accessibilityLabel="Downloads and offline documents"
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
+            <VStack>
+              <Text size="md" className="text-foreground">
+                Downloads
+              </Text>
+              <Text size="xs" className="mt-0.5 text-fg-subtle">
+                What opens with no connection, what is waiting, and the rules for both.
+              </Text>
+            </VStack>
+          </Pressable>
         </Section>
 
         <Divider className="mx-6 mt-2 bg-hairline" />

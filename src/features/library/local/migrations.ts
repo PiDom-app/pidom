@@ -28,7 +28,7 @@ import { inTransaction } from './transaction';
 const SCOPE = 'local-db';
 
 /** Bump this, and add the step, whenever the schema changes. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /**
  * Everything except the search index.
@@ -307,9 +307,66 @@ CREATE INDEX shareEvents_created ON shareEvents (createdAt);
 CREATE INDEX shareEvents_unread ON shareEvents (readAt, createdAt);
 `;
 
+/**
+ * What a download is doing, and what it is waiting for.
+ *
+ * `documentFiles` could say four things: `missing`, `downloading`, `available`
+ * and `corrupt`. That made four very different situations into one word. A
+ * download queued behind two others, one held because the reader asked for
+ * Wi-Fi only, one paused halfway with two thirds of a textbook already on the
+ * disk, and one that had failed eight times were all `missing` — the same state
+ * as a document nobody had ever asked for. Somebody about to get on a plane
+ * could not tell them apart, which is the one moment the answer matters.
+ *
+ * So the states grow, and every new one has a writer. The columns underneath
+ * them are what makes each survivable across a relaunch:
+ *
+ * - **`queuedAt` / `priority`** order the queue. A document the reader just
+ *   tapped outranks one an automatic rule asked for, which is why priority is a
+ *   number rather than a flag.
+ * - **`bytesWritten` / `totalBytes`** are the progress, kept on the row rather
+ *   than only in `transfer-store`. That store is deliberately transient — a
+ *   progress field written to the account every few hundred milliseconds would
+ *   re-render rails on every device the reader owns — but a *paused* download
+ *   has to come back saying 62% after the process that was running it is gone.
+ * - **`pauseState`** is `DownloadTask.savable()`, which is what lets a resume
+ *   continue rather than start again. It carries a signed URL, so it lives
+ *   nowhere but this database — which is SQLCipher — and is cleared the moment
+ *   the transfer settles. See `local/transfer.ts`.
+ * - **`heldReason`** is why nothing is moving. A queue that looks stuck and a
+ *   queue that is waiting for Wi-Fi are the same picture without it.
+ * - **`attempts` / `nextAttemptAt`** give transfers the backoff that `syncQueue`
+ *   operations have always had and bytes never did.
+ * - **`remoteHash` / `verifiedHash` / `lastVerifiedAt`** are integrity. The
+ *   account has held R2's own sha256 in `documents.contentHash` since uploads
+ *   existed and never sent it; with it here, a local file can be checked
+ *   against what the account holds rather than only against its own size, and
+ *   a copy replaced on another device becomes `outdated` rather than silently
+ *   wrong.
+ *
+ * `documentFiles_queue` is the index the drain reads: the queue asks for the
+ * next thing to move, which is a state and an order, on every tick.
+ */
+const V3 = `
+ALTER TABLE documentFiles ADD COLUMN queuedAt INTEGER;
+ALTER TABLE documentFiles ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE documentFiles ADD COLUMN bytesWritten INTEGER;
+ALTER TABLE documentFiles ADD COLUMN totalBytes INTEGER;
+ALTER TABLE documentFiles ADD COLUMN pauseState TEXT;
+ALTER TABLE documentFiles ADD COLUMN heldReason TEXT;
+ALTER TABLE documentFiles ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE documentFiles ADD COLUMN nextAttemptAt INTEGER;
+ALTER TABLE documentFiles ADD COLUMN remoteHash TEXT;
+ALTER TABLE documentFiles ADD COLUMN verifiedHash TEXT;
+ALTER TABLE documentFiles ADD COLUMN lastVerifiedAt INTEGER;
+
+CREATE INDEX documentFiles_queue ON documentFiles (state, priority, queuedAt);
+`;
+
 const STEPS: { to: number; sql: string }[] = [
   { to: 1, sql: V1 },
   { to: 2, sql: V2 },
+  { to: 3, sql: V3 },
 ];
 
 /** Brings a freshly opened database up to `SCHEMA_VERSION`. */

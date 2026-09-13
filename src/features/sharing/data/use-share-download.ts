@@ -146,9 +146,41 @@ export function useShareDownload() {
       if (localId === null) {
         return false;
       }
-      setTransferId(localId);
 
       const db = await database(profileId);
+
+      /**
+       * Not if the queue already has it.
+       *
+       * This path and `downloads/engine.ts` can both reach the same document —
+       * the queue picks up accepted shares when the reader has asked it to, and
+       * this button is still here — and two transfers of one file write the
+       * same `.download` from two places. Whichever started first wins; the
+       * second is a no-op with a sentence rather than a race.
+       *
+       * The check is on the row rather than on a flag in memory, because the
+       * queue's transfer may have been started by a different screen or before
+       * this one was mounted.
+       */
+      if (db !== null) {
+        const existing = await Files.fileOf(db, localId);
+        if (
+          existing !== null &&
+          (existing.state === 'downloading' ||
+            existing.state === 'queued' ||
+            existing.state === 'verifying')
+        ) {
+          showToast({
+            id: 'share-download',
+            tone: 'info',
+            title: 'Already downloading',
+            description: 'It is in the download queue. Downloads shows how far it has got.',
+          });
+          return true;
+        }
+      }
+
+      setTransferId(localId);
       const documentId = share.documentId as Id<'documents'>;
 
       startTransfer(localId, 'download');
@@ -178,7 +210,7 @@ export function useShareDownload() {
           // does not cross to a recipient. Size and the PDF header are what is
           // checked, which is what `downloadDocument` verifies regardless.
           { byteSize: share.byteSize, fingerprint: null },
-          ({ sent, total }) => reportProgress(localId, sent, total),
+          { onProgress: ({ sent, total }) => reportProgress(localId, sent, total) },
         );
 
         if (db !== null) {

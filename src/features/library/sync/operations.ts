@@ -28,27 +28,12 @@ import * as Groups from '../local/repository/groups';
 import * as Marks from '../local/repository/marks';
 import * as Shares from '../local/repository/shares';
 import type { QueuedOperation } from '../local/repository/queue';
+import { accountId, NotYetSynced } from './remote-ids';
 
-/**
- * The one place a local id becomes an account id.
- *
- * Everything under `local/` treats ids as opaque strings, and everything under
- * `convex/` types them as branded ids. The cast lives here rather than at
- * twenty call sites, and it is safe in the only way that matters: the server
- * checks ownership on every one regardless, so the worst a wrong string can do
- * is come back `FORBIDDEN`.
- */
-function asDocumentId(id: string): Id<'documents'> {
-  return id as Id<'documents'>;
-}
-
-/** Thrown when an operation depends on a create that has not landed yet. */
-export class NotYetSynced extends Error {
-  constructor(what: string) {
-    super(`${what} has no id in the account yet.`);
-    this.name = 'NotYetSynced';
-  }
-}
+// `engine.ts` has imported `NotYetSynced` from this module since the queue
+// existed. It lives in `remote-ids.ts` now, beside the two functions that
+// throw it; re-exported here so that import does not have to move.
+export { NotYetSynced };
 
 export type Sender = {
   client: ConvexReactClient;
@@ -117,7 +102,7 @@ async function sendDocument({ client, db }: Sender, operation: QueuedOperation):
   if (operation.op === 'remove') {
     if (document.remoteId !== null) {
       await client.mutation(api.library.remove, {
-        documentId: asDocumentId(document.remoteId),
+        documentId: accountId<'documents'>('That document', document.remoteId),
       });
     }
     return;
@@ -149,10 +134,7 @@ async function sendDocument({ client, db }: Sender, operation: QueuedOperation):
     return;
   }
 
-  if (document.remoteId === null) {
-    throw new NotYetSynced('That document');
-  }
-  const documentId = asDocumentId(document.remoteId);
+  const documentId = accountId<'documents'>('That document', document.remoteId);
   // When the reader acted, not when the queue got round to it. The values above
   // are deliberately read fresh off the row — the account is told where somebody
   // ended up rather than replayed through every page they passed — but the clock
@@ -236,10 +218,7 @@ async function sendBookmark({ client, db }: Sender, operation: QueuedOperation):
   if (document === null) {
     return;
   }
-  if (document.remoteId === null) {
-    throw new NotYetSynced('That document');
-  }
-  const documentId = asDocumentId(document.remoteId);
+  const documentId = accountId<'documents'>('That document', document.remoteId);
 
   if (operation.op === 'remove') {
     await client.mutation(api.library.removeBookmark, {
@@ -288,7 +267,7 @@ async function sendAnnotation({ client, db }: Sender, operation: QueuedOperation
   if (operation.op === 'remove') {
     if (annotation.remoteId !== null) {
       await client.mutation(api.library.removeAnnotation, {
-        annotationId: annotation.remoteId as Id<'documentAnnotations'>,
+        annotationId: accountId<'documentAnnotations'>('That note', annotation.remoteId),
       });
     }
     return;
@@ -304,7 +283,7 @@ async function sendAnnotation({ client, db }: Sender, operation: QueuedOperation
     }
 
     const remoteId = await client.mutation(api.library.addAnnotation, {
-      documentId: asDocumentId(document.remoteId),
+      documentId: accountId<'documents'>('That document', document.remoteId),
       currentPage: annotation.page,
       kind: annotation.kind,
       clientOpId: annotation.id,
@@ -321,7 +300,7 @@ async function sendAnnotation({ client, db }: Sender, operation: QueuedOperation
     throw new NotYetSynced('That note');
   }
   await client.mutation(api.library.updateAnnotation, {
-    annotationId: annotation.remoteId as Id<'documentAnnotations'>,
+    annotationId: accountId<'documentAnnotations'>('That note', annotation.remoteId),
     note: annotation.note ?? '',
     clientUpdatedAt: annotation.clientUpdatedAt,
   });
@@ -338,7 +317,7 @@ async function sendCollection({ client, db }: Sender, operation: QueuedOperation
   if (operation.op === 'remove') {
     if (collection.remoteId !== null) {
       await client.mutation(api.collections.remove, {
-        collectionId: collection.remoteId as Id<'collections'>,
+        collectionId: accountId<'collections'>('That collection', collection.remoteId),
       });
     }
     return;
@@ -358,7 +337,7 @@ async function sendCollection({ client, db }: Sender, operation: QueuedOperation
     throw new NotYetSynced('That collection');
   }
   await client.mutation(api.collections.rename, {
-    collectionId: collection.remoteId as Id<'collections'>,
+    collectionId: accountId<'collections'>('That collection', collection.remoteId),
     name: collection.name,
     clientUpdatedAt: collection.clientUpdatedAt,
   });
@@ -387,8 +366,8 @@ async function sendMembership({ client, db }: Sender, operation: QueuedOperation
   }
 
   const args = {
-    collectionId: collection.remoteId as Id<'collections'>,
-    documentId: asDocumentId(document.remoteId),
+    collectionId: accountId<'collections'>('That collection', collection.remoteId),
+    documentId: accountId<'documents'>('That document', document.remoteId),
   };
 
   if (operation.op === 'remove') {
@@ -425,7 +404,7 @@ async function sendShare({ client, db }: Sender, operation: QueuedOperation): Pr
   if (operation.op === 'remove') {
     if (share.remoteId !== null) {
       await client.mutation(api.sharing.revokeShare, {
-        shareId: share.remoteId as Id<'documentShares'>,
+        shareId: accountId<'documentShares'>('That share', share.remoteId),
       });
     }
     return;
@@ -441,22 +420,46 @@ async function sendShare({ client, db }: Sender, operation: QueuedOperation): Pr
     if (document === null) {
       return;
     }
-    if (document.remoteId === null) {
-      throw new NotYetSynced('That document');
+
+    /**
+     * And so is `groupId`, which is the part this used to get wrong.
+     *
+     * `documentId` was translated two lines up and `groupId` was cast on the
+     * next one — on a value `repository/groups.ts` had minted on this device,
+     * in the same alphabet and the same length as a Convex id. It only ever
+     * failed for a group *created here*: a group that arrived from the account
+     * is stored under its account id (`upsertRemoteGroup`), so the cast
+     * happened to be true for it and the bug hid behind the commoner case.
+     *
+     * Reading the row also answers the other question a cast could not. A group
+     * deleted on another device leaves shares queued against it, and those have
+     * nothing left to send — they are dropped rather than retried until the
+     * queue gives up on them.
+     */
+    let groupId: Id<'groups'> | null = null;
+    if (share.groupId !== null) {
+      const group = await Groups.groupById(db, share.groupId);
+      if (group === null) {
+        return;
+      }
+      groupId = accountId<'groups'>('That group', group.remoteId);
     }
 
     const remoteId = await client.mutation(api.sharing.createShare, {
-      documentId: asDocumentId(document.remoteId),
+      documentId: accountId<'documents'>('That document', document.remoteId),
       subject: share.subject,
       role: share.role,
       canDownload: share.canDownload,
       canReshare: share.canReshare,
       clientOpId: share.id,
       clientUpdatedAt: share.clientUpdatedAt,
+      // `counterpartId` needs no translation: a person is only ever chosen from
+      // a search answered by the account, so this is already an account id and
+      // there is no local `users` table for it to have come from.
       ...(share.counterpartId === null
         ? {}
         : { recipientUserId: share.counterpartId as Id<'users'> }),
-      ...(share.groupId === null ? {} : { groupId: share.groupId as Id<'groups'> }),
+      ...(groupId === null ? {} : { groupId }),
       ...(share.message === null ? {} : { message: share.message }),
       ...(share.expiresAt === null ? {} : { expiresAt: share.expiresAt }),
     });
@@ -476,7 +479,7 @@ async function sendShare({ client, db }: Sender, operation: QueuedOperation): Pr
   if (share.direction === 'incoming') {
     if (share.status === 'accepted' || share.status === 'declined') {
       await client.mutation(api.sharing.respondToShare, {
-        shareId: share.remoteId as Id<'documentShares'>,
+        shareId: accountId<'documentShares'>('That share', share.remoteId),
         answer: share.status === 'accepted' ? 'accept' : 'decline',
       });
     }
@@ -485,13 +488,13 @@ async function sendShare({ client, db }: Sender, operation: QueuedOperation): Pr
 
   if (share.status === 'revoked') {
     await client.mutation(api.sharing.revokeShare, {
-      shareId: share.remoteId as Id<'documentShares'>,
+      shareId: accountId<'documentShares'>('That share', share.remoteId),
     });
     return;
   }
 
   await client.mutation(api.sharing.changePermission, {
-    shareId: share.remoteId as Id<'documentShares'>,
+    shareId: accountId<'documentShares'>('That share', share.remoteId),
     role: share.role,
     canDownload: share.canDownload,
     canReshare: share.canReshare,
@@ -518,7 +521,9 @@ async function sendGroup({ client, db }: Sender, operation: QueuedOperation): Pr
 
   if (operation.op === 'remove') {
     if (group.remoteId !== null) {
-      await client.mutation(api.groups.remove, { groupId: group.remoteId as Id<'groups'> });
+      await client.mutation(api.groups.remove, {
+        groupId: accountId<'groups'>('That group', group.remoteId),
+      });
     }
     return;
   }
@@ -537,7 +542,7 @@ async function sendGroup({ client, db }: Sender, operation: QueuedOperation): Pr
     throw new NotYetSynced('That group');
   }
   await client.mutation(api.groups.rename, {
-    groupId: group.remoteId as Id<'groups'>,
+    groupId: accountId<'groups'>('That group', group.remoteId),
     name: group.name,
     clientUpdatedAt: Date.now(),
   });

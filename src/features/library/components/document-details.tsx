@@ -18,6 +18,7 @@ import type { Id } from '@convex/_generated/dataModel';
 
 import type { LibraryDocument } from '../data/types';
 import { useLibraryStatus } from '../data/use-library-status';
+import { isOpenable } from '../data/types';
 
 /**
  * What Pidom knows about a document.
@@ -39,7 +40,9 @@ export function DocumentDetails({
   document: LibraryDocument | null;
   onClose: () => void;
 }) {
-  const onThisDevice = document?.fileState === 'available';
+  // `isOpenable` rather than a bare state check: a document whose copy in the
+  // account has moved on is still on this device and still opens.
+  const onThisDevice = document !== null && isOpenable(document);
   const { ready } = useLibraryStatus();
 
   // Only while the sheet is open, and only for a document whose text is

@@ -23,6 +23,7 @@ import { log } from '@/lib/logger';
 
 import * as Collections from '../local/repository/collections';
 import * as Documents from '../local/repository/documents';
+import * as Files from '../local/repository/files';
 import * as Groups from '../local/repository/groups';
 import * as Marks from '../local/repository/marks';
 import * as Queue from '../local/repository/queue';
@@ -214,6 +215,22 @@ export async function reconcile(sender: Sender, profileId: string): Promise<void
     async (remote) => {
       seenDocuments.add(remote.id);
       await Documents.upsertFromRemote(db, remote);
+
+      /**
+       * And whether the copy on this device has been left behind.
+       *
+       * The account's fingerprint changes when somebody replaces a document
+       * from another phone. Before this, the copy here went on being reported
+       * as `On this device` — a perfectly readable PDF that was quietly no
+       * longer the document anybody meant. It becomes `outdated`, which still
+       * opens and offers to catch up. Nothing is deleted.
+       */
+      if (remote.fingerprint != null) {
+        const localId = await Documents.localIdForRemote(db, remote.id);
+        if (localId !== null) {
+          await Files.noteAccountFingerprint(db, localId, remote.fingerprint);
+        }
+      }
     },
   );
 
@@ -529,9 +546,33 @@ async function reconcileGroups({ client, db }: Sender): Promise<void> {
  *
  * Bounded to what the screen renders. This is a feed, not an archive — a device
  * that kept every event forever would be keeping a log nobody reads.
+ *
+ * **`groupId` is translated on the way in**, which it was not, and the omission
+ * was a silently empty screen rather than an error. `shares.groupId` has always
+ * been stored as this device's id (`repository/shares.ts` says why), so an
+ * event row holding the account's id meant the two columns named the same group
+ * by two different names. `useGroup` survived it — it matches `id OR remoteId`
+ * — but `useGroupDocuments` compares the two directly, so opening a group from
+ * Activity rendered a Shared PDFs tab with nothing in it, on a group that had
+ * documents in it. The same class of bug as the one `sendShare` had, reached
+ * from the other direction.
+ *
+ * Resolved before the transaction opens rather than per row inside it: the
+ * lookup is a read on the same connection, and fifty events rarely name more
+ * than a handful of distinct groups.
  */
 async function reconcileEvents({ client, db }: Sender): Promise<void> {
   const events = await client.query(api.sharing.events, { limit: 50 });
+
+  const localGroupIds = new Map<string, string>();
+  for (const remoteGroupId of new Set(
+    events.map((event) => event.groupId).filter((id): id is NonNullable<typeof id> => id != null),
+  )) {
+    // Falling back to the account's id rather than dropping the event: a group
+    // this device has not mirrored yet is still a thing that happened, and the
+    // next reconcile will have the row.
+    localGroupIds.set(remoteGroupId, (await Groups.localIdFor(db, remoteGroupId)) ?? remoteGroupId);
+  }
 
   await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM shareEvents');
@@ -544,7 +585,7 @@ async function reconcileEvents({ client, db }: Sender): Promise<void> {
           event.kind,
           event.shareId,
           event.documentId,
-          event.groupId,
+          event.groupId == null ? null : (localGroupIds.get(event.groupId) ?? event.groupId),
           event.actor?.displayName ?? null,
           event.actor?.handle ?? null,
           event.actor?.pictureUrl ?? null,

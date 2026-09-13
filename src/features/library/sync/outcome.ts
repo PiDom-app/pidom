@@ -19,12 +19,18 @@
  * find a row that is not there, so `FORBIDDEN` there is about the parent — the
  * document a note was being written on has gone — and the note goes with it.
  *
+ * **A refused *shape* is permanent.** A Convex argument validator rejects before
+ * the handler runs, so it is not a `ConvexError` and carries no code. That put
+ * it in the generic branch, which retried it eight times over ten minutes with
+ * the queue head blocked behind a call that could never succeed — see
+ * `isMalformedRequest` in `data/errors.ts` for the bug that taught us.
+ *
  * **`RATE_LIMITED` is not a failure.** The account has run out of a bucket, and
  * the error carries how long in milliseconds. Waiting that long is the whole
  * instruction; counting it as an attempt would burn the retry budget on a
  * queue that is behaving exactly as intended.
  */
-import { codeOf, retryAfterOf } from '../data/errors';
+import { codeOf, isMalformedRequest, retryAfterOf } from '../data/errors';
 import type { QueueOp } from '../local/repository/queue';
 
 export type Outcome =
@@ -70,6 +76,16 @@ export const MAX_ATTEMPTS = 8;
 
 export function classify(error: unknown, op: QueueOp, attempts: number): Outcome {
   const code = codeOf(error);
+
+  if (isMalformedRequest(error)) {
+    // Before everything else, because this one is not a code at all — an
+    // argument validator refuses before the handler runs, so there is no
+    // `ConvexError` to read and the generic branch below would spend eight
+    // attempts over ten minutes on it with the rest of the queue waiting.
+    // Permanent by construction: the same arguments will be refused the same
+    // way for ever, so it goes in front of a person on the first try.
+    return { kind: 'failed', reason: 'The account would not accept this change.' };
+  }
 
   if (code === 'RATE_LIMITED') {
     const retryAfter = retryAfterOf(error);
