@@ -73,6 +73,32 @@ export function messageOf(error: unknown, fallback: string): string {
   }
 }
 
+/**
+ * Whether the account refused the *shape* of the call rather than its content.
+ *
+ * A safety net, and it is here because the absence of one turned a one-line bug
+ * into a ten-minute outage of the whole queue. A Convex argument validator
+ * rejects before the handler runs, so it never becomes a `ConvexError` and
+ * `codeOf` can only call it `UNKNOWN` — which `outcome.ts` reads as "could not
+ * reach your account" and retries eight times with exponential backoff, head of
+ * the queue blocked, on a call that will be refused identically every time.
+ *
+ * Matching on the message is not something to be pleased about, and it is not
+ * load-bearing: the id conflation that produced it is fixed at its root in
+ * `sync/remote-ids.ts`, and this exists so that the *next* one costs a failed
+ * operation somebody can see on the sync screen instead of a stalled queue. It
+ * is deliberately narrow — two exact strings the Convex backend emits — because
+ * a loose match here would mark a genuine network failure permanent and throw
+ * away the reader's work.
+ */
+export function isMalformedRequest(error: unknown): boolean {
+  if (error instanceof ConvexError || !(error instanceof Error)) {
+    return false;
+  }
+  const text = `${error.name} ${error.message}`;
+  return text.includes('ArgumentValidationError') || text.includes('ReturnsValidationError');
+}
+
 /** How long the server asked a caller to wait, in milliseconds, or `null`. */
 export function retryAfterOf(error: unknown): number | null {
   if (!(error instanceof ConvexError)) {

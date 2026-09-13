@@ -13,12 +13,14 @@ import { wifiOnlyNow } from '@/stores/preferences-store';
 
 import type { OutlineEntry } from '../components/document-probe';
 import { database } from '../local/db';
-import { coverFile, documentFile, keepCover, localCoverUri } from '../local/paths';
+import { coverFile, documentFile, keepCover } from '../local/paths';
 import * as Documents from '../local/repository/documents';
 import * as Files from '../local/repository/files';
 import * as Queue from '../local/repository/queue';
 import { sweepDocument } from '../local/sweep';
-import { BadDownload, downloadCover, downloadDocument, uploadFile } from '../local/transfer';
+import { uploadFile } from '../local/transfer';
+// The download queue's verbs. A tap asks; \`downloads/engine.ts\` moves the bytes.
+import * as Downloads from '../downloads/actions';
 import { messageOf } from './errors';
 import type { LibraryDocument } from './types';
 import { useLibraryStatus } from './use-library-status';
@@ -48,14 +50,12 @@ const SCOPE = 'library-actions';
 export function useLibraryActions() {
   const client = useConvex();
   const uploadUrl = useMutation(api.library.uploadUrl);
-  const downloadUrl = useMutation(api.library.downloadUrl);
   const syncMetadata = useMutation(api.r2.syncMetadata);
   const attachUpload = useMutation(api.library.attachUpload);
   const detachUpload = useMutation(api.library.detachUpload);
   const reprocessDocument = useMutation(api.library.reprocess);
 
   const { offline, hasNetwork, profileId } = useLibraryStatus();
-  const markPresent = useLocalLibraryStore((state) => state.markPresent);
   const markAbsent = useLocalLibraryStore((state) => state.markAbsent);
   const bumpCoverEpoch = useLocalLibraryStore((state) => state.bumpCoverEpoch);
   const startTransfer = useTransferStore((state) => state.start);
@@ -453,119 +453,51 @@ export function useLibraryActions() {
   );
 
   /**
-   * Fetches a synced document onto this device.
+   * Asks for a synced document, rather than fetching it here and now.
    *
-   * Takes the document rather than its id, because the bytes that arrive have
-   * to be checked against something: the size the account recorded, and the
-   * fingerprint if it has one. A download that finished is not the same fact as
-   * a document that opens — see `downloadDocument`.
+   * This used to be the transfer: it minted a URL, moved the bytes, verified
+   * them and wrote the row, all inside one call held open by whichever screen
+   * the reader happened to be on. That worked and had three costs. Navigating
+   * away mid-download left a promise nothing was waiting on; two taps on two
+   * screens could start the same file twice, writing one partial file from two
+   * places; and there was no object anywhere to pause.
+   *
+   * So it queues, and `downloads/engine.ts` moves the bytes. The reader gets
+   * the same immediate answer — a row that says what is about to happen — and
+   * the transfer now survives leaving the screen, resumes rather than restarts,
+   * and can be stopped.
+   *
+   * The one thing kept from the old shape is telling somebody *now* when a
+   * setting of theirs is going to hold it. Discovering that from a row that
+   * quietly says "Waiting" is worse than being told at the moment of the tap.
    */
   const fetchDocument = useCallback(
     async (document: LibraryDocument): Promise<boolean> => {
       if (profileId === null || document.remoteId === null) {
         return false;
       }
-      // The reader's own answer about their own connection. Only a link
-      // NetInfo positively calls cellular is refused — see `mayTransfer`.
+
+      const db = await database(profileId);
+      if (db === null) {
+        return false;
+      }
+      await Downloads.request(db, document.id);
+
+      // The reader's own answer about their own connection. Only a link NetInfo
+      // positively calls cellular is refused — see `mayTransfer`. The queue
+      // will hold the row either way; this is so they hear it from the tap.
       if (!mayTransfer(wifiOnlyNow())) {
         showToast({
           id: 'download',
-          tone: 'error',
+          tone: 'info',
           title: 'Waiting for Wi-Fi',
-          description: 'Downloads are set to Wi-Fi only. Change that under Sync & data.',
-        });
-        return false;
-      }
-
-      const documentId = document.remoteId as Id<'documents'>;
-      const db = await database(profileId);
-
-      startTransfer(document.id, 'download');
-      if (db !== null) {
-        await Files.setState(db, document.id, 'downloading', { expectedBytes: document.byteSize });
-      }
-
-      try {
-        const url = await downloadUrl({ documentId, what: 'document' });
-        if (url === null) {
-          showToast({
-            id: 'download',
-            tone: 'error',
-            title: 'That document is not in your account',
-          });
-          if (db !== null) {
-            await Files.setState(db, document.id, 'missing');
-          }
-          return false;
-        }
-
-        await downloadDocument(
-          profileId,
-          document.id,
-          url,
-          { byteSize: document.byteSize, fingerprint: document.fingerprint },
-          ({ sent, total }) => reportProgress(document.id, sent, total),
-        );
-
-        if (db !== null) {
-          await Files.setState(db, document.id, 'available', {
-            localBytes: document.byteSize,
-            expectedBytes: document.byteSize,
-          });
-        }
-        markPresent(document.id);
-
-        // Best effort, and after the document: a cover is worth a round trip
-        // but never worth blocking the thing the reader asked for.
-        if (localCoverUri(profileId, document.id) === null) {
-          void downloadUrl({ documentId, what: 'cover' }).then(async (coverUrl) => {
-            if (coverUrl === null) {
-              return;
-            }
-            if (await downloadCover(profileId, document.id, coverUrl)) {
-              bumpCoverEpoch();
-              if (db !== null) {
-                await Files.setCoverState(db, document.id, 'available');
-              }
-            }
-          });
-        }
-        return true;
-      } catch (error) {
-        // A file that arrived and is not the document is a different state from
-        // one that never arrived, and the tile offers a different thing for it.
-        const broken = error instanceof BadDownload && error.reason !== 'no-space';
-        if (db !== null) {
-          await Files.setState(db, document.id, broken ? 'corrupt' : 'missing', {
-            failure: error instanceof BadDownload ? error.reason : null,
-          });
-        }
-        showToast({
-          id: 'download',
-          tone: 'error',
-          title: broken ? "That download didn't arrive whole" : "Couldn't download",
           description:
-            error instanceof BadDownload && error.reason === 'no-space'
-              ? 'There is not enough room on this device.'
-              : broken
-                ? 'Nothing was kept. Try again when you have a steadier connection.'
-                : messageOf(error, 'Check your connection and try again.'),
+            'Downloads are set to Wi-Fi only, so this is queued. It starts on its own when you are on Wi-Fi.',
         });
-        return false;
-      } finally {
-        finishTransfer(document.id);
       }
+      return true;
     },
-    [
-      profileId,
-      downloadUrl,
-      startTransfer,
-      reportProgress,
-      finishTransfer,
-      markPresent,
-      bumpCoverEpoch,
-      showToast,
-    ],
+    [profileId, showToast],
   );
 
   return {

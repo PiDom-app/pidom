@@ -125,6 +125,50 @@ export async function fingerprintOf(uri: string): Promise<string | null> {
   }
 }
 
+/**
+ * How large a file may be before a whole-file digest stops being reasonable.
+ *
+ * The same 32 MB `convex/node/extract.ts` bounds a server-side parse at, and
+ * the same reasoning: `expo-crypto` has no incremental digest, so hashing a
+ * file means holding all of it in memory at once. A phone can do that to a
+ * thirty-megabyte document; it cannot do it to a four-hundred-megabyte scan
+ * without being killed for it, and the device this app most needs to work on
+ * is the one with the least room to be wrong about that.
+ *
+ * Above the line the fingerprint is what there is, and the reader is told so
+ * rather than shown a check that did not happen.
+ */
+export const HASHABLE_BYTE_MAX = 32 * 1024 * 1024;
+
+/**
+ * The whole file's sha256, when the file is small enough to have one.
+ *
+ * Stronger than `fingerprintOf` in exactly one way, and it is the way that
+ * matters for a file that has been sitting on a disk for six months: a
+ * fingerprint reads the first and last 64 KB, so a page corrupted in the middle
+ * of a textbook — a bad sector, a partial restore, a truncation that happened
+ * to land on a block boundary — passes it and fails this.
+ *
+ * `null` rather than a throw for every reason it can fail, including being too
+ * large. A file with no hash is a file checked the other three ways, which is
+ * what every download was checked with before this existed; it is not an error
+ * and must not become one.
+ */
+export async function contentHashOf(uri: string): Promise<string | null> {
+  try {
+    const file = new File(uri);
+    const size = file.size ?? 0;
+    if (size <= 0 || size > HASHABLE_BYTE_MAX) {
+      return null;
+    }
+    const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, await file.bytes());
+    return hex(digest);
+  } catch (error) {
+    log.debug(SCOPE, 'could not hash the file', error);
+    return null;
+  }
+}
+
 /** Lowercase, matching the shape `cleanFingerprint` checks server-side. */
 function hex(buffer: ArrayBuffer): string {
   let out = '';

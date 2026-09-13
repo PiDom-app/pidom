@@ -807,9 +807,144 @@
       "y": 20928,
       "w": 390,
       "h": 844
+    },
+    {
+      "file": "Downloads.dc.html",
+      "title": "Downloads — a mixture, dark",
+      "x": 0,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadsLight.dc.html",
+      "title": "Downloads — light",
+      "x": 490,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadsEmpty.dc.html",
+      "title": "Downloads — nothing here yet",
+      "x": 980,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadsQueue.dc.html",
+      "title": "Downloads — the queue",
+      "x": 1470,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadActions.dc.html",
+      "title": "Download actions",
+      "x": 1960,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadFailed.dc.html",
+      "title": "Downloads — what went wrong",
+      "x": 2450,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadOutdated.dc.html",
+      "title": "Downloads — a newer copy exists",
+      "x": 2940,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadHeld.dc.html",
+      "title": "Downloads — held for Wi-Fi",
+      "x": 3430,
+      "y": 21900,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadSettings.dc.html",
+      "title": "Download settings — network and automatic",
+      "x": 0,
+      "y": 22864,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadSettingsScrolled.dc.html",
+      "title": "Download settings — storage, integrity, queue",
+      "x": 490,
+      "y": 22864,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadStorageCap.dc.html",
+      "title": "Storage ceiling",
+      "x": 980,
+      "y": 22864,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadNoSpace.dc.html",
+      "title": "Downloads — not enough room",
+      "x": 1470,
+      "y": 22864,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadRemoveConfirm.dc.html",
+      "title": "Remove a download — the two sheets",
+      "x": 1960,
+      "y": 22864,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "DownloadStates.dc.html",
+      "title": "Where a file is, and what it waits for",
+      "x": 0,
+      "y": 23828,
+      "w": 1024,
+      "h": 760
+    },
+    {
+      "file": "DownloadRowAnatomy.dc.html",
+      "title": "The download row — anatomy",
+      "x": 1124,
+      "y": 23828,
+      "w": 900,
+      "h": 560
+    },
+    {
+      "file": "DownloadModel.dc.html",
+      "title": "How a PDF gets onto this phone",
+      "x": 2124,
+      "y": 23828,
+      "w": 900,
+      "h": 760
     }
   ],
   "annotations": [
+    {
+      "id": "note-downloads",
+      "x": 0,
+      "y": 21730,
+      "w": 880,
+      "text": "Four of these states did not exist, and their absence was a wrong answer rather than a missing feature.\nA download held for Wi-Fi, one queued behind two others, one paused halfway and one that had simply failed were all “missing” on the tile — the same word as a document nobody had ever asked for. A reader about to board a flight could not tell which of the four they were looking at, which is the one moment the answer matters.\nNothing here reaches the account. documentFiles is the only table with no counterpart on the server, because only the phone can honestly say whether a file is on it and whether it opens."
+    },
     {
       "id": "note-boundary",
       "x": 0,

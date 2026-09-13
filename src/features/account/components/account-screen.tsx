@@ -5,6 +5,7 @@ import {
   Bell,
   BellRing,
   ChevronRight,
+  CloudDownload,
   Inbox,
   ShieldCheck,
   User,
@@ -159,6 +160,16 @@ export function AccountScreen() {
             <StorageUsage />
             <RowRule />
             <DeviceStorageSummary />
+            <RowRule />
+            {/* A third question the two above do not answer: not how much is
+                here, but what is *waiting* — and whether the book somebody is
+                about to fly with will open. */}
+            <NavRow
+              glyph={CloudDownload}
+              title="Downloads"
+              hint="What opens with no connection, and what any of it is waiting for."
+              onPress={() => router.push('/downloads')}
+            />
           </Section>
 
           <Divider className="bg-hairline" />

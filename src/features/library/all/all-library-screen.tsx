@@ -35,6 +35,7 @@ import type { LibraryDocument } from '../data/types';
 import { useCoverSync } from '../data/use-cover-sync';
 import { useLibraryActions } from '../data/use-library-actions';
 import { useLibraryStatus } from '../data/use-library-status';
+import { isOpenable } from '../data/types';
 
 /**
  * The whole library, behind "View all".
@@ -150,7 +151,7 @@ export function AllLibraryScreen() {
     (document: LibraryDocument) => {
       // Same rule as home: a tap on something the account has and this phone
       // does not means fetch it. Anything here opens.
-      if (document.fileState !== 'available' && document.isSynced) {
+      if (!isOpenable(document) && document.isSynced) {
         void fetchDocument(document);
         return;
       }

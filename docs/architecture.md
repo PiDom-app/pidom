@@ -119,12 +119,48 @@ agree — including working out what another phone deleted, which it does by
 noticing an absence rather than by reading a tombstone.
 
 `documentFiles` is the table that has no counterpart in the account, and
-deliberately: `state` is `missing`, `downloading`, `available`, `corrupt`,
-`deleting` or `deleted`, and only the device can honestly say which. A field on
-the server saying a document is "downloaded" would be a stale flag on the one
-screen whose job is to say what opens offline. `/storage` is where a reader
-reads that table back — what the library takes up here, largest first, and
-whether removing any given document costs a download or destroys the only copy.
+deliberately: only the device can honestly say whether a file is on it and
+whether it opens. A field on the server saying a document is "downloaded" would
+be a stale flag on the one screen whose job is to say what opens offline.
+
+**Eleven states, and four of them were missing.** It used to say `missing`,
+`downloading`, `available` or `corrupt`, which made four very different
+situations into one word: a download queued behind two others, one held because
+the reader asked for Wi-Fi only, one paused halfway with two thirds of a
+textbook already written, and one that had failed eight times were all
+`missing` — the same word as a document nobody had ever asked for. Somebody
+about to board a plane could not tell them apart, which is the one moment the
+answer matters.
+
+```
+missing → queued → downloading ⇄ paused
+             ↓          ↓
+           held     verifying → available → outdated
+                        ↓            ↓
+                     failed       corrupt
+```
+
+`held` carries a reason — Wi-Fi only, the mobile-data ceiling, no room, the
+storage limit — because a queue that looks stuck and a queue that is waiting for
+Wi-Fi are the same picture without it. `outdated` is the one state on the chart
+that is not a problem: the file opens, the reader can go on reading it, and the
+account simply holds a newer copy. Deleting it for them would throw away the
+only readable version somebody had on a plane because a colleague re-uploaded a
+chapter.
+
+**`src/features/library/downloads/` is a second engine, not a branch in the
+first.** `sync/` drains _changes_ and may retry them freely; this drains _files_,
+where a retry is somebody's data allowance and a hold is a setting doing its job
+rather than a failure. Folding them together would mean one set of backoff rules
+governing both, and the right rules are not the same. It queues one transfer at
+a time by default, holds rather than fails, records progress on the row so a
+process killed mid-transfer costs a resume rather than a restart, and makes
+exactly one call on the account: `library.downloadUrl`.
+
+Two screens read all of it. `/storage` is about **quantity** — what the library
+takes up here, largest first, and whether removing any given document costs a
+download or destroys the only copy. `/downloads` is about **state**: what opens
+with no connection, what is waiting, and what any of it is waiting for.
 
 The two questions a screen still asks about the network are separate.
 `useConvexConnectionState` answers whether the backend is reachable; `NetInfo`

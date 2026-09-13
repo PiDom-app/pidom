@@ -30,6 +30,7 @@ import { NameDialog } from '../components/name-dialog';
 import { useLibraryStatus } from '../data/use-library-status';
 import type { LibraryDocument } from '../data/types';
 import { messageOf } from '../data/errors';
+import { isOpenable } from '../data/types';
 
 /**
  * One collection.
@@ -83,7 +84,7 @@ export function CollectionScreen() {
     (document: LibraryDocument) => {
       // Two taps mean "get it": a document only the account has, and one whose
       // file is here and would not open.
-      if (document.fileState !== 'available' && document.isSynced) {
+      if (!isOpenable(document) && document.isSynced) {
         void fetchDocument(document);
         return;
       }
@@ -106,7 +107,7 @@ export function CollectionScreen() {
     );
   }
 
-  const onDevice = (data?.documents ?? []).filter((doc) => doc.fileState === 'available').length;
+  const onDevice = (data?.documents ?? []).filter(isOpenable).length;
 
   return (
     <Screen>

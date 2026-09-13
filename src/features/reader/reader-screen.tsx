@@ -41,6 +41,7 @@ import { useReaderOrientation } from './use-reader-orientation';
 import { useFindInDocument } from './use-find-in-document';
 import { useReaderSession } from './use-reader-session';
 import { useReaderWakeLock } from './use-reader-wake-lock';
+import { isOpenable } from '@/features/library/data/types';
 
 const SCOPE = 'reader';
 
@@ -108,7 +109,7 @@ export function ReaderScreen() {
    * this replaced and why it matters more here than anywhere else.
    */
   const { document, outline, loading } = useReaderDocument(documentId);
-  const onThisDevice = document?.fileState === 'available';
+  const onThisDevice = document != null && isOpenable(document);
 
   const canvas = useRef<ReaderCanvasRef>(null);
   const [phase, setPhase] = useState<Phase>('opening');
