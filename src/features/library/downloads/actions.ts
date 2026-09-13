@@ -152,6 +152,49 @@ export async function verify(
   return 'available';
 }
 
+/**
+ * Reads every downloaded file back, a few at a time.
+ *
+ * The manual "Check every download now". It was a toast and nothing else for
+ * one commit, which is exactly the failure `docs/security.md` names: a control
+ * that says it did something and did nothing is worse than no control, because
+ * the reader now believes their library has been checked.
+ *
+ * Batched and yielding, because it is not free — reading a gigabyte off a disk
+ * and hashing the part of it that is small enough would block the queue and the
+ * interface if it ran as one pass. `onProgress` is what the screen counts with,
+ * and `shouldStop` lets a screen that unmounted stop it mid-library rather than
+ * finishing into nothing.
+ */
+export async function verifyEverything(
+  db: SQLiteDatabase,
+  profileId: string,
+  options: {
+    onProgress?: (done: number, total: number) => void;
+    shouldStop?: () => boolean;
+  } = {},
+): Promise<{ checked: number; outdated: number; corrupt: number }> {
+  const ids = await Files.verifiableIds(db);
+  const out = { checked: 0, outdated: 0, corrupt: 0 };
+
+  for (const documentId of ids) {
+    if (options.shouldStop?.() === true) {
+      break;
+    }
+    const outcome = await verify(db, profileId, documentId);
+    out.checked += 1;
+    if (outcome === 'outdated') {
+      out.outdated += 1;
+    }
+    if (outcome === 'corrupt') {
+      out.corrupt += 1;
+    }
+    options.onProgress?.(out.checked, ids.length);
+  }
+
+  return out;
+}
+
 /** How long a verified file is trusted before it is read back again. */
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 

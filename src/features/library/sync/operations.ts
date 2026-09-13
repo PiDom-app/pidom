@@ -267,7 +267,7 @@ async function sendAnnotation({ client, db }: Sender, operation: QueuedOperation
   if (operation.op === 'remove') {
     if (annotation.remoteId !== null) {
       await client.mutation(api.library.removeAnnotation, {
-        annotationId: accountId<'documentAnnotations'>('That note', annotation.remoteId),
+        annotationId: accountId<'documentAnnotations'>('That passage', annotation.remoteId),
       });
     }
     return;
@@ -282,28 +282,39 @@ async function sendAnnotation({ client, db }: Sender, operation: QueuedOperation
       throw new NotYetSynced('That document');
     }
 
+    /**
+     * A queued note from before notes were removed.
+     *
+     * A phone that was offline when this shipped can have a `kind: 'note'`
+     * create sitting in its outbox, and the account will not take one any more.
+     * Dropping the operation is the honest outcome — the row is already on the
+     * device and stays there; what cannot happen is a queue head jammed on a
+     * mutation whose argument shape no longer exists.
+     */
+    if (annotation.kind !== 'passage' || annotation.text === null) {
+      await Marks.removeAnnotation(db, annotation.id);
+      return;
+    }
+
     const remoteId = await client.mutation(api.library.addAnnotation, {
       documentId: accountId<'documents'>('That document', document.remoteId),
       currentPage: annotation.page,
-      kind: annotation.kind,
+      text: annotation.text,
       clientOpId: annotation.id,
       clientUpdatedAt: annotation.clientUpdatedAt,
-      ...(annotation.text === null ? {} : { text: annotation.text }),
-      ...(annotation.note === null ? {} : { note: annotation.note }),
     });
 
     await Marks.attachAnnotationRemoteId(db, annotation.id, remoteId);
     return;
   }
 
-  if (annotation.remoteId === null) {
-    throw new NotYetSynced('That note');
-  }
-  await client.mutation(api.library.updateAnnotation, {
-    annotationId: accountId<'documentAnnotations'>('That note', annotation.remoteId),
-    note: annotation.note ?? '',
-    clientUpdatedAt: annotation.clientUpdatedAt,
-  });
+  /**
+   * There is no update.
+   *
+   * The only thing an annotation update ever changed was the note written on
+   * it, and nothing writes one now. A queued update from an older build has
+   * nothing to send, so it is acknowledged rather than retried.
+   */
 }
 
 /* ── collections ────────────────────────────────────────────────────── */
@@ -498,6 +509,11 @@ async function sendShare({ client, db }: Sender, operation: QueuedOperation): Pr
     role: share.role,
     canDownload: share.canDownload,
     canReshare: share.canReshare,
+    // The row's own value, sent as an absolute time because that is what it
+    // is by now — the days the reader chose became a moment when the change
+    // was written locally, and replaying that arithmetic here would push the
+    // end date further out every time the queue retried.
+    expiresAt: share.expiresAt,
   });
 }
 

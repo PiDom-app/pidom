@@ -28,7 +28,7 @@ import { inTransaction } from './transaction';
 const SCOPE = 'local-db';
 
 /** Bump this, and add the step, whenever the schema changes. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /**
  * Everything except the search index.
@@ -363,10 +363,28 @@ ALTER TABLE documentFiles ADD COLUMN lastVerifiedAt INTEGER;
 CREATE INDEX documentFiles_queue ON documentFiles (state, priority, queuedAt);
 `;
 
+/**
+ * A group put away, mirrored so the lists can hide it with no connection.
+ *
+ * `groupsLocal` carries the account's facts about a group — its name, how many
+ * people are in it, this reader's standing — and the group list and the share
+ * picker are both read from it. So a group archived on another device has to
+ * arrive here, or it would go on appearing in the picker on this phone until
+ * somebody signed out.
+ *
+ * Only `archived` of the group's settings is mirrored, and deliberately. The
+ * rest are read on the screen that edits them, which needs a connection anyway;
+ * this one changes what an offline screen renders.
+ */
+const V4 = `
+ALTER TABLE groupsLocal ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+`;
+
 const STEPS: { to: number; sql: string }[] = [
   { to: 1, sql: V1 },
   { to: 2, sql: V2 },
   { to: 3, sql: V3 },
+  { to: 4, sql: V4 },
 ];
 
 /** Brings a freshly opened database up to `SCHEMA_VERSION`. */

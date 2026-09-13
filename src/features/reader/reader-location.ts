@@ -27,7 +27,7 @@ export type DocumentLocation = {
  * Four answers to one question — where in this document do I want to be — so
  * they share a sheet rather than competing for buttons in a toolbar that
  * already has five. `contents` is the document's own outline, `bookmarks` and
- * `notes` are what the reader added to it, and `pages` is the document as
+ * `passages` are what the reader kept from it, and `pages` is the document as
  * pictures.
  */
-export type NavigatorSegment = 'contents' | 'bookmarks' | 'notes' | 'pages';
+export type NavigatorSegment = 'contents' | 'bookmarks' | 'passages' | 'pages';

@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { Copy, Highlighter, NotebookPen, Search } from 'lucide-react-native';
+import { Copy, Highlighter, Search } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,16 +34,18 @@ const SCOPE = 'reader-selection';
  * again and harder, at `ANNOTATION_TEXT_MAX`: a clipboard holds a page for a
  * moment and a row in a list holds one forever.
  *
- * Four actions is what fits. Copy and Find are what a selection could already
- * do; Keep saves the passage and Note opens a box to write about it, which is
- * as far as an annotation goes on a renderer that reports no coordinates to
- * anchor a highlight to.
+ * Three actions. Copy and Find are what a selection could already do; Keep
+ * saves the passage, which is as far as an annotation goes on a renderer that
+ * reports no coordinates to anchor a highlight to.
+ *
+ * There was a fourth — Note, which opened a box to write about the passage.
+ * Writing notes is not something this application does any more, so the button
+ * is gone rather than left pointing at a screen that no longer exists.
  */
 export function SelectionBar({
   text,
   onSearch,
   onKeep,
-  onNote,
   onDismiss,
 }: {
   /** `null` when nothing is selected. */
@@ -52,8 +54,6 @@ export function SelectionBar({
   onSearch: (term: string) => void;
   /** Keeps the passage against the page the reader is on. */
   onKeep: (passage: string) => void;
-  /** Opens the note box with the passage quoted above it. */
-  onNote: (passage: string) => void;
   onDismiss: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -111,21 +111,6 @@ export function SelectionBar({
           <Icon as={Highlighter} size="sm" className="text-foreground" />
           <Text size="sm" className="text-foreground">
             Keep
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            onNote(passage);
-            onDismiss();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Write a note about the selected passage"
-          className="flex-row items-center gap-1.5 rounded-md px-2.5 py-2 data-[active=true]:bg-hover"
-        >
-          <Icon as={NotebookPen} size="sm" className="text-foreground" />
-          <Text size="sm" className="text-foreground">
-            Note
           </Text>
         </Pressable>
 

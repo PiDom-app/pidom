@@ -81,6 +81,7 @@ export function AccessScreen() {
     role: 'viewer',
     canDownload: false,
     canReshare: false,
+    expiresInDays: null,
   });
   const [viewing, setViewing] = useState<{
     id: string | null;
@@ -113,6 +114,7 @@ export function AccessScreen() {
         role: 'viewer' | 'annotator';
         canDownload: boolean;
         canReshare: boolean;
+        expiresAt: number | null;
       },
       name: string,
     ) => {
@@ -120,6 +122,13 @@ export function AccessScreen() {
         role: share.role,
         canDownload: share.canDownload,
         canReshare: share.canReshare,
+        // Back to the shape the sheet edits: an absolute time on the row
+        // becomes the number of days still to run, rounded up so a share with
+        // nine hours left reads as a day rather than as none.
+        expiresInDays:
+          share.expiresAt === null
+            ? null
+            : Math.max(1, Math.ceil((share.expiresAt - Date.now()) / 86_400_000)),
       });
       setEditing({ id: share.id, name });
     },

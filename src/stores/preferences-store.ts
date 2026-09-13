@@ -35,6 +35,9 @@ export type StorageCap = 0 | 1 | 2 | 5 | 10;
 export type EvictionOrder = 'least-recently-opened' | 'largest' | 'finished-first';
 
 /** How often a file already here is read back and checked. */
+/** How often the whole account is read back and reconciled. */
+export type ReconcileInterval = 5 | 15 | 30 | 60;
+
 export type VerifyCadence = 'always' | 'weekly' | 'never';
 
 type PreferencesState = {
@@ -70,6 +73,33 @@ type PreferencesState = {
   maxConcurrent: 1 | 2 | 3;
   /** Retry a failed transfer on the queue's own backoff. */
   retryAutomatically: boolean;
+
+  /* ── sync ───────────────────────────────────────────────────────── */
+
+  /**
+   * Hold the outbox.
+   *
+   * Not the same question as holding downloads, which is why it is a separate
+   * switch rather than a mode. Downloads are files and cost a data allowance;
+   * sync is a page turn and a favourite, measured in bytes. Somebody who wants
+   * this off wants it for a different reason — a metered connection abroad, or
+   * a device they are handing to somebody else for an afternoon.
+   *
+   * Read by `useSyncEngine` before every pass. Nothing is lost while it is on:
+   * the queue keeps filling and drains when it comes off.
+   */
+  syncPaused: boolean;
+  /** Let the outbox drain over mobile data. On — a queued change is a few bytes. */
+  syncOnCellular: boolean;
+  /**
+   * How often the full reconcile runs, in minutes.
+   *
+   * The outbox drains on every change regardless; this is the pass that reads
+   * the whole account back and works out what another device did. Longer is
+   * cheaper and staler, and on a phone that is the reader's only device it is
+   * almost pure cost.
+   */
+  reconcileEveryMinutes: 5 | 15 | 30 | 60;
 
   /** False until the persisted value has been read back. */
   hydrated: boolean;
@@ -113,6 +143,10 @@ export const usePreferencesStore = create<PreferencesState>()(
 
       maxConcurrent: 1,
       retryAutomatically: true,
+
+      syncPaused: false,
+      syncOnCellular: true,
+      reconcileEveryMinutes: 15,
 
       hydrated: false,
       set: (patch) => set(patch),

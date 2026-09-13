@@ -4,7 +4,7 @@ import { useMutation, useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
-import { GROUP_DESCRIPTION_MAX, GROUP_NAME_MAX } from '@convex/model/limits';
+import { GROUP_DESCRIPTION_MAX } from '@convex/model/limits';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -14,6 +14,8 @@ import { Pressable } from '@/components/ui/pressable';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { ChoiceSheet } from '@/components/layout/choice-sheet';
+import { EXPIRY_CHOICES, expiryLabel } from './share-permission-sheet';
 import { NameDialog } from '@/features/library/components/name-dialog';
 
 import { ListSkeleton, Notice, Section } from './segments';
@@ -62,6 +64,7 @@ export function GroupSettings({
   const showToast = useAppToast();
 
   const [describing, setDescribing] = useState(false);
+  const [choosingExpiry, setChoosingExpiry] = useState(false);
 
   const write = useCallback(
     (patch: Omit<Parameters<typeof update>[0], 'groupId'>) => {
@@ -163,6 +166,22 @@ export function GroupSettings({
           disabled={!canAdminister}
           onChange={(defaultCanDownload) => write({ defaultCanDownload })}
         />
+        {/* The pair of the row above, and it was missing. A reading list could
+            refuse a copy and not refuse the permission to make one somewhere
+            else, which is half a ceiling. */}
+        <Toggle
+          label="Allow sharing on"
+          note="Whether a document put in here can be passed out of it again."
+          value={s.defaultCanReshare}
+          disabled={!canAdminister}
+          onChange={(defaultCanReshare) => write({ defaultCanReshare })}
+        />
+        <Row
+          label="Access ends"
+          value={s.defaultExpiryDays === null ? 'No end' : expiryLabel(s.defaultExpiryDays)}
+          onPress={() => setChoosingExpiry(true)}
+          disabled={!canAdminister}
+        />
       </Section>
 
       <Box className="mx-6 mt-2 h-px bg-hairline" />
@@ -181,6 +200,22 @@ export function GroupSettings({
           value={s.showPresence}
           disabled={!canAdminister}
           onChange={(showPresence) => write({ showPresence })}
+        />
+      </Section>
+
+      <Box className="mx-6 mt-2 h-px bg-hairline" />
+
+      {/* Putting a group away is not deleting it, and the difference is the
+          whole reason the row exists. Deleting takes every share made in the
+          group away from everybody; archiving takes the group out of two lists
+          on the people who can see it and changes nothing anybody can open. */}
+      <Section title="When it is over">
+        <Toggle
+          label="Archive this group"
+          note="Hides it from your groups and from the share picker. Everything shared in it goes on working."
+          value={s.archived}
+          disabled={!canAdminister}
+          onChange={(archived) => write({ archived })}
         />
       </Section>
 
@@ -223,6 +258,27 @@ export function GroupSettings({
           </VStack>
         </HStack>
       </Pressable>
+
+      <ChoiceSheet
+        isOpen={choosingExpiry}
+        onClose={() => setChoosingExpiry(false)}
+        title="Access ends"
+        subtitle="For every share made into this group"
+        choices={EXPIRY_CHOICES.map((days) => ({
+          value: String(days),
+
+          label: days === null ? 'No end' : expiryLabel(days),
+
+          note: days === null ? 'Members keep what is shared until it is taken away.' : undefined,
+
+          selected: s.defaultExpiryDays === days,
+        }))}
+        onSelect={(value) => {
+          setChoosingExpiry(false);
+
+          write({ defaultExpiryDays: value === 'null' ? null : Number(value) });
+        }}
+      />
 
       <NameDialog
         isOpen={describing}

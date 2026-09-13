@@ -60,7 +60,7 @@ breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.
 ## The canvas
 
 `.design/` holds the design source: `build.mjs` generates one `.dc.html`
-artboard per screen — a hundred and seventeen of them — and `screens.mjs` draws
+artboard per screen — a hundred and sixteen of them — and `screens.mjs` draws
 twenty-one of the same screens as SVG for the images in the README. Both read the same tokens
 as `src/design/global.css`, so a colour that changes there has to change in both
 — the audit that checks `src/` does not reach them.

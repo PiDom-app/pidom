@@ -262,14 +262,25 @@ export async function revokeLocally(db: SQLiteDatabase, id: string): Promise<voi
 export async function setPermissionLocally(
   db: SQLiteDatabase,
   id: string,
-  next: { role: ShareRole; canDownload: boolean; canReshare: boolean },
+  next: {
+    role: ShareRole;
+    canDownload: boolean;
+    canReshare: boolean;
+    /** Days from now, or `null` for no end. Becomes a moment here. */
+    expiresInDays?: number | null;
+  },
 ): Promise<void> {
   const now = Date.now();
+  const expiresAt =
+    next.expiresInDays === undefined || next.expiresInDays === null
+      ? null
+      : now + next.expiresInDays * 86_400_000;
   await db.runAsync(
-    `UPDATE shares SET role = ?, canDownload = ?, canReshare = ?, updatedAt = ?, clientUpdatedAt = ?,
+    `UPDATE shares SET role = ?, canDownload = ?, canReshare = ?, expiresAt = ?,
+            updatedAt = ?, clientUpdatedAt = ?,
             syncState = CASE WHEN syncState = 'local' THEN 'local' ELSE 'pending' END
       WHERE id = ?`,
-    [next.role, asFlag(next.canDownload), asFlag(next.canReshare), now, now, id],
+    [next.role, asFlag(next.canDownload), asFlag(next.canReshare), expiresAt, now, now, id],
   );
 }
 

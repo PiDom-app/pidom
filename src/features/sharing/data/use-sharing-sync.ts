@@ -125,6 +125,7 @@ export function useSharingSync(): void {
             role: group.role,
             createdAt: group.createdAt,
             updatedAt: group.updatedAt,
+            archived: group.settings.archived,
           });
         }
       } catch (error) {

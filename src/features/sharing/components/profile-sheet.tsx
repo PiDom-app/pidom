@@ -23,11 +23,18 @@ import { VStack } from '@/components/ui/vstack';
 /**
  * A person, as much of them as sharing has any business showing.
  *
- * A name, a handle, a picture, and whether they are online — the exact four
- * fields `Discovery.toPublicProfile` returns, and no more. Not an email, not a
+ * A name, a handle, a picture, their pronouns, the line they wrote about
+ * themselves, and whether they are online — the exact fields
+ * `Discovery.toPublicProfile` returns, and no more. Not an email, not a
  * last-seen, not what else they are reading. A search result is not a licence
  * to read somebody's account, and the projection is the same one whatever the
  * search matched on.
+ *
+ * The two new ones are text this person wrote about themselves and nothing
+ * else. Neither is ever fetched from anywhere — which is the same reason
+ * `docs/security.md` gives for there being no photo URL field: a string this
+ * account supplies that another account's screen would *fetch* is a tracking
+ * pixel with a profile around it.
  *
  * An `Actionsheet` rather than a `Modal`, matching `document-details.tsx`: a
  * dialog opened from a screen would be a third kind of surface for no reason.
@@ -65,6 +72,20 @@ export function ProfileSheet({
   const sharedGroups = context?.sharedGroups;
   const sharedDocuments = context?.sharedDocuments;
 
+  /**
+   * Their own words, read from the query rather than taken as props.
+   *
+   * The four call sites hand this sheet a name and a face they already had in a
+   * list; these two are only ever on this one surface, so threading them
+   * through four components that do not render them would be four more chances
+   * for one to fall behind. `sharing.profile` is already being asked, and it
+   * refuses for somebody this account has nothing to do with — so an absent
+   * answer here is the same refusal the counts below get, rather than a
+   * separate one to reason about.
+   */
+  const pronouns = context?.profile.pronouns ?? null;
+  const about = context?.profile.about ?? null;
+
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
       <ActionsheetBackdrop />
@@ -93,6 +114,11 @@ export function ProfileSheet({
             <Text size="xl" numberOfLines={1} className="font-semibold text-foreground">
               {name}
             </Text>
+            {pronouns === null || pronouns === '' ? null : (
+              <Text size="sm" className="text-fg-muted">
+                {pronouns}
+              </Text>
+            )}
             <HStack className="items-center" space="xs">
               {handle === null ? (
                 <Text size="sm" className="text-fg-subtle">
@@ -114,6 +140,11 @@ export function ProfileSheet({
                 </>
               ) : null}
             </HStack>
+            {about === null || about === '' ? null : (
+              <Text size="sm" className="mt-1 max-w-[300px] text-center text-fg-muted">
+                {about}
+              </Text>
+            )}
           </VStack>
         </VStack>
 

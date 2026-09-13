@@ -4,18 +4,21 @@ import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { AuthError } from './auth';
 import {
+  accountCeiling,
   clampToCeiling,
   refuseIfExpired,
   requireAddressed,
   requireAdministrable,
   requireResharable,
 } from './access';
-import { type PublicProfile, profileOf } from './discovery';
+import { publicProfileValidator, type PublicProfile, profileOf } from './discovery';
 import * as Groups from './groups';
 import {
   ANNOTATIONS_PER_DOCUMENT,
   SHARES_PER_DOCUMENT,
   SHARES_PER_OWNER,
+  SHARE_EXPIRY_MAX_MS,
+  SHARE_EXPIRY_MIN_MS,
   SHARE_LIST_LIMIT,
   SHARE_MESSAGE_MAX,
   cleanOptionalText,
@@ -101,15 +104,7 @@ export const publicShareValidator = v.object({
   id: v.id('documentShares'),
   document: v.union(sharedDocumentValidator, v.null()),
   direction: v.union(v.literal('incoming'), v.literal('outgoing')),
-  counterpart: v.union(
-    v.object({
-      id: v.id('users'),
-      displayName: v.string(),
-      handle: v.union(v.string(), v.null()),
-      pictureUrl: v.union(v.string(), v.null()),
-    }),
-    v.null(),
-  ),
+  counterpart: v.union(publicProfileValidator, v.null()),
   group: v.union(v.object({ id: v.id('groups'), name: v.string() }), v.null()),
   subject: v.union(v.literal('user'), v.literal('group')),
   role: v.union(v.literal('viewer'), v.literal('annotator')),
@@ -229,8 +224,26 @@ async function withinGroup(
   return {
     role: settings.defaultRole === 'viewer' ? 'viewer' : input.role,
     canDownload: settings.defaultCanDownload && input.canDownload,
-    canReshare: input.canReshare,
+    // Was `input.canReshare`, unclamped — the group could refuse a copy and
+    // not refuse the permission to make one elsewhere, which is half a ceiling.
+    canReshare: settings.defaultCanReshare && input.canReshare,
   };
+}
+
+/**
+ * A group's own answer to how long a share into it lasts.
+ *
+ * Applied only when the share does not carry one of its own, so a reader who
+ * picked a week on this particular document gets a week. The group's value is a
+ * default for the ones nobody thought about, which is most of them.
+ */
+async function groupExpiry(ctx: MutationCtx, groupId: Id<'groups'>): Promise<number | undefined> {
+  const group = await ctx.db.get('groups', groupId);
+  if (group === null) {
+    return undefined;
+  }
+  const days = Groups.settingsOf(group).defaultExpiryDays;
+  return days === null ? undefined : Date.now() + days * 86_400_000;
 }
 
 export async function create(
@@ -268,9 +281,44 @@ export async function create(
       ? await withinGroup(ctx, requireGroupId(input), input)
       : { role: input.role, canDownload: input.canDownload, canReshare: input.canReshare };
 
-  const granted = clampToCeiling(wanted, ceiling);
+  /**
+   * And the owner's account-wide ceiling, over the top of both.
+   *
+   * Three narrowings, applied in order and never widening: what the owner
+   * allows at all, what a group says a document dropped into it may be, and
+   * what the resharer holds themselves. A reader who has turned downloads off
+   * for their account cannot hand one out by accident from any of the four
+   * screens that create a share.
+   */
+  const granted = clampToCeiling(wanted, await accountCeiling(ctx, doc.ownerId, ceiling));
   const message = cleanOptionalText(input.message, SHARE_MESSAGE_MAX, 'Message');
   const now = Date.now();
+
+  /**
+   * An account that has decided access always ends.
+   *
+   * A rule rather than a preselected value, which is the whole reason it is
+   * worth having beside `defaultExpiryDays`: a default is one tap from being
+   * undone, and somebody who turns this on has decided that indefinite access
+   * to their documents is not a thing they hand out at all.
+   */
+  const settings = await sharingOf(ctx, doc.ownerId);
+
+  /**
+   * The end date, from whichever of the three said one.
+   *
+   * The share itself first, because somebody chose it for this document; then
+   * the group, whose answer covers every share into it that nobody thought
+   * about. `requireExpiry` is checked after both, so an account that insists on
+   * an end is satisfied by a group that supplies one.
+   */
+  const expiresAt =
+    input.expiresAt ??
+    (input.subject === 'group' ? await groupExpiry(ctx, requireGroupId(input)) : undefined);
+
+  if (settings.requireExpiry === true && expiresAt === undefined) {
+    invalid('Your settings require every share to have an end date.');
+  }
 
   const existing =
     input.subject === 'user'
@@ -284,7 +332,7 @@ export async function create(
     await ctx.db.patch('documentShares', existing._id, {
       ...granted,
       message,
-      expiresAt: input.expiresAt,
+      expiresAt: expiresAt === undefined ? undefined : cleanExpiry(expiresAt),
       status: input.subject === 'group' ? 'accepted' : 'pending',
       revokedAt: undefined,
       respondedAt: undefined,
@@ -344,7 +392,7 @@ export async function create(
     // A group share grants on membership, so there is nobody to answer it.
     status: input.subject === 'group' ? 'accepted' : 'pending',
     message,
-    expiresAt: input.expiresAt,
+    expiresAt: expiresAt === undefined ? undefined : cleanExpiry(expiresAt),
     clientOpId: input.clientOpId,
     ...clientClock(input.clientUpdatedAt),
     createdAt: now,
@@ -464,25 +512,70 @@ export async function respond(
  * recipient is told, because a permission quietly narrowing is a feature that
  * stops working for no visible reason.
  */
+/**
+ * An expiry the caller supplied, bounded, or `undefined`.
+ *
+ * Clamped rather than refused at the top: a client asking for ten years is
+ * asking for "a long time", and a year is a long time. Refused at the bottom,
+ * because a share that has already expired is not a share — handing somebody
+ * access that the next cron pass revokes is a worse answer than saying no.
+ */
+function cleanExpiry(value: number): number | undefined {
+  if (!Number.isFinite(value)) {
+    return undefined;
+  }
+  const now = Date.now();
+  if (value < now + SHARE_EXPIRY_MIN_MS) {
+    invalid('A share has to last at least an hour.');
+  }
+  return Math.min(value, now + SHARE_EXPIRY_MAX_MS);
+}
+
 export async function changePermission(
   ctx: MutationCtx,
   user: Doc<'users'>,
   shareId: Id<'documentShares'>,
-  next: { role: 'viewer' | 'annotator'; canDownload: boolean; canReshare: boolean },
+  next: {
+    role: 'viewer' | 'annotator';
+    canDownload: boolean;
+    canReshare: boolean;
+    /**
+     * When this stops, or `null` to take an expiry off again.
+     *
+     * `undefined` means the caller is not changing it — an older client sending
+     * only the three permissions must not silently clear an expiry somebody
+     * set, so absent and "never" have to be different values here.
+     */
+    expiresAt?: number | null;
+  },
 ): Promise<void> {
   const share = await requireAdministrable(ctx, user, shareId);
   const ceiling = await requireResharable(ctx, user, share.documentId);
   const granted = clampToCeiling(next, ceiling);
 
+  const expiry =
+    next.expiresAt === undefined
+      ? undefined
+      : next.expiresAt === null
+        ? undefined
+        : cleanExpiry(next.expiresAt);
+  const clearing = next.expiresAt === null && share.expiresAt !== undefined;
+
   if (
     granted.role === share.role &&
     granted.canDownload === share.canDownload &&
-    granted.canReshare === share.canReshare
+    granted.canReshare === share.canReshare &&
+    !clearing &&
+    (expiry === undefined || expiry === share.expiresAt)
   ) {
     return;
   }
 
-  await ctx.db.patch('documentShares', shareId, { ...granted, updatedAt: Date.now() });
+  await ctx.db.patch('documentShares', shareId, {
+    ...granted,
+    ...(clearing ? { expiresAt: undefined } : expiry === undefined ? {} : { expiresAt: expiry }),
+    updatedAt: Date.now(),
+  });
 
   if (share.recipientUserId !== undefined) {
     await record(ctx, {

@@ -6,6 +6,7 @@ import { DEVICE_TOKENS_PER_USER, PUSH_TOKEN_MAX, SHARE_LIST_LIMIT, invalid } fro
 import { type PublicProfile, profileOf } from './discovery';
 import { pushNotifications } from './pushClient';
 import { notificationsOf } from './settings';
+import { publicProfileValidator } from './discovery';
 
 /**
  * Telling somebody something happened.
@@ -56,15 +57,7 @@ export const publicEventValidator = v.object({
   shareId: v.union(v.id('documentShares'), v.null()),
   documentId: v.union(v.id('documents'), v.null()),
   groupId: v.union(v.id('groups'), v.null()),
-  actor: v.union(
-    v.object({
-      id: v.id('users'),
-      displayName: v.string(),
-      handle: v.union(v.string(), v.null()),
-      pictureUrl: v.union(v.string(), v.null()),
-    }),
-    v.null(),
-  ),
+  actor: v.union(publicProfileValidator, v.null()),
   read: v.boolean(),
   createdAt: v.number(),
 });

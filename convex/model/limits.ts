@@ -309,6 +309,17 @@ export const SHARE_MESSAGE_MAX = 500;
 export const DISPLAY_NAME_MAX = 60;
 
 /**
+ * How long the two things somebody writes about themselves may be.
+ *
+ * Both are rendered on other people's screens, which is the only reason a bound
+ * is interesting: a field with no limit is a field somebody puts a paragraph in
+ * and every member list it appears on stops being a list. Pronouns are a few
+ * characters by their nature; the line about themselves is a line.
+ */
+export const PRONOUNS_MAX = 24;
+export const ABOUT_MAX = 160;
+
+/**
  * The name somebody can be found by.
  *
  * Long enough for a real name plus a disambiguator, short enough to sit beside
@@ -432,6 +443,24 @@ export const PUSH_TOKEN_MAX = 200;
  * ahead of any realistic rate of expiry rather than exhaustive in one pass.
  * Two hundred an hour is far past what a deployment of readers produces.
  */
+/**
+ * How far ahead a share may be set to expire.
+ *
+ * A year. `expiresAt` was written straight from the client until the compose
+ * screen gained a control for it, which meant an unbounded number went into a
+ * row: a timestamp in the year 275760 is not an attack so much as a value
+ * nothing downstream reads sensibly, and `limits.ts` is supposed to hold every
+ * bound the public surface enforces rather than most of them.
+ *
+ * The lower bound matters more. A share that expires in the past is a share the
+ * cron revokes on its next pass — which is a confusing way to hand somebody
+ * nothing, so it is refused at the door instead.
+ */
+export const SHARE_EXPIRY_MAX_MS = 365 * 24 * 60 * 60 * 1000;
+
+/** The shortest a share may be offered for. Below this it is not an offer. */
+export const SHARE_EXPIRY_MIN_MS = 60 * 60 * 1000;
+
 export const SHARE_EXPIRY_SWEEP = 200;
 
 /**

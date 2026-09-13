@@ -60,6 +60,20 @@ export const SHARING_DEFAULTS: SharingSettings = {
    */
   showReadingActivity: true,
   allowGroupInvites: true,
+
+  /**
+   * No default end, and the two ceilings open.
+   *
+   * All three are the state the account was in before they existed, which is
+   * the only honest default for a setting added to a live product: a reader who
+   * has never opened this screen has not asked for their existing shares to
+   * start expiring, and a ceiling that arrived switched on would revoke
+   * downloads people were relying on without anybody deciding to.
+   */
+  defaultExpiryDays: undefined,
+  requireExpiry: false,
+  allowDownloads: true,
+  allowReshares: true,
 };
 
 export const NOTIFICATION_DEFAULTS: NotificationSettings = {

@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { requireUser } from './model/auth';
 import * as Discovery from './model/discovery';
+import { SHARE_EXPIRY_MAX_MS, invalid } from './model/limits';
 import { limit } from './model/rateLimits';
 import * as Settings from './model/settings';
 
@@ -75,15 +76,51 @@ export const updateSharing = mutation({
     showOnlineStatus: v.optional(v.boolean()),
     showReadingActivity: v.optional(v.boolean()),
     allowGroupInvites: v.optional(v.boolean()),
+
+    /**
+     * `null` takes a default expiry off; a number sets one, in days.
+     *
+     * Three states, because absent has to mean "not changing this" — these
+     * mutations take every field optionally so a screen can send only the
+     * switch that moved, and without the null there would be no way to express
+     * "no end" once a default had been chosen.
+     */
+    defaultExpiryDays: v.optional(v.union(v.number(), v.null())),
+    requireExpiry: v.optional(v.boolean()),
+    allowDownloads: v.optional(v.boolean()),
+    allowReshares: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     await limit(ctx, user, 'editSettings');
-    await Settings.patchSharing(ctx, user._id, args);
+    const { defaultExpiryDays, ...rest } = args;
+    await Settings.patchSharing(ctx, user._id, {
+      ...rest,
+      ...(defaultExpiryDays === undefined
+        ? {}
+        : {
+            defaultExpiryDays:
+              defaultExpiryDays === null ? undefined : cleanExpiryDays(defaultExpiryDays),
+          }),
+    });
     return null;
   },
 });
+
+/**
+ * A default expiry, in whole days, inside the bound a share can actually take.
+ *
+ * The same ceiling `cleanExpiry` applies to a share, expressed in the unit this
+ * setting is chosen in. A default outside what a share may be would be a
+ * setting that produces a refusal every time it is used.
+ */
+function cleanExpiryDays(days: number): number {
+  if (!Number.isFinite(days)) {
+    invalid('That is not a number of days.');
+  }
+  return Math.min(Math.max(1, Math.round(days)), Math.floor(SHARE_EXPIRY_MAX_MS / 86_400_000));
+}
 
 export const updateNotifications = mutation({
   args: {

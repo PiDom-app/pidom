@@ -162,6 +162,18 @@ takes up here, largest first, and whether removing any given document costs a
 download or destroys the only copy. `/downloads` is about **state**: what opens
 with no connection, what is waiting, and what any of it is waiting for.
 
+**Notes are gone; passages stayed.** `documentAnnotations` holds two kinds in
+one table — a `passage` came off a selection and carries the document's words, a
+`note` was the reader's own writing — and only the second has been removed. The
+screen that composed one, the selection bar's Note action, the navigator's Notes
+tab and `library.updateAnnotation` are all deleted, and `addAnnotation` no
+longer takes a `kind` at all: an argument nothing sends and nothing refuses is a
+way back into a feature that was removed. Rows already written as notes are
+untouched — they are somebody's work, they still sync down, and the list renders
+them — and the `note` literal stays in the schema so a type cannot refuse to
+describe them. `/note` became `/bookmark`, which is the half of that screen that
+was never about notes.
+
 The two questions a screen still asks about the network are separate.
 `useConvexConnectionState` answers whether the backend is reachable; `NetInfo`
 answers whether there is a network at all. An interface can be up while Convex
