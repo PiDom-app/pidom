@@ -1519,3 +1519,194 @@ describe('group settings', () => {
     ).toBeNull();
   });
 });
+
+/**
+ * The settings read itself, which nothing used to call.
+ *
+ * `updateSharing` was tested and `settings.mine` was not, and that gap is
+ * exactly how the crash shipped: the query's return validator listed eight
+ * sharing fields while the table had twelve, Convex refuses an unexpected field
+ * in an object, and so every read failed for every account — taking
+ * Notifications, Sharing & privacy and the share sheet down together. `tsc`
+ * cannot see it, because a handler's return type is inferred and TypeScript
+ * runs no excess-property check on a value that is not a fresh object literal.
+ * `convex-test` validates return values, so simply calling the query is the
+ * assertion; the expectations below are what keeps the columns honest.
+ */
+describe('reading your settings', () => {
+  test('answers with the defaults when no row has ever been written', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    const settings = await owner.query(api.settings.mine, {});
+
+    expect(settings.handle).toBeNull();
+    expect(settings.sharing.findableBy).toBe('anyone');
+    expect(settings.sharing.defaultRole).toBe('viewer');
+    // The two that survive being taken away, so they start off.
+    expect(settings.sharing.defaultCanDownload).toBe(false);
+    expect(settings.sharing.defaultCanReshare).toBe(false);
+    // The four the validator had drifted away from.
+    expect(settings.sharing.defaultExpiryDays).toBeUndefined();
+    expect(settings.sharing.requireExpiry).toBe(false);
+    expect(settings.sharing.allowDownloads).toBe(true);
+    expect(settings.sharing.allowReshares).toBe(true);
+    expect(settings.notifications.allow).toBe(true);
+    expect(settings.notifications.annotationActivity).toBe(false);
+  });
+
+  test('reads back every field the sharing table carries', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    await owner.mutation(api.settings.updateSharing, {
+      findableBy: 'groups',
+      shareableBy: 'nobody',
+      defaultRole: 'annotator',
+      defaultCanDownload: true,
+      defaultCanReshare: true,
+      showOnlineStatus: false,
+      showReadingActivity: false,
+      allowGroupInvites: false,
+      defaultExpiryDays: 14,
+      requireExpiry: true,
+      allowDownloads: false,
+      allowReshares: false,
+    });
+
+    expect((await owner.query(api.settings.mine, {})).sharing).toStrictEqual({
+      findableBy: 'groups',
+      shareableBy: 'nobody',
+      defaultRole: 'annotator',
+      defaultCanDownload: true,
+      defaultCanReshare: true,
+      showOnlineStatus: false,
+      showReadingActivity: false,
+      allowGroupInvites: false,
+      defaultExpiryDays: 14,
+      requireExpiry: true,
+      allowDownloads: false,
+      allowReshares: false,
+    });
+
+    // `null` is how the default expiry is taken off again.
+    await owner.mutation(api.settings.updateSharing, { defaultExpiryDays: null });
+    expect((await owner.query(api.settings.mine, {})).sharing.defaultExpiryDays).toBeUndefined();
+  });
+});
+
+describe('quiet hours', () => {
+  test('can be turned off again', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    await owner.mutation(api.settings.updateNotifications, {
+      quietStartMinute: 22 * 60,
+      quietEndMinute: 7 * 60,
+      utcOffsetMinutes: 0,
+    });
+    const on = await owner.query(api.settings.mine, {});
+    expect(on.notifications.quietStartMinute).toBe(22 * 60);
+    expect(on.notifications.quietEndMinute).toBe(7 * 60);
+
+    /**
+     * The regression. The screen used to clear these by sending `undefined`,
+     * which the client drops before the request leaves the device — so the
+     * mutation arrived carrying only the offset, the columns kept their values,
+     * and the switch came straight back on. `null` is the third state that says
+     * "remove this" as distinct from "not changing this".
+     */
+    await owner.mutation(api.settings.updateNotifications, {
+      quietStartMinute: null,
+      quietEndMinute: null,
+      utcOffsetMinutes: 0,
+    });
+    const off = await owner.query(api.settings.mine, {});
+    expect(off.notifications.quietStartMinute).toBeUndefined();
+    expect(off.notifications.quietEndMinute).toBeUndefined();
+  });
+
+  test('leaves the window alone when only the offset is sent', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    await owner.mutation(api.settings.updateNotifications, {
+      quietStartMinute: 23 * 60,
+      quietEndMinute: 6 * 60,
+    });
+    // Absent means unchanged — this is what lets a screen send only the switch
+    // that moved, and it is why clearing needed a value of its own.
+    await owner.mutation(api.settings.updateNotifications, { utcOffsetMinutes: 180 });
+
+    const settings = await owner.query(api.settings.mine, {});
+    expect(settings.notifications.quietStartMinute).toBe(23 * 60);
+    expect(settings.notifications.utcOffsetMinutes).toBe(180);
+  });
+
+  test('refuses to store a minute outside the day', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+
+    await owner.mutation(api.settings.updateNotifications, {
+      quietStartMinute: 4000,
+      quietEndMinute: -30,
+    });
+
+    const settings = await owner.query(api.settings.mine, {});
+    expect(settings.notifications.quietStartMinute).toBe(1439);
+    expect(settings.notifications.quietEndMinute).toBe(0);
+  });
+});
+
+/**
+ * Revoking a group share, driven the way Manage access drives it.
+ *
+ * That screen renders the account's own `accessList` rather than the device
+ * mirror, so the id it hands `removeAccess` is a remote one — and for a group
+ * share, which no device mirrors, there is no local row to resolve it against.
+ * `removeAccess` used to give up at that point and write nothing anywhere, so
+ * the dialog closed on access that had not been taken away. The client now
+ * falls back to the id it was given; this covers the mutation end of it.
+ */
+describe('revoking a group share', () => {
+  test('takes the document back from every member', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+    const shareId = await owner.mutation(api.sharing.createShare, {
+      documentId,
+      subject: 'group',
+      groupId,
+      role: 'viewer',
+      canDownload: false,
+      canReshare: false,
+    });
+
+    expect(await inboxEntry(friend, (share) => share.document?.id === documentId)).not.toBeNull();
+    expect(
+      (await friend.query(api.sharing.inbox, { filter: 'active' })).map(
+        (share) => share.document?.id,
+      ),
+    ).toContain(documentId);
+
+    // The id straight off `accessList`, exactly as the screen passes it.
+    const listed = await owner.query(api.sharing.accessList, { documentId });
+    expect(listed.map((share) => share.id)).toContain(shareId);
+    await owner.mutation(api.sharing.revokeShare, { shareId });
+
+    // `all` keeps the row so the recipient can see it was taken away; `active`
+    // is the list that says what they can still open.
+    expect(
+      (await friend.query(api.sharing.inbox, { filter: 'active' })).map(
+        (share) => share.document?.id,
+      ),
+    ).not.toContain(documentId);
+    expect((await inboxEntry(friend, (share) => share.document?.id === documentId))?.status).toBe(
+      'revoked',
+    );
+  });
+});

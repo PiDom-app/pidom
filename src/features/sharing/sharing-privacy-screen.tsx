@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
+import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { ChoiceSheet } from '@/components/layout/choice-sheet';
 import { Screen } from '@/components/layout/screen';
@@ -37,7 +38,11 @@ import { EXPIRY_CHOICES, expiryLabel } from './components/share-permission-sheet
  */
 export function SharingPrivacyScreen() {
   const router = useRouter();
-  const settings = useQuery(api.settings.mine, {});
+  // `ready` is not optional — `settings.mine` starts with `requireUser`, which
+  // throws `NO_PROFILE` before the row exists, and `useQuery` re-throws a query
+  // error during render. See `use-library-status.ts`.
+  const { ready } = useLibraryStatus();
+  const settings = useQuery(api.settings.mine, ready ? {} : 'skip');
   const update = useMutation(api.settings.updateSharing);
   const setHandle = useMutation(api.settings.setHandle);
   const showToast = useAppToast();

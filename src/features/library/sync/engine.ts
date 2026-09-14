@@ -561,6 +561,11 @@ async function reconcileGroups({ client, db }: Sender): Promise<void> {
  * Resolved before the transaction opens rather than per row inside it: the
  * lookup is a read on the same connection, and fifty events rarely name more
  * than a handful of distinct groups.
+ *
+ * **`use-sharing-sync.ts` writes this same table and does the same translation.**
+ * Two writers is the hazard: the live subscription there replaces these rows on
+ * every server change, so a translation applied only here would be undone
+ * within the second. Change one and change the other.
  */
 async function reconcileEvents({ client, db }: Sender): Promise<void> {
   const events = await client.query(api.sharing.events, { limit: 50 });

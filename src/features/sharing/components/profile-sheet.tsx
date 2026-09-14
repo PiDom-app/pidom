@@ -3,6 +3,7 @@ import { Share2, Users } from 'lucide-react-native';
 import React from 'react';
 
 import { api } from '@convex/_generated/api';
+import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import type { Id } from '@convex/_generated/dataModel';
 
 import {
@@ -65,9 +66,10 @@ export function ProfileSheet({
   pictureUrl: string | null;
   online?: boolean;
 }) {
+  const { ready } = useLibraryStatus();
   const context = useQuery(
     api.sharing.profile,
-    !isOpen || userId === null ? 'skip' : { userId: userId as Id<'users'> },
+    !ready || !isOpen || userId === null ? 'skip' : { userId: userId as Id<'users'> },
   );
   const sharedGroups = context?.sharedGroups;
   const sharedDocuments = context?.sharedDocuments;
