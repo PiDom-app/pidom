@@ -190,11 +190,18 @@ export function useShareActions() {
         return row;
       });
 
-      if (share?.remoteId == null || !hasNetwork) {
+      // The local row's remote id when there is one, and the id we were handed
+      // when there is not — the same fallback `setPermission` makes below, and
+      // for the same reason. Manage access renders the account's own list, so
+      // the id it passes is already a remote one; without this, revoking a
+      // group share (which this device never mirrors) wrote nothing anywhere
+      // and the dialog closed on access that had not been taken away.
+      const remoteId = share?.remoteId ?? (share === null ? shareId : null);
+      if (remoteId == null || !hasNetwork) {
         return;
       }
       try {
-        await revoke({ shareId: share.remoteId as Id<'documentShares'> });
+        await revoke({ shareId: remoteId as Id<'documentShares'> });
       } catch (error) {
         log.debug(SCOPE, 'revoke will go through the queue instead', error);
       }

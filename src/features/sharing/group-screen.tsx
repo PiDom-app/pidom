@@ -46,7 +46,7 @@ import { useGroup, useGroupDocuments } from './data/use-sharing';
 export function GroupScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { hasNetwork, profileId } = useLibraryStatus();
+  const { hasNetwork, profileId, ready } = useLibraryStatus();
   const { group, members: mirrored, loading } = useGroup(id ?? null);
   const documents = useGroupDocuments(id ?? null);
 
@@ -63,7 +63,7 @@ export function GroupScreen() {
    */
   const detail = useQuery(
     api.groups.detail,
-    remoteGroupId === null ? 'skip' : { groupId: remoteGroupId as Id<'groups'> },
+    !ready || remoteGroupId === null ? 'skip' : { groupId: remoteGroupId as Id<'groups'> },
   );
 
   const members = useMemo(
@@ -451,9 +451,10 @@ function AddMemberSheet({
     return () => clearTimeout(timer);
   }, [term]);
 
+  const { ready } = useLibraryStatus();
   const people = useQuery(
     api.sharing.findPeople,
-    debounced.length === 0 || offline ? 'skip' : { term: debounced },
+    !ready || debounced.length === 0 || offline ? 'skip' : { term: debounced },
   );
 
   if (!isOpen) {

@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
+import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import type { Id } from '@convex/_generated/dataModel';
 import { GROUP_DESCRIPTION_MAX } from '@convex/model/limits';
 import { useAppToast } from '@/components/feedback/use-app-toast';
@@ -55,9 +56,10 @@ export function GroupSettings({
   onLeave: () => void;
   currentName: string;
 }) {
+  const { ready } = useLibraryStatus();
   const detail = useQuery(
     api.groups.detail,
-    remoteId === null ? 'skip' : { groupId: remoteId as Id<'groups'> },
+    !ready || remoteId === null ? 'skip' : { groupId: remoteId as Id<'groups'> },
   );
   const update = useMutation(api.groups.updateSettings);
   const setMuted = useMutation(api.groups.setMuted);

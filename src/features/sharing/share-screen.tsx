@@ -67,10 +67,10 @@ export function ShareScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { document } = useReaderDocument(id);
-  const { hasNetwork } = useLibraryStatus();
+  const { hasNetwork, ready } = useLibraryStatus();
   const showToast = useAppToast();
 
-  const settings = useQuery(api.settings.mine, {});
+  const settings = useQuery(api.settings.mine, ready ? {} : 'skip');
   const { groups } = useGroups();
   const { share } = useShareActions();
 

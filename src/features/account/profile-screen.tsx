@@ -137,7 +137,11 @@ export function ProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [name, router, showPhoto, showToast, updateProfile]);
+    // `pronouns` and `about` belong here as much as `name` does. Without them
+    // the memoised callback kept the values from the render it was created on,
+    // so editing only one of these two saved the old string while `dirty` lit
+    // the button and the toast said it had worked.
+  }, [about, name, pronouns, router, showPhoto, showToast, updateProfile]);
 
   if (profile === undefined) {
     return (

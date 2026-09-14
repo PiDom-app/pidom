@@ -9,7 +9,7 @@ import { Heading } from '@/components/ui/heading';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { codeOf } from '@/features/library/data/errors';
+import { codeOf, type LibraryErrorCode } from '@/features/library/data/errors';
 
 /**
  * The last thing between a thrown error and a white screen.
@@ -28,12 +28,7 @@ import { codeOf } from '@/features/library/data/errors';
  * https://docs.expo.dev/router/error-handling/
  */
 export function ScreenError({ error, retry }: ErrorBoundaryProps) {
-  const code = codeOf(error);
-
-  // `FORBIDDEN` covers both "gone" and "never yours", deliberately — see
-  // `assertOwner`. From the reader's side the only true statement is that it is
-  // not there any more.
-  const gone = code === 'FORBIDDEN';
+  const { title, body } = wordsFor(codeOf(error));
 
   return (
     <Screen>
@@ -43,12 +38,10 @@ export function ScreenError({ error, retry }: ErrorBoundaryProps) {
 
           <VStack className="items-center" space="sm">
             <Heading size="lg" className="text-center text-foreground">
-              {gone ? 'That is no longer here' : 'Something went wrong'}
+              {title}
             </Heading>
             <Text size="sm" className="max-w-[286px] text-center text-muted-foreground">
-              {gone
-                ? 'It may have been deleted on another device. Your other documents are unaffected.'
-                : 'Your library is safe. Try again, and if it keeps happening, sign out and back in.'}
+              {body}
             </Text>
           </VStack>
 
@@ -59,4 +52,49 @@ export function ScreenError({ error, retry }: ErrorBoundaryProps) {
       </Center>
     </Screen>
   );
+}
+
+/**
+ * What to say, per code the backend actually raises.
+ *
+ * `codeOf` has returned all five of these for a while and this branched on one,
+ * so a reader who had simply tapped too fast was told their library was safe and
+ * invited to sign out and back in — advice that is wrong, and for a rate limit
+ * actively unhelpful. The generic line stays the default, because `UNKNOWN`
+ * genuinely covers anything.
+ */
+function wordsFor(code: LibraryErrorCode): { title: string; body: string } {
+  switch (code) {
+    // Covers both "gone" and "never yours", deliberately — see `assertOwner`.
+    // From the reader's side the only true statement is that it is not there.
+    case 'FORBIDDEN':
+      return {
+        title: 'That is no longer here',
+        body: 'It may have been deleted on another device. Your other documents are unaffected.',
+      };
+    case 'RATE_LIMITED':
+      return {
+        title: 'Give that a moment',
+        body: 'That happened a few too many times in a row. Nothing was lost — try again shortly.',
+      };
+    // The window between a verified token and the profile row existing. It
+    // closes on its own, so the honest instruction is to wait rather than to
+    // suspect the account.
+    case 'NO_PROFILE':
+    case 'UNAUTHENTICATED':
+      return {
+        title: 'Still signing you in',
+        body: 'Your account is being set up on this device. This should only take a moment.',
+      };
+    case 'INVALID':
+      return {
+        title: 'That could not be done',
+        body: 'Something about that request was not allowed. Your library is unaffected.',
+      };
+    default:
+      return {
+        title: 'Something went wrong',
+        body: 'Your library is safe. Try again, and if it keeps happening, sign out and back in.',
+      };
+  }
 }

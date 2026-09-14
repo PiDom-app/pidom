@@ -112,3 +112,15 @@ export default function AppLayout() {
     </Stack>
   );
 }
+
+/**
+ * The boundary this layout was missing.
+ *
+ * Every route inside it exports one, and this — the file that mounts five live
+ * subscriptions through `useLibrarySync` and `useSharingSync` — did not. A
+ * query error is re-thrown during render, so a throw from any of those five
+ * escaped the whole authenticated segment and landed on the root fallback:
+ * a full-screen error with no back arrow and no navigation, which is
+ * indistinguishable from the app being dead.
+ */
+export { ScreenError as ErrorBoundary } from '@/components/feedback/screen-error';
