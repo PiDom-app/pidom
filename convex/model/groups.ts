@@ -15,6 +15,7 @@ import {
 import { type PublicProfile, profileOf } from './discovery';
 import { sharingOf } from './settings';
 import { clientClock, isStale } from './sync';
+import { publicProfileValidator } from './discovery';
 
 /**
  * A named set of people, and what may be done to it.
@@ -37,8 +38,34 @@ export type GroupSettings = {
   whoCanShare: 'admins' | 'members';
   defaultRole: 'viewer' | 'annotator';
   defaultCanDownload: boolean;
+  /**
+   * Whether a document shared into this group may be passed out of it.
+   *
+   * The pair of `defaultCanDownload`, and the one that was missing. A reading
+   * list that never wants copies leaving had a setting for the copy and none
+   * for the permission to make one somewhere else, which is half a ceiling.
+   */
+  defaultCanReshare: boolean;
+  /**
+   * How long a share into this group lasts, in days. `null` for no end.
+   *
+   * A group-wide answer to the question every share now asks. A study group for
+   * one term is a real thing, and setting it here is better than remembering it
+   * on every document somebody adds.
+   */
+  defaultExpiryDays: number | null;
   showMemberHandles: boolean;
   showPresence: boolean;
+  /**
+   * Put away, without being deleted.
+   *
+   * A group whose term is over still holds the shares that were made in it —
+   * deleting it would take those away from everybody, which is a much larger
+   * act than "I do not want this in my list any more". Archived groups are
+   * hidden from the list and from the share picker; every grant they carry goes
+   * on working exactly as before.
+   */
+  archived: boolean;
 };
 
 /**
@@ -58,8 +85,21 @@ export const GROUP_DEFAULTS: GroupSettings = {
   whoCanShare: 'members',
   defaultRole: 'viewer',
   defaultCanDownload: false,
+  /**
+   * Off, with `defaultCanDownload`, and for the same reason.
+   *
+   * These are the two permissions that survive being taken away: a downloaded
+   * file is on a disk this deployment cannot reach, and a reshare is a grant
+   * somebody else now holds. A group that hands either out by default hands it
+   * out on documents nobody thought about.
+   */
+  defaultCanReshare: false,
+  /** No end, because a group is not a deadline unless somebody says it is. */
+  defaultExpiryDays: null,
   showMemberHandles: true,
   showPresence: true,
+  /** A group exists until somebody puts it away. */
+  archived: false,
 };
 
 export function settingsOf(group: Doc<'groups'>): GroupSettings {
@@ -69,8 +109,11 @@ export function settingsOf(group: Doc<'groups'>): GroupSettings {
     whoCanShare: group.whoCanShare ?? GROUP_DEFAULTS.whoCanShare,
     defaultRole: group.defaultRole ?? GROUP_DEFAULTS.defaultRole,
     defaultCanDownload: group.defaultCanDownload ?? GROUP_DEFAULTS.defaultCanDownload,
+    defaultCanReshare: group.defaultCanReshare ?? GROUP_DEFAULTS.defaultCanReshare,
+    defaultExpiryDays: group.defaultExpiryDays ?? GROUP_DEFAULTS.defaultExpiryDays,
     showMemberHandles: group.showMemberHandles ?? GROUP_DEFAULTS.showMemberHandles,
     showPresence: group.showPresence ?? GROUP_DEFAULTS.showPresence,
+    archived: group.archived ?? GROUP_DEFAULTS.archived,
   };
 }
 
@@ -93,8 +136,11 @@ export const groupSettingsValidator = v.object({
   whoCanShare: v.union(v.literal('admins'), v.literal('members')),
   defaultRole: v.union(v.literal('viewer'), v.literal('annotator')),
   defaultCanDownload: v.boolean(),
+  defaultCanReshare: v.boolean(),
+  defaultExpiryDays: v.union(v.number(), v.null()),
   showMemberHandles: v.boolean(),
   showPresence: v.boolean(),
+  archived: v.boolean(),
 });
 
 export const publicGroupValidator = v.object({
@@ -109,15 +155,7 @@ export const publicGroupValidator = v.object({
 });
 
 export const publicMemberValidator = v.object({
-  profile: v.union(
-    v.object({
-      id: v.id('users'),
-      displayName: v.string(),
-      handle: v.union(v.string(), v.null()),
-      pictureUrl: v.union(v.string(), v.null()),
-    }),
-    v.null(),
-  ),
+  profile: v.union(publicProfileValidator, v.null()),
   role: v.union(v.literal('admin'), v.literal('member')),
   isOwner: v.boolean(),
   addedAt: v.number(),
@@ -446,14 +484,29 @@ export async function updateSettings(
     whoCanShare?: 'admins' | 'members';
     defaultRole?: 'viewer' | 'annotator';
     defaultCanDownload?: boolean;
+    defaultCanReshare?: boolean;
+    /** `null` clears it. `undefined` leaves it alone. */
+    defaultExpiryDays?: number | null;
     showMemberHandles?: boolean;
     showPresence?: boolean;
+    archived?: boolean;
   },
 ): Promise<void> {
   await requireAdmin(ctx, user, groupId);
 
   const written: Record<string, unknown> = { updatedAt: Date.now() };
   for (const [key, value] of Object.entries(patch)) {
+    // `null` on `defaultExpiryDays` means "take it off", which on a Convex
+    // document is `undefined` — the column has no null. Every other field
+    // treats `undefined` as "not changing this" and never sees a null.
+    if (key === 'defaultExpiryDays' && value === null) {
+      written[key] = undefined;
+      continue;
+    }
+    if (key === 'defaultExpiryDays' && typeof value === 'number') {
+      written[key] = Math.min(Math.max(1, Math.round(value)), 365);
+      continue;
+    }
     if (value !== undefined) {
       written[key] = value;
     }

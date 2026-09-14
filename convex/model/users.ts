@@ -17,6 +17,12 @@ export type PublicProfile = {
   email: string;
   name: string | null;
   pictureUrl: string | null;
+  /** Their own words for how they are referred to, or `null`. */
+  pronouns: string | null;
+  /** A line about themselves, or `null`. */
+  about: string | null;
+  /** The name people look them up by, or `null`. Shown so the screen that edits it can. */
+  handle: string | null;
   createdAt: number;
 };
 
@@ -32,6 +38,9 @@ export const publicProfileValidator = v.object({
   email: v.string(),
   name: v.union(v.string(), v.null()),
   pictureUrl: v.union(v.string(), v.null()),
+  pronouns: v.union(v.string(), v.null()),
+  about: v.union(v.string(), v.null()),
+  handle: v.union(v.string(), v.null()),
   createdAt: v.number(),
 });
 
@@ -41,6 +50,12 @@ export function toPublicProfile(user: Doc<'users'>): PublicProfile {
     email: user.email,
     name: user.name ?? null,
     pictureUrl: photoOf(user),
+    pronouns: user.pronouns ?? null,
+    about: user.about ?? null,
+    // This one is the account's own, so the handle is theirs to see. The
+    // projection in `model/discovery.ts` is the one that answers about *other*
+    // people, and the two are deliberately not the same shape.
+    handle: user.handle ?? null,
     createdAt: user.createdAt,
   };
 }

@@ -90,6 +90,45 @@ export function useDownloadActions() {
           }
         }),
 
+      /**
+       * Reads every downloaded file back.
+       *
+       * Reports at the end rather than on a progress bar: it runs while the
+       * reader is doing something else, and the Downloads screen already shows
+       * each row changing as it goes. What it must not do is finish silently —
+       * a check whose result nobody sees is a check nobody can rely on.
+       */
+      verifyEverything: () =>
+        withDb(async (db) => {
+          if (profileId === null) {
+            return;
+          }
+          const { checked, outdated, corrupt } = await Actions.verifyEverything(db, profileId);
+          if (checked === 0) {
+            showToast({
+              id: 'verify-all',
+              tone: 'info',
+              title: 'Nothing on this device to check',
+            });
+            return;
+          }
+          const problems = outdated + corrupt;
+          showToast({
+            id: 'verify-all',
+            tone: problems === 0 ? 'success' : 'info',
+            title: problems === 0 ? 'All good' : `${problems} need attention`,
+            description:
+              problems === 0
+                ? `${checked} document${checked === 1 ? '' : 's'} read back and matched your account.`
+                : [
+                    corrupt === 0 ? null : `${corrupt} damaged`,
+                    outdated === 0 ? null : `${outdated} out of date`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') + '. Downloads shows which.',
+          });
+        }),
+
       removeDownload: async (documentId: string) => {
         await removeDownload(documentId);
       },

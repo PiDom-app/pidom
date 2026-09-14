@@ -27,9 +27,14 @@ export type Choice = {
  *
  * A sheet rather than a screen, which is the exception `docs/design.md` allows:
  * none of these lists has a height that is the reader's data — the longest is
- * five rows and will never be six — so there is nothing here for a route to
+ * six rows and will never be seven — so there is nothing here for a route to
  * hold. `time-sheet.tsx` is the same shape for the same reason, and this is
- * modelled on it down to the fixed maximum height.
+ * modelled on it.
+ *
+ * In `components/layout/` rather than beside the screen that first needed it,
+ * because the download settings and the sharing settings both pick from a short
+ * fixed list and a second copy would be a second place for the tick to drift
+ * into a radio.
  *
  * A `Check` on the current value rather than a radio, matching every other
  * choice in this application: the vocabulary is a tick, and introducing a

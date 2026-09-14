@@ -71,6 +71,27 @@ export default defineSchema({
      * every screen anybody else sees them on.
      */
     photoHidden: v.optional(v.boolean()),
+
+    /**
+     * How this person is referred to, in their own words.
+     *
+     * Free text rather than a list, because a list is a claim about which
+     * answers exist. Short, bounded, and shown beside the name wherever a
+     * person appears — which is the only reason to have it: somebody who has
+     * filled this in has asked to be referred to correctly, and a field nobody
+     * renders is a request nobody hears.
+     */
+    pronouns: v.optional(v.string()),
+
+    /**
+     * A line about themselves, shown on the profile card.
+     *
+     * Text, and only text. The same reasoning as the absent photo URL below:
+     * anything this account supplies that another account's screen would
+     * *fetch* is a tracking pixel with a profile around it. A sentence renders
+     * from the row and reaches nobody's network.
+     */
+    about: v.optional(v.string()),
   })
     .index('by_subject', ['subject'])
     // Discovery, and nothing else. Both of these answer "is there an account
@@ -741,6 +762,18 @@ export default defineSchema({
      */
     defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
     defaultCanDownload: v.optional(v.boolean()),
+    /** The pair of `defaultCanDownload`. See `GroupSettings` for why it exists. */
+    defaultCanReshare: v.optional(v.boolean()),
+    /** How long a share into this group lasts, in days. Absent means no end. */
+    defaultExpiryDays: v.optional(v.number()),
+    /**
+     * Put away rather than deleted.
+     *
+     * Hidden from the group list and the share picker; every grant it carries
+     * goes on working. Deleting a group takes its shares away from everybody,
+     * which is a much larger act than wanting it out of a list.
+     */
+    archived: v.optional(v.boolean()),
 
     /**
      * Whether members see each other's handles.
@@ -1093,6 +1126,44 @@ export default defineSchema({
     showOnlineStatus: v.boolean(),
     showReadingActivity: v.boolean(),
     allowGroupInvites: v.boolean(),
+
+    /**
+     * How long a new share lasts by default, in days. Absent means no end.
+     *
+     * A default rather than a rule: it seeds the compose screen and the reader
+     * can change it per share. `requireExpiry` below is the rule.
+     */
+    defaultExpiryDays: v.optional(v.number()),
+
+    /**
+     * Every share this account makes has to end.
+     *
+     * Enforced at `Sharing.create`, not merely preselected. Somebody who turns
+     * this on has decided that indefinite access to their documents is not a
+     * thing they hand out, and a setting that only changed a default would
+     * leave that decision one tap from being undone by accident.
+     */
+    requireExpiry: v.optional(v.boolean()),
+
+    /**
+     * Ceilings, above the per-share switches.
+     *
+     * `canDownload` and `canReshare` are asked per share and default to false.
+     * These are the account-wide answer over the top of both: with
+     * `allowDownloads` off, no share of this reader's documents can grant a
+     * download however it was created — including one made months ago, and
+     * including a reshare somebody else made.
+     *
+     * They are checked in `clampToCeiling` and in `requireDownloadable`, which
+     * is to say on the way in *and* on every use, so turning one off narrows
+     * access that already exists rather than only the next grant. That is the
+     * difference between a default and a ceiling, and it is the reason these
+     * are worth having alongside the per-share switches rather than instead of
+     * them.
+     */
+    allowDownloads: v.optional(v.boolean()),
+    allowReshares: v.optional(v.boolean()),
+
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
 

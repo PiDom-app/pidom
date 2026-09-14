@@ -1332,7 +1332,7 @@ function navTabs(c, active, { bookmarks = 0, notes = 0 } = {}) {
        <span style="font-size:12px;white-space:nowrap;color:${active === key ? c.primary : c.fgMuted}">${label}</span>
      </div>`;
   return `<div style="display:flex;gap:6px;padding:0 ${PAD}px 12px">
-      ${tab('contents', 'Contents')}${tab('bookmarks', bookmarks === 0 ? 'Bookmarks' : `Bookmarks · ${bookmarks}`)}${tab('notes', notes === 0 ? 'Notes' : `Notes · ${notes}`)}${tab('pages', 'Pages')}
+      ${tab('contents', 'Contents')}${tab('bookmarks', bookmarks === 0 ? 'Bookmarks' : `Bookmarks · ${bookmarks}`)}${tab('notes', notes === 0 ? 'Passages' : `Passages · ${notes}`)}${tab('pages', 'Pages')}
     </div>`;
 }
 
@@ -1437,12 +1437,12 @@ function readerNotes() {
     w: 390, h: 844, bg: c.bg,
     body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
   ${navigatorPage(c, {
-    glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
+    glyph: 'highlighter', title: 'Passages', subtitle: doc.t,
     trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">3</span>`,
     active: 'notes', counts: { bookmarks: 5, notes: 3 },
     body: `<div style="padding-top:4px">
-      ${row('&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;', 'His own summary. Quote this one.', 20)}
-      ${row(null, 'The small-numbers argument starts here, not in the chapter that is named after it.', 142, true)}
+      ${row('&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;', null, 20)}
+      ${row('&ldquo;The law of small numbers is a bias of confidence over doubt.&rdquo;', null, 142, true)}
       ${row('&ldquo;&hellip;an anchoring index of 55%, which is about what most of these experiments produce.&rdquo;', null, 152)}
     </div>`,
   })}
@@ -1453,9 +1453,11 @@ function readerNotes() {
 /**
  * Nothing kept yet.
  *
- * It says what to do rather than what is absent, and it says both halves —
- * selecting text is iOS-only because the renderer's selection is, so a screen
- * that only offered that would be an empty state with no exit on Android.
+ * It says what to do rather than what is absent. The button under it offered
+ * writing a note, which is not something this application does any more — so
+ * the state says where keeping comes from instead of offering a control that
+ * Android could not honour anyway: the renderer reports no text selection
+ * there, which is why the sentence names the gesture rather than a button.
  */
 function readerNotesEmpty() {
   const c = DARK;
@@ -1465,17 +1467,12 @@ function readerNotesEmpty() {
     w: 390, h: 844, bg: c.bg,
     body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
   ${navigatorPage(c, {
-    glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
+    glyph: 'highlighter', title: 'Passages', subtitle: doc.t,
     active: 'notes', counts: { bookmarks: 5, notes: 0 },
     body: `<div style="padding:44px ${PAD}px 24px;text-align:center">
       ${icon('quote', 26, c.fgDisabled)}
       <div style="margin-top:14px;font-size:15px;font-weight:600;color:${c.fg}">Nothing kept yet</div>
-      <div style="margin-top:6px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Select a passage in the document to keep it, or write a note about the page you are on.</div>
-      <div style="margin-top:18px;display:flex;justify-content:center">
-        <div style="height:36px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
-          ${icon('notebookPen', 15, c.fg)}<span style="font-size:14px;font-weight:500;color:${c.fg}">Write a note</span>
-        </div>
-      </div>
+      <div style="margin-top:6px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Select a passage while reading and choose Keep. It stays with the page it came from.</div>
     </div>`,
   })}
 </div>`,
@@ -1528,60 +1525,6 @@ function readerThumbnails() {
   });
 }
 
-/**
- * Writing a note.
- *
- * A **screen**, not a dialog. A dialog holding a keyboard on a phone is a box
- * with about four visible lines in it, and a note is prose — so the field gets
- * the room, and Keep sits in the header where a screen's primary action goes.
- *
- * The passage is shown and is not editable: `text` is the document's own words,
- * and a field that let a reader rewrite them would turn a quotation into a
- * paraphrase nothing downstream could tell apart from one. When the note is
- * written from the overflow rather than from a selection — which is the whole
- * of the Android path, since that renderer has no selection — the quote is
- * absent and the page number is the anchor.
- */
-function readerNoteCompose() {
-  const c = DARK;
-  return dc({
-    w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
-  <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px">
-    ${icon('arrowLeft', 22, c.fg, 2)}
-    <div style="flex:1;min-width:0;margin-left:10px">
-      <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Write a note</div>
-      <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}" class="tnum">Page 142</div>
-    </div>
-    <div style="height:34px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary};flex:0 0 auto">
-      <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Keep</span>
-    </div>
-  </div>
-
-  <div style="padding:8px ${PAD}px 0">
-    <div style="font-size:12px;color:${c.fgSubtle}">From the page</div>
-    <div style="margin-top:8px;display:flex;gap:10px">
-      <div style="width:2px;border-radius:1px;background:${c.borderStrong};flex:0 0 auto"></div>
-      <div style="flex:1;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;</div>
-    </div>
-
-    <div style="margin-top:20px;font-size:12px;color:${c.fgSubtle}">Note</div>
-    <div style="margin-top:8px;min-height:160px;padding:11px 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
-      <span style="font-size:15px;line-height:22px;color:${c.fg}">His own summary. Quote this one.</span>
-    </div>
-  </div>
-</div>`,
-  });
-}
-
-/**
- * Naming a bookmark.
- *
- * The same screen, with one line instead of several. `maxLength` is
- * `BOOKMARK_LABEL_MAX` so the keyboard stops a long name rather than a round
- * trip coming back as an error, and clearing the field is how a reader takes a
- * name back off — which is the line under it.
- */
 function readerBookmarkName() {
   const c = DARK;
   return dc({
@@ -3336,8 +3279,10 @@ function shareCompose(variant) {
         ${icon('chevronRight', 15, c.fgSubtle, 2)}
       </div>
       <div style="display:flex;align-items:center;gap:14px;padding:2px ${PAD}px 10px">
-        ${icon('messageSquare', 19, c.fgMuted)}
-        <span style="font-size:14px;color:${sending || queued ? c.fg : c.fgSubtle}">${sending || queued ? 'Chapter 4 is the one we argued about.' : 'Say something (optional)'}</span>
+        ${icon('clock', 19, c.fgMuted)}
+        <div style="flex:1"><div style="font-size:15px;color:${c.fg}">Access ends in a week</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}">The only permission that takes itself back</div></div>
+        ${icon('chevronRight', 15, c.fgSubtle, 2)}
       </div>`}
       ${footer}
     </div>`,
@@ -3370,12 +3315,13 @@ function sharePermissionSheet() {
     subtitle: doc.t,
     body: `<div style="padding-top:4px">
       ${readerRow(c, { glyph: 'eye', label: 'Can read', note: 'Open it and read it. Nothing is written back.', checked: true })}
-      ${readerRow(c, { glyph: 'notebookPen', label: 'Can annotate', note: 'Keep passages and write notes on it. Theirs, and you see them.' })}
+      ${readerRow(c, { glyph: 'highlighter', label: 'Can annotate', note: 'Keep passages from it. Theirs, and you see them.' })}
       <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
       ${readerRow(c, { glyph: 'download', label: 'Can download a copy', note: 'Puts the file on their device. Removing access later does not take it back.' })}
       ${readerRow(c, { glyph: 'share2', label: 'Can share it on', note: 'Never more than they have themselves.' })}
+      ${readerRow(c, { glyph: 'clock', label: 'Access ends', note: 'A week from when you share it.', checked: true })}
       <div style="padding:14px ${PAD}px 4px">
-        <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Both of the last two are off unless you turn them on, on every share.</div>
+        <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Downloading and resharing are off unless you turn them on, on every share. An end date is the only one of these that takes access back on its own.</div>
       </div>
     </div>`,
   })}
@@ -5241,7 +5187,6 @@ const out = {
   'ReaderNotes.dc.html': readerNotes(),
   'ReaderNotesEmpty.dc.html': readerNotesEmpty(),
   'ReaderThumbnails.dc.html': readerThumbnails(),
-  'ReaderNoteCompose.dc.html': readerNoteCompose(),
   'ReaderBookmarkName.dc.html': readerBookmarkName(),
   'ReaderTint.dc.html': readerTint(),
   'ReaderSelection.dc.html': readerSelection(),
@@ -5374,7 +5319,6 @@ const canvas = {
     { file: 'ReaderNotes.dc.html', title: 'Navigator — passages and notes you kept', x: 0, y: 11296, w: 390, h: 844 },
     { file: 'ReaderNotesEmpty.dc.html', title: 'Navigator — nothing kept yet', x: 490, y: 11296, w: 390, h: 844 },
     { file: 'ReaderThumbnails.dc.html', title: 'Navigator — every page at once', x: 980, y: 11296, w: 390, h: 844 },
-    { file: 'ReaderNoteCompose.dc.html', title: 'Reader — writing a note', x: 1470, y: 11296, w: 390, h: 844 },
     { file: 'ReaderBookmarkName.dc.html', title: 'Reader — naming a bookmark', x: 1960, y: 11296, w: 390, h: 844 },
     { file: 'ReaderAnatomy.dc.html', title: 'Reader — chrome, lifecycle, commands', x: 0, y: 9032, w: 900, h: 1180 },
     { file: 'ReaderSpread.dc.html', title: 'Reader — two pages, landscape', x: 1000, y: 9032, w: 1024, h: 768 },

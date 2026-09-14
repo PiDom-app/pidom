@@ -563,15 +563,27 @@ export const renameBookmark = mutation({
  * — a PDF is a file somebody else wrote, and a selection out of one is that
  * file's bytes coming back through the client.
  */
+/**
+ * Keeps a passage from a page.
+ *
+ * **`kind` is gone from the arguments and `passage` is the only thing written.**
+ * This used to take a union with `note`, and the note half of the feature no
+ * longer exists on any client — the screen that composed one is deleted and
+ * nothing calls this with anything else. Narrowing the validator rather than
+ * leaving the literal in place is the point: an argument nothing sends and
+ * nothing refuses is a way back into a feature that was removed.
+ *
+ * Rows already written as notes are untouched. They are somebody's work, they
+ * still sync down, and `documentAnnotations.kind` still describes them — see
+ * the schema. What is closed is the door to making another.
+ */
 export const addAnnotation = mutation({
   args: {
     documentId: v.id('documents'),
     currentPage: v.number(),
-    kind: v.union(v.literal('passage'), v.literal('note')),
-    text: v.optional(v.string()),
-    note: v.optional(v.string()),
+    text: v.string(),
     /**
-     * The id the device already filed this note under.
+     * The id the device already filed this passage under.
      *
      * Two passages from one page are two different sentences, so there is no
      * natural key here — this is the only thing that makes a queued create safe
@@ -587,28 +599,11 @@ export const addAnnotation = mutation({
     return await Annotations.add(ctx, user, {
       documentId: args.documentId,
       page: args.currentPage,
-      kind: args.kind,
-      ...(args.text === undefined ? {} : { text: args.text }),
-      ...(args.note === undefined ? {} : { note: args.note }),
+      kind: 'passage',
+      text: args.text,
       ...(args.clientOpId === undefined ? {} : { clientOpId: args.clientOpId }),
       ...(args.clientUpdatedAt === undefined ? {} : { clientUpdatedAt: args.clientUpdatedAt }),
     });
-  },
-});
-
-/** Changes what the reader wrote. The kept passage itself is never editable. */
-export const updateAnnotation = mutation({
-  args: {
-    annotationId: v.id('documentAnnotations'),
-    note: v.string(),
-    clientUpdatedAt: v.optional(v.number()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    await limit(ctx, user, 'annotation');
-    await Annotations.update(ctx, user, args.annotationId, args.note, args.clientUpdatedAt);
-    return null;
   },
 });
 

@@ -495,6 +495,16 @@ export async function queueSummary(db: SQLiteDatabase): Promise<Record<FileState
   return out;
 }
 
+/** Every file on this device that can be checked, oldest check first. */
+export async function verifiableIds(db: SQLiteDatabase): Promise<string[]> {
+  const rows = await db.getAllAsync<{ documentId: string }>(
+    `SELECT documentId FROM documentFiles
+      WHERE state IN ('available', 'outdated')
+      ORDER BY COALESCE(lastVerifiedAt, 0) ASC`,
+  );
+  return rows.map((row) => row.documentId);
+}
+
 /** Downloads that have been here longest without a check. The re-verify list. */
 export async function staleVerifications(
   db: SQLiteDatabase,

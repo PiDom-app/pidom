@@ -73,14 +73,26 @@ export function useShareActions() {
       documentId: string,
       recipients: Recipient[],
       permission: Permission,
-      message: string,
     ): Promise<boolean> => {
       const document = await withDb(async (db) => await Documents.documentById(db!, documentId));
       if (document === null || document === undefined) {
         return false;
       }
 
-      const trimmed = message.trim();
+      /**
+       * Days become a moment, here and nowhere earlier.
+       *
+       * The draft carries a number of days because that is the shape of the
+       * decision — somebody chooses "a week", not a timestamp — and a draft
+       * holding an absolute time would drift while the screen sat open. This
+       * is the one point at which the clock is read, so every recipient picked
+       * in one go gets the same end.
+       */
+      const expiresAt =
+        permission.expiresInDays === null
+          ? null
+          : Date.now() + permission.expiresInDays * 86_400_000;
+
       let ok = true;
 
       for (const recipient of recipients) {
@@ -103,7 +115,11 @@ export function useShareActions() {
             role: permission.role,
             canDownload: permission.canDownload,
             canReshare: permission.canReshare,
-            message: trimmed === '' ? null : trimmed,
+            expiresAt,
+            // No message. The field that composed one is gone — see
+            // `share-screen.tsx` — and messages sent before then are still on
+            // the rows that carry them.
+            message: null,
           });
           await Queue.enqueue(db!, 'share', shareId, 'create');
           return shareId;
@@ -204,7 +220,12 @@ export function useShareActions() {
           return null;
         }
         await Shares.setPermissionLocally(db!, row.id, permission);
-        await Queue.enqueue(db!, 'share', row.id, 'update', ['role', 'canDownload', 'canReshare']);
+        await Queue.enqueue(db!, 'share', row.id, 'update', [
+          'role',
+          'canDownload',
+          'canReshare',
+          'expiresAt',
+        ]);
         return row;
       });
 
@@ -215,9 +236,25 @@ export function useShareActions() {
         return;
       }
       try {
+        /**
+         * Named, not spread.
+         *
+         * `...permission` would have sent `expiresInDays` — a field the draft
+         * carries and the mutation has never heard of — and Convex refuses an
+         * unknown argument with an `ArgumentValidationError`, which is not a
+         * `ConvexError` and so jams the queue rather than failing cleanly. That
+         * is exactly the bug `sync/remote-ids.ts` exists because of, reached by
+         * spreading a client type onto a server signature instead of by a cast.
+         */
         await changePermission({
           shareId: remoteId as Id<'documentShares'>,
-          ...permission,
+          role: permission.role,
+          canDownload: permission.canDownload,
+          canReshare: permission.canReshare,
+          expiresAt:
+            permission.expiresInDays === null
+              ? null
+              : Date.now() + permission.expiresInDays * 86_400_000,
         });
       } catch (error) {
         log.debug(SCOPE, 'permission change will go through the queue instead', error);

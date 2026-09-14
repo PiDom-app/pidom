@@ -223,6 +223,8 @@ export type LibraryGroup = {
   createdAt: number;
   updatedAt: number;
   syncState: SyncState;
+  /** Put away. Hidden from the list and the share picker; its shares still work. */
+  archived: boolean;
 };
 
 export type LibraryGroupMember = {

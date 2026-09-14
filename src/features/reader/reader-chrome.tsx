@@ -77,7 +77,7 @@ export function ReaderChrome({
   pageCount: number | null;
   canSearch: boolean;
   onBack: () => void;
-  /** Contents, Bookmarks, Notes and Pages, all behind one button. */
+  /** Contents, Bookmarks, Passages and Pages, all behind one button. */
   onNavigator: () => void;
   onSearch: () => void;
   /** Whether the page currently on screen is one of the marked ones. */
@@ -161,7 +161,7 @@ export function ReaderChrome({
           <Pressable
             onPress={onNavigator}
             accessibilityRole="button"
-            accessibilityLabel="Contents, bookmarks and notes"
+            accessibilityLabel="Contents, bookmarks and passages"
             className="h-9 w-9 items-center justify-center rounded-md data-[active=true]:bg-hover"
           >
             <Icon as={ListTree} size="lg" className="text-foreground" />

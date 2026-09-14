@@ -506,6 +506,7 @@ async function reconcileGroups({ client, db }: Sender): Promise<void> {
       memberCount: remote.memberCount,
       role: remote.role,
       createdAt: remote.createdAt,
+      archived: remote.settings.archived,
       updatedAt: remote.updatedAt,
     });
 

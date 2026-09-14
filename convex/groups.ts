@@ -159,8 +159,12 @@ export const updateSettings = mutation({
     whoCanShare: v.optional(v.union(v.literal('admins'), v.literal('members'))),
     defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
     defaultCanDownload: v.optional(v.boolean()),
+    defaultCanReshare: v.optional(v.boolean()),
+    /** `null` takes the group's end date off; a number sets one, in days. */
+    defaultExpiryDays: v.optional(v.union(v.number(), v.null())),
     showMemberHandles: v.optional(v.boolean()),
     showPresence: v.optional(v.boolean()),
+    archived: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

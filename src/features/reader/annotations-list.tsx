@@ -1,5 +1,5 @@
 import { FlashList } from '@shopify/flash-list';
-import { Highlighter, NotebookPen, Trash2 } from 'lucide-react-native';
+import { Highlighter, Trash2 } from 'lucide-react-native';
 import React from 'react';
 
 import { Box } from '@/components/ui/box';
@@ -12,7 +12,7 @@ import { VStack } from '@/components/ui/vstack';
 import type { Annotation } from './use-annotations';
 
 /**
- * The passages and notes kept in this document.
+ * The passages kept in this document.
  *
  * **Nothing is drawn on the page**, because the renderer gives no page
  * coordinates to draw at: `onTextSelectionChange` reports the words and
@@ -23,30 +23,24 @@ import type { Annotation } from './use-annotations';
  * There is no rule down the left of a row either. It was there as a stand-in
  * for the mark that cannot exist on the page, and a stripe on every line of a
  * list is a decoration each row pays for and none of them earns — the quotation
- * marks already say which words are the document's. The rule is kept in one
- * place, on the note screen, where a single quoted passage is the subject
- * rather than one of twenty rows.
+ * marks already say which words are the document's.
  *
- * A passage reads in the document's voice and a note in the reader's, which is
- * what the type sizes carry: the passage in reading type, the note under it
- * smaller and muted.
+ * **Notes written before this application stopped having them still show.**
+ * They arrive from the account like anything else and a list that dropped them
+ * would be a list that lost somebody's work without saying so. They read, they
+ * can be removed, and nothing offers to write another.
  */
 export function AnnotationsList({
   annotations,
   currentPage,
   onJump,
-  onEdit,
   onRemove,
-  onWriteNote,
 }: {
   annotations: readonly Annotation[];
   /** Where the reader is, so the rows on this page are the ones marked. */
   currentPage: number;
   onJump: (page: number) => void;
-  onEdit: (annotation: Annotation) => void;
   onRemove: (id: string) => void;
-  /** The empty state's only exit, and the whole Android path. */
-  onWriteNote: () => void;
 }) {
   if (annotations.length === 0) {
     return (
@@ -55,23 +49,12 @@ export function AnnotationsList({
         <Text size="md" className="mt-4 text-center font-semibold text-foreground">
           Nothing kept yet
         </Text>
-        {/* Both halves, because selecting text is iOS-only — the renderer's
-            Android side has no selection code at all — and an empty state that
-            offered only that would be a dead end on every Android install. */}
-        <Text size="sm" className="mt-1.5 text-center text-fg-muted">
-          Select a passage in the document to keep it, or write a note about the page you are on.
+        {/* Selecting text is iOS-only — the renderer's Android side has no
+            selection code at all — so this says where keeping comes from
+            rather than offering a control Android cannot honour. */}
+        <Text size="sm" className="mt-1.5 max-w-[300px] text-center text-fg-muted">
+          Select a passage while reading and choose Keep. It stays with the page it came from.
         </Text>
-        <Pressable
-          onPress={onWriteNote}
-          accessibilityRole="button"
-          accessibilityLabel="Write a note about this page"
-          className="mt-5 flex-row items-center gap-2 rounded-md border border-border px-3.5 py-2 data-[active=true]:bg-hover"
-        >
-          <Icon as={NotebookPen} size="sm" className="text-foreground" />
-          <Text size="sm" className="font-medium text-foreground">
-            Write a note
-          </Text>
-        </Pressable>
       </VStack>
     );
   }
@@ -91,15 +74,10 @@ export function AnnotationsList({
           <Box className={here ? 'w-full flex-row bg-hover' : 'w-full flex-row'}>
             <Pressable
               onPress={() => onJump(item.page)}
-              // A long press edits, the way a long press on a document tile
-              // opens its actions. The tap is navigation, which is what a row
-              // in this screen is for.
-              onLongPress={() => onEdit(item)}
               accessibilityRole="button"
               accessibilityLabel={`${quoted ? 'Kept passage' : 'Note'}, page ${item.page}. ${
                 item.text ?? item.note ?? ''
               }`}
-              accessibilityHint="Double tap and hold to edit the note"
               className="flex-1 py-3.5 pl-6 data-[active=true]:bg-hover"
             >
               <HStack className="w-full items-start" space="md">

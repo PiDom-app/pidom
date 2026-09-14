@@ -282,8 +282,7 @@ describe('a viewer', () => {
       friend.mutation(api.library.addAnnotation, {
         documentId,
         currentPage: 12,
-        kind: 'note',
-        note: 'A note I am not allowed to write',
+        text: 'A note I am not allowed to write',
       }),
     ).rejects.toThrow();
   });
@@ -312,8 +311,7 @@ describe('an annotator', () => {
     await friend.mutation(api.library.addAnnotation, {
       documentId,
       currentPage: 12,
-      kind: 'note',
-      note: 'Chapter 4 is the one we argued about',
+      text: 'Chapter 4 is the one we argued about',
     });
 
     const rows = await t.run(
@@ -332,7 +330,7 @@ describe('an annotator', () => {
     expect(rows[0].visibility).toBe('shared');
   });
 
-  test('finds their own note again on the next reconcile', async () => {
+  test('finds their own passage again on the next reconcile', async () => {
     const t = harness();
     const owner = await signedIn(t, OWNER);
     const friend = await signedIn(t, FRIEND);
@@ -342,8 +340,7 @@ describe('an annotator', () => {
     await friend.mutation(api.library.addAnnotation, {
       documentId,
       currentPage: 12,
-      kind: 'note',
-      note: 'Mine',
+      text: 'Mine',
     });
 
     // `by_owner` cannot see it — the row carries the owner's id.
@@ -357,7 +354,9 @@ describe('an annotator', () => {
       paginationOpts: { numItems: 10, cursor: null },
     });
     expect(throughAuthor.page).toHaveLength(1);
-    expect(throughAuthor.page[0].note).toBe('Mine');
+    // The kept words are the document's, so they are in `text`. `note` is the
+    // reader's own writing, and nothing writes one any more.
+    expect(throughAuthor.page[0].text).toBe('Mine');
   });
 });
 
@@ -390,8 +389,7 @@ describe('revoking', () => {
       friend.mutation(api.library.addAnnotation, {
         documentId,
         currentPage: 1,
-        kind: 'note',
-        note: 'x',
+        text: 'x',
       }),
     ).rejects.toThrow();
   });
@@ -406,8 +404,7 @@ describe('revoking', () => {
     await friend.mutation(api.library.addAnnotation, {
       documentId,
       currentPage: 12,
-      kind: 'note',
-      note: 'Written under a permission that is about to go',
+      text: 'Written under a permission that is about to go',
     });
     await owner.mutation(api.sharing.revokeShare, { shareId });
 
@@ -564,7 +561,19 @@ describe('finding people', () => {
 
     const found = await owner.query(api.sharing.findPeople, { term: 'friend@example.com' });
     expect(found).toHaveLength(1);
-    expect(Object.keys(found[0]).sort()).toEqual(['displayName', 'handle', 'id', 'pictureUrl']);
+    // The whole projection, asserted exactly. A field added to
+    // `toPublicProfile` without anybody deciding it belongs in a search result
+    // fails here, which is the point — `pronouns` and `about` are in the list
+    // because they are things somebody wrote about themselves for other people
+    // to read, and `email` is absent because it is not.
+    expect(Object.keys(found[0]).sort()).toEqual([
+      'about',
+      'displayName',
+      'handle',
+      'id',
+      'pictureUrl',
+      'pronouns',
+    ]);
   });
 
   test('respects an account that has turned discovery off', async () => {
@@ -973,6 +982,43 @@ describe('presence', () => {
     expect(inGroup.some((person) => person.id === friendId && person.online)).toBe(true);
   });
 
+  test('a hidden photo stays hidden in a presence room', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    const friendId = await userIdOf(t, FRIEND);
+    await owner.mutation(api.groups.addMember, { groupId, userId: friendId });
+
+    // A photo to hide. `photoHidden` is a decision made at the projection and
+    // the column keeps holding Google's claim — see `photoOf` — so a fixture
+    // with no picture at all would pass this test whether or not the rule is
+    // honoured.
+    await t.run(async (ctx) => {
+      await ctx.db.patch('users', friendId, { pictureUrl: 'https://example.com/friend.jpg' });
+    });
+    await friend.mutation(api.users.updateProfile, { showPhoto: false });
+    await friend.mutation(api.presence.heartbeat, {
+      roomId: `group:${groupId}`,
+      userId: friendId,
+      sessionId: 'grouped',
+      interval: 10_000,
+    });
+
+    const inRoom = await owner.query(api.presence.inRoom, { roomId: `group:${groupId}` });
+    const them = inRoom.find((person) => person.id === friendId);
+
+    /**
+     * `inRoom` built the projection by hand and read `pictureUrl` off the row,
+     * so `photoHidden` was honoured on every screen except this one — the one
+     * surface somebody appears on without doing anything. It goes through
+     * `toPublicProfile` now, which is where that decision lives.
+     */
+    expect(them).toBeDefined();
+    expect(them?.pictureUrl).toBeNull();
+  });
+
   test('showOnlineStatus off hides them from both', async () => {
     const t = harness();
     const owner = await signedIn(t, OWNER);
@@ -1377,8 +1423,7 @@ describe('group settings', () => {
       friend.mutation(api.library.addAnnotation, {
         documentId,
         currentPage: 3,
-        kind: 'note',
-        note: 'not allowed',
+        text: 'not allowed',
       }),
     ).rejects.toThrow();
   });

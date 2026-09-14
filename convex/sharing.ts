@@ -283,6 +283,14 @@ export const changePermission = mutation({
     role: v.union(v.literal('viewer'), v.literal('annotator')),
     canDownload: v.boolean(),
     canReshare: v.boolean(),
+    /**
+     * When this access stops, `null` to take an expiry off, absent to leave it.
+     *
+     * Three states rather than two, and the third is load-bearing: a client
+     * built before this argument existed sends neither a number nor a null, and
+     * must not silently clear an expiry the owner set from another device.
+     */
+    expiresAt: v.optional(v.union(v.number(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -292,6 +300,7 @@ export const changePermission = mutation({
       role: args.role,
       canDownload: args.canDownload,
       canReshare: args.canReshare,
+      ...(args.expiresAt === undefined ? {} : { expiresAt: args.expiresAt }),
     });
     return null;
   },

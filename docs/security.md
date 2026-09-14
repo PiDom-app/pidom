@@ -369,6 +369,53 @@ refused _shape_ as permanent, so the next one costs a failed operation somebody
 can see on the sync screen instead of a stalled queue. `src/features/library/
 sync/outcome.test.ts` asserts both.
 
+## One projection, and the screen that was not using it
+
+`Discovery.toPublicProfile` is described above as the only projection, and it
+was not quite true. Four return validators wrote the same four fields out by
+hand instead of reusing it — `presence.inRoom`, the share counterpart, the group
+member and the notification actor — and one of them built the _value_ by hand
+too.
+
+`presence.inRoom` read `person.pictureUrl` straight off the row. So
+`photoHidden` was honoured on every screen except the list of who is in a
+document right now, which is the one surface somebody appears on without doing
+anything at all: a reader who had turned their photo off everywhere anybody sees
+them still had it shown there. Nothing caught it because a hand-built object
+that happens to have the right field names type-checks perfectly.
+
+All four now use the validator, `inRoom` spreads `toPublicProfile(person)`, and
+`convex/sharing.test.ts` asserts that a hidden photo stays hidden in a presence
+room — with a fixture that actually has a photo, because the first version of
+that test passed either way.
+
+The wider rule is the one `model/users.ts` already stated and this is the
+evidence for: **a shape written out twice is two chances for one of them to fall
+behind.** `findPeople`'s test asserts the projection's keys exactly, so a field
+added to a person now fails a test until somebody decides whether a search
+result should carry it.
+
+## What a share may ever be, as opposed to what it starts as
+
+`sharingSettings` had three defaults for a new share — role, download, reshare —
+and nothing that governed a share once it existed. `allowDownloads` and
+`allowReshares` are that: ceilings applied in `clampToCeiling` on the way in
+_and_ in `requireDownloadable` on every use, so turning one off narrows access
+that already exists rather than only the next grant. That difference is the
+whole reason they are worth having beside the per-share switches: a default is
+a suggestion, and somebody who turns downloading off for their account has
+decided something about every document they own.
+
+`expiresAt` is the other half. The column, the cron that writes `status` when a
+share lapses and the second check in `Access.grants` had all existed since
+sharing shipped, and **nothing ever set the field** — a finished feature with no
+way in, which is a worse state than an unfinished one because everything about
+it looks done. It is now on the permission sheet, on the group, and as an
+account default, with `requireExpiry` as the rule over the top. It is also
+bounded: `cleanExpiry` clamps at a year and refuses anything less than an hour
+away, because a share that has already expired is a confusing way to hand
+somebody nothing.
+
 ## The nightly sweep deletes, so it has to be sure
 
 `library.sweepOrphanedObjects` removes R2 objects nothing references any more —

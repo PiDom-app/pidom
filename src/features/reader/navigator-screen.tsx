@@ -121,7 +121,7 @@ export function NavigatorScreen() {
       ? bookmarks.length > 0
         ? 'bookmarks'
         : annotations.length > 0
-          ? 'notes'
+          ? 'passages'
           : 'contents'
       : asked);
 
@@ -132,8 +132,12 @@ export function NavigatorScreen() {
     router.back();
   }
 
-  function compose(next: Record<string, string>) {
-    router.push({ pathname: '/note', params: { id: String(documentId), ...next } });
+  /** Naming a marked page. The only text this screen ever composes. */
+  function nameBookmark(page: number, value: string) {
+    router.push({
+      pathname: '/bookmark',
+      params: { id: String(documentId), page: String(page), value },
+    });
   }
 
   if (documentId === undefined || document === undefined) {
@@ -200,9 +204,9 @@ export function NavigatorScreen() {
           onPress={() => setChosen('bookmarks')}
         />
         <Segment
-          label={annotations.length === 0 ? 'Notes' : `Notes · ${annotations.length}`}
-          on={segment === 'notes'}
-          onPress={() => setChosen('notes')}
+          label={annotations.length === 0 ? 'Passages' : `Passages · ${annotations.length}`}
+          on={segment === 'passages'}
+          onPress={() => setChosen('passages')}
         />
         {canShowPages ? (
           <Segment label="Pages" on={segment === 'pages'} onPress={() => setChosen('pages')} />
@@ -217,26 +221,14 @@ export function NavigatorScreen() {
           currentPage={currentPage}
           onJump={jump}
           onRemove={toggleBookmark}
-          onRename={(row) =>
-            compose({ kind: 'bookmark', page: String(row.page), value: row.label ?? '' })
-          }
+          onRename={(row) => nameBookmark(row.page, row.label ?? '')}
         />
-      ) : segment === 'notes' ? (
+      ) : segment === 'passages' ? (
         <AnnotationsList
           annotations={annotations}
           currentPage={currentPage}
           onJump={jump}
-          onEdit={(annotation) =>
-            compose({
-              kind: 'note',
-              page: String(annotation.page),
-              annotationId: annotation.id,
-              value: annotation.note ?? '',
-              ...(annotation.text === null ? {} : { passage: annotation.text }),
-            })
-          }
           onRemove={forget}
-          onWriteNote={() => compose({ kind: 'note', page: String(currentPage), value: '' })}
         />
       ) : segment === 'pages' && canShowPages && profileId !== null ? (
         <PageGrid
@@ -269,14 +261,14 @@ export function NavigatorScreen() {
 
 /** A route param is a string somebody can type. Anything else opens Contents. */
 function asSegment(value: string | undefined): NavigatorSegment {
-  return value === 'bookmarks' || value === 'notes' || value === 'pages' ? value : 'contents';
+  return value === 'bookmarks' || value === 'passages' || value === 'pages' ? value : 'contents';
 }
 
 /** The glyph and word at the top, per segment. */
 const HEADINGS: Record<NavigatorSegment, { glyph: typeof ListTree; label: string }> = {
   contents: { glyph: ListTree, label: 'Contents' },
   bookmarks: { glyph: Bookmark, label: 'Bookmarks' },
-  notes: { glyph: Highlighter, label: 'Notes' },
+  passages: { glyph: Highlighter, label: 'Passages' },
   pages: { glyph: LayoutGrid, label: 'Pages' },
 };
 
@@ -309,7 +301,7 @@ function countFor(
         : `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`;
     case 'bookmarks':
       return bookmarks.length === 0 ? '' : String(bookmarks.length);
-    case 'notes':
+    case 'passages':
       return annotations.length === 0 ? '' : String(annotations.length);
     case 'pages':
       return pageCount === null ? '' : `${currentPage} of ${pageCount}`;

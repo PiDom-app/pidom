@@ -22,6 +22,19 @@ export type Permission = {
   role: 'viewer' | 'annotator';
   canDownload: boolean;
   canReshare: boolean;
+  /**
+   * How long the access lasts, in days, or `null` for no end.
+   *
+   * Days rather than a timestamp, because that is the shape of the decision —
+   * somebody chooses "a week", not a moment — and a draft that carried an
+   * absolute time would drift while the screen sat open. It becomes
+   * `expiresAt` at the moment the share is written and nowhere earlier.
+   *
+   * `documentShares.expiresAt`, the cron that enforces it and the second check
+   * in `Access.grants` have all existed since sharing shipped. Nothing ever
+   * set the field: it was a whole feature with no way in.
+   */
+  expiresInDays: number | null;
 };
 
 type ShareStore = {
@@ -29,12 +42,10 @@ type ShareStore = {
   documentId: string | null;
   recipients: Recipient[];
   permission: Permission;
-  message: string;
   sending: boolean;
   begin: (documentId: string, permission: Permission) => void;
   toggle: (recipient: Recipient) => void;
   setPermission: (permission: Permission) => void;
-  setMessage: (message: string) => void;
   setSending: (sending: boolean) => void;
   clear: () => void;
 };
@@ -47,13 +58,17 @@ type ShareStore = {
  * is only what stands in before they have loaded — and it stands in as the
  * narrowest thing a share can be.
  */
-const NARROWEST: Permission = { role: 'viewer', canDownload: false, canReshare: false };
+const NARROWEST: Permission = {
+  role: 'viewer',
+  canDownload: false,
+  canReshare: false,
+  expiresInDays: null,
+};
 
 const EMPTY = {
   documentId: null,
   recipients: [] as Recipient[],
   permission: NARROWEST,
-  message: '',
   sending: false,
 };
 
@@ -83,7 +98,6 @@ export const useShareStore = create<ShareStore>()((set) => ({
     }),
 
   setPermission: (permission) => set({ permission }),
-  setMessage: (message) => set({ message }),
   setSending: (sending) => set({ sending }),
   clear: () => set(EMPTY),
 }));

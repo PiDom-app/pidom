@@ -23,24 +23,39 @@ import {
 } from './types';
 import { inTransaction } from '../transaction';
 
-type GroupRow = Omit<LibraryGroup, 'role' | 'syncState'> & {
+type GroupRow = Omit<LibraryGroup, 'role' | 'syncState' | 'archived'> & {
   role: string | null;
   syncState: string;
+  archived: number;
 };
 
-const COLUMNS = 'id, remoteId, name, memberCount, role, createdAt, updatedAt, syncState';
+const COLUMNS = 'id, remoteId, name, memberCount, role, createdAt, updatedAt, syncState, archived';
 
 function toGroup(row: GroupRow): LibraryGroup {
   return {
     ...row,
     role: (row.role as LibraryGroup['role']) ?? null,
     syncState: row.syncState as SyncState,
+    archived: row.archived === 1,
   };
 }
 
-export async function listGroups(db: SQLiteDatabase): Promise<LibraryGroup[]> {
+/**
+ * The groups this reader is in, newest activity first.
+ *
+ * Archived ones are absent by default. A group whose term is over still holds
+ * every share made in it — putting it away is not deleting it — so it is hidden
+ * rather than gone, and `includeArchived` is how the Groups screen offers to
+ * show them again.
+ */
+export async function listGroups(
+  db: SQLiteDatabase,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<LibraryGroup[]> {
   const rows = await db.getAllAsync<GroupRow>(
-    `SELECT ${COLUMNS} FROM groupsLocal WHERE deletedAt IS NULL ORDER BY updatedAt DESC`,
+    `SELECT ${COLUMNS} FROM groupsLocal
+      WHERE deletedAt IS NULL ${includeArchived ? '' : 'AND archived = 0'}
+      ORDER BY updatedAt DESC`,
   );
   return rows.map(toGroup);
 }
@@ -124,6 +139,7 @@ export async function upsertRemoteGroup(
     role: LibraryGroup['role'];
     createdAt: number;
     updatedAt: number;
+    archived: boolean;
   },
 ): Promise<void> {
   const existing = await db.getFirstAsync<{ id: string; syncState: string }>(
@@ -136,8 +152,8 @@ export async function upsertRemoteGroup(
 
   if (existing === null) {
     await db.runAsync(
-      `INSERT INTO groupsLocal (id, remoteId, name, memberCount, role, createdAt, updatedAt, clientUpdatedAt, syncState)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'synced')`,
+      `INSERT INTO groupsLocal (id, remoteId, name, memberCount, role, createdAt, updatedAt, clientUpdatedAt, syncState, archived)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'synced', ?)`,
       [
         remote.id,
         remote.id,
@@ -146,6 +162,7 @@ export async function upsertRemoteGroup(
         remote.role,
         remote.createdAt,
         remote.updatedAt,
+        remote.archived ? 1 : 0,
       ],
     );
     return;
@@ -153,7 +170,7 @@ export async function upsertRemoteGroup(
 
   await db.runAsync(
     `UPDATE groupsLocal SET remoteId = ?, name = ?, memberCount = ?, role = ?,
-            createdAt = ?, updatedAt = ?, deletedAt = NULL, syncState = 'synced'
+            createdAt = ?, updatedAt = ?, deletedAt = NULL, syncState = 'synced', archived = ?
       WHERE id = ?`,
     [
       remote.id,
@@ -162,6 +179,7 @@ export async function upsertRemoteGroup(
       remote.role,
       remote.createdAt,
       remote.updatedAt,
+      remote.archived ? 1 : 0,
       existing.id,
     ],
   );

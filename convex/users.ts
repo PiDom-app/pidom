@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { findUser, getIdentity, requireIdentity, requireUser } from './model/auth';
-import { cleanText, DISPLAY_NAME_MAX } from './model/limits';
+import { ABOUT_MAX, cleanText, DISPLAY_NAME_MAX, PRONOUNS_MAX } from './model/limits';
 import { limit } from './model/rateLimits';
 import { publicProfileValidator, toPublicProfile, upsertFromIdentity } from './model/users';
 
@@ -86,6 +86,9 @@ export const updateProfile = mutation({
   args: {
     displayName: v.optional(v.string()),
     showPhoto: v.optional(v.boolean()),
+    /** Empty clears it. Both are shown on other people's screens. */
+    pronouns: v.optional(v.string()),
+    about: v.optional(v.string()),
   },
   returns: publicProfileValidator,
   handler: async (ctx, args) => {
@@ -96,6 +99,8 @@ export const updateProfile = mutation({
       name?: string;
       nameIsCustom?: boolean;
       photoHidden?: boolean;
+      pronouns?: string;
+      about?: string;
     } = {};
 
     if (args.displayName !== undefined) {
@@ -111,6 +116,18 @@ export const updateProfile = mutation({
     }
     if (args.showPhoto !== undefined) {
       patch.photoHidden = !args.showPhoto;
+    }
+    // An empty string is how a field is cleared, which on a Convex document is
+    // `undefined` — the column has no null. `cleanText` refuses control
+    // characters and bounds the length; both are rendered on screens belonging
+    // to people who did not write them.
+    if (args.pronouns !== undefined) {
+      const trimmed = args.pronouns.trim();
+      patch.pronouns = trimmed === '' ? undefined : cleanText(trimmed, PRONOUNS_MAX, 'pronouns');
+    }
+    if (args.about !== undefined) {
+      const trimmed = args.about.trim();
+      patch.about = trimmed === '' ? undefined : cleanText(trimmed, ABOUT_MAX, 'about');
     }
 
     await ctx.db.patch('users', user._id, patch);

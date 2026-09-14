@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { HardDrive, Phone, ShieldCheck, SlidersHorizontal } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 
-import { useAppToast } from '@/components/feedback/use-app-toast';
 import { Screen } from '@/components/layout/screen';
 import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
@@ -24,7 +23,8 @@ import {
 
 import { formatBytes } from '../data/types';
 import { useDeviceStorage } from '../data/use-device-storage';
-import { ChoiceSheet, type Choice } from './components/choice-sheet';
+import { useDownloadActions } from './use-download-actions';
+import { ChoiceSheet, type Choice } from '@/components/layout/choice-sheet';
 
 /**
  * What this device pulls down, and what it keeps.
@@ -44,13 +44,14 @@ import { ChoiceSheet, type Choice } from './components/choice-sheet';
  */
 export function DownloadSettingsScreen() {
   const router = useRouter();
-  const showToast = useAppToast();
   const connection = useConnectionKind();
   const { entries, used, free } = useDeviceStorage();
 
   const prefs = usePreferencesStore();
   const set = usePreferencesStore((state) => state.set);
 
+  const downloads = useDownloadActions();
+  const [checking, setChecking] = useState(false);
   const [picking, setPicking] = useState<
     null | 'ceiling' | 'recent' | 'cap' | 'order' | 'verify' | 'concurrent'
   >(null);
@@ -183,27 +184,31 @@ export function DownloadSettingsScreen() {
             onPress={() => setPicking('verify')}
           />
           <Pressable
-            onPress={() =>
-              showToast({
-                id: 'verify-all',
-                tone: 'info',
-                title: 'Checking in the background',
-                description:
-                  'A few at a time, while nothing is downloading. The Downloads screen shows what it finds.',
-              })
-            }
+            onPress={() => {
+              if (checking || entries.length === 0) {
+                return;
+              }
+              setChecking(true);
+              void downloads.verifyEverything().finally(() => setChecking(false));
+            }}
+            disabled={checking || entries.length === 0}
             accessibilityRole="button"
             accessibilityLabel="Check every download now"
             className="px-4 py-2 data-[active=true]:bg-hover"
           >
             <VStack>
-              <Text size="md" className="text-foreground">
-                Check every download now
+              <Text
+                size="md"
+                className={entries.length === 0 ? 'text-fg-disabled' : 'text-foreground'}
+              >
+                {checking ? 'Checking…' : 'Check every download now'}
               </Text>
               <Text size="xs" className="mt-0.5 text-fg-subtle">
                 {entries.length === 0
                   ? 'Nothing on this device to check.'
-                  : `${entries.length} document${entries.length === 1 ? '' : 's'}.`}
+                  : checking
+                    ? 'Reading each file back. This can take a moment on a large library.'
+                    : `${entries.length} document${entries.length === 1 ? '' : 's'}.`}
               </Text>
             </VStack>
           </Pressable>

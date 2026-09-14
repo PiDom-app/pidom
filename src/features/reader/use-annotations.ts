@@ -11,11 +11,20 @@ import * as Marks from '../library/local/repository/marks';
 import * as Queue from '../library/local/repository/queue';
 import { useLocalQuery } from '../library/local/use-local-query';
 
-const SCOPE = 'reader-notes';
+const SCOPE = 'reader-passages';
 
 export type Annotation = {
   id: string;
   page: number;
+  /**
+   * Still a union, and still read from the row.
+   *
+   * Nothing writes `note` any more — the note screen and every path that
+   * composed one are gone. The literal stays because rows written before that
+   * are still in the account and still sync down, and a type that refused to
+   * describe them would make the reconcile throw on somebody's own history.
+   * The list filters them out; the schema does not pretend they never existed.
+   */
   kind: 'passage' | 'note';
   text: string | null;
   note: string | null;
@@ -26,7 +35,7 @@ export type Annotation = {
 const TABLES = ['annotations'] as const;
 
 /**
- * The passages and notes kept in the open document.
+ * The passages kept in the open document.
  *
  * Read from this device, which is a bigger change here than it looks. These
  * used to carry Convex optimistic updates — a temporary local edit to a query
@@ -56,7 +65,7 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
   const annotations: readonly Annotation[] = data ?? [];
 
   const keep = useCallback(
-    (input: { page: number; kind: 'passage' | 'note'; text?: string; note?: string }) => {
+    (input: { page: number; text: string }) => {
       if (documentId === undefined || profileId === null) {
         return;
       }
@@ -66,11 +75,11 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
           if (db === null) {
             return;
           }
-          // Whose note this is, and whether anybody else sees it.
+          // Whose passage this is, and whether anybody else sees it.
           //
           // On the reader's own document both are the ordinary case: theirs,
           // and private. On a document shared *with* them it is theirs and
-          // shared, because that is what `annotator` is for — a note nobody
+          // shared, because that is what `annotator` is for — a passage nobody
           // else can read is not collaboration. The account decides this again
           // on the way in; what is written here is what the list renders before
           // the queue drains.
@@ -78,9 +87,9 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
           const id = await Marks.addAnnotation(db, {
             documentId,
             page: input.page,
-            kind: input.kind,
-            text: input.text ?? null,
-            note: input.note ?? null,
+            kind: 'passage',
+            text: input.text,
+            note: null,
             authorId: profileId,
             visibility: ownedByMe ? 'private' : 'shared',
           });
@@ -90,8 +99,7 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
           showToast({
             id: 'annotation',
             tone: 'error',
-            title:
-              input.kind === 'passage' ? "Couldn't keep that passage" : "Couldn't save that note",
+            title: "Couldn't keep that passage",
             description: 'Something went wrong on this device. Try again.',
           });
           void error;
@@ -114,7 +122,7 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
           }
           await Marks.removeAnnotation(db, annotationId);
           const outcome = await Queue.enqueue(db, 'annotation', annotationId, 'remove');
-          // A note written and deleted before the phone found a signal is not
+          // A passage kept and dropped before the phone found a signal is not
           // two operations that cancel at the account. It is nothing that ever
           // happened, and the row goes with it.
           if (outcome === 'annihilated') {
@@ -135,33 +143,5 @@ export function useAnnotations({ documentId }: { documentId: string | undefined 
     [profileId, showToast],
   );
 
-  const rewrite = useCallback(
-    async (annotationId: string, note: string): Promise<boolean> => {
-      if (profileId === null) {
-        return false;
-      }
-      try {
-        const db = await database(profileId);
-        if (db === null) {
-          return false;
-        }
-        await Marks.updateAnnotation(db, annotationId, note);
-        await Queue.enqueue(db, 'annotation', annotationId, 'update', ['note']);
-        return true;
-      } catch (error: unknown) {
-        log.debug(SCOPE, 'could not change that note');
-        showToast({
-          id: 'annotation',
-          tone: 'error',
-          title: "Couldn't save that note",
-          description: 'Something went wrong on this device. Try again.',
-        });
-        void error;
-        return false;
-      }
-    },
-    [profileId, showToast],
-  );
-
-  return { annotations, keep, forget, rewrite };
+  return { annotations, keep, forget };
 }
