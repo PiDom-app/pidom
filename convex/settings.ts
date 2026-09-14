@@ -37,7 +37,11 @@ import * as Settings from './model/settings';
  * `Omit` on `SharingSettings` in `convex/model/settings.ts`, which this now
  * mirrors by construction rather than by agreement.
  */
-const { userId: _sharingUserId, updatedAt: _sharingUpdatedAt, ...sharingFields } = sharingSettingsFields;
+const {
+  userId: _sharingUserId,
+  updatedAt: _sharingUpdatedAt,
+  ...sharingFields
+} = sharingSettingsFields;
 const sharingValidator = v.object(sharingFields);
 
 const {

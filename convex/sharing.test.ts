@@ -1705,8 +1705,8 @@ describe('revoking a group share', () => {
         (share) => share.document?.id,
       ),
     ).not.toContain(documentId);
-    expect(
-      (await inboxEntry(friend, (share) => share.document?.id === documentId))?.status,
-    ).toBe('revoked');
+    expect((await inboxEntry(friend, (share) => share.document?.id === documentId))?.status).toBe(
+      'revoked',
+    );
   });
 });
