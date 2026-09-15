@@ -10,8 +10,9 @@ import {
   HeartOff,
   Info,
   ListTree,
-  NotebookPen,
+  Pause,
   Pencil,
+  Play,
   RefreshCw,
   RotateCcw,
   Share,
@@ -19,6 +20,7 @@ import {
   Smartphone,
   Trash2,
   Users,
+  X,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -44,8 +46,9 @@ import { useAppToast } from '@/components/feedback/use-app-toast';
 import { log } from '@/lib/logger';
 
 import type { LibraryDocument } from '../data/types';
-import { formatBytes, metaLineFor } from '../data/types';
+import { formatBytes, isOpenable, metaLineFor } from '../data/types';
 import { useLibraryActions } from '../data/use-library-actions';
+import { useDownloadActions } from '../downloads/use-download-actions';
 import { useLibraryStatus } from '../data/use-library-status';
 import { documentFile } from '../local/paths';
 import { useCollectionActions } from '../data/use-collection-actions';
@@ -73,7 +76,6 @@ export function DocumentActions({
   document,
   onClose,
   onShowContents,
-  onWriteNote,
 }: {
   document: LibraryDocument | null;
   onClose: () => void;
@@ -83,16 +85,6 @@ export function DocumentActions({
    * everywhere else, and the menu item goes with it.
    */
   onShowContents?: (document: LibraryDocument) => void;
-  /**
-   * Writing a note about the page the reader is on.
-   *
-   * Passed only from the reader, which is the only screen with a page to write
-   * one about. It is also the whole of the Android path into notes: that
-   * renderer reports no text selection, so there is no selection bar there to
-   * offer Keep and Note from, and without this the capability would exist on
-   * one platform.
-   */
-  onWriteNote?: () => void;
 }) {
   const router = useRouter();
   /**
@@ -118,6 +110,7 @@ export function DocumentActions({
     reprocess,
     recordProbe,
   } = useLibraryActions();
+  const downloads = useDownloadActions();
   const { profileId } = useLibraryStatus();
   const { create: createCollection, addDocument: addToCollection } = useCollectionActions();
 
@@ -171,7 +164,21 @@ export function DocumentActions({
   // From the row rather than from the scan store: `fileState` is written after
   // a download has been checked, and it is the only thing that knows the
   // difference between a file that is here and one that is here and broken.
-  const onThisDevice = document?.fileState === 'available';
+  const onThisDevice = document !== null && isOpenable(document);
+
+  /**
+   * Whether the queue has this one in hand.
+   *
+   * Three states rather than one, because all three want Cancel offered and
+   * none of them wants Download offered again. Reading it off the row rather
+   * than off `useTransfer` deliberately: the store is in memory and empties
+   * when the process does, while the row is what survives a relaunch.
+   */
+  const inFlight =
+    document?.fileState === 'downloading' ||
+    document?.fileState === 'paused' ||
+    document?.fileState === 'queued' ||
+    document?.fileState === 'held';
   const isOpen =
     document !== null &&
     !confirmingDelete &&
@@ -253,8 +260,12 @@ export function DocumentActions({
                   </ActionsheetItemText>
                 </ActionsheetItem>
 
-                {/* A document the account has but this phone does not. */}
-                {!onThisDevice && document.isSynced ? (
+                {/* A document the account has but this phone does not.
+                    Absent while one is moving, paused or queued: those three
+                    have their own items below, and offering "Download" on a
+                    row that is already downloading is an invitation to start
+                    the same file twice. */}
+                {!onThisDevice && document.isSynced && !inFlight ? (
                   <ActionsheetItem
                     onPress={() => {
                       void fetchDocument(document);
@@ -263,7 +274,84 @@ export function DocumentActions({
                   >
                     <ActionsheetIcon as={CloudDownload} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">
-                      Download to this device
+                      {document.fileState === 'failed' || document.fileState === 'corrupt'
+                        ? 'Try again'
+                        : 'Download to this device'}
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {/* The queue's own verbs, on the sheet the reader already
+                    knows. The Downloads screen is where all of this lives
+                    together; this is so somebody long-pressing a tile mid-
+                    transfer does not have to go and find it. */}
+                {document.fileState === 'downloading' ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      void downloads.pause(document.id);
+                      onClose();
+                    }}
+                  >
+                    <ActionsheetIcon as={Pause} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      Pause download
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {document.fileState === 'paused' ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      void downloads.resume(document.id);
+                      onClose();
+                    }}
+                  >
+                    <ActionsheetIcon as={Play} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">Resume</ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {document.fileState === 'held' ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      void downloads.downloadAnyway(document.id);
+                      onClose();
+                    }}
+                  >
+                    <ActionsheetIcon as={CloudDownload} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      Download anyway
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {inFlight ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      void downloads.cancel(document.id);
+                      onClose();
+                    }}
+                  >
+                    <ActionsheetIcon as={X} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      Cancel download
+                    </ActionsheetItemText>
+                  </ActionsheetItem>
+                ) : null}
+
+                {/* The one state where the file is here and is not the newest
+                    the account holds. It still opens, so this is an offer
+                    rather than a repair. */}
+                {document.fileState === 'outdated' ? (
+                  <ActionsheetItem
+                    onPress={() => {
+                      void fetchDocument(document);
+                      onClose();
+                    }}
+                  >
+                    <ActionsheetIcon as={RefreshCw} className="text-fg-muted" />
+                    <ActionsheetItemText className="text-foreground">
+                      Download the newer copy
                     </ActionsheetItemText>
                   </ActionsheetItem>
                 ) : null}
@@ -346,15 +434,6 @@ export function DocumentActions({
                     <ActionsheetIcon as={ListTree} className="text-fg-muted" />
                     <ActionsheetItemText className="text-foreground">
                       Contents and bookmarks
-                    </ActionsheetItemText>
-                  </ActionsheetItem>
-                ) : null}
-
-                {onWriteNote !== undefined ? (
-                  <ActionsheetItem onPress={onWriteNote}>
-                    <ActionsheetIcon as={NotebookPen} className="text-fg-muted" />
-                    <ActionsheetItemText className="text-foreground">
-                      Write a note
                     </ActionsheetItemText>
                   </ActionsheetItem>
                 ) : null}

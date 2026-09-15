@@ -4,6 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { AuthError, assertOwner } from './auth';
 import { SHARE_LIST_LIMIT } from './limits';
+import { sharingOf } from './settings';
 
 /**
  * The second way into a document, and the only one.
@@ -211,6 +212,25 @@ export async function requireDownloadable(
   if (!reachable.access.canDownload) {
     refuse();
   }
+
+  /**
+   * And the owner's ceiling, checked here rather than only at the grant.
+   *
+   * `sharingSettings.allowDownloads` is an account-wide answer over the top of
+   * every per-share switch, and checking it on the way in alone would make it a
+   * default with a grander name: grants made before it was turned off would go
+   * on working for ever. Asked on every use, turning it off narrows access that
+   * already exists — which is what somebody means when they turn it off.
+   *
+   * It is the owner's setting, not the caller's. `reachable.document.ownerId`
+   * is whose document this is; a recipient's own preferences have no say in
+   * what they are allowed to take.
+   */
+  const owner = await ctx.db.get('users', reachable.doc.ownerId);
+  if (owner === null || (await sharingOf(ctx, owner._id)).allowDownloads === false) {
+    refuse();
+  }
+
   await refuseIfExpired(ctx, reachable.access.share);
   return reachable;
 }
@@ -267,6 +287,30 @@ export function clampToCeiling(
     role: ceiling.role === 'viewer' ? 'viewer' : requested.role,
     canDownload: requested.canDownload && ceiling.canDownload,
     canReshare: requested.canReshare && ceiling.canReshare,
+  };
+}
+
+/**
+ * The owner's account-wide answer, as a ceiling of the same shape.
+ *
+ * Composed with the reshare ceiling rather than replacing it, so the narrowest
+ * of the three — what the owner allows at all, what the resharer holds, and
+ * what this share asks for — is what gets written. A reshare can still never
+ * grow; this only ever shrinks.
+ */
+export async function accountCeiling(
+  ctx: QueryCtx | MutationCtx,
+  ownerId: Id<'users'>,
+  ceiling: ReshareCeiling,
+): Promise<ReshareCeiling> {
+  const settings = await sharingOf(ctx, ownerId);
+  // `?? true` rather than a non-null assertion: a `sharingSettings` row written
+  // before these two columns existed has neither, and the honest reading of an
+  // absent ceiling is the state the account was already in.
+  return {
+    ...ceiling,
+    canDownload: ceiling.canDownload && (settings.allowDownloads ?? true),
+    canReshare: ceiling.canReshare && (settings.allowReshares ?? true),
   };
 }
 

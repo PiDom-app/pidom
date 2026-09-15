@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
+import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import type { Id } from '@convex/_generated/dataModel';
 import { Screen } from '@/components/layout/screen';
@@ -46,8 +47,12 @@ import { useDeviceStore } from '@/stores/device-store';
  */
 export function NotificationSettingsScreen() {
   const router = useRouter();
-  const settings = useQuery(api.settings.mine, {});
-  const devices = useQuery(api.notifications.devices, {});
+  // `ready` is not optional — both of these start with `requireUser`, which
+  // throws `NO_PROFILE` before the row exists, and `useQuery` re-throws a query
+  // error during render. See `use-library-status.ts`.
+  const { ready } = useLibraryStatus();
+  const settings = useQuery(api.settings.mine, ready ? {} : 'skip');
+  const devices = useQuery(api.notifications.devices, ready ? {} : 'skip');
   const update = useMutation(api.settings.updateNotifications);
   const registerDevice = useMutation(api.notifications.registerDevice);
   const setDeviceEnabled = useMutation(api.notifications.setDeviceEnabled);
@@ -213,7 +218,12 @@ export function NotificationSettingsScreen() {
               write(
                 on
                   ? { quietStartMinute: 22 * 60, quietEndMinute: 7 * 60 }
-                  : { quietStartMinute: undefined, quietEndMinute: undefined },
+                  : // `null`, not `undefined`. The Convex client drops an
+                    // `undefined` field before the request leaves the device, so
+                    // this arrived as a patch of nothing and the switch came
+                    // straight back on. `null` is how the mutation is told to
+                    // clear a column — same three states as `defaultExpiryDays`.
+                    { quietStartMinute: null, quietEndMinute: null },
               )
             }
           />

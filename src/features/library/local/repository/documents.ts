@@ -22,6 +22,7 @@ import {
   DOCUMENT_FROM,
   toLibraryDocument,
   type DocumentRow,
+  type HoldReason,
   type LibraryDocument,
   type ReadingMode,
 } from './types';
@@ -149,6 +150,83 @@ export async function onThisDeviceBySize(
     localBytes: row.localBytes ?? row.byteSize,
   }));
 }
+
+/**
+ * Everything the Downloads screen renders, in one read.
+ *
+ * A join rather than two queries and a merge, because the screen is sorted by
+ * what is *happening* — a transfer in flight at the top, then what is waiting,
+ * then what is here — and that order only exists once the two tables are put
+ * together. The tile rails never needed this because they are sorted by the
+ * document; this list is sorted by the file.
+ *
+ * Deliberately unbounded, like `onThisDeviceBySize`: this is the list somebody
+ * is deciding from, and capping it would hide exactly the long tail they came
+ * to find. Bounded in practice by how many documents an account holds.
+ */
+export async function downloadsList(
+  db: SQLiteDatabase,
+): Promise<(LibraryDocument & { file: DownloadFacts })[]> {
+  const rows = await db.getAllAsync<
+    DocumentRow & {
+      localBytes: number | null;
+      bytesWritten: number | null;
+      totalBytes: number | null;
+      heldReason: string | null;
+      failure: string | null;
+      lastVerifiedAt: number | null;
+      verifiedHash: string | null;
+      attempts: number | null;
+    }
+  >(
+    `SELECT ${DOCUMENT_COLUMNS},
+            f.localBytes, f.bytesWritten, f.totalBytes, f.heldReason, f.failure,
+            f.lastVerifiedAt, f.verifiedHash, f.attempts
+       ${DOCUMENT_FROM}
+      WHERE ${LIVE}
+        AND (f.state IS NOT NULL AND f.state != 'missing' OR d.isSynced = 1)
+      ORDER BY
+        CASE COALESCE(f.state, 'missing')
+          WHEN 'downloading' THEN 0
+          WHEN 'verifying'   THEN 1
+          WHEN 'paused'      THEN 2
+          WHEN 'queued'      THEN 3
+          WHEN 'held'        THEN 4
+          WHEN 'corrupt'     THEN 5
+          WHEN 'failed'      THEN 6
+          WHEN 'outdated'    THEN 7
+          WHEN 'available'   THEN 8
+          ELSE 9 END ASC,
+        COALESCE(d.lastOpenedAt, d.createdAt) DESC`,
+  );
+
+  return rows.map((row) => ({
+    ...toLibraryDocument(row),
+    file: {
+      localBytes: row.localBytes,
+      bytesWritten: row.bytesWritten,
+      totalBytes: row.totalBytes,
+      heldReason: row.heldReason as DownloadFacts['heldReason'],
+      failure: row.failure,
+      lastVerifiedAt: row.lastVerifiedAt,
+      /** Whether the file got the whole-file check or only the cheap one. */
+      hashed: row.verifiedHash !== null,
+      attempts: row.attempts ?? 0,
+    },
+  }));
+}
+
+/** The parts of `documentFiles` a download row shows. */
+export type DownloadFacts = {
+  localBytes: number | null;
+  bytesWritten: number | null;
+  totalBytes: number | null;
+  heldReason: HoldReason | null;
+  failure: string | null;
+  lastVerifiedAt: number | null;
+  hashed: boolean;
+  attempts: number;
+};
 
 export type LibrarySort = 'recent' | 'opened' | 'title';
 export type LibraryFilter = 'all' | 'favorites' | 'finished' | 'device';

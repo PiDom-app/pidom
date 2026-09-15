@@ -54,13 +54,21 @@ export function placementOf(
   document: LibraryDocument,
   { transferring }: { transferring: boolean },
 ): Placement {
-  if (transferring || document.fileState === 'downloading') {
+  if (transferring || document.fileState === 'downloading' || document.fileState === 'verifying') {
     return 'transferring';
   }
   if (document.fileState === 'corrupt') {
     return 'unreadable';
   }
-  if (document.fileState === 'available') {
+  /**
+   * `outdated` is `here`, and that is the whole argument for having the state.
+   *
+   * The file opens. The reader can read it on a plane. It is simply not the
+   * newest copy the account holds, which is a thing to offer them rather than a
+   * thing to stop them doing — so every tile, rail and badge treats it as
+   * present, and only the Downloads screen says more.
+   */
+  if (document.fileState === 'available' || document.fileState === 'outdated') {
     return document.isSynced ? 'here' : 'local-only';
   }
   return 'fetchable';
@@ -68,7 +76,7 @@ export function placementOf(
 
 /** Whether the reader can open this one right now. */
 export function isOpenable(document: LibraryDocument): boolean {
-  return document.fileState === 'available';
+  return document.fileState === 'available' || document.fileState === 'outdated';
 }
 
 /**
@@ -87,7 +95,7 @@ export function metaLineFor(
     transfer?: { sent: number; total: number } | null;
   },
 ): string {
-  const here = document.fileState === 'available';
+  const here = document.fileState === 'available' || document.fileState === 'outdated';
 
   // Ahead of everything, because a document still being read has no page count
   // to report and no useful placement to describe. It is deliberately not part
@@ -108,6 +116,26 @@ export function metaLineFor(
   // state where the file is here and tapping it would open nothing.
   if (document.fileState === 'corrupt') {
     return 'Try again';
+  }
+  /**
+   * The four waits, which used to be one word.
+   *
+   * Every one of these was `Not on this device` before the queue existed — the
+   * same sentence a document nobody had ever asked for got. A reader who tapped
+   * Download and saw no change had no way to tell whether it was queued behind
+   * something, held for Wi-Fi, paused, or had failed twenty minutes ago.
+   */
+  if (document.fileState === 'queued') {
+    return 'Queued';
+  }
+  if (document.fileState === 'held') {
+    return 'Waiting for Wi-Fi';
+  }
+  if (document.fileState === 'paused') {
+    return 'Paused';
+  }
+  if (document.fileState === 'failed') {
+    return "Couldn't download";
   }
   if (!here) {
     // The account has it and this phone does not. That is an invitation, not a

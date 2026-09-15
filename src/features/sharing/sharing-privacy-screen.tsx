@@ -4,7 +4,9 @@ import React, { useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
+import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import { useAppToast } from '@/components/feedback/use-app-toast';
+import { ChoiceSheet } from '@/components/layout/choice-sheet';
 import { Screen } from '@/components/layout/screen';
 import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
@@ -19,6 +21,7 @@ import { HANDLE_MAX } from '@convex/model/limits';
 import { messageOf } from '@/features/library/data/errors';
 
 import { ListSkeleton, Notice, ScreenHeader, Section } from './components/segments';
+import { EXPIRY_CHOICES, expiryLabel } from './components/share-permission-sheet';
 
 /**
  * Who can reach this account, and what a share of theirs starts as.
@@ -35,12 +38,17 @@ import { ListSkeleton, Notice, ScreenHeader, Section } from './components/segmen
  */
 export function SharingPrivacyScreen() {
   const router = useRouter();
-  const settings = useQuery(api.settings.mine, {});
+  // `ready` is not optional — `settings.mine` starts with `requireUser`, which
+  // throws `NO_PROFILE` before the row exists, and `useQuery` re-throws a query
+  // error during render. See `use-library-status.ts`.
+  const { ready } = useLibraryStatus();
+  const settings = useQuery(api.settings.mine, ready ? {} : 'skip');
   const update = useMutation(api.settings.updateSharing);
   const setHandle = useMutation(api.settings.setHandle);
   const showToast = useAppToast();
 
   const [claiming, setClaiming] = useState(false);
+  const [choosingExpiry, setChoosingExpiry] = useState(false);
 
   const claim = useCallback(
     async (handle: string): Promise<boolean> => {
@@ -155,6 +163,60 @@ export function SharingPrivacyScreen() {
             value={sharing.defaultCanReshare}
             onChange={(defaultCanReshare) => void update({ defaultCanReshare })}
           />
+          <Pressable
+            onPress={() => setChoosingExpiry(true)}
+            accessibilityRole="button"
+            accessibilityLabel="How long a new share lasts"
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
+            <HStack className="items-center" space="md">
+              <VStack className="flex-1">
+                <Text size="md" className="text-foreground">
+                  How long a new share lasts
+                </Text>
+                <Text size="xs" className="mt-0.5 text-fg-subtle">
+                  What the picker starts on. You can change it on every share.
+                </Text>
+              </VStack>
+              <Text size="md" className="text-fg-muted">
+                {sharing.defaultExpiryDays == null
+                  ? 'No end'
+                  : expiryLabel(sharing.defaultExpiryDays)}
+              </Text>
+            </HStack>
+          </Pressable>
+          <Toggle
+            label="Every share must have an end"
+            note="A rule, not a default: with this on, a share with no end date is refused."
+            value={sharing.requireExpiry === true}
+            onChange={(requireExpiry) => void update({ requireExpiry })}
+          />
+        </Section>
+
+        <Divider className="mt-2 bg-hairline" />
+
+        {/* Ceilings rather than defaults, and the difference is the whole
+            reason they are a separate section. The three above decide what a
+            *new* share starts as; these two decide what any share of this
+            reader's documents may ever be — including ones made months ago,
+            and including a reshare somebody else made. */}
+        <Section title="Never, whatever a share says">
+          <Toggle
+            label="Allow downloads at all"
+            note="Off takes downloading away from every share of your documents, now and in the past. A copy already on somebody's device is still theirs."
+            value={sharing.allowDownloads !== false}
+            onChange={(allowDownloads) => void update({ allowDownloads })}
+          />
+          <Toggle
+            label="Allow resharing at all"
+            note="Off means nobody can pass your documents on, whatever permission they were given."
+            value={sharing.allowReshares !== false}
+            onChange={(allowReshares) => void update({ allowReshares })}
+          />
+          <Notice glyph={ShieldCheck}>
+            These are checked every time somebody opens or downloads, not only when a share is made
+            — so turning one off narrows access that already exists.
+          </Notice>
         </Section>
 
         <Divider className="mt-2 bg-hairline" />
@@ -172,6 +234,23 @@ export function SharingPrivacyScreen() {
           </Notice>
         </Section>
       </ScrollView>
+
+      <ChoiceSheet
+        isOpen={choosingExpiry}
+        onClose={() => setChoosingExpiry(false)}
+        title="How long a new share lasts"
+        subtitle="What the picker on a new share starts on"
+        choices={EXPIRY_CHOICES.map((days) => ({
+          value: String(days),
+          label: days === null ? 'No end' : expiryLabel(days),
+          note: days === null ? 'They keep it until you take it away.' : undefined,
+          selected: (sharing.defaultExpiryDays ?? null) === days,
+        }))}
+        onSelect={(value) => {
+          setChoosingExpiry(false);
+          void update({ defaultExpiryDays: value === 'null' ? null : Number(value) });
+        }}
+      />
 
       <NameDialog
         isOpen={claiming}

@@ -36,6 +36,7 @@ import { ListSkeleton, Notice, ScreenHeader } from './components/segments';
 import { useShareActions } from './data/use-share-actions';
 import { useShareDownload } from './data/use-share-download';
 import { useShare } from './data/use-sharing';
+import { isOpenable } from '@/features/library/data/types';
 
 /**
  * One document somebody shared, from the recipient's side.
@@ -81,7 +82,7 @@ export function ShareDetailScreen() {
       }
       const document = found === null ? null : await Documents.documentById(db, found);
       if (live) {
-        setLocalId(document?.fileState === 'available' ? document.id : null);
+        setLocalId(document != null && isOpenable(document) ? document.id : null);
       }
     })();
     return () => {

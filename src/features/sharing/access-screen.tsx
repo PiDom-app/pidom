@@ -13,6 +13,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
+import { useLibraryStatus } from '@/features/library/data/use-library-status';
 import { Screen } from '@/components/layout/screen';
 import { Box } from '@/components/ui/box';
 import { Divider } from '@/components/ui/divider';
@@ -58,10 +59,14 @@ export function AccessScreen() {
   const { account: me } = useSession();
   const { profile } = useProfile();
 
+  const { ready } = useLibraryStatus();
   const remoteId = document?.remoteId ?? null;
+  // Gated on `ready` as well as on the id: `accessList` starts with
+  // `requireUser`, and a document id says nothing about whether the profile row
+  // exists yet. See `use-library-status.ts`.
   const shares = useQuery(
     api.sharing.accessList,
-    remoteId === null ? 'skip' : { documentId: remoteId as never },
+    !ready || remoteId === null ? 'skip' : { documentId: remoteId as never },
   );
 
   const [removing, setRemoving] = useState<{
@@ -81,6 +86,7 @@ export function AccessScreen() {
     role: 'viewer',
     canDownload: false,
     canReshare: false,
+    expiresInDays: null,
   });
   const [viewing, setViewing] = useState<{
     id: string | null;
@@ -113,6 +119,7 @@ export function AccessScreen() {
         role: 'viewer' | 'annotator';
         canDownload: boolean;
         canReshare: boolean;
+        expiresAt: number | null;
       },
       name: string,
     ) => {
@@ -120,6 +127,13 @@ export function AccessScreen() {
         role: share.role,
         canDownload: share.canDownload,
         canReshare: share.canReshare,
+        // Back to the shape the sheet edits: an absolute time on the row
+        // becomes the number of days still to run, rounded up so a share with
+        // nine hours left reads as a day rather than as none.
+        expiresInDays:
+          share.expiresAt === null
+            ? null
+            : Math.max(1, Math.ceil((share.expiresAt - Date.now()) / 86_400_000)),
       });
       setEditing({ id: share.id, name });
     },

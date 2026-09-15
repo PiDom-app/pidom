@@ -2,6 +2,95 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 /**
+ * The columns of `notificationSettings`, lifted out of the table.
+ *
+ * Exported so `convex/settings.ts` can build the wire validator for
+ * `settings.mine` from the same object the table is defined from, rather than
+ * from a second hand-written copy. The copy is what broke: four columns were
+ * added to `sharingSettings` and never added to the validator beside it, and
+ * because Convex object validators reject an unexpected field, every read of
+ * `settings.mine` failed for every account. `tsc` cannot catch that — a
+ * handler's return type is inferred, and TypeScript runs no excess-property
+ * check on a value that is not a fresh object literal — so the only real fix
+ * is to stop there being two lists.
+ */
+export const notificationSettingsFields = {
+  userId: v.id('users'),
+  /** The master switch. False means nothing is sent, whatever the rest say. */
+  allow: v.boolean(),
+  documentShares: v.boolean(),
+  shareResponses: v.boolean(),
+  groupActivity: v.boolean(),
+  annotationActivity: v.boolean(),
+  /**
+   * Minutes past local midnight, or absent for no quiet hours.
+   *
+   * Minutes rather than a timestamp because the reader means "at night",
+   * which is a time of day and not an instant. A window that wraps midnight
+   * is the normal case, so `start > end` is valid and is what the check
+   * handles first.
+   */
+  quietStartMinute: v.optional(v.number()),
+  quietEndMinute: v.optional(v.number()),
+  /** Minutes east of UTC, sent by the device. Only ever used to read the two above. */
+  utcOffsetMinutes: v.optional(v.number()),
+  updatedAt: v.number(),
+};
+
+/** The columns of `sharingSettings`. Exported for the reason above. */
+export const sharingSettingsFields = {
+  userId: v.id('users'),
+  findableBy: v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
+  shareableBy: v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
+  defaultRole: v.union(v.literal('viewer'), v.literal('annotator')),
+  defaultCanDownload: v.boolean(),
+  defaultCanReshare: v.boolean(),
+  /** Whether a heartbeat is recorded at all — not whether a screen hides it. */
+  showOnlineStatus: v.boolean(),
+  showReadingActivity: v.boolean(),
+  allowGroupInvites: v.boolean(),
+
+  /**
+   * How long a new share lasts by default, in days. Absent means no end.
+   *
+   * A default rather than a rule: it seeds the compose screen and the reader
+   * can change it per share. `requireExpiry` below is the rule.
+   */
+  defaultExpiryDays: v.optional(v.number()),
+
+  /**
+   * Every share this account makes has to end.
+   *
+   * Enforced at `Sharing.create`, not merely preselected. Somebody who turns
+   * this on has decided that indefinite access to their documents is not a
+   * thing they hand out, and a setting that only changed a default would
+   * leave that decision one tap from being undone by accident.
+   */
+  requireExpiry: v.optional(v.boolean()),
+
+  /**
+   * Ceilings, above the per-share switches.
+   *
+   * `canDownload` and `canReshare` are asked per share and default to false.
+   * These are the account-wide answer over the top of both: with
+   * `allowDownloads` off, no share of this reader's documents can grant a
+   * download however it was created — including one made months ago, and
+   * including a reshare somebody else made.
+   *
+   * They are checked in `clampToCeiling` and in `requireDownloadable`, which
+   * is to say on the way in *and* on every use, so turning one off narrows
+   * access that already exists rather than only the next grant. That is the
+   * difference between a default and a ceiling, and it is the reason these
+   * are worth having alongside the per-share switches rather than instead of
+   * them.
+   */
+  allowDownloads: v.optional(v.boolean()),
+  allowReshares: v.optional(v.boolean()),
+
+  updatedAt: v.number(),
+};
+
+/**
  * Pidom's data model.
  *
  * Every owned table follows the shape `users` established: a row belongs to
@@ -71,6 +160,27 @@ export default defineSchema({
      * every screen anybody else sees them on.
      */
     photoHidden: v.optional(v.boolean()),
+
+    /**
+     * How this person is referred to, in their own words.
+     *
+     * Free text rather than a list, because a list is a claim about which
+     * answers exist. Short, bounded, and shown beside the name wherever a
+     * person appears — which is the only reason to have it: somebody who has
+     * filled this in has asked to be referred to correctly, and a field nobody
+     * renders is a request nobody hears.
+     */
+    pronouns: v.optional(v.string()),
+
+    /**
+     * A line about themselves, shown on the profile card.
+     *
+     * Text, and only text. The same reasoning as the absent photo URL below:
+     * anything this account supplies that another account's screen would
+     * *fetch* is a tracking pixel with a profile around it. A sentence renders
+     * from the row and reaches nobody's network.
+     */
+    about: v.optional(v.string()),
   })
     .index('by_subject', ['subject'])
     // Discovery, and nothing else. Both of these answer "is there an account
@@ -741,6 +851,18 @@ export default defineSchema({
      */
     defaultRole: v.optional(v.union(v.literal('viewer'), v.literal('annotator'))),
     defaultCanDownload: v.optional(v.boolean()),
+    /** The pair of `defaultCanDownload`. See `GroupSettings` for why it exists. */
+    defaultCanReshare: v.optional(v.boolean()),
+    /** How long a share into this group lasts, in days. Absent means no end. */
+    defaultExpiryDays: v.optional(v.number()),
+    /**
+     * Put away rather than deleted.
+     *
+     * Hidden from the group list and the share picker; every grant it carries
+     * goes on working. Deleting a group takes its shares away from everybody,
+     * which is a much larger act than wanting it out of a list.
+     */
+    archived: v.optional(v.boolean()),
 
     /**
      * Whether members see each other's handles.
@@ -1044,28 +1166,7 @@ export default defineSchema({
    * opened the screen is covered by code that can be corrected in one place
    * rather than by a backfill over every account.
    */
-  notificationSettings: defineTable({
-    userId: v.id('users'),
-    /** The master switch. False means nothing is sent, whatever the rest say. */
-    allow: v.boolean(),
-    documentShares: v.boolean(),
-    shareResponses: v.boolean(),
-    groupActivity: v.boolean(),
-    annotationActivity: v.boolean(),
-    /**
-     * Minutes past local midnight, or absent for no quiet hours.
-     *
-     * Minutes rather than a timestamp because the reader means "at night",
-     * which is a time of day and not an instant. A window that wraps midnight
-     * is the normal case, so `start > end` is valid and is what the check
-     * handles first.
-     */
-    quietStartMinute: v.optional(v.number()),
-    quietEndMinute: v.optional(v.number()),
-    /** Minutes east of UTC, sent by the device. Only ever used to read the two above. */
-    utcOffsetMinutes: v.optional(v.number()),
-    updatedAt: v.number(),
-  }).index('by_user', ['userId']),
+  notificationSettings: defineTable(notificationSettingsFields).index('by_user', ['userId']),
 
   /**
    * Who may reach this account, and what a share of theirs starts as.
@@ -1082,19 +1183,7 @@ export default defineSchema({
    * There is no per-member state for a setting to govern, and a switch nothing
    * enforces reads as covered when it is not.
    */
-  sharingSettings: defineTable({
-    userId: v.id('users'),
-    findableBy: v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
-    shareableBy: v.union(v.literal('anyone'), v.literal('groups'), v.literal('nobody')),
-    defaultRole: v.union(v.literal('viewer'), v.literal('annotator')),
-    defaultCanDownload: v.boolean(),
-    defaultCanReshare: v.boolean(),
-    /** Whether a heartbeat is recorded at all — not whether a screen hides it. */
-    showOnlineStatus: v.boolean(),
-    showReadingActivity: v.boolean(),
-    allowGroupInvites: v.boolean(),
-    updatedAt: v.number(),
-  }).index('by_user', ['userId']),
+  sharingSettings: defineTable(sharingSettingsFields).index('by_user', ['userId']),
 
   /**
    * One attempt to push one event to one device.

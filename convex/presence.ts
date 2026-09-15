@@ -6,6 +6,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/s
 import type { Doc, Id } from './_generated/dataModel';
 import { AuthError, requireUser } from './model/auth';
 import { accessOf } from './model/access';
+import { publicProfileValidator, toPublicProfile } from './model/discovery';
 import * as Groups from './model/groups';
 import { PRESENCE_INTERVAL_MIN_MS, PRESENCE_INTERVAL_MS } from './model/limits';
 import { limit } from './model/rateLimits';
@@ -249,15 +250,10 @@ export const disconnect = mutation({
  */
 export const inRoom = query({
   args: { roomId: v.string() },
-  returns: v.array(
-    v.object({
-      id: v.id('users'),
-      displayName: v.string(),
-      handle: v.union(v.string(), v.null()),
-      pictureUrl: v.union(v.string(), v.null()),
-      online: v.boolean(),
-    }),
-  ),
+  // The shared projection plus the one thing presence adds, rather than the
+  // four fields written out again. Four copies of this shape had drifted apart
+  // once already — see `model/users.ts` on why the projection exists at all.
+  returns: v.array(publicProfileValidator.extend({ online: v.boolean() })),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
 
@@ -284,13 +280,20 @@ export const inRoom = query({
       if (person === null) {
         continue;
       }
-      out.push({
-        id: person._id,
-        displayName: person.name ?? (person.handle === undefined ? 'Someone' : `@${person.handle}`),
-        handle: person.handle ?? null,
-        pictureUrl: person.pictureUrl ?? null,
-        online: entry.online,
-      });
+      /**
+       * The shared projection, which this did not use and should have.
+       *
+       * It built the same four fields by hand and read `person.pictureUrl`
+       * directly — so `photoHidden` was ignored here and nowhere else. A reader
+       * who had turned their photo off everywhere anybody sees them still had
+       * it shown in the list of who is in a document right now, which is the
+       * one surface that appears without them doing anything.
+       *
+       * `toPublicProfile` is where that decision lives, once. Going through it
+       * also means pronouns arrive here for free, and the next field added to a
+       * person cannot miss this list.
+       */
+      out.push({ ...toPublicProfile(person), online: entry.online });
     }
     return out;
   },

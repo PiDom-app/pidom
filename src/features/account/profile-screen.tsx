@@ -4,7 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 
 import { api } from '@convex/_generated/api';
-import { DISPLAY_NAME_MAX } from '@convex/model/limits';
+import { ABOUT_MAX, DISPLAY_NAME_MAX, HANDLE_MAX, PRONOUNS_MAX } from '@convex/model/limits';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { Screen } from '@/components/layout/screen';
 import { Avatar, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
@@ -12,11 +12,14 @@ import { Button, ButtonText } from '@/components/ui/button';
 import { Divider } from '@/components/ui/divider';
 import { HStack } from '@/components/ui/hstack';
 import { Input, InputField } from '@/components/ui/input';
+import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useSession } from '@/features/auth/session-provider';
+import { NameDialog } from '@/features/library/components/name-dialog';
+import { messageOf } from '@/features/library/data/errors';
 import {
   ListSkeleton,
   Notice,
@@ -50,6 +53,7 @@ export function ProfileScreen() {
   const { account } = useSession();
   const profile = useQuery(api.users.me, {});
   const updateProfile = useMutation(api.users.updateProfile);
+  const setHandle = useMutation(api.settings.setHandle);
   const showToast = useAppToast();
 
   /**
@@ -63,6 +67,9 @@ export function ProfileScreen() {
    */
   const [editedName, setEditedName] = useState<string | null>(null);
   const [editedPhoto, setEditedPhoto] = useState<boolean | null>(null);
+  const [editedPronouns, setEditedPronouns] = useState<string | null>(null);
+  const [editedAbout, setEditedAbout] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const savedName = profile?.name ?? '';
@@ -71,15 +78,53 @@ export function ProfileScreen() {
   // disagree with it.
   const savedPhoto = profile == null ? true : profile.pictureUrl !== null;
 
+  const savedPronouns = profile?.pronouns ?? '';
+  const savedAbout = profile?.about ?? '';
+
   const name = editedName ?? savedName;
   const showPhoto = editedPhoto ?? savedPhoto;
+  const pronouns = editedPronouns ?? savedPronouns;
+  const about = editedAbout ?? savedAbout;
 
   const googlePhoto = account?.photoUrl ?? null;
+
+  /**
+   * The same claim Sharing & privacy makes, against the same mutation.
+   *
+   * Duplicated as a call site and not as a rule: `settings.setHandle` owns
+   * normalising, refusing a taken one and the reserved list. Two screens
+   * offering it is two doors to one room, which is the right number when the
+   * room is "the name people find you by" and both screens are about being
+   * found.
+   */
+  const claim = useCallback(
+    async (handle: string): Promise<boolean> => {
+      try {
+        await setHandle({ handle });
+        setClaiming(false);
+        return true;
+      } catch (error) {
+        showToast({
+          id: 'handle',
+          tone: 'error',
+          title: 'That handle could not be taken',
+          description: messageOf(error, 'Try another one.'),
+        });
+        return false;
+      }
+    },
+    [setHandle, showToast],
+  );
 
   const save = useCallback(async () => {
     setSaving(true);
     try {
-      await updateProfile({ displayName: name, showPhoto });
+      await updateProfile({
+        displayName: name,
+        showPhoto,
+        pronouns: pronouns.trim(),
+        about: about.trim(),
+      });
       showToast({ id: 'profile', tone: 'success', title: 'Profile updated' });
       router.back();
     } catch {
@@ -92,7 +137,11 @@ export function ProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [name, router, showPhoto, showToast, updateProfile]);
+    // `pronouns` and `about` belong here as much as `name` does. Without them
+    // the memoised callback kept the values from the render it was created on,
+    // so editing only one of these two saved the old string while `dirty` lit
+    // the button and the toast said it had worked.
+  }, [about, name, pronouns, router, showPhoto, showToast, updateProfile]);
 
   if (profile === undefined) {
     return (
@@ -105,7 +154,11 @@ export function ProfileScreen() {
   }
 
   const shown = showPhoto ? (googlePhoto ?? profile?.pictureUrl ?? null) : null;
-  const dirty = name.trim() !== savedName || showPhoto !== savedPhoto;
+  const dirty =
+    name.trim() !== savedName ||
+    showPhoto !== savedPhoto ||
+    pronouns.trim() !== savedPronouns ||
+    about.trim() !== savedAbout;
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -156,6 +209,53 @@ export function ProfileScreen() {
 
         <Divider className="mx-6 mt-2 bg-hairline" />
 
+        {/* Optional, and shown wherever this person appears to somebody else.
+            Free text rather than a list of options, because a list is a claim
+            about which answers exist. */}
+        <Section title="Pronouns">
+          <VStack className="px-4 pt-1" space="xs">
+            <Input className="h-11">
+              <InputField
+                value={pronouns}
+                onChangeText={setEditedPronouns}
+                placeholder="they/them"
+                maxLength={PRONOUNS_MAX}
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="text-foreground"
+              />
+            </Input>
+            <Text size="xs" className="text-fg-subtle">
+              Shown beside your name to people you share with. Leave it empty for nothing.
+            </Text>
+          </VStack>
+        </Section>
+
+        <Divider className="mx-6 mt-2 bg-hairline" />
+
+        <Section title="About">
+          <VStack className="px-4 pt-1" space="xs">
+            <Input className="h-20 items-start py-2">
+              <InputField
+                value={about}
+                onChangeText={setEditedAbout}
+                placeholder="A line about you"
+                maxLength={ABOUT_MAX}
+                multiline
+                textAlignVertical="top"
+                className="text-foreground"
+              />
+            </Input>
+            <Text size="xs" className="text-fg-subtle">
+              {`On your profile card, where somebody decides whether to share with you. ${
+                ABOUT_MAX - about.length
+              } left.`}
+            </Text>
+          </VStack>
+        </Section>
+
+        <Divider className="mx-6 mt-2 bg-hairline" />
+
         <Section title="Photo">
           <HStack className="items-center px-4 py-2" space="lg">
             <VStack className="flex-1">
@@ -189,16 +289,32 @@ export function ProfileScreen() {
               </Text>
             </VStack>
           </HStack>
-          <HStack className="items-center px-4 py-2" space="lg">
-            <VStack className="flex-1">
-              <Text size="md" className="text-foreground">
-                Handle
+          {/* This was a row that told you to go somewhere else, which is the
+              one thing a settings row should never be: the reader is already
+              on the screen about their profile and a handle is part of it. It
+              opens the same dialog Sharing & privacy does, against the same
+              mutation, so there is still one place the rule lives. */}
+          <Pressable
+            onPress={() => setClaiming(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Your handle"
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
+            <HStack className="items-center" space="lg">
+              <VStack className="flex-1">
+                <Text size="md" className="text-foreground">
+                  Handle
+                </Text>
+                <Text size="xs" className="mt-0.5 text-fg-subtle">
+                  What people look you up by. Nothing else finds you except an address they already
+                  have.
+                </Text>
+              </VStack>
+              <Text size="md" className="text-fg-muted">
+                {profile?.handle == null ? 'Not set' : `@${profile.handle}`}
               </Text>
-              <Text size="xs" className="mt-0.5 text-fg-subtle">
-                Set it under Sharing &amp; privacy, where the rest of being found lives.
-              </Text>
-            </VStack>
-          </HStack>
+            </HStack>
+          </Pressable>
         </Section>
 
         <Notice glyph={showPhoto ? AtSign : ImageOff}>
@@ -206,6 +322,17 @@ export function ProfileScreen() {
           address they already had.
         </Notice>
       </ScrollView>
+
+      <NameDialog
+        isOpen={claiming}
+        onClose={() => setClaiming(false)}
+        onSubmit={claim}
+        title="Your handle"
+        label="Handle"
+        placeholder="amina"
+        initialValue={profile?.handle ?? ''}
+        maxLength={HANDLE_MAX}
+      />
 
       <Divider className="bg-hairline" />
       <VStack className="px-4 pt-3 pb-2">

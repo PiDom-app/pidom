@@ -3,7 +3,8 @@ import { useCallback, useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { log } from '@/lib/logger';
-import { hasNetworkNow, watchNetwork } from '@/lib/connectivity';
+import { connectionKind, hasNetworkNow, watchNetwork } from '@/lib/connectivity';
+import { preferencesNow } from '@/stores/preferences-store';
 import { useSyncStore } from '@/stores/sync-store';
 
 import { useLibraryStatus } from '../data/use-library-status';
@@ -93,6 +94,7 @@ export function useSyncEngine(): void {
     let running = false;
     let again = false;
     let lastRun = 0;
+    let lastReconciled = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function pass(): Promise<void> {
@@ -101,6 +103,30 @@ export function useSyncEngine(): void {
       }
       if (profileId === null || !isAuthenticated || !hasNetworkNow()) {
         setSync({ phase: 'offline' });
+        return;
+      }
+
+      /**
+       * The reader's own two answers about this device, asked here.
+       *
+       * `syncPaused` holds the outbox entirely; `syncOnCellular` holds it on a
+       * connection NetInfo positively calls cellular — `unknown` is a network
+       * nobody can describe and refusing on it would strand somebody on a
+       * connection this app simply does not recognise.
+       *
+       * Nothing is lost either way. The queue goes on filling and drains when
+       * the answer changes, which is what `pending` on the sync screen is
+       * saying while it waits.
+       */
+      const prefs = preferencesNow();
+      if (prefs.syncPaused || (!prefs.syncOnCellular && connectionKind() === 'cellular')) {
+        const db = await database(profileId);
+        const summary = db === null ? { pending: 0, failed: 0 } : await Queue.summary(db);
+        setSync({
+          pending: summary.pending,
+          failed: summary.failed,
+          phase: summary.pending > 0 || summary.failed > 0 ? 'pending' : 'synced',
+        });
         return;
       }
       if (running) {
@@ -147,7 +173,18 @@ export function useSyncEngine(): void {
         // finished telling it things. Reconciling with operations still waiting
         // would overwrite a reader's own changes with a version that predates
         // them.
-        if (summary.pending === 0) {
+        /**
+         * And not more often than the reader asked for.
+         *
+         * The outbox drains on every change, which is what makes a favourite
+         * land in seconds. The reconcile is the expensive half — it pages the
+         * whole account back — and on a phone that is somebody's only device it
+         * is almost pure cost. `lastReconciled` is module-local rather than on
+         * the row because it describes this process, not this account.
+         */
+        const every = preferencesNow().reconcileEveryMinutes * 60_000;
+        if (summary.pending === 0 && Date.now() - lastReconciled >= every) {
+          lastReconciled = Date.now();
           await reconcile({ client, db }, profileId);
           setSync({ lastSyncedAt: Date.now() });
         }

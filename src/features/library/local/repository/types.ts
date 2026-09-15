@@ -17,16 +17,65 @@
 export type FileState =
   /** Not here. Fetchable if the account has a copy. */
   | 'missing'
+  /** Asked for, and waiting its turn behind whatever is moving. */
+  | 'queued'
+  /**
+   * Asked for, and not allowed to move yet.
+   *
+   * `heldReason` says which rule: Wi-Fi only, the mobile-data ceiling, no room
+   * on the disk, or the storage cap. Separate from `queued` because the two
+   * want different sentences and different offers — a queue resolves itself and
+   * a hold needs either a changed circumstance or the reader's permission.
+   */
+  | 'held'
   /** Bytes are moving right now. */
   | 'downloading'
+  /**
+   * Stopped, with what has arrived kept.
+   *
+   * The state this design did not have. `clearStaleTransfers` used to turn a
+   * `downloading` row into `missing` on every relaunch and delete the partial
+   * file with it, so a textbook two thirds fetched over a hotel connection
+   * started again from nothing because somebody answered a phone call.
+   */
+  | 'paused'
+  /** Here, and being checked before it is allowed to count as here. */
+  | 'verifying'
   /** Here, and verified. This is the only state the reader will open. */
   | 'available'
+  /**
+   * Here, opens, and is no longer what the account holds.
+   *
+   * Not an error, which is why it is its own state rather than a flavour of
+   * `corrupt`: the local file is a valid PDF and the reader can go on reading
+   * it. It is an offer, and the wrong answer is to delete it on their behalf.
+   */
+  | 'outdated'
   /** Here, and wrong — the wrong size, or not a PDF. Offers to try again. */
   | 'corrupt'
+  /** Not here, and the attempts are spent. Waits for a person rather than a tick. */
+  | 'failed'
   /** Being removed. Transient, and kept so a half-done delete can finish. */
   | 'deleting'
   /** Removed on purpose. Distinct from `missing`, which was never here. */
   | 'deleted';
+
+/**
+ * Why a download that was asked for is not moving.
+ *
+ * A hold is the reader's own setting doing its job, so every one of these has a
+ * sentence on the Downloads screen and an offer beside it. Distinct from a
+ * failure, which is the account or the network saying no.
+ */
+export type HoldReason =
+  /** Downloads are set to Wi-Fi only and this connection is not Wi-Fi. */
+  | 'wifi'
+  /** Larger than the mobile-data ceiling the reader set. */
+  | 'cellular-cap'
+  /** Not enough room on the device, once `HEADROOM_BYTES` is respected. */
+  | 'space'
+  /** The library is at the ceiling the reader set for this device. */
+  | 'cap';
 
 /**
  * How far a row has got towards the account.
@@ -174,6 +223,8 @@ export type LibraryGroup = {
   createdAt: number;
   updatedAt: number;
   syncState: SyncState;
+  /** Put away. Hidden from the list and the share picker; its shares still work. */
+  archived: boolean;
 };
 
 export type LibraryGroupMember = {

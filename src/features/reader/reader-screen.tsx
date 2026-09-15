@@ -41,6 +41,7 @@ import { useReaderOrientation } from './use-reader-orientation';
 import { useFindInDocument } from './use-find-in-document';
 import { useReaderSession } from './use-reader-session';
 import { useReaderWakeLock } from './use-reader-wake-lock';
+import { isOpenable } from '@/features/library/data/types';
 
 const SCOPE = 'reader';
 
@@ -59,7 +60,7 @@ type Phase = 'opening' | 'ready' | 'locked' | 'failed';
  * What is left in it are the four small ones: a page number, three reading
  * modes, four settings, and a find bar. Each is a short fixed list, so a sheet
  * is the right surface and its height never surprises anybody. The navigator
- * and the note composer used to be here too and are routes now — a list as long
+ * and the bookmark namer used to be here too and are routes now — a list as long
  * as the reader's data has no business setting the height of a control.
  *
  * The password prompt, the link prompt, the selection bar and the document's
@@ -108,7 +109,7 @@ export function ReaderScreen() {
    * this replaced and why it matters more here than anywhere else.
    */
   const { document, outline, loading } = useReaderDocument(documentId);
-  const onThisDevice = document?.fileState === 'available';
+  const onThisDevice = document != null && isOpenable(document);
 
   const canvas = useRef<ReaderCanvasRef>(null);
   const [phase, setPhase] = useState<Phase>('opening');
@@ -252,26 +253,6 @@ export function ReaderScreen() {
     }
     router.push({ pathname: '/share', params: { id: documentId } });
   }, [router, documentId]);
-
-  /** Writing a note about the page on screen, or about a passage from it. */
-  const openNote = useCallback(
-    (passage: string | null) => {
-      if (documentId === undefined) {
-        return;
-      }
-      router.push({
-        pathname: '/note',
-        params: {
-          id: documentId,
-          kind: 'note',
-          page: String(session.page),
-          value: '',
-          ...(passage === null ? {} : { passage }),
-        },
-      });
-    },
-    [router, documentId, session.page],
-  );
 
   const commands = useReaderCommands({
     canvas,
@@ -511,8 +492,7 @@ export function ReaderScreen() {
           find.setTerm(term);
           setOverlay({ kind: 'find' });
         }}
-        onKeep={(passage) => keep({ page: session.page, kind: 'passage', text: passage })}
-        onNote={(passage) => openNote(passage)}
+        onKeep={(passage) => keep({ page: session.page, text: passage })}
         onDismiss={() => setSelection(null)}
       />
 
@@ -615,10 +595,6 @@ export function ReaderScreen() {
         onShowContents={() => {
           setActing(null);
           openNavigator('contents');
-        }}
-        onWriteNote={() => {
-          setActing(null);
-          openNote(null);
         }}
       />
     </Box>

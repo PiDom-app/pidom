@@ -45,6 +45,10 @@ export type PublicProfile = {
   displayName: string;
   handle: string | null;
   pictureUrl: string | null;
+  /** Their own words, or `null`. Shown beside the name wherever they appear. */
+  pronouns: string | null;
+  /** A line about themselves, or `null`. Shown on the profile card only. */
+  about: string | null;
 };
 
 export const publicProfileValidator = v.object({
@@ -52,6 +56,8 @@ export const publicProfileValidator = v.object({
   displayName: v.string(),
   handle: v.union(v.string(), v.null()),
   pictureUrl: v.union(v.string(), v.null()),
+  pronouns: v.union(v.string(), v.null()),
+  about: v.union(v.string(), v.null()),
 });
 
 /**
@@ -73,6 +79,12 @@ export function toPublicProfile(user: Doc<'users'>): PublicProfile {
     displayName: user.name ?? (user.handle === undefined ? 'Someone' : `@${user.handle}`),
     handle: user.handle ?? null,
     pictureUrl: photoOf(user),
+    // Both are text this account wrote about itself, bounded on the way in.
+    // Neither is ever fetched from anywhere — see the note about the absent
+    // photo URL in `docs/security.md` for why that distinction is the whole
+    // reason these two are safe to render on somebody else's screen.
+    pronouns: user.pronouns ?? null,
+    about: user.about ?? null,
   };
 }
 

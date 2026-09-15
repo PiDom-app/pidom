@@ -11,7 +11,7 @@ import { VStack } from '@/components/ui/vstack';
 import { useTransfer } from '@/stores/transfer-store';
 
 import type { LibraryDocument, Placement } from '../data/types';
-import { metaLineFor, placementOf } from '../data/types';
+import { isOpenable, metaLineFor, placementOf } from '../data/types';
 import { COVER_WIDTH, DocumentCover, coverHeight } from './document-cover';
 
 /**
@@ -78,7 +78,7 @@ export function DocumentTile({
   // `fileState` on the row is what says whether this one opens, and it is the
   // only thing that does: it is written after a download has been checked, not
   // from a flag the account set. The scan store is no longer consulted here.
-  const onThisDevice = document.fileState === 'available';
+  const onThisDevice = isOpenable(document);
   const transfer = useTransfer(document.id);
   const placement = placementOf(document, { transferring: transfer !== null });
   const meta = metaLineFor(document, { showProgress, transfer });
@@ -168,7 +168,7 @@ export function DocumentRow({
   onPress: (document: LibraryDocument) => void;
   onLongPress: (document: LibraryDocument) => void;
 }) {
-  const onThisDevice = document.fileState === 'available';
+  const onThisDevice = isOpenable(document);
   const transfer = useTransfer(document.id);
   const placement = placementOf(document, { transferring: transfer !== null });
   const meta = metaLineFor(document, { showProgress: true, transfer });

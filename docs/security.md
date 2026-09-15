@@ -279,6 +279,143 @@ directory on a rooted device. It is deleted when the document is deleted and
 when its local copy is removed, because a credential outliving the thing it
 unlocks is a credential nothing will ever come back for.
 
+## A paused download holds a credential, briefly
+
+Pausing a transfer and resuming it later means keeping something: Expo's
+`DownloadTask.savable()`, which is the only thing that lets a resume continue
+rather than start again. It carries the signed R2 URL the transfer was using,
+and that is a **bearer credential** — anybody holding it can fetch the file for
+as long as its five minutes last, with no further check. Convex says the same
+thing about its own storage URLs, and the rule is the rule whoever signed it.
+
+So it is handled as one. It is written to exactly one place, `documentFiles.
+pauseState`, in a database opened under SQLCipher; `Files.settle` clears it on
+_every_ terminal state rather than on the expected ones, because forgetting one
+unusual path is how a signed URL stays in a database for a year; and
+`clearStaleTransfers` drops it on relaunch without even trying to use it, since
+a URL minted before the process died is a dead credential rather than a useful
+one.
+
+**A resume re-mints first.** `downloads/engine.ts` calls `library.downloadUrl`
+again — ownership checked, rate limit spent, five fresh minutes — and only the
+byte offset comes from the saved state. That is not merely tidier: it means a
+resume is refused for a reason the reader can act on rather than for an expiry
+nobody can see, and it means the stored credential is never the thing a transfer
+depends on.
+
+## The hash the account does not actually have
+
+`documents.contentHash` is documented as "sha256, read back from R2's own
+metadata rather than taken from the client", and the trust story is right. The
+field is almost certainly empty.
+
+It is written by `attachUpload` from the R2 component's `sha256`, which comes
+from `HeadObject`'s `ChecksumSHA256`. S3 and R2 only populate that when the
+upload supplied a checksum, and Pidom's upload is a plain presigned PUT carrying
+a `Content-Type` and nothing else — the component's own SDK is configured
+`requestChecksumCalculation: "WHEN_REQUIRED"`, and nothing requires one.
+
+Verification therefore rests on `documents.fingerprint`, which every document
+has: `<size>-<sha256 of the first 64 KB, the last 64 KB, and the size>`. A
+download is refused unless the size matches what the account recorded, the first
+five bytes read `%PDF-`, and the fingerprint agrees. **And the account's
+fingerprint is recorded beside the file** as `documentFiles.remoteHash` — the
+value this copy was checked against — so the next reconcile notices when
+somebody replaces the document from another device. That is the `outdated`
+state, and it is an offer rather than a deletion.
+
+The whole file's sha256 is computed as well, for documents under 32 MB — the
+same bound `convex/node/extract.ts` defends, and for the same reason: `expo-
+crypto` has no incremental digest, so hashing means holding the file in memory,
+which a phone can do to thirty megabytes and cannot do to four hundred. It
+refuses nothing at download time; the three checks above have already decided.
+It exists so the periodic re-verify can catch what all three of those miss — a
+page corrupted in the _middle_ of a textbook, months later, by a bad sector or a
+partial restore. Every check reads the ends of the file; only this one reads
+between them.
+
+Making `contentHash` real would mean sending `x-amz-checksum-sha256` on the PUT
+so R2 verifies and records it, which keeps the "not taken from the client"
+property because R2 validates rather than trusts. It is not done here because
+the upload URL is presigned and S3 requires every `x-amz-*` header to be inside
+the signature — an unsigned one is refused outright — so it needs testing
+against the real bucket before it ships, and it must fail soft. Until then the
+field stays, empty and harmless, and the checks that matter do not depend on it.
+
+## A local id in the shape of an account id
+
+`repository/ids.ts` mints a document id on the device, and says what it is for:
+_"the same shape as a Convex id, so nothing downstream can tell which of the two
+it is holding."_ That is what makes importing with no connection possible, and
+it is also a loaded gun.
+
+It went off in `sendShare`. `documentId` was translated through
+`document.remoteId`; `groupId` on the next line was a bare `as Id<'groups'>` on
+a value this device had minted. The account answered with an
+`ArgumentValidationError`, which is **not** a `ConvexError` — so `codeOf` read it
+as `UNKNOWN`, `outcome.ts` took it for a connection problem, and the queue spent
+all eight attempts over about ten minutes on a call that could never succeed,
+with everything queued behind it waiting. It only failed for groups _created on
+the device_: a group that arrived from the account is stored under the account's
+own id, so the cast happened to be true for it and the bug hid behind the
+commoner case. A second instance of the same conflation, in the other direction,
+was quietly rendering an empty tab.
+
+Two changes, and only one of them is the fix. `sync/remote-ids.ts` is now the
+only way to obtain a branded id, and it takes the question — has this reached
+the account yet? — as its first argument rather than assuming the answer; `as
+Id<'...'>` appears nowhere in that directory. And `classify` recognises a
+refused _shape_ as permanent, so the next one costs a failed operation somebody
+can see on the sync screen instead of a stalled queue. `src/features/library/
+sync/outcome.test.ts` asserts both.
+
+## One projection, and the screen that was not using it
+
+`Discovery.toPublicProfile` is described above as the only projection, and it
+was not quite true. Four return validators wrote the same four fields out by
+hand instead of reusing it — `presence.inRoom`, the share counterpart, the group
+member and the notification actor — and one of them built the _value_ by hand
+too.
+
+`presence.inRoom` read `person.pictureUrl` straight off the row. So
+`photoHidden` was honoured on every screen except the list of who is in a
+document right now, which is the one surface somebody appears on without doing
+anything at all: a reader who had turned their photo off everywhere anybody sees
+them still had it shown there. Nothing caught it because a hand-built object
+that happens to have the right field names type-checks perfectly.
+
+All four now use the validator, `inRoom` spreads `toPublicProfile(person)`, and
+`convex/sharing.test.ts` asserts that a hidden photo stays hidden in a presence
+room — with a fixture that actually has a photo, because the first version of
+that test passed either way.
+
+The wider rule is the one `model/users.ts` already stated and this is the
+evidence for: **a shape written out twice is two chances for one of them to fall
+behind.** `findPeople`'s test asserts the projection's keys exactly, so a field
+added to a person now fails a test until somebody decides whether a search
+result should carry it.
+
+## What a share may ever be, as opposed to what it starts as
+
+`sharingSettings` had three defaults for a new share — role, download, reshare —
+and nothing that governed a share once it existed. `allowDownloads` and
+`allowReshares` are that: ceilings applied in `clampToCeiling` on the way in
+_and_ in `requireDownloadable` on every use, so turning one off narrows access
+that already exists rather than only the next grant. That difference is the
+whole reason they are worth having beside the per-share switches: a default is
+a suggestion, and somebody who turns downloading off for their account has
+decided something about every document they own.
+
+`expiresAt` is the other half. The column, the cron that writes `status` when a
+share lapses and the second check in `Access.grants` had all existed since
+sharing shipped, and **nothing ever set the field** — a finished feature with no
+way in, which is a worse state than an unfinished one because everything about
+it looks done. It is now on the permission sheet, on the group, and as an
+account default, with `requireExpiry` as the rule over the top. It is also
+bounded: `cleanExpiry` clamps at a year and refuses anything less than an hour
+away, because a share that has already expired is a confusing way to hand
+somebody nothing.
+
 ## The nightly sweep deletes, so it has to be sure
 
 `library.sweepOrphanedObjects` removes R2 objects nothing references any more —

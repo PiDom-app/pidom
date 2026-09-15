@@ -7,7 +7,7 @@ import { requireDownloadable, requireReadable } from './model/access';
 import { AuthError, requireUser } from './model/auth';
 import * as Discovery from './model/discovery';
 import { publicProfileValidator } from './model/discovery';
-import { DISCOVERY_LIMIT, DOWNLOAD_URL_SECONDS, SEARCH_TERM_MAX } from './model/limits';
+import { DISCOVERY_LIMIT, DOWNLOAD_URL_SECONDS, SEARCH_TERM_MAX, clamp } from './model/limits';
 import * as Notifications from './model/notifications';
 import { limit } from './model/rateLimits';
 import * as Sharing from './model/sharing';
@@ -197,7 +197,7 @@ export const events = query({
       .query('shareEvents')
       .withIndex('by_user_and_created', (q) => q.eq('userId', user._id))
       .order('desc')
-      .take(Math.min(args.limit ?? 50, 100));
+      .take(clamp(args.limit ?? 50, 1, 100));
     const out = [];
     for (const row of rows) {
       out.push(await Notifications.toPublicEvent(ctx, row));
@@ -283,6 +283,14 @@ export const changePermission = mutation({
     role: v.union(v.literal('viewer'), v.literal('annotator')),
     canDownload: v.boolean(),
     canReshare: v.boolean(),
+    /**
+     * When this access stops, `null` to take an expiry off, absent to leave it.
+     *
+     * Three states rather than two, and the third is load-bearing: a client
+     * built before this argument existed sends neither a number nor a null, and
+     * must not silently clear an expiry the owner set from another device.
+     */
+    expiresAt: v.optional(v.union(v.number(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -292,6 +300,7 @@ export const changePermission = mutation({
       role: args.role,
       canDownload: args.canDownload,
       canReshare: args.canReshare,
+      ...(args.expiresAt === undefined ? {} : { expiresAt: args.expiresAt }),
     });
     return null;
   },

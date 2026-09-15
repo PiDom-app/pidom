@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Check,
   ChevronRight,
-  MessageSquare,
   Plus,
   Search,
   Send,
@@ -38,7 +37,11 @@ import { useShareStore, type Recipient, type Permission } from '@/stores/share-s
 
 import { GroupRow, PersonRow, initialsOf } from './components/person-row';
 import { Empty, ListSkeleton, Notice, ScreenHeader } from './components/segments';
-import { SharePermissionSheet, permissionLabel } from './components/share-permission-sheet';
+import {
+  SharePermissionSheet,
+  expiryLabel,
+  permissionLabel,
+} from './components/share-permission-sheet';
 import { useShareActions } from './data/use-share-actions';
 import { useGroups } from './data/use-sharing';
 
@@ -64,20 +67,18 @@ export function ShareScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { document } = useReaderDocument(id);
-  const { hasNetwork } = useLibraryStatus();
+  const { hasNetwork, ready } = useLibraryStatus();
   const showToast = useAppToast();
 
-  const settings = useQuery(api.settings.mine, {});
+  const settings = useQuery(api.settings.mine, ready ? {} : 'skip');
   const { groups } = useGroups();
   const { share } = useShareActions();
 
   const begin = useShareStore((state) => state.begin);
   const recipients = useShareStore((state) => state.recipients);
   const permission = useShareStore((state) => state.permission);
-  const message = useShareStore((state) => state.message);
   const sending = useShareStore((state) => state.sending);
   const toggle = useShareStore((state) => state.toggle);
-  const setMessage = useShareStore((state) => state.setMessage);
   const setSending = useShareStore((state) => state.setSending);
   const clear = useShareStore((state) => state.clear);
 
@@ -104,6 +105,11 @@ export function ShareScreen() {
       role: settings.sharing.defaultRole,
       canDownload: settings.sharing.defaultCanDownload,
       canReshare: settings.sharing.defaultCanReshare,
+      // `requireExpiry` without a default would be a rule that refuses every
+      // share until somebody notices the picker; a month is the value the
+      // settings screen offers beside the switch and the one it falls back to.
+      expiresInDays:
+        settings.sharing.defaultExpiryDays ?? (settings.sharing.requireExpiry === true ? 30 : null),
     });
   }, [begin, id, settings]);
 
@@ -130,7 +136,7 @@ export function ShareScreen() {
       return;
     }
     setSending(true);
-    const ok = await share(document.id, recipients, permission, message);
+    const ok = await share(document.id, recipients, permission);
     setSending(false);
     if (!ok) {
       return;
@@ -149,7 +155,6 @@ export function ShareScreen() {
     clear,
     document,
     hasNetwork,
-    message,
     permission,
     recipients,
     router,
@@ -276,14 +281,16 @@ export function ShareScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        {/* Both of these are optional, and neither is the decision the reader
-          came here to make. They used to sit above the Share button on every
-          visit — a permission that is already what they asked for, and an empty
-          message field inviting a note nobody needs to write — so the screen
-          asked two questions before letting anybody answer the one that
-          matters. They live behind the control in the header now, and the
-          summary line below says what the current answer is without taking a
-          row to do it. */}
+        {/* The permission, behind the control in the header.
+          
+          There was a message field here too — "Say something (optional)" — and
+          it is gone. It asked for a note nobody needed to write, on a screen
+          whose one question is who to share with, and it was the second of two
+          things standing between arriving and answering that. What a recipient
+          actually needs to know is what they are allowed to do with the
+          document, which is the row that stayed and has since grown an end
+          date. Messages people sent before today are still on the share detail
+          screen; nothing anybody wrote has gone anywhere. */}
         {!showingOptions ? null : (
           <>
             <Pressable
@@ -299,27 +306,12 @@ export function ShareScreen() {
                     {permissionLabel(permission)}
                   </Text>
                   <Text size="xs" className="mt-0.5 text-fg-subtle">
-                    {permission.canDownload
-                      ? 'Downloading allowed'
-                      : 'No downloading, no resharing'}
+                    {detailOf(permission)}
                   </Text>
                 </VStack>
                 <Icon as={ChevronRight} size="sm" className="text-fg-subtle" />
               </HStack>
             </Pressable>
-
-            <HStack className="items-center px-4 pb-2" space="md">
-              <Icon as={MessageSquare} size="lg" className="text-fg-muted" />
-              <Input className="h-11 flex-1">
-                <InputField
-                  value={message}
-                  onChangeText={setMessage}
-                  placeholder="Say something (optional)"
-                  className="text-foreground"
-                  autoFocus
-                />
-              </Input>
-            </HStack>
           </>
         )}
 
@@ -333,7 +325,7 @@ export function ShareScreen() {
         <Box className="px-4 pt-2 pb-3">
           {showingOptions ? null : (
             <Text size="xs" numberOfLines={1} className="pb-2 text-fg-subtle">
-              {summaryOf(permission, message)}
+              {summaryOf(permission)}
             </Text>
           )}
           <Button
@@ -376,7 +368,7 @@ export function ShareScreen() {
  * that outlive being taken away — and a message is reported as present rather
  * than quoted back.
  */
-function summaryOf(permission: Permission, message: string): string {
+function summaryOf(permission: Permission): string {
   const parts = [permission.role === 'annotator' ? 'Can annotate' : 'Can read'];
   if (permission.canDownload) {
     parts.push('can download');
@@ -384,9 +376,24 @@ function summaryOf(permission: Permission, message: string): string {
   if (permission.canReshare) {
     parts.push('can share on');
   }
-  if (message.trim() !== '') {
-    parts.push('with a message');
+  if (permission.expiresInDays !== null) {
+    parts.push(expiryLabel(permission.expiresInDays).toLowerCase());
   }
+  return parts.join(' · ');
+}
+
+/** The second line under the permission row: the two things that outlive a revoke. */
+function detailOf(permission: Permission): string {
+  const parts: string[] = [];
+  parts.push(permission.canDownload ? 'Downloading allowed' : 'No downloading');
+  if (permission.canReshare) {
+    parts.push('can share on');
+  }
+  parts.push(
+    permission.expiresInDays === null
+      ? 'no end date'
+      : expiryLabel(permission.expiresInDays).toLowerCase(),
+  );
   return parts.join(' · ');
 }
 

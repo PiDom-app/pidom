@@ -7,6 +7,7 @@ import { useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 import { ActionSheetPanel } from '@/components/layout/action-sheet-panel';
+import { ChoiceSheet } from '@/components/layout/choice-sheet';
 import { Screen } from '@/components/layout/screen';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Divider } from '@/components/ui/divider';
@@ -22,7 +23,7 @@ import { useSession } from '@/features/auth/session-provider';
 import { closeDatabase } from '@/features/library/local/db';
 import { Notice, ScreenHeader, Section } from '@/features/sharing/components/segments';
 import { useConnectionKind } from '@/lib/connectivity';
-import { usePreferencesStore } from '@/stores/preferences-store';
+import { usePreferencesStore, type ReconcileInterval } from '@/stores/preferences-store';
 
 /**
  * What this device is allowed to pull down, and how to leave.
@@ -50,9 +51,14 @@ export function DataScreen() {
 
   const wifiOnly = usePreferencesStore((state) => state.wifiOnly);
   const setWifiOnly = usePreferencesStore((state) => state.setWifiOnly);
+  const syncPaused = usePreferencesStore((state) => state.syncPaused);
+  const syncOnCellular = usePreferencesStore((state) => state.syncOnCellular);
+  const reconcileEveryMinutes = usePreferencesStore((state) => state.reconcileEveryMinutes);
+  const set = usePreferencesStore((state) => state.set);
   const connection = useConnectionKind();
 
   const [clearing, setClearing] = useState(false);
+  const [choosingReconcile, setChoosingReconcile] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -127,6 +133,105 @@ export function DataScreen() {
               accessibilityLabel="Download over Wi-Fi only"
             />
           </HStack>
+
+          {/* The switch above is the one somebody came here for; everything
+              else about downloads now has a screen of its own, and duplicating
+              a dozen rows here would be two places to change one setting. */}
+          <Pressable
+            onPress={() => router.push('/downloads')}
+            accessibilityRole="button"
+            accessibilityLabel="Downloads and offline documents"
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
+            <VStack>
+              <Text size="md" className="text-foreground">
+                Downloads
+              </Text>
+              <Text size="xs" className="mt-0.5 text-fg-subtle">
+                What opens with no connection, what is waiting, and the rules for both.
+              </Text>
+            </VStack>
+          </Pressable>
+        </Section>
+
+        <Divider className="mx-6 mt-2 bg-hairline" />
+
+        {/* A different question from Downloads above, which is why it is a
+            different section rather than more switches in that one. Downloads
+            move files and cost a data allowance; sync moves a page turn and a
+            favourite, measured in bytes. Somebody who turns one off rarely
+            wants the other off with it. */}
+        <Section title="Sync">
+          <HStack className="items-center px-4 py-2" space="lg">
+            <VStack className="flex-1">
+              <Text size="md" className="text-foreground">
+                Pause syncing
+              </Text>
+              <Text size="xs" className="mt-0.5 text-fg-subtle">
+                Holds everything waiting to reach your account. Nothing is lost — it goes out when
+                you turn this off again.
+              </Text>
+            </VStack>
+            <Switch
+              value={syncPaused}
+              onValueChange={(syncPaused) => set({ syncPaused })}
+              accessibilityLabel="Pause syncing"
+            />
+          </HStack>
+          <HStack className="items-center px-4 py-2" space="lg">
+            <VStack className="flex-1">
+              <Text size="md" className={syncPaused ? 'text-fg-disabled' : 'text-foreground'}>
+                Sync over mobile data
+              </Text>
+              <Text size="xs" className="mt-0.5 text-fg-subtle">
+                A queued change is a few bytes. This is not the same switch as the one for
+                downloads.
+              </Text>
+            </VStack>
+            <Switch
+              value={syncOnCellular}
+              isDisabled={syncPaused}
+              onValueChange={(syncOnCellular) => set({ syncOnCellular })}
+              accessibilityLabel="Sync over mobile data"
+            />
+          </HStack>
+          <Pressable
+            onPress={() => setChoosingReconcile(true)}
+            disabled={syncPaused}
+            accessibilityRole="button"
+            accessibilityLabel="Check for changes from other devices"
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
+            <HStack className="items-center" space="lg">
+              <VStack className="flex-1">
+                <Text size="md" className={syncPaused ? 'text-fg-disabled' : 'text-foreground'}>
+                  Check other devices
+                </Text>
+                <Text size="xs" className="mt-0.5 text-fg-subtle">
+                  How often the whole account is read back. Your own changes go out immediately
+                  whatever this says.
+                </Text>
+              </VStack>
+              <Text size="md" className={syncPaused ? 'text-fg-disabled' : 'text-fg-muted'}>
+                {reconcileLabel(reconcileEveryMinutes)}
+              </Text>
+            </HStack>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/sync')}
+            accessibilityRole="button"
+            accessibilityLabel="What is waiting to reach your account"
+            className="px-4 py-2 data-[active=true]:bg-hover"
+          >
+            <VStack>
+              <Text size="md" className="text-foreground">
+                What is waiting
+              </Text>
+              <Text size="xs" className="mt-0.5 text-fg-subtle">
+                Changes queued, anything that would not go through, and a way to retry.
+              </Text>
+            </VStack>
+          </Pressable>
         </Section>
 
         <Divider className="mx-6 mt-2 bg-hairline" />
@@ -198,6 +303,28 @@ export function DataScreen() {
         </Notice>
       </ScrollView>
 
+      <ChoiceSheet
+        isOpen={choosingReconcile}
+        onClose={() => setChoosingReconcile(false)}
+        title="Check other devices"
+        subtitle="How often the whole account is read back"
+        choices={([5, 15, 30, 60] as const).map((minutes) => ({
+          value: String(minutes),
+          label: reconcileLabel(minutes),
+          note:
+            minutes === 5
+              ? 'Most current, and the most requests.'
+              : minutes === 60
+                ? 'Cheapest. A change made on another phone can take an hour to appear.'
+                : undefined,
+          selected: reconcileEveryMinutes === minutes,
+        }))}
+        onSelect={(value) => {
+          setChoosingReconcile(false);
+          set({ reconcileEveryMinutes: Number(value) as ReconcileInterval });
+        }}
+      />
+
       <ActionSheetPanel
         isOpen={confirming}
         isDismissable={!deleting}
@@ -250,6 +377,11 @@ export function DataScreen() {
       </ActionSheetPanel>
     </Screen>
   );
+}
+
+/** The interval, said the way somebody would choose it. */
+function reconcileLabel(minutes: number): string {
+  return minutes === 60 ? 'Every hour' : `Every ${minutes} min`;
 }
 
 const CONTENT = { paddingBottom: 32 } as const;

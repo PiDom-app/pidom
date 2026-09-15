@@ -6,6 +6,7 @@ import { useLibrarySync } from '@/features/library/data/use-library-sync';
 import { useSyncIntents } from '@/features/library/data/use-sync-intents';
 import { useIncomingDocument } from '@/features/library/import/use-incoming-document';
 import { useLocalLibrary } from '@/features/library/local/use-local-library';
+import { useDownloadQueue } from '@/features/library/downloads/use-download-queue';
 import { useSyncEngine } from '@/features/library/sync/use-sync-engine';
 import { usePushNotifications } from '@/features/notifications/use-push-registration';
 import { useSharingSync } from '@/features/sharing/data/use-sharing-sync';
@@ -25,6 +26,8 @@ import { useSharingSync } from '@/features/sharing/data/use-sharing-sync';
  *   useSharingSync      the same, for what other people have shared
  *   useSyncEngine       the outbox: drain, then reconcile
  *   useSyncIntents      uploads asked for when there was nothing to upload to
+ *   useDownloadQueue    the other direction: files onto this device, and the
+ *                       holds, pauses and re-checks that go with them
  *   useIncomingDocument a PDF handed over by another app
  *   usePushNotifications this device's push token, and where a tap goes
  *
@@ -35,7 +38,7 @@ import { useSharingSync } from '@/features/sharing/data/use-sharing-sync';
  * A plain stack. `index` is home, `library` is everything behind "View all",
  * `collection` is one group, `search` looks inside documents rather than at
  * their titles, `import` is a modal task, and `reader` sits above them all so a
- * document opens full-bleed. `navigator` and `note` sit above the reader, and
+ * document opens full-bleed. `navigator` and `bookmark` sit above the reader, and
  * are screens rather than sheets over it — see `navigator-screen.tsx` for what
  * a sheet whose height is the reader's data did to the control hanging off it.
  * A tab navigator, if it is ever the right answer, goes here too.
@@ -51,6 +54,10 @@ export default function AppLayout() {
   useSharingSync();
   useSyncEngine();
   useSyncIntents();
+  // The download queue, and deliberately not part of the outbox above. That one
+  // drains changes and may retry them freely; this one moves files, where a
+  // retry is somebody's data allowance and a hold is a setting doing its job.
+  useDownloadQueue();
   // A PDF opened from another app. Here rather than on a screen, because a
   // document can arrive while the reader is anywhere — and only here, because a
   // file handed over while signed out has no account to go into.
@@ -74,7 +81,7 @@ export default function AppLayout() {
       {/* Over the reader, and pushed rather than presented: the document stays
           mounted underneath, so coming back is not reopening a 400-page file. */}
       <Stack.Screen name="navigator" />
-      <Stack.Screen name="note" />
+      <Stack.Screen name="bookmark" />
       <Stack.Screen name="collection" />
       <Stack.Screen name="search" />
       <Stack.Screen name="account" />
@@ -82,6 +89,9 @@ export default function AppLayout() {
       <Stack.Screen name="sync" />
       {/* What the library takes up here, and what removing any of it costs. */}
       <Stack.Screen name="storage" />
+      {/* What opens with no connection, and what any of it is waiting for. */}
+      <Stack.Screen name="downloads" />
+      <Stack.Screen name="download-settings" />
 
       {/* Sharing. A document is still one row with one owner; these are the
           screens for the grants on top of it. All pushed rather than presented:
@@ -102,3 +112,15 @@ export default function AppLayout() {
     </Stack>
   );
 }
+
+/**
+ * The boundary this layout was missing.
+ *
+ * Every route inside it exports one, and this — the file that mounts five live
+ * subscriptions through `useLibrarySync` and `useSharingSync` — did not. A
+ * query error is re-thrown during render, so a throw from any of those five
+ * escaped the whole authenticated segment and landed on the root fallback:
+ * a full-screen error with no back arrow and no navigation, which is
+ * indistinguishable from the app being dead.
+ */
+export { ScreenError as ErrorBoundary } from '@/components/feedback/screen-error';

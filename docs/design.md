@@ -60,8 +60,8 @@ breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.
 ## The canvas
 
 `.design/` holds the design source: `build.mjs` generates one `.dc.html`
-artboard per screen — eighty-nine of them — and `screens.mjs` draws twenty-one
-of the same screens as SVG for the images in the README. Both read the same tokens
+artboard per screen — a hundred and sixteen of them — and `screens.mjs` draws
+twenty-one of the same screens as SVG for the images in the README. Both read the same tokens
 as `src/design/global.css`, so a colour that changes there has to change in both
 — the audit that checks `src/` does not reach them.
 
@@ -124,6 +124,51 @@ Three of the artboards exist to say something the code cannot:
 - **`ShareModel`** (900×720) — identity, membership and access as three separate
   things, and a column headed **Never** listing what removing access does not
   reach.
+
+## The downloads surfaces
+
+Sixteen artboards, drawn before any of the code. Two screens, a sheet, a picker
+and three wide boards that say something the code cannot.
+
+The screen wears the same shell as everything since the navigator —
+`ScreenHeader`, the chip row from `segments.tsx`, a `Divider`, a `FlashList` —
+because a sixth slightly different header would be a sixth application. It is a
+**route rather than a sheet**, which is the line this document already draws:
+its height is the reader's data.
+
+**The download row has no cover**, for the reason `device-storage.tsx` has none:
+this screen is about whether a file is here, not about which book to read next,
+and a column of covers turns a management surface back into a shelf. The state
+glyph is first and is the only coloured thing in the row, so a column of them
+reads without a word being parsed — and only the colours that mean something
+survive into the sentence, because painting a hundred `available` rows green
+makes the four that need attention invisible.
+
+**The size is an exact byte count, not a percentage.** `4.6 MB of 12.4 MB`
+rather than `37%`, because the comparison somebody is actually making is against
+the free space on their phone, and a percentage cannot be compared to that.
+
+**The progress rule is two pixels and hand-rolled.** gluestack's `Progress` is
+vendored and used nowhere in this application; it is eight pixels on a tinted
+track. Two different bars for one transfer on two screens would be one bar too
+many, so this is the tile's.
+
+**`ChoiceSheet` is the second exception to screens-rather-than-sheets**, beside
+the permission picker and the profile preview. None of its lists has a height
+that is the reader's data — the longest is five rows and will never be six — and
+it is `time-sheet.tsx`'s shape down to the fixed maximum height, with a `Check`
+on the current value rather than a radio, because the vocabulary here is a tick.
+
+Three of the artboards exist to say something the code cannot:
+
+- **`DownloadStates`** (1024×760) — all eleven states in one table, each with
+  the sentence its row says and the one thing it offers. A state machine that
+  lives only in a TypeScript union is a state machine nobody reviews.
+- **`DownloadRowAnatomy`** (900×560) — the six parts of a row and why they are
+  in that order.
+- **`DownloadModel`** (900×760) — the pipeline, with a column headed **Never**:
+  no local path on the wire, no server field saying "downloaded", no URL that
+  outlives its five minutes.
 
 ## Where content sits
 

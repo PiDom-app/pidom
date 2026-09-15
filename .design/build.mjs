@@ -9,6 +9,7 @@ const DARK = {
   hairline: '#1c1b1a', border: '#262523', borderStrong: '#3d3b38',
   fg: '#e8e6e3', fgMuted: '#8f8d88', fgSubtle: '#6e6c68', fgDisabled: '#4e4d4a',
   primary: '#6a59e8', primaryTint: '#1a1633', destructive: '#eb5757', ok: '#3dc280',
+  warn: '#e0a83e', warnTint: '#2b210c',
   onPrimary: '#ffffff', inset: 'rgba(255,255,255,.05)',
 };
 const LIGHT = {
@@ -16,6 +17,7 @@ const LIGHT = {
   hairline: '#eceae6', border: '#e2e0dc', borderStrong: '#c6c3be',
   fg: '#171615', fgMuted: '#6e6c68', fgSubtle: '#8f8d88', fgDisabled: '#b0aea9',
   primary: '#6a59e8', primaryTint: '#f0eefd', destructive: '#d0282c', ok: '#168f59',
+  warn: '#b0740c', warnTint: '#fdf6e8',
   onPrimary: '#ffffff', inset: 'rgba(0,0,0,.06)',
 };
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif";
@@ -118,6 +120,11 @@ const icons = {
   image: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
   smartphone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   shieldAlert: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+  play: '<path d="M5 4.5a1 1 0 0 1 1.52-.85l11 7.5a1 1 0 0 1 0 1.7l-11 7.5A1 1 0 0 1 5 19.5z"/>',
+  fileCheck: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/>',
+  circleSlash: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 10.37-3.48 1.59a1 1 0 0 0 0 1.83l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.48-1.59"/><path d="m6.08 15.37-3.48 1.59a1 1 0 0 0 0 1.83l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.48-1.59"/>',
   sliders: '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
 };
 const icon = (name, size, color, sw = 1.75) =>
@@ -1325,7 +1332,7 @@ function navTabs(c, active, { bookmarks = 0, notes = 0 } = {}) {
        <span style="font-size:12px;white-space:nowrap;color:${active === key ? c.primary : c.fgMuted}">${label}</span>
      </div>`;
   return `<div style="display:flex;gap:6px;padding:0 ${PAD}px 12px">
-      ${tab('contents', 'Contents')}${tab('bookmarks', bookmarks === 0 ? 'Bookmarks' : `Bookmarks · ${bookmarks}`)}${tab('notes', notes === 0 ? 'Notes' : `Notes · ${notes}`)}${tab('pages', 'Pages')}
+      ${tab('contents', 'Contents')}${tab('bookmarks', bookmarks === 0 ? 'Bookmarks' : `Bookmarks · ${bookmarks}`)}${tab('notes', notes === 0 ? 'Passages' : `Passages · ${notes}`)}${tab('pages', 'Pages')}
     </div>`;
 }
 
@@ -1430,12 +1437,12 @@ function readerNotes() {
     w: 390, h: 844, bg: c.bg,
     body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
   ${navigatorPage(c, {
-    glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
+    glyph: 'highlighter', title: 'Passages', subtitle: doc.t,
     trailing: `<span style="font-size:12px;color:${c.fgSubtle}" class="tnum">3</span>`,
     active: 'notes', counts: { bookmarks: 5, notes: 3 },
     body: `<div style="padding-top:4px">
-      ${row('&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;', 'His own summary. Quote this one.', 20)}
-      ${row(null, 'The small-numbers argument starts here, not in the chapter that is named after it.', 142, true)}
+      ${row('&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;', null, 20)}
+      ${row('&ldquo;The law of small numbers is a bias of confidence over doubt.&rdquo;', null, 142, true)}
       ${row('&ldquo;&hellip;an anchoring index of 55%, which is about what most of these experiments produce.&rdquo;', null, 152)}
     </div>`,
   })}
@@ -1446,9 +1453,11 @@ function readerNotes() {
 /**
  * Nothing kept yet.
  *
- * It says what to do rather than what is absent, and it says both halves —
- * selecting text is iOS-only because the renderer's selection is, so a screen
- * that only offered that would be an empty state with no exit on Android.
+ * It says what to do rather than what is absent. The button under it offered
+ * writing a note, which is not something this application does any more — so
+ * the state says where keeping comes from instead of offering a control that
+ * Android could not honour anyway: the renderer reports no text selection
+ * there, which is why the sentence names the gesture rather than a button.
  */
 function readerNotesEmpty() {
   const c = DARK;
@@ -1458,17 +1467,12 @@ function readerNotesEmpty() {
     w: 390, h: 844, bg: c.bg,
     body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
   ${navigatorPage(c, {
-    glyph: 'highlighter', title: 'Notes', subtitle: doc.t,
+    glyph: 'highlighter', title: 'Passages', subtitle: doc.t,
     active: 'notes', counts: { bookmarks: 5, notes: 0 },
     body: `<div style="padding:44px ${PAD}px 24px;text-align:center">
       ${icon('quote', 26, c.fgDisabled)}
       <div style="margin-top:14px;font-size:15px;font-weight:600;color:${c.fg}">Nothing kept yet</div>
-      <div style="margin-top:6px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Select a passage in the document to keep it, or write a note about the page you are on.</div>
-      <div style="margin-top:18px;display:flex;justify-content:center">
-        <div style="height:36px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}">
-          ${icon('notebookPen', 15, c.fg)}<span style="font-size:14px;font-weight:500;color:${c.fg}">Write a note</span>
-        </div>
-      </div>
+      <div style="margin-top:6px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Select a passage while reading and choose Keep. It stays with the page it came from.</div>
     </div>`,
   })}
 </div>`,
@@ -1521,60 +1525,6 @@ function readerThumbnails() {
   });
 }
 
-/**
- * Writing a note.
- *
- * A **screen**, not a dialog. A dialog holding a keyboard on a phone is a box
- * with about four visible lines in it, and a note is prose — so the field gets
- * the room, and Keep sits in the header where a screen's primary action goes.
- *
- * The passage is shown and is not editable: `text` is the document's own words,
- * and a field that let a reader rewrite them would turn a quotation into a
- * paraphrase nothing downstream could tell apart from one. When the note is
- * written from the overflow rather than from a selection — which is the whole
- * of the Android path, since that renderer has no selection — the quote is
- * absent and the page number is the anchor.
- */
-function readerNoteCompose() {
-  const c = DARK;
-  return dc({
-    w: 390, h: 844, bg: c.bg,
-    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
-  <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px">
-    ${icon('arrowLeft', 22, c.fg, 2)}
-    <div style="flex:1;min-width:0;margin-left:10px">
-      <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Write a note</div>
-      <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}" class="tnum">Page 142</div>
-    </div>
-    <div style="height:34px;display:flex;align-items:center;padding:0 14px;border-radius:${R};background:${c.primary};flex:0 0 auto">
-      <span style="font-size:14px;font-weight:500;color:${c.onPrimary}">Keep</span>
-    </div>
-  </div>
-
-  <div style="padding:8px ${PAD}px 0">
-    <div style="font-size:12px;color:${c.fgSubtle}">From the page</div>
-    <div style="margin-top:8px;display:flex;gap:10px">
-      <div style="width:2px;border-radius:1px;background:${c.borderStrong};flex:0 0 auto"></div>
-      <div style="flex:1;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">&ldquo;System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control.&rdquo;</div>
-    </div>
-
-    <div style="margin-top:20px;font-size:12px;color:${c.fgSubtle}">Note</div>
-    <div style="margin-top:8px;min-height:160px;padding:11px 12px;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.primary}">
-      <span style="font-size:15px;line-height:22px;color:${c.fg}">His own summary. Quote this one.</span>
-    </div>
-  </div>
-</div>`,
-  });
-}
-
-/**
- * Naming a bookmark.
- *
- * The same screen, with one line instead of several. `maxLength` is
- * `BOOKMARK_LABEL_MAX` so the keyboard stops a long name rather than a round
- * trip coming back as an error, and clearing the field is how a reader takes a
- * name back off — which is the line under it.
- */
 function readerBookmarkName() {
   const c = DARK;
   return dc({
@@ -3329,8 +3279,10 @@ function shareCompose(variant) {
         ${icon('chevronRight', 15, c.fgSubtle, 2)}
       </div>
       <div style="display:flex;align-items:center;gap:14px;padding:2px ${PAD}px 10px">
-        ${icon('messageSquare', 19, c.fgMuted)}
-        <span style="font-size:14px;color:${sending || queued ? c.fg : c.fgSubtle}">${sending || queued ? 'Chapter 4 is the one we argued about.' : 'Say something (optional)'}</span>
+        ${icon('clock', 19, c.fgMuted)}
+        <div style="flex:1"><div style="font-size:15px;color:${c.fg}">Access ends in a week</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}">The only permission that takes itself back</div></div>
+        ${icon('chevronRight', 15, c.fgSubtle, 2)}
       </div>`}
       ${footer}
     </div>`,
@@ -3363,12 +3315,13 @@ function sharePermissionSheet() {
     subtitle: doc.t,
     body: `<div style="padding-top:4px">
       ${readerRow(c, { glyph: 'eye', label: 'Can read', note: 'Open it and read it. Nothing is written back.', checked: true })}
-      ${readerRow(c, { glyph: 'notebookPen', label: 'Can annotate', note: 'Keep passages and write notes on it. Theirs, and you see them.' })}
+      ${readerRow(c, { glyph: 'highlighter', label: 'Can annotate', note: 'Keep passages from it. Theirs, and you see them.' })}
       <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
       ${readerRow(c, { glyph: 'download', label: 'Can download a copy', note: 'Puts the file on their device. Removing access later does not take it back.' })}
       ${readerRow(c, { glyph: 'share2', label: 'Can share it on', note: 'Never more than they have themselves.' })}
+      ${readerRow(c, { glyph: 'clock', label: 'Access ends', note: 'A week from when you share it.', checked: true })}
       <div style="padding:14px ${PAD}px 4px">
-        <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Both of the last two are off unless you turn them on, on every share.</div>
+        <div style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Downloading and resharing are off unless you turn them on, on every share. An end date is the only one of these that takes access back on its own.</div>
       </div>
     </div>`,
   })}
@@ -4572,6 +4525,625 @@ function deleteAccount() {
   });
 }
 
+/* =========================== DOWNLOADS ============================ *
+ * What opens on a plane, and why any given document does not yet.
+ *
+ * The machinery underneath was already good: a signed URL that lives
+ * five minutes, a `.download` temp file, three checks on what arrived,
+ * and an atomic move. What it had no vocabulary for was *waiting*.
+ * `fileState` could say `missing`, `downloading`, `available` or
+ * `corrupt` and nothing else — so a download held for Wi-Fi, one
+ * queued behind two others, one paused halfway, and one that simply
+ * failed were all the same word on the tile: `missing`. A reader about
+ * to board a flight could not tell which of those four they were
+ * looking at, which is exactly the moment the answer matters most.
+ *
+ * These boards are that vocabulary. Eleven states, each with one line
+ * of plain words and at most one thing to do about it.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The eleven states, in the order a document moves through them.
+ *
+ * `glyph`, `tone` and `line` are the whole of a row's treatment, and they are
+ * declared once here rather than at each call site so the Downloads screen, the
+ * state chart and the anatomy board cannot drift apart — which is the same
+ * reason `build.mjs` and `src/design/global.css` share a token list.
+ */
+const DL = (c) => ({
+  missing: { glyph: 'cloudDown', tone: c.fgMuted, label: 'Not downloaded', line: 'In your account. A tap fetches it.' },
+  queued: { glyph: 'clock', tone: c.fgSubtle, label: 'Queued', line: 'Waiting for the download before it.' },
+  downloading: { glyph: 'cloudDown', tone: c.primary, label: 'Downloading', line: null },
+  paused: { glyph: 'pause', tone: c.fgMuted, label: 'Paused', line: null },
+  held: { glyph: 'wifiOff', tone: c.warn, label: 'Waiting for Wi-Fi', line: 'Held because downloads are set to Wi-Fi only.' },
+  verifying: { glyph: 'shieldCheck', tone: c.primary, label: 'Checking', line: 'Making sure the whole file arrived.' },
+  available: { glyph: 'cloudCheck', tone: c.ok, label: 'On this device', line: 'Opens with no connection.' },
+  outdated: { glyph: 'refresh', tone: c.warn, label: 'A newer copy is in your account', line: 'This one still opens. Download again to catch up.' },
+  corrupt: { glyph: 'shieldAlert', tone: c.destructive, label: "Didn't arrive whole", line: 'Nothing was kept. Try again on a steadier connection.' },
+  failed: { glyph: 'circleSlash', tone: c.destructive, label: "Couldn't download", line: 'Eight attempts. Tap to try once more.' },
+  removing: { glyph: 'trash', tone: c.fgSubtle, label: 'Removing', line: 'Freeing the space this took.' },
+});
+
+/**
+ * One document on the Downloads screen.
+ *
+ * No cover, for the same reason `storageRow` has none: this screen is about
+ * whether a file is here, not about which book to read next, and a column of
+ * covers turns a management surface back into a shelf. The size is on the right
+ * in tabular numerals so a column of them lines up — a download at `3.1 MB of
+ * 8.4 MB` and one at `12.4 MB` should not make the eye re-find the decimal.
+ *
+ * The progress rule is the tile's two pixels rather than a component. The
+ * vendored gluestack `Progress` is 8px on a tinted track and is not used
+ * anywhere in this application; introducing it here would put two different
+ * progress bars on two screens showing the same transfer.
+ */
+function downloadRow(c, state, doc, { pct = null, detail = null, sub = null, dim = false } = {}) {
+  const s = DL(c)[state];
+  const line = sub ?? s.line;
+  return `<div style="display:flex;align-items:flex-start;gap:12px;padding:13px ${PAD}px;border-bottom:1px solid ${c.hairline};${dim ? 'opacity:.55;' : ''}">
+      <div style="margin-top:2px">${icon(s.glyph, 16, s.tone, 2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}" class="c2">${doc.t}</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${s.tone === c.fgMuted || s.tone === c.fgSubtle ? c.fgSubtle : s.tone}" class="pretty tnum">${line ?? s.label}</div>
+        ${pct === null ? '' : `<div style="margin-top:8px">${progressBar(c, pct)}</div>`}
+      </div>
+      <div style="flex:0 0 auto;display:flex;align-items:flex-start;gap:10px;padding-top:1px">
+        <span style="font-size:12px;color:${c.fgMuted}" class="tnum">${detail ?? doc.size}</span>
+        ${icon('more', 16, c.fgSubtle, 2)}
+      </div>
+    </div>`;
+}
+
+/**
+ * The screen shell. `sharePage` verbatim — a fifth header would be a fifth application.
+ *
+ * The `position:relative` wrapper is not decoration: `sharePage` lays itself out
+ * with `inset:0`, so without a positioned box of a known height it collapses to
+ * nothing and the board renders blank.
+ */
+function downloadsPage(c, { subtitle, active, body }) {
+  return `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">${sharePage(c, {
+    glyph: 'cloudDown',
+    title: 'Downloads',
+    subtitle,
+    trailing: icon('sliders', 19, c.fgMuted, 2),
+    segs: [
+      { label: 'All', on: active === 'all' },
+      { label: 'On this device', on: active === 'device' },
+      { label: 'Waiting', on: active === 'waiting' },
+      { label: 'Problems', on: active === 'problems' },
+    ],
+    body,
+  })}</div>`;
+}
+
+/**
+ * The screen with a mixture on it, which is the state it is usually in.
+ *
+ * Deliberately not sorted by state. A reader looking for one book scans titles,
+ * and grouping by state would move a document every time its state changed —
+ * the row under the thumb at the moment a download finishes would be a
+ * different row. Largest-first is `/storage`'s ordering because that screen is
+ * about quantity; this one is newest-activity-first, because it is about what
+ * just happened and what is about to.
+ */
+function downloads(dark) {
+  const c = dark ? DARK : LIGHT;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: '6 on this device · 1.4 GB',
+      active: 'all',
+      body: `<div style="flex:1;overflow:hidden">
+        ${downloadRow(c, 'downloading', byTitle('Designing Data'), { pct: 37, detail: '4.6 MB of 12.4 MB', sub: 'Downloading' })}
+        ${downloadRow(c, 'queued', byTitle('Sapiens'))}
+        ${downloadRow(c, 'available', byTitle('Thinking,'))}
+        ${downloadRow(c, 'outdated', byTitle('The Pragmatic'))}
+        ${downloadRow(c, 'available', byTitle('Convex Backend'))}
+        ${downloadRow(c, 'corrupt', byTitle('Kubernetes'))}
+        ${downloadRow(c, 'missing', byTitle('Structure and'))}
+      </div>`,
+    }),
+  });
+}
+
+/**
+ * Nothing downloaded, and the sentence that says what this screen is for.
+ *
+ * The empty state is the only thing on the screen, so it sits in the middle of
+ * it — `docs/design.md` is explicit that a list starts at the top and a single
+ * message does not, and this screen is the second kind until somebody downloads
+ * something.
+ */
+function downloadsEmpty() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: 'Nothing on this device',
+      active: 'device',
+      body: emptyState(c, {
+        glyph: 'cloudDown',
+        title: 'Nothing downloaded yet',
+        body: 'A downloaded document opens with no connection — on a plane, underground, or with the account unreachable. Everything else needs a network.',
+        action: quietButton(c, 'Choose what to keep offline', { glyph: 'bookOpen' }),
+      }),
+    }),
+  });
+}
+
+/**
+ * The queue, which is the half of this feature that did not exist.
+ *
+ * One at a time by default, and the order is visible. A queue whose order
+ * nobody can see is a queue that looks stuck: the reader taps four downloads,
+ * watches one bar move, and has no way to know the other three are coming
+ * rather than lost.
+ */
+function downloadsQueue() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: '3 waiting · 1 moving',
+      active: 'waiting',
+      body: `<div style="flex:1;overflow:hidden">
+        ${downloadRow(c, 'downloading', byTitle('Designing Data'), { pct: 37, detail: '4.6 MB of 12.4 MB', sub: 'Downloading · about 40 seconds left' })}
+        ${downloadRow(c, 'paused', byTitle('Sapiens'), { pct: 62, detail: '4.2 MB of 6.8 MB', sub: 'Paused. Resuming keeps what has arrived.' })}
+        ${downloadRow(c, 'queued', byTitle('The Pragmatic'), { sub: 'Next.' })}
+        ${downloadRow(c, 'queued', byTitle('Kubernetes'), { sub: 'Waiting for the two before it.' })}
+        ${quietNotice(c, 'info', 'One at a time, so a queue of ten does not make the one you are waiting for the slowest. Change that under <b style="color:' + c.fg + '">Downloads settings</b>.')}
+      </div>`,
+    }),
+  });
+}
+
+/**
+ * The actions on one downloaded document.
+ *
+ * An `Actionsheet`, not a `BottomSheet`. gluestack's is built on
+ * `@gorhom/bottom-sheet`, which this project does not install — and this list
+ * is seven rows that will never be a hundred, so it has no height that is the
+ * reader's data and needs no snap points.
+ *
+ * **Remove download and Delete are not the same row and never share one.** One
+ * frees space and costs a tap to undo; the other destroys the only copy. They
+ * are separated by a rule and only one of them is ever in the destructive
+ * colour.
+ */
+function downloadActions() {
+  const c = DARK;
+  const doc = byTitle('Designing Data');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;inset:0;background:${c.bg};opacity:.45"></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+  ${readerSheet(c, {
+    glyph: 'cloudCheck',
+    title: doc.t,
+    subtitle: 'On this device · 12.4 MB · checked 2 days ago',
+    body: `<div style="padding-top:4px">
+      ${readerRow(c, { glyph: 'bookOpen', label: 'Open' })}
+      ${readerRow(c, { glyph: 'pause', label: 'Pause download', note: 'Keeps what has arrived. Resuming picks up where it stopped.' })}
+      ${readerRow(c, { glyph: 'refresh', label: 'Download again', note: 'Replaces the copy here with the one in your account.' })}
+      ${readerRow(c, { glyph: 'fileCheck', label: 'Check this file', note: 'Reads it back and compares it against what your account holds.' })}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      ${readerRow(c, { glyph: 'folderPlus', label: 'Add to a collection' })}
+      ${readerRow(c, { glyph: 'heart', label: 'Favourite' })}
+      ${readerRow(c, { glyph: 'share2', label: 'Share' })}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      <div style="min-height:52px;display:flex;align-items:center;gap:14px;padding:9px ${PAD}px">
+        ${icon('trash', 19, c.destructive)}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;color:${c.destructive}">Remove from this device</div>
+          <div style="margin-top:2px;font-size:12px;line-height:16px;color:${c.fgSubtle}" class="pretty">Frees 12.4&nbsp;MB. It stays in your account.</div>
+        </div>
+      </div>
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * The two ways a download can end badly, and what each one kept.
+ *
+ * The answer is "nothing", both times, and saying so is the point. A file that
+ * arrived truncated is deleted rather than left under the name the scan reads
+ * as "this document is on this device" — a reader who opens a broken PDF with
+ * no explanation has been told a lie by a filename.
+ */
+function downloadsFailed() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: '2 need attention',
+      active: 'problems',
+      body: `<div style="flex:1;overflow:hidden">
+        ${downloadRow(c, 'corrupt', byTitle('Kubernetes'), { detail: '7.2 MB', sub: "Didn't arrive whole — the file was the wrong size. Nothing was kept." })}
+        ${downloadRow(c, 'failed', byTitle('Sapiens'), { detail: '6.8 MB', sub: 'Eight attempts over half an hour. Your account could not be reached.' })}
+        ${quietNotice(c, 'shieldAlert', 'A download is checked before it counts as here: the size your account recorded, the first five bytes reading <b style="color:' + c.fg + '">%PDF-</b>, and the file’s own hash. A file that fails any of the three is deleted rather than left looking ready.', c.fgSubtle)}
+        <div style="padding:4px ${PAD}px 0">${primaryButton(c, 'Try both again', { glyph: 'refresh' })}</div>
+      </div>`,
+    }),
+  });
+}
+
+/**
+ * The copy in the account moved on.
+ *
+ * This is the state the first design did not have, and its absence was a quiet
+ * wrong answer: a document replaced on another device left this phone holding
+ * an older file that opened perfectly and was not the document any more.
+ * `outdated` is not an error — the local file is still readable, and saying so
+ * is what stops this reading as a failure. It is an offer.
+ */
+function downloadsOutdated() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: '6 on this device · 1 behind',
+      active: 'all',
+      body: `<div style="flex:1;overflow:hidden">
+        ${downloadRow(c, 'outdated', byTitle('The Pragmatic'), { detail: '3.3 MB', sub: 'Replaced in your account on 4 September. The copy here still opens.' })}
+        <div style="display:flex;gap:10px;padding:2px ${PAD}px 16px">
+          <div style="flex:1">${primaryButton(c, 'Download the new one', { glyph: 'cloudDown' })}</div>
+          <div style="flex:1">${quietButton(c, 'Keep this one')}</div>
+        </div>
+        <div style="height:1px;background:${c.hairline}"></div>
+        ${downloadRow(c, 'available', byTitle('Thinking,'))}
+        ${downloadRow(c, 'available', byTitle('Convex Backend'))}
+        ${downloadRow(c, 'available', byTitle('Domain-Driven'))}
+      </div>`,
+    }),
+  });
+}
+
+/**
+ * Held, and by which of the two rules.
+ *
+ * Wi-Fi only is a switch somebody set; the cellular ceiling is a number. They
+ * are different sentences because they have different answers — one is turned
+ * off, the other is agreed to once for this document. Both say what is
+ * happening rather than sitting silent, which is what the previous behaviour
+ * did: a refused download was a toast that had already gone by the time
+ * anybody wondered why nothing was moving.
+ */
+function downloadsHeld() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: '3 held · on mobile data',
+      active: 'waiting',
+      body: `<div style="flex:1;overflow:hidden">
+        ${quietNotice(c, 'wifiOff', 'You are on mobile data. Three downloads are held until Wi‑Fi.', c.warn)}
+        ${downloadRow(c, 'held', byTitle('Designing Data'), { detail: '12.4 MB' })}
+        ${downloadRow(c, 'held', byTitle('Sapiens'), { detail: '6.8 MB', sub: 'Over the 25 MB mobile-data ceiling you set.' })}
+        ${downloadRow(c, 'held', byTitle('Kubernetes'), { detail: '7.2 MB' })}
+        <div style="display:flex;gap:10px;padding:8px ${PAD}px 16px">
+          <div style="flex:1">${quietButton(c, 'Download anyway', { glyph: 'cloudDown' })}</div>
+          <div style="flex:1">${quietButton(c, 'Settings', { glyph: 'sliders' })}</div>
+        </div>
+        ${quietNotice(c, 'info', 'They start on their own the moment you are on Wi‑Fi. Nothing has to be tapped again.')}
+      </div>`,
+    }),
+  });
+}
+
+/**
+ * Download settings — everything this handset decides for itself.
+ *
+ * **Every value here stays on the device.** `preferences-store.ts` says why in
+ * one sentence: syncing a phone's answer about its data plan to a tablet that
+ * has none is applying an answer to a question that device never asked. The
+ * account settings screens are next door and hold the opposite kind of thing —
+ * who may find this reader, what they want to be told — which follow them to a
+ * new phone and should.
+ */
+function downloadSettings(part) {
+  const c = DARK;
+  const top = part === 'top';
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">${sharePage(c, {
+      glyph: 'sliders',
+      title: 'Downloads',
+      subtitle: 'What this device pulls down, and keeps',
+      body: top
+        ? `<div style="flex:1;overflow:hidden">
+        ${settingsLabel(c, 'Network', 14)}
+        ${settingsSwitch(c, { label: 'Download over Wi‑Fi only', note: 'Holds full documents until you are on Wi‑Fi. Reading what is already here is unaffected.', on: true })}
+        ${settingsPick(c, { label: 'Ask on mobile data above', note: 'Anything larger waits for you to agree to it, once, for that document.', value: '25 MB' })}
+        ${settingsSwitch(c, { label: 'Resume when Wi‑Fi returns', note: 'Held downloads start on their own rather than waiting to be tapped again.', on: true })}
+        <div style="height:1px;margin:8px ${PAD}px 0;background:${c.hairline}"></div>
+        ${settingsLabel(c, 'Keep offline automatically')}
+        ${settingsSwitch(c, { label: 'Documents shared with me', note: 'Fetches a shared PDF when you accept it, so it is there before you need it.', on: false })}
+        ${settingsSwitch(c, { label: 'Favourites', note: 'Anything you have hearted stays on this device.', on: true })}
+        ${settingsPick(c, { label: 'Recently opened', note: 'The last few you read are kept here whatever else happens.', value: '5 documents' })}
+        ${quietNotice(c, 'info', 'Automatic downloads obey everything above them: they wait for Wi‑Fi, they respect the ceiling, and they never start when the disk is nearly full.')}
+      </div>`
+        : `<div style="flex:1;overflow:hidden">
+        ${settingsLabel(c, 'Storage', 14)}
+        ${settingsPick(c, { label: 'Keep at most', note: '1.4 GB of 2 GB used. Downloads stop at the ceiling rather than filling the phone.', value: '2 GB' })}
+        ${settingsPick(c, { label: 'When full, remove', note: 'Only documents your account still holds. Never the only copy of anything.', value: 'Least recently opened' })}
+        ${settingsSwitch(c, { label: 'Never remove finished books', note: 'A book you marked finished stays until you remove it yourself.', on: false })}
+        ${settingsPick(c, { label: 'What is on this device', note: 'The downloaded documents themselves, largest first.', value: '11' })}
+        <div style="height:1px;margin:8px ${PAD}px 0;background:${c.hairline}"></div>
+        ${settingsLabel(c, 'Integrity')}
+        ${settingsPick(c, { label: 'Check a file before opening', note: 'Reads it back and compares it against what your account holds.', value: 'Weekly' })}
+        ${settingsPick(c, { label: 'Check every download now', note: '11 documents, about 20 seconds.', value: '' })}
+        <div style="height:1px;margin:8px ${PAD}px 0;background:${c.hairline}"></div>
+        ${settingsLabel(c, 'Queue')}
+        ${settingsPick(c, { label: 'At once', note: 'More is not faster on one connection; it only makes the first one slower.', value: '1' })}
+        ${settingsSwitch(c, { label: 'Retry on its own', note: 'Eight attempts, spacing out. Then it waits for you.', on: true })}
+        ${quietNotice(c, 'phone', 'All of this is about <b style="color:' + c.fg + '">this</b> handset and stays on it. Another device you sign in to answers these for itself.')}
+      </div>`,
+    })}</div>`,
+  });
+}
+
+/**
+ * The storage ceiling, and the one thing it must never do.
+ *
+ * A cap that could delete the only copy of a document would be a cap that loses
+ * somebody's work to a number they set six months ago. So eviction is only ever
+ * offered documents the account still holds, and the sheet says which of the
+ * two kinds it is looking at before anything is removed.
+ */
+function downloadStorageCap() {
+  const c = DARK;
+  const pick = (label, note, on) =>
+    `<div style="display:flex;align-items:center;gap:14px;padding:11px ${PAD}px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;color:${c.fg}">${label}</div>
+        ${note ? `<div style="margin-top:2px;font-size:12px;color:${c.fgSubtle}">${note}</div>` : ''}
+      </div>
+      ${on ? icon('check', 18, c.primary, 2) : ''}
+    </div>`;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  <div style="position:absolute;inset:0;background:${c.bg};opacity:.45"></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+  ${readerSheet(c, {
+    glyph: 'hardDrive',
+    title: 'Keep at most',
+    subtitle: '1.4 GB used now · 8.2 GB free on this device',
+    body: `<div style="padding-top:4px">
+      ${pick('No limit', 'Downloads stop only when the phone is full.', false)}
+      ${pick('1 GB', 'About 80 books at this library’s average size.', false)}
+      ${pick('2 GB', '', true)}
+      ${pick('5 GB', '', false)}
+      ${pick('10 GB', '', false)}
+      <div style="height:1px;margin:6px ${PAD}px;background:${c.hairline}"></div>
+      ${quietNotice(c, 'shieldCheck', 'At the ceiling, the least recently opened document <b style="color:' + c.fg + '">that your account still holds</b> is removed. A document that exists only on this phone is never removed to make room — it would be the only copy, and no number you set should be able to destroy one.', c.fgSubtle)}
+    </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Refused for space, with the way out on the same screen.
+ *
+ * `space.ts` has always refused an import with "remove a download or two and
+ * try again" and never said which ones were large. This is that sentence
+ * finished: the three biggest, what removing each costs, and how much it frees.
+ */
+function downloadNoSpace() {
+  const c = DARK;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: downloadsPage(c, {
+      subtitle: '412 MB free',
+      active: 'device',
+      body: `<div style="flex:1;overflow:hidden">
+        ${quietNotice(c, 'alert', 'There is not enough room for <b style="color:' + c.fg + '">Designing Data-Intensive Applications</b> (12.4 MB). Removing one of these makes room, and none of them are lost.', c.destructive)}
+        ${storageRow(c, { title: 'The Complete Works — scanned, 1,340 pages', detail: 'On this phone only. Removing it deletes it for good.', size: '1.9 GB', recoverable: false })}
+        ${storageRow(c, { title: 'Designing Data-Intensive Applications', detail: 'In your account. Removing it here downloads again in a tap.', size: '12.4 MB', recoverable: true })}
+        ${storageRow(c, { title: 'Sapiens: A Brief History of Humankind', detail: 'In your account. Removing it here downloads again in a tap.', size: '6.8 MB', recoverable: true })}
+        <div style="padding:16px ${PAD}px">${quietButton(c, 'What is on this device', { glyph: 'hardDrive' })}</div>
+      </div>`,
+    }),
+  });
+}
+
+/**
+ * The confirmation, in both of the shapes it takes.
+ *
+ * The same gesture has two consequences and the dialog is the only place a
+ * reader finds out which one they are about to get. `device-storage.tsx` wrote
+ * these two sentences; this board is here so the difference between them is
+ * something somebody can see side by side rather than reason about.
+ */
+function downloadRemoveConfirm() {
+  const c = DARK;
+  const panel = (title, body, label, tone) =>
+    `<div style="border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border};padding:16px;background:${c.elevated}">
+      <div style="font-size:16px;font-weight:700;letter-spacing:-.012em;color:${c.fg}">${title}</div>
+      <div style="margin-top:8px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">${body}</div>
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">
+        <div style="height:34px;padding:0 14px;display:flex;align-items:center;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border}"><span style="font-size:13px;color:${c.fg}">Cancel</span></div>
+        <div style="height:34px;padding:0 14px;display:flex;align-items:center;border-radius:${R};background:${tone}"><span style="font-size:13px;font-weight:500;color:${c.onPrimary}">${label}</span></div>
+      </div>
+    </div>`;
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;background:${c.bg};padding:44px ${PAD}px;display:flex;flex-direction:column;gap:20px">
+  <div>
+    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">One gesture, two consequences</div>
+    <div style="margin-top:8px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Which sheet a reader gets is decided by one fact — whether the account still holds the file — and it is the only thing standing between "free some space" and "lose it".</div>
+  </div>
+  ${panel(
+    'Remove from this device?',
+    '<b style="color:' + c.fg + '">Designing Data-Intensive Applications</b> stays in your account. It will need downloading again to read it here, and reading it offline will not be possible until you do.',
+    'Remove',
+    c.primary,
+  )}
+  ${panel(
+    'This is the only copy',
+    '<b style="color:' + c.fg + '">Lease Agreement — 14 Kilimani Road</b> is not in your account, so removing it here deletes it for good. Sync it first if you want to keep it.',
+    'Delete',
+    c.destructive,
+  )}
+  ${quietNotice(c, 'shieldCheck', 'Removing a download and deleting a document are never the same row, never adjacent, and only one of them is ever in the destructive colour.')}
+</div>`,
+  });
+}
+
+/**
+ * All eleven states on one board, which is the thing the code could not say.
+ *
+ * A state machine that lives only in a TypeScript union is a state machine
+ * nobody reviews. Drawn out, two things become obvious that were not: `held`
+ * and `queued` are different waits and want different sentences, and `outdated`
+ * is the only state on this chart that is not a problem.
+ */
+function downloadStates() {
+  const c = DARK;
+  const s = DL(c);
+  const order = ['missing', 'queued', 'held', 'downloading', 'paused', 'verifying', 'available', 'outdated', 'corrupt', 'failed', 'removing'];
+  const does = {
+    missing: 'Download',
+    queued: 'Move to front · Cancel',
+    held: 'Download anyway · Settings',
+    downloading: 'Pause · Cancel',
+    paused: 'Resume · Cancel',
+    verifying: '—',
+    available: 'Open · Check · Remove',
+    outdated: 'Download again · Keep this one',
+    corrupt: 'Try again',
+    failed: 'Try again',
+    removing: '—',
+  };
+  const row = (k) =>
+    `<div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid ${c.hairline}">
+      <div style="width:20px;margin-top:1px">${icon(s[k].glyph, 16, s[k].tone, 2)}</div>
+      <div style="width:190px;flex:0 0 auto">
+        <div style="font-size:13px;font-weight:600;color:${s[k].tone}">${s[k].label}</div>
+        <div style="margin-top:3px;font-size:11px;font-family:ui-monospace,Menlo,monospace;color:${c.fgDisabled}">${k}</div>
+      </div>
+      <div style="flex:1;min-width:0;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${s[k].line ?? 'Progress and the exact byte count take the place of a sentence.'}</div>
+      <div style="width:230px;flex:0 0 auto;font-size:12px;line-height:17px;color:${c.fgMuted}">${does[k]}</div>
+    </div>`;
+
+  return dc({
+    w: 1024, h: 760, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Where a file is, and what it is waiting for</div>
+  <div style="margin-top:8px;max-width:700px;font-size:13px;line-height:20px;color:${c.fgMuted}" class="pretty">Four of these did not exist. A download held for Wi‑Fi, one queued behind two others, one paused halfway and one that simply failed were all <b style="color:${c.fg}">missing</b> on the tile — the same word as a document nobody had ever asked for. This is the vocabulary that fixes that, and no state on it is reachable without a writer.</div>
+
+  <div style="margin-top:26px;display:flex;gap:14px;padding-bottom:10px;border-bottom:1px solid ${c.border}">
+    <div style="width:34px"></div>
+    <div style="width:190px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">State</div>
+    <div style="flex:1;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">What the row says</div>
+    <div style="width:230px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">What it offers</div>
+  </div>
+  ${order.map(row).join('')}
+
+  <div style="margin-top:22px;font-size:12px;line-height:18px;color:${c.fgSubtle};max-width:860px" class="pretty"><b style="color:${c.fg}">Nothing on this chart exists on the server.</b> <b style="color:${c.fg}">documentFiles</b> is the one table with no counterpart in the account, and deliberately: only the phone can honestly say whether a file is on it and whether it opens. A field on the server reading "downloaded" would be a stale flag on the one screen whose entire job is to answer that question.</div>
+</div>`,
+  });
+}
+
+/**
+ * The row, taken apart.
+ *
+ * Six things and their order, because the order is the argument: the state
+ * glyph is first so a column of them can be scanned without reading a word, and
+ * the size is last and right-aligned so a column of numbers lines up. The
+ * progress rule is under the text rather than beside it — beside it, a long
+ * title shortens the bar, and the bar’s length would then mean two things.
+ */
+function downloadRowAnatomy() {
+  const c = DARK;
+  const note = (n, title, body) =>
+    `<div style="display:flex;gap:12px;padding:9px 0">
+      <div style="width:20px;height:20px;border-radius:9999px;background:${c.primaryTint};display:flex;align-items:center;justify-content:center;flex:0 0 auto"><span style="font-size:11px;font-weight:600;color:${c.primary}">${n}</span></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:${c.fg}">${title}</div><div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${body}</div></div>
+    </div>`;
+  return dc({
+    w: 900, h: 560, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">The download row</div>
+  <div style="margin-top:24px;display:flex;gap:40px;align-items:flex-start">
+    <div style="width:390px;flex:0 0 auto;border-radius:${R};box-shadow:inset 0 0 0 1px ${c.border};overflow:hidden">
+      ${downloadRow(c, 'downloading', byTitle('Designing Data'), { pct: 37, detail: '4.6 MB of 12.4 MB', sub: 'Downloading · about 40 seconds left' })}
+      ${downloadRow(c, 'available', byTitle('Thinking,'))}
+      ${downloadRow(c, 'outdated', byTitle('The Pragmatic'))}
+    </div>
+    <div style="flex:1;min-width:0">
+      ${note(1, 'The state glyph', 'First, and the only coloured thing in the row. Eleven states, eleven glyphs, and a column of them reads without a single word being parsed.')}
+      ${note(2, 'The title', 'Two lines, clamped. Never truncated to one — a library is full of documents that differ only in their last three words.')}
+      ${note(3, 'One sentence of state', 'In the state’s own colour when that colour means something, and <b style="color:' + c.fg + '">fg-subtle</b> when it does not. Quiet states do not get to shout.')}
+      ${note(4, 'The exact bytes', 'Tabular numerals, right-aligned. <b style="color:' + c.fg + '">4.6 MB of 12.4 MB</b>, not 37% — a percentage cannot be compared against the free space on the phone, and that is the comparison somebody is actually making.')}
+      ${note(5, 'Two pixels of progress', 'The tile’s bar, not the vendored <b style="color:' + c.fg + '">Progress</b> component — which is eight pixels on a tinted track and is used nowhere in this application. Two bars for one transfer on two screens would be one bar too many.')}
+      ${note(6, 'The overflow', 'Everything else. The row itself opens the document; nothing destructive is ever one stray tap away.')}
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * The pipeline, and the column headed Never.
+ *
+ * Written down because the order of these steps is the whole security argument
+ * and it is not recoverable from reading any one file. The thing worth staring
+ * at is the third column: the two facts that never leave the device, and the
+ * one credential that never outlives five minutes.
+ */
+function downloadModel() {
+  const c = DARK;
+  const box = (title, lines, { tone = null, w = 232 } = {}) =>
+    `<div style="width:${w}px;border-radius:${R};padding:14px 16px;box-shadow:inset 0 0 0 1px ${tone === 'danger' ? c.destructive : tone === 'ok' ? c.ok : c.border}">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${tone === 'danger' ? c.destructive : tone === 'ok' ? c.ok : c.fg}">${title}</div>
+       ${lines.map((l) => `<div style="margin-top:7px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${l}</div>`).join('')}
+     </div>`;
+  const arrow = () => `<div style="display:flex;align-items:center;justify-content:center;width:38px">${icon('arrowRight', 17, c.fgMuted, 2)}</div>`;
+  const label = (t) => `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle};margin-bottom:12px">${t}</div>`;
+
+  return dc({
+    w: 900, h: 760, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">How a PDF gets onto this phone</div>
+  <div style="margin-top:8px;max-width:660px;font-size:13px;line-height:20px;color:${c.fgMuted}" class="pretty">Six steps, and the order of them is the argument. A file that finished downloading is not the same fact as a document that opens, so the move into place happens after the checks and never before.</div>
+
+  <div style="margin-top:30px">${label('The path the bytes take')}
+    <div style="display:flex;align-items:stretch">
+      ${box('Authorised first', ['<b style="color:' + c.fg + '">library.downloadUrl</b> is a mutation, not a query — a cached URL outliving its signature is a download that fails for no visible reason. Ownership is checked before a URL exists.'])}
+      ${arrow()}
+      ${box('Into a temp name', ['<b style="color:' + c.fg + '">&lt;id&gt;.download</b>, beside where it is going. A half-arrived file must never sit under the name the scan reads as “this is here”.'])}
+      ${arrow()}
+      ${box('Checked three ways', ['The size the account recorded. The first five bytes reading <b style="color:' + c.fg + '">%PDF-</b>. The file’s hash — the whole thing under 32 MB, head and tail above it.'])}
+    </div>
+    <div style="display:flex;align-items:stretch;margin-top:16px">
+      ${box('Moved, atomically', ['One rename. There is no moment at which a partial file is visible under the real name, on any platform.'])}
+      ${arrow()}
+      ${box('Recorded locally', ['<b style="color:' + c.fg + '">documentFiles</b> goes to <b style="color:' + c.fg + '">available</b> with the verified hash and the moment it was checked. This row is the only truth about offline availability.'])}
+      ${arrow()}
+      ${box('And that is the end', ['Nothing is sent. Opening it afterwards touches no network, resolves no URL and waits on no subscription.'], { tone: 'ok' })}
+    </div>
+  </div>
+
+  <div style="margin-top:32px">${label('Never')}
+    <div style="display:flex;align-items:stretch;gap:18px">
+      ${box('A path on the wire', ['<b style="color:' + c.fg + '">/data/user/0/…</b> means something on exactly one device. It is never an argument, never a column, never a log line.'], { tone: 'danger', w: 250 })}
+      ${box('A field saying “downloaded”', ['The account has no idea which devices hold which files, and should not. It would be a stale flag on the one screen whose job is to answer that.'], { tone: 'danger', w: 250 })}
+      ${box('A URL that outlives its use', ['Five minutes, signed, minted after the ownership check. A paused download stores one only inside the encrypted database, and clears it the moment the transfer settles.'], { tone: 'danger', w: 250 })}
+    </div>
+  </div>
+
+  <div style="margin-top:30px;padding-top:18px;border-top:1px solid ${c.hairline};font-size:12px;line-height:18px;color:${c.fgSubtle};max-width:820px" class="pretty"><b style="color:${c.fg}">The filename is the document id, and that is a security control rather than a convention.</b> A PDF the reader imported as <b style="color:${c.fg}">../../../shared_prefs/auth.xml</b> is a title and nothing else — traversal is closed by construction rather than by sanitising a hostile string and hoping the sanitiser is complete.</div>
+</div>`,
+  });
+}
+
 const out = {
   'Main.dc.html': home(true),
   'HomeLight.dc.html': home(false),
@@ -4615,7 +5187,6 @@ const out = {
   'ReaderNotes.dc.html': readerNotes(),
   'ReaderNotesEmpty.dc.html': readerNotesEmpty(),
   'ReaderThumbnails.dc.html': readerThumbnails(),
-  'ReaderNoteCompose.dc.html': readerNoteCompose(),
   'ReaderBookmarkName.dc.html': readerBookmarkName(),
   'ReaderTint.dc.html': readerTint(),
   'ReaderSelection.dc.html': readerSelection(),
@@ -4678,6 +5249,24 @@ const out = {
   'NotificationDevices.dc.html': notificationDevices(),
   'SyncData.dc.html': syncData(),
   'DeleteAccount.dc.html': deleteAccount(),
+
+  /* Downloads and offline availability. */
+  'Downloads.dc.html': downloads(true),
+  'DownloadsLight.dc.html': downloads(false),
+  'DownloadsEmpty.dc.html': downloadsEmpty(),
+  'DownloadsQueue.dc.html': downloadsQueue(),
+  'DownloadActions.dc.html': downloadActions(),
+  'DownloadFailed.dc.html': downloadsFailed(),
+  'DownloadOutdated.dc.html': downloadsOutdated(),
+  'DownloadHeld.dc.html': downloadsHeld(),
+  'DownloadSettings.dc.html': downloadSettings('top'),
+  'DownloadSettingsScrolled.dc.html': downloadSettings('rest'),
+  'DownloadStorageCap.dc.html': downloadStorageCap(),
+  'DownloadNoSpace.dc.html': downloadNoSpace(),
+  'DownloadRemoveConfirm.dc.html': downloadRemoveConfirm(),
+  'DownloadStates.dc.html': downloadStates(),
+  'DownloadRowAnatomy.dc.html': downloadRowAnatomy(),
+  'DownloadModel.dc.html': downloadModel(),
 };
 for (const [name, html] of Object.entries(out)) { writeFileSync(new URL('./' + name, import.meta.url), html); }
 
@@ -4730,7 +5319,6 @@ const canvas = {
     { file: 'ReaderNotes.dc.html', title: 'Navigator — passages and notes you kept', x: 0, y: 11296, w: 390, h: 844 },
     { file: 'ReaderNotesEmpty.dc.html', title: 'Navigator — nothing kept yet', x: 490, y: 11296, w: 390, h: 844 },
     { file: 'ReaderThumbnails.dc.html', title: 'Navigator — every page at once', x: 980, y: 11296, w: 390, h: 844 },
-    { file: 'ReaderNoteCompose.dc.html', title: 'Reader — writing a note', x: 1470, y: 11296, w: 390, h: 844 },
     { file: 'ReaderBookmarkName.dc.html', title: 'Reader — naming a bookmark', x: 1960, y: 11296, w: 390, h: 844 },
     { file: 'ReaderAnatomy.dc.html', title: 'Reader — chrome, lifecycle, commands', x: 0, y: 9032, w: 900, h: 1180 },
     { file: 'ReaderSpread.dc.html', title: 'Reader — two pages, landscape', x: 1000, y: 9032, w: 1024, h: 768 },
@@ -4795,8 +5383,27 @@ const canvas = {
     { file: 'NotificationDevices.dc.html', title: 'Notifications — devices and quiet hours', x: 1470, y: 20928, w: 390, h: 844 },
     { file: 'SyncData.dc.html', title: 'Sync & data', x: 1960, y: 20928, w: 390, h: 844 },
     { file: 'DeleteAccount.dc.html', title: 'Deleting an account, and what it cannot reach', x: 2450, y: 20928, w: 390, h: 844 },
+
+    /* Downloads and offline availability. */
+    { file: 'Downloads.dc.html', title: 'Downloads — a mixture, dark', x: 0, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadsLight.dc.html', title: 'Downloads — light', x: 490, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadsEmpty.dc.html', title: 'Downloads — nothing here yet', x: 980, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadsQueue.dc.html', title: 'Downloads — the queue', x: 1470, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadActions.dc.html', title: 'Download actions', x: 1960, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadFailed.dc.html', title: 'Downloads — what went wrong', x: 2450, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadOutdated.dc.html', title: 'Downloads — a newer copy exists', x: 2940, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadHeld.dc.html', title: 'Downloads — held for Wi-Fi', x: 3430, y: 21900, w: 390, h: 844 },
+    { file: 'DownloadSettings.dc.html', title: 'Download settings — network and automatic', x: 0, y: 22864, w: 390, h: 844 },
+    { file: 'DownloadSettingsScrolled.dc.html', title: 'Download settings — storage, integrity, queue', x: 490, y: 22864, w: 390, h: 844 },
+    { file: 'DownloadStorageCap.dc.html', title: 'Storage ceiling', x: 980, y: 22864, w: 390, h: 844 },
+    { file: 'DownloadNoSpace.dc.html', title: 'Downloads — not enough room', x: 1470, y: 22864, w: 390, h: 844 },
+    { file: 'DownloadRemoveConfirm.dc.html', title: 'Remove a download — the two sheets', x: 1960, y: 22864, w: 390, h: 844 },
+    { file: 'DownloadStates.dc.html', title: 'Where a file is, and what it waits for', x: 0, y: 23828, w: 1024, h: 760 },
+    { file: 'DownloadRowAnatomy.dc.html', title: 'The download row — anatomy', x: 1124, y: 23828, w: 900, h: 560 },
+    { file: 'DownloadModel.dc.html', title: 'How a PDF gets onto this phone', x: 2124, y: 23828, w: 900, h: 760 },
   ],
   annotations: [
+    { id: 'note-downloads', x: 0, y: 21730, w: 880, text: 'Four of these states did not exist, and their absence was a wrong answer rather than a missing feature.\nA download held for Wi-Fi, one queued behind two others, one paused halfway and one that had simply failed were all \u201cmissing\u201d on the tile \u2014 the same word as a document nobody had ever asked for. A reader about to board a flight could not tell which of the four they were looking at, which is the one moment the answer matters.\nNothing here reaches the account. documentFiles is the only table with no counterpart on the server, because only the phone can honestly say whether a file is on it and whether it opens.' },
     { id: 'note-boundary', x: 0, y: -150, w: 880, text: 'Convex owns metadata, the device owns the PDF.\nRendering this screen never touches a file. Every rail below is one query and one index scan; "On this device" is answered by the filesystem, not the server.' },
     { id: 'note-norails', x: 1960, y: 2080, w: 300, text: 'A rail with nothing in it renders nothing — a new account falls through to the empty state rather than showing six empty headings.' },
     { id: 'note-processing', x: 0, y: 6114, w: 880, text: 'One <Pdf> mount answers three questions at once: how many pages, what the contents are, and what the first page looks like. The row is written before any of them, so the document is in the library and openable while the probe is still running.' },

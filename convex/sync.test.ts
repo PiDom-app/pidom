@@ -168,7 +168,7 @@ describe('importDocument', () => {
 });
 
 describe('addAnnotation', () => {
-  test('delivered twice with one clientOpId keeps one note', async () => {
+  test('delivered twice with one clientOpId keeps one passage', async () => {
     const t = harness();
     const as = await signedIn(t);
     const documentId = await as.mutation(api.library.importDocument, anImport());
@@ -176,8 +176,7 @@ describe('addAnnotation', () => {
     const args = {
       documentId,
       currentPage: 88,
-      kind: 'note' as const,
-      note: 'The bit about anchoring.',
+      text: 'The bit about anchoring.',
       clientOpId: localId('note001'),
     };
 
@@ -188,14 +187,14 @@ describe('addAnnotation', () => {
     expect(await storedAnnotations(t, documentId)).toHaveLength(1);
   });
 
-  test('without a clientOpId two calls are two notes, as they should be', async () => {
+  test('without a clientOpId two calls are two passages, as they should be', async () => {
     const t = harness();
     const as = await signedIn(t);
     const documentId = await as.mutation(api.library.importDocument, anImport());
 
     // Two passages from one page are two different sentences. Only an id the
     // device minted can tell a duplicate from a second thought.
-    const args = { documentId, currentPage: 88, kind: 'note' as const, note: 'Twice.' };
+    const args = { documentId, currentPage: 88, text: 'Twice.' };
     await as.mutation(api.library.addAnnotation, args);
     await as.mutation(api.library.addAnnotation, args);
 
@@ -211,8 +210,7 @@ describe('deletes delivered twice', () => {
     const annotationId = await as.mutation(api.library.addAnnotation, {
       documentId,
       currentPage: 12,
-      kind: 'note',
-      note: 'Gone in a moment.',
+      text: 'Gone in a moment.',
     });
 
     await as.mutation(api.library.removeAnnotation, { annotationId });
@@ -230,8 +228,7 @@ describe('deletes delivered twice', () => {
     const annotationId = await mine.mutation(api.library.addAnnotation, {
       documentId,
       currentPage: 12,
-      kind: 'note',
-      note: 'Mine.',
+      text: 'Mine.',
     });
 
     await expect(theirs.mutation(api.library.removeAnnotation, { annotationId })).rejects.toThrow();
@@ -522,8 +519,7 @@ describe('the reconcile reads', () => {
     await as.mutation(api.library.addAnnotation, {
       documentId,
       currentPage: 88,
-      kind: 'note',
-      note: 'Kept.',
+      text: 'Kept.',
     });
 
     const marks = await as.query(api.library.allBookmarks, {

@@ -125,6 +125,7 @@ export function useSharingSync(): void {
             role: group.role,
             createdAt: group.createdAt,
             updatedAt: group.updatedAt,
+            archived: group.settings.archived,
           });
         }
       } catch (error) {
@@ -149,6 +150,36 @@ export function useSharingSync(): void {
         return;
       }
       try {
+        /**
+         * `groupId` is translated on the way in, exactly as `reconcileEvents`
+         * in `sync/engine.ts` translates it.
+         *
+         * Both functions write this table and both run continuously, so a
+         * writer that stored the account's id here would overwrite the other's
+         * corrected rows on every change — which is what happened, and it
+         * reinstated the bug `engine.ts` documents: `shares.groupId` is this
+         * device's id, `useGroupDocuments` compares the two columns directly,
+         * and opening a group from Activity rendered an empty Shared PDFs tab
+         * on a group that had documents in it.
+         *
+         * Resolved before the transaction opens, because the lookup is a read
+         * on the same connection and fifty events rarely name more than a
+         * handful of groups. A group this device has not mirrored falls back to
+         * the account's id rather than dropping the event — it is still a thing
+         * that happened, and the next pass will have the row.
+         */
+        const localGroupIds = new Map<string, string>();
+        for (const remoteGroupId of new Set(
+          events
+            .map((event) => event.groupId)
+            .filter((id): id is NonNullable<typeof id> => id != null),
+        )) {
+          localGroupIds.set(
+            remoteGroupId,
+            (await Groups.localIdFor(db, remoteGroupId)) ?? remoteGroupId,
+          );
+        }
+
         // Replaced wholesale rather than upserted. An event is immutable except
         // for whether it has been read, the account is the authority on both,
         // and fifty rows is a feed rather than an archive — a diff here would
@@ -164,7 +195,7 @@ export function useSharingSync(): void {
                 event.kind,
                 event.shareId,
                 event.documentId,
-                event.groupId,
+                event.groupId == null ? null : (localGroupIds.get(event.groupId) ?? event.groupId),
                 event.actor?.displayName ?? null,
                 event.actor?.handle ?? null,
                 event.actor?.pictureUrl ?? null,
