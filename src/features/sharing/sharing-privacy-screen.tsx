@@ -213,6 +213,12 @@ export function SharingPrivacyScreen() {
             value={sharing.allowReshares !== false}
             onChange={(allowReshares) => void update({ allowReshares })}
           />
+          <Toggle
+            label="Allow asking a model about them"
+            note="Off means nobody you shared a document with can send its pages to a model. Your own Ask is unaffected; it is on Search & Ask."
+            value={sharing.allowAiOnSharedDocuments === true}
+            onChange={(allowAiOnSharedDocuments) => void update({ allowAiOnSharedDocuments })}
+          />
           <Notice glyph={ShieldCheck}>
             These are checked every time somebody opens or downloads, not only when a share is made
             — so turning one off narrows access that already exists.

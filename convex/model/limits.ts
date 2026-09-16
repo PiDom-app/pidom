@@ -551,3 +551,71 @@ export const ACCOUNT_DELETE_BATCH = 200;
 
 /** How many documents one deletion step hands to the existing document cascade. */
 export const ACCOUNT_DELETE_DOCUMENTS = 10;
+
+/* ── Ask ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * A question, in characters.
+ *
+ * Deliberately generous next to `ANNOTATION_TEXT_MAX`, because a good question
+ * about a book quotes the book: somebody pasting two paragraphs and asking what
+ * the author means by them is the case this feature is for. Short enough that
+ * the question can never be the expensive half of what reaches the model —
+ * `AI_CONTEXT_PAGES` × `PAGE_TEXT_MAX` is sixteen times this.
+ */
+export const AI_PROMPT_MAX = 4_000;
+
+/**
+ * Pages of a document one question may carry.
+ *
+ * The number that decides how much of somebody's book leaves this deployment,
+ * so it is the bound the `AiBoundary` artboard names. Eight pages at
+ * `PAGE_TEXT_MAX` is 64 KiB — a few thousand tokens, enough for a real answer
+ * from a long book, and a two-hundredth of a six-hundred-page document.
+ *
+ * The reader can lower it on the settings screen and cannot raise it: this is
+ * the ceiling, `aiSettings.contextPages` is their choice under it, and
+ * `clamp` is what keeps the two in that order.
+ */
+export const AI_CONTEXT_PAGES = 8;
+
+/** A conversation's title, generated from its first question. One row in a list. */
+export const AI_TITLE_MAX = 120;
+
+/**
+ * How long a conversation lives, in days.
+ *
+ * Thirty by default, and seven is the other offer. A month is long enough that
+ * a reader coming back to a book mid-chapter finds what they asked last time,
+ * and short enough that a deployment is not holding a year of somebody's
+ * questions about what they read.
+ *
+ * The maximum is the number that matters: `retentionDays` is the reader's and
+ * arrives over the wire, so it is clamped rather than trusted. A client asking
+ * for a thousand days would otherwise turn a retention policy into a setting.
+ */
+export const AI_RETENTION_DEFAULT_DAYS = 30;
+export const AI_RETENTION_MAX_DAYS = 30;
+export const AI_RETENTION_MIN_DAYS = 1;
+
+/**
+ * Conversations one account may have at once.
+ *
+ * Bounded for the reason `SHARES_PER_OWNER` is: an unbounded per-account
+ * collection is an unbounded read somewhere later, and the list screen is one
+ * of them. Two hundred live conversations is far past what anybody accumulates
+ * inside a month, so reaching it means something is creating them that is not
+ * a person.
+ */
+export const AI_THREADS_PER_USER = 200;
+
+/**
+ * Expired conversations the nightly sweep clears in one run.
+ *
+ * Each one is an `agent.deleteThreadAsync`, which schedules its own
+ * continuation — so this is a number of *schedules*, not of deletions, and it
+ * is bounded by the mutation's function-scheduling budget rather than by its
+ * read budget. Fifty a night stays well ahead of any realistic rate of
+ * conversation.
+ */
+export const AI_THREAD_SWEEP = 50;

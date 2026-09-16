@@ -286,6 +286,46 @@ const LIMITS = {
    * interval, which is exactly what this exists to stop.
    */
   presence: { kind: 'token bucket', rate: 600, period: HOUR, capacity: 60 },
+
+  /* ── Ask ──────────────────────────────────────────────────────────────── */
+
+  /**
+   * Starting a conversation.
+   *
+   * Low, because a thread is a durable object with a month of life in it and
+   * nobody has forty conversations an hour about four books. The capacity is
+   * what a reader opening Ask on several documents in a sitting actually
+   * spends.
+   */
+  aiThread: { kind: 'token bucket', rate: 30, period: HOUR, capacity: 10 },
+
+  /**
+   * Asking a question.
+   *
+   * The one limit here that a reader can plausibly reach, and the number is a
+   * judgement about reading rather than about cost: forty questions an hour is
+   * more than anybody asks of one book, and the burst of eight is a run of
+   * follow-ups in a single conversation. Past it the sheet says when the next
+   * one is available and offers the passages, which cost nothing — see
+   * `AskLimited` on the canvas.
+   */
+  aiMessage: { kind: 'token bucket', rate: 40, period: HOUR, capacity: 8 },
+
+  /**
+   * Tokens, rather than requests.
+   *
+   * A question is at most `AI_CONTEXT_PAGES` × `PAGE_TEXT_MAX` — 64 KiB, call
+   * it twenty thousand tokens — plus the answer. Sixty thousand an hour is
+   * three full-context questions or a great many short ones, which is the
+   * distinction a per-request limit cannot make: it is the *size* of what is
+   * being asked that costs money, and one limit on both is either too tight for
+   * follow-ups or too loose for a whole book.
+   *
+   * Spent with `reserve: true` from the agent's `usageHandler`, after the
+   * answer, so a generation that cost more than the estimate settles the
+   * difference instead of being refused halfway through.
+   */
+  aiTokens: { kind: 'token bucket', rate: 60_000, period: HOUR, capacity: 20_000 },
 } as const;
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, LIMITS);

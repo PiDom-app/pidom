@@ -18,11 +18,25 @@ import { VStack } from '@/components/ui/vstack';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { SEARCH_LIMIT, SEARCH_TERM_MAX } from '@convex/model/limits';
+import { Segments } from '@/features/sharing/components/segments';
+import {
+  retrieve,
+  semanticSearchAvailable,
+  type Passage,
+} from '@/features/intelligence/retrieve/retrieve';
 import type { SearchHit } from '@convex/model/processing';
-
 import { useLibraryStatus } from '../data/use-library-status';
 import { useLocalQuery } from '../local/use-local-query';
 import { localSearchAvailable, searchLocally } from '../local/text-index';
+
+/**
+ * A result, and why it is one.
+ *
+ * `SearchHit` plus the one field the reader can see: a page that contains none
+ * of the words they typed looks like a bug without it, and it is the single
+ * best demonstration that searching by meaning works.
+ */
+type Hit = SearchHit & { found: 'meaning' | 'words' | 'both' };
 
 /**
  * Searching the words inside documents, rather than their titles.
@@ -151,6 +165,40 @@ export function SearchInsideScreen() {
   }, [long, profileId, trimmed, scope]);
 
   /**
+   * The semantic half, when this device has a model.
+   *
+   * Runs on the same trigger as the keyword half and returns passages rather
+   * than pages — `retrieve` fuses the two rankings itself, so what comes back
+   * is already the merged answer with a `found` on every hit saying which index
+   * put it there.
+   *
+   * The chip does not choose *whether* to search by meaning; it chooses what to
+   * show. Both always run, because fusing them is what makes the top ten right
+   * and a reader switching chips is asking to see the working rather than
+   * asking for a different search.
+   */
+  const [passages, setPassages] = useState<Passage[] | undefined>(undefined);
+  useEffect(() => {
+    if (!long || profileId === null || !semanticSearchAvailable(profileId)) {
+      setPassages(undefined);
+      return;
+    }
+    let cancelled = false;
+    void retrieve(profileId, trimmed, { scope, near: null, limit: SEARCH_LIMIT }).then((rows) => {
+      if (!cancelled) {
+        setPassages(rows);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [long, profileId, trimmed, scope]);
+
+  /** Only offered on a device that can answer both ways. */
+  const canMean = profileId !== null && semanticSearchAvailable(profileId);
+  const [lens, setLens] = useState<'meaning' | 'words'>('meaning');
+
+  /**
    * One list, from whichever indexes answered.
    *
    * Merged on the pair the reader can actually distinguish — a document and a
@@ -158,15 +206,15 @@ export function SearchInsideScreen() {
    * snippet wins where they overlap: it searched the whole document rather than
    * whatever this phone has mirrored so far.
    */
-  const hits = useMemo<SearchHit[] | undefined>(() => {
+  const hits = useMemo<Hit[] | undefined>(() => {
     if (!long) {
       return undefined;
     }
-    if (local === undefined && online === undefined) {
+    if (local === undefined && online === undefined && passages === undefined) {
       return undefined;
     }
 
-    const merged = new Map<string, SearchHit>();
+    const merged = new Map<string, Hit>();
 
     for (const hit of local ?? []) {
       const known = titles.get(hit.documentId);
@@ -175,37 +223,80 @@ export function SearchInsideScreen() {
         title: known?.title ?? 'A document',
         page: hit.page,
         snippet: hit.snippet,
+        found: 'words',
       });
     }
 
     for (const hit of online ?? []) {
       const known = titles.get(hit.documentId);
-      merged.set(`${known?.id ?? hit.documentId}:${hit.page}`, {
+      const key = `${known?.id ?? hit.documentId}:${hit.page}`;
+      merged.set(key, {
         ...hit,
         documentId: (known?.id ?? hit.documentId) as Id<'documents'>,
         title: known?.title ?? hit.title,
+        found: 'words',
       });
     }
 
-    // In page order within a document, which is reading order. Both indexes
-    // return by relevance, and stepping through a book by relevance is not
+    /**
+     * The semantic half, on top.
+     *
+     * Keyed on the same document-and-page pair, so a page both indexes found is
+     * one row that says `both` rather than two rows saying different things.
+     * The passage's own text is the snippet where it is the only source — it is
+     * the thing that was actually matched, and a keyword snippet highlighting
+     * nothing would be a worse line under a hit that contains none of the words.
+     */
+    for (const passage of passages ?? []) {
+      const key = `${passage.documentId}:${passage.startPage}`;
+      const existing = merged.get(key);
+      merged.set(key, {
+        documentId: passage.documentId as Id<'documents'>,
+        title: passage.title,
+        page: passage.startPage,
+        snippet: existing?.snippet ?? passage.text.slice(0, 220),
+        found: existing === undefined ? 'meaning' : 'both',
+      });
+    }
+
+    // In page order within a document, which is reading order. Every index here
+    // returns by relevance, and stepping through a book by relevance is not
     // something a reader can follow.
     return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title) || a.page - b.page);
-  }, [long, local, online, titles]);
+  }, [long, local, online, passages, titles]);
+
+  /**
+   * What the chip is actually looking at.
+   *
+   * `meaning` is everything — a page the words also found is still a page the
+   * meaning found — and `words` is the half a device with no model would have
+   * produced on its own. So the chip is the reader asking *how did you get
+   * this*, which is the only honest thing it can be when both searches always
+   * run.
+   */
+  const shown = useMemo(
+    () =>
+      hits === undefined
+        ? undefined
+        : !canMean || lens === 'meaning'
+          ? hits
+          : hits.filter((hit) => hit.found !== 'meaning'),
+    [hits, canMean, lens],
+  );
 
   // Only for a library-wide search. Searching inside one document the reader
   // picked needs no explanation of where their other documents are.
   const usage = useQuery(api.library.usage, ready && scope === null ? {} : 'skip');
 
   const summary = useMemo(() => {
-    if (hits === undefined || hits.length === 0) {
+    if (shown === undefined || shown.length === 0) {
       return null;
     }
-    const books = new Set(hits.map((hit) => hit.documentId)).size;
-    return `${hits.length} ${hits.length === 1 ? 'page' : 'pages'} in ${books} ${
+    const books = new Set(shown.map((hit) => hit.documentId)).size;
+    return `${shown.length} ${shown.length === 1 ? 'passage' : 'passages'} in ${books} ${
       books === 1 ? 'document' : 'documents'
     }`;
-  }, [hits]);
+  }, [shown]);
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -235,6 +326,23 @@ export function SearchInsideScreen() {
         </Input>
       </HStack>
 
+      {/* The chip row from `segments.tsx`, which is why this app has no `Tabs`.
+          Absent on a device with no model rather than present and inert: with
+          one chip there is no choice to offer, and a control with nothing to
+          switch between reads as broken. */}
+      {canMean && long ? (
+        <Box className="pt-3">
+          <Segments
+            segments={[
+              { key: 'meaning', label: 'Meaning' },
+              { key: 'words', label: 'Words' },
+            ]}
+            active={lens}
+            onSelect={(key) => setLens(key as 'meaning' | 'words')}
+          />
+        </Box>
+      ) : null}
+
       {/* Said before the results rather than under them: offline, this list is
           drawn from the copy on this phone, and a reader owed an explanation for
           a short answer should get it before they read the answer. */}
@@ -258,11 +366,11 @@ export function SearchInsideScreen() {
       <Box className="mt-3 flex-1">
         {trimmed.length < 2 ? (
           <Prompt scoped={scope !== undefined} />
-        ) : hits === undefined ? (
+        ) : shown === undefined ? (
           <Center className="flex-1 pb-24">
             <Spinner />
           </Center>
-        ) : hits.length === 0 ? (
+        ) : shown.length === 0 ? (
           <Center className="flex-1 px-10 pb-24">
             <Text size="sm" className="text-center text-fg-muted">
               {`Nothing matching “${trimmed}”.`}
@@ -275,7 +383,7 @@ export function SearchInsideScreen() {
           </Center>
         ) : (
           <FlashList
-            data={hits}
+            data={shown}
             keyExtractor={(hit) => `${hit.documentId}-${hit.page}`}
             renderItem={({ item }) => (
               <Pressable
@@ -299,6 +407,22 @@ export function SearchInsideScreen() {
                   >
                     {item.title}
                   </Text>
+                  {/* Why this row is here. `text-primary` on the two that
+                      involved the model and `text-fg-subtle` on the one that
+                      did not, so a column of them shows at a glance what the
+                      chip above is actually switching between. */}
+                  {canMean ? (
+                    <Text
+                      size="2xs"
+                      className={
+                        item.found === 'words'
+                          ? 'uppercase tracking-wider text-fg-subtle'
+                          : 'uppercase tracking-wider text-primary'
+                      }
+                    >
+                      {item.found}
+                    </Text>
+                  ) : null}
                   <Text size="2xs" className="text-fg-subtle">
                     {`page ${item.page}`}
                   </Text>

@@ -60,7 +60,7 @@ breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.
 ## The canvas
 
 `.design/` holds the design source: `build.mjs` generates one `.dc.html`
-artboard per screen — a hundred and sixteen of them — and `screens.mjs` draws
+artboard per screen — a hundred and thirty-two of them — and `screens.mjs` draws
 twenty-one of the same screens as SVG for the images in the README. Both read the same tokens
 as `src/design/global.css`, so a colour that changes there has to change in both
 — the audit that checks `src/` does not reach them.
@@ -169,6 +169,70 @@ Three of the artboards exist to say something the code cannot:
 - **`DownloadModel`** (900×760) — the pipeline, with a column headed **Never**:
   no local path on the wire, no server field saying "downloaded", no URL that
   outlives its five minutes.
+
+## The intelligence surfaces
+
+Sixteen artboards, drawn before any of the code. Three screens' worth of state
+in one sheet, two settings boards, a search surface, a library tile, and three
+wide boards.
+
+**Ask is a route, and the first version was a sheet.** It was pinned to a fixed
+70% of the screen with a long argument for the height, which was the tell: this
+document already says a control must not hang off a box whose height is the
+reader's data — the rule the navigator became a route to obey, after Contents at
+355 rows and Bookmarks at one moved the segmented control two-thirds up the
+screen between them and the next tap landed on the backdrop. A transcript is
+that data and a composer is that control. Pinning the box was living with the
+problem; a route is the answer this document already gives for every surface
+that holds a list, and it is pushed rather than presented so the document stays
+mounted underneath.
+
+**The surface is gluestack's Chat AI**, vendored into `src/components/ui/chat-ai`
+— `Conversation`, `Message`, `MessageToolbar`, `PromptInput` and the attachment
+primitives — and it is the first component added here that needed more than the
+two mandatory steps. Both were needed: two `styled` imports repointed at
+`../styled-shim`, and three colour classes that named nothing (`bg-slate-900`,
+`bg-slate-800` on code blocks, `bg-yellow-500` on the tooltip highlight) pointed
+at tokens. `text-white` went too, for the reason `Badge`'s did: on a light
+theme's `bg-muted` it is invisible.
+
+It also did not compile. Thirty-six type errors under `strict`, and three of
+them were defects rather than annotations: `MessageBranchContent` referenced a
+`branches` it never destructured and would have thrown `ReferenceError` the
+moment it rendered; `MessageResponse` fell back to `message.content`, which an
+AI SDK v5 `UIMessage` does not have; and `list_item` read `.type` off the
+ancestor _array_ rather than the parent, so every ordered list lost its numbers.
+Four `FlatList` virtualisation props were being passed to a legend list that
+takes none of them. **The rule this section exists to restate: check what the
+CLI wrote before trusting it.**
+
+**No bubbles.** Every chat interface is two coloured capsules and this one
+cannot be: there are no cards here, one accent colour, and 6px on every corner.
+A turn is a role label over a paragraph, in the same typography `Section` uses
+for every heading in the app, separated by whitespace rather than by a filled
+shape. It reads as a document, which is the right register for something sitting
+over one.
+
+**Two new glyphs, and only two.** `sparkles` and `cpu`. Everything else the
+feature needed — `scanText`, `textSearch`, `quote`, `wifiOff`, `clock`,
+`circleSlash`, `fileCheck`, `layers`, `hardDrive`, `ban`, `lock` — the icon
+table already had, because this feature borrows the download queue's vocabulary
+rather than inventing one. `IX` is `DL`'s shape for the same reason: a reader
+who has learned what the Downloads glyph column means has learned this one.
+
+**No `Badge`.** The rule here is that it carries exactly two numbers, both of
+which somebody has to act on. An indexing percentage finishes on its own, so it
+is the tile's quietest line and not a number on a filled shape.
+
+Three of the artboards exist to say something the code cannot:
+
+- **`IndexStates`** (1024×760) — eleven states, the sentence each row says, and
+  the one thing it offers. Three of them are conditions the reader can change
+  and eight are not, which is the only distinction the colour makes.
+- **`AskAnatomy`** (900×560) — the screen's six parts, and why it is a route.
+- **`AiBoundary`** (900×760) — what stays on the phone, what crosses to the
+  account, what reaches the model, and a column headed **Never**: not the
+  document, not a key on the handset, not somebody else's book by default.
 
 ## Where content sits
 

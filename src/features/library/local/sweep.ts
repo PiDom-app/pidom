@@ -11,11 +11,15 @@
  * images and stored password stayed on the device indefinitely, for a document
  * that no longer existed anywhere.
  *
- * So there is one function, every caller uses it, and adding a sixth artifact
- * later is a change in one place rather than an audit of three.
+ * So there is one function and every caller uses it. The sixth artifact — the
+ * passages and vectors a document is indexed into, and the job row that built
+ * them — was therefore a change in one place rather than an audit of three,
+ * which is the whole return on writing this.
  */
 import { forgetPassword } from '@/features/reader/document-password';
 import { useReaderStore } from '@/stores/reader-store';
+
+import { forgetIndexFor } from '@/features/intelligence/store';
 
 import { removeLocally } from './import';
 import { forgetCover, forgetPageThumbnails } from './paths';
@@ -50,6 +54,11 @@ export function sweepDocument(profileId: string, documentId: string, scope: Swee
   // document content sitting in a database on this phone, and a delete that
   // leaves it behind is a delete that did not happen.
   void forgetLocally(profileId, documentId);
+
+  // And what was worked out from that text. Vectors are derived from the
+  // reader's own document just as surely as the text is, and a phone carrying
+  // an index for a book nobody can name is carrying the book.
+  void forgetIndexFor(profileId, documentId);
 
   if (scope === 'document') {
     // The page they got to, and the password if this phone was asked to

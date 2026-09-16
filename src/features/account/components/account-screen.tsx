@@ -8,6 +8,7 @@ import {
   CloudDownload,
   Inbox,
   ShieldCheck,
+  Sparkles,
   User,
   Users,
   Wifi,
@@ -149,6 +150,22 @@ export function AccountScreen() {
 
           <Section title="Appearance">
             <ThemeControl />
+          </Section>
+
+          <Divider className="bg-hairline" />
+
+          {/* Between Appearance and Storage, because it is a fact about the
+              library rather than about the identity — and because Account has
+              to stay last, since signing out is the terminal row on this
+              screen. No `Badge`: the rule is that it carries a number somebody
+              has to act on, and an indexing percentage finishes on its own. */}
+          <Section title="Search">
+            <NavRow
+              glyph={Sparkles}
+              title="Search & Ask"
+              hint="Finding what a document means, and what may be sent."
+              onPress={() => router.push('/intelligence')}
+            />
           </Section>
 
           <Divider className="bg-hairline" />

@@ -28,7 +28,7 @@ import { inTransaction } from './transaction';
 const SCOPE = 'local-db';
 
 /** Bump this, and add the step, whenever the schema changes. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /**
  * Everything except the search index.
@@ -380,11 +380,131 @@ const V4 = `
 ALTER TABLE groupsLocal ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
 `;
 
+/**
+ * What a document means, and the job that works it out.
+ *
+ * The device could find a word in a book and could not find an idea. FTS5
+ * answers "which page contains this string", so a reader who remembers an
+ * argument and not its wording has no way back to it — and a 1,000-page book is
+ * searchable only in the vocabulary its author happened to use. These tables
+ * are the other half: every passage is 384 numbers as well as its words, and a
+ * question is asked of both indexes.
+ *
+ * **`localJobs` was already here and had never been written to.** V1 created
+ * it, indexed it, and nothing in the application has ever named it. It is the
+ * generic job row this needs, so it gets the columns `documentFiles` grew in
+ * V3 for the same reason — a job that cannot survive a relaunch is not a job,
+ * it is a loop somebody has to sit and watch.
+ *
+ * - **`stage` / `cursor`** are where the work got to. The cursor is the last
+ *   chunk ordinal written, so a book abandoned at page 643 resumes at page 643.
+ *   `state` above it stays the lifecycle — queued, running, done, failed — and
+ *   `stage` is which part of the running is running.
+ * - **`priority` / `nextAttemptAt`** order the queue and space out the retries,
+ *   exactly as they do for a download.
+ * - **`heldReason`** is why nothing is moving. "Waiting for Wi-Fi" and "stuck"
+ *   are the same picture without it, and one of them is the reader's to fix.
+ * - **`modelVersion` / `chunkVersion`** are what built this index. They are on
+ *   the job as well as on the rows so a job queued under one model and resumed
+ *   under another is refused rather than half-rebuilt.
+ *
+ * **`chunks` stores offsets, not text.** The words already live in the FTS5
+ * `pages` table, mirrored down from the account once per document; a second
+ * copy of every book on the device would double the one thing on it that is
+ * measured in hundreds of megabytes. A chunk is a range — a page and a
+ * character offset at each end — and its text is a slice taken when somebody
+ * actually asks for it.
+ *
+ * **`embeddings.vector` is a BLOB rather than a `vec0` virtual table.**
+ * `sqlite-vec` would be the obvious answer and is not available: the iOS
+ * framework is missing from `expo-sqlite@57.0.2` and the issue is open, so only
+ * Android could load it. A retrieval path that exists on one platform is two
+ * products. 384 signed bytes and the float that de-quantises them is 388 bytes
+ * a passage — about 400 KB a book — and the scan is 384 multiply-adds over an
+ * `Int8Array` view, which is milliseconds for one document.
+ *
+ * `documentVectors` is one row per document and is what makes a library-wide
+ * question cheap: a hundred books is a hundred dot products to decide which
+ * three are worth opening, rather than three hundred thousand.
+ *
+ * **`askCache` is a bound, not a store.** A conversation lives in the account
+ * and is deleted there after a month; this is the last few messages of the
+ * recent ones so a sheet reopened with no connection is not blank. It is
+ * trimmed by the same pass that writes it.
+ */
+const V5 = `
+ALTER TABLE localJobs ADD COLUMN stage TEXT NOT NULL DEFAULT 'queued';
+ALTER TABLE localJobs ADD COLUMN cursor INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE localJobs ADD COLUMN totalUnits INTEGER;
+ALTER TABLE localJobs ADD COLUMN completedUnits INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE localJobs ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE localJobs ADD COLUMN nextAttemptAt INTEGER;
+ALTER TABLE localJobs ADD COLUMN heldReason TEXT;
+ALTER TABLE localJobs ADD COLUMN modelVersion TEXT;
+ALTER TABLE localJobs ADD COLUMN chunkVersion INTEGER;
+ALTER TABLE localJobs ADD COLUMN lastError TEXT;
+
+CREATE INDEX localJobs_queue ON localJobs (kind, state, priority, nextAttemptAt, createdAt);
+CREATE INDEX localJobs_document ON localJobs (documentId, kind);
+
+CREATE TABLE chunks (
+  id            TEXT PRIMARY KEY NOT NULL,
+  documentId    TEXT NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+  ordinal       INTEGER NOT NULL,
+  startPage     INTEGER NOT NULL,
+  endPage       INTEGER NOT NULL,
+  startOffset   INTEGER NOT NULL,
+  endOffset     INTEGER NOT NULL,
+  chars         INTEGER NOT NULL,
+  chunkVersion  INTEGER NOT NULL,
+  createdAt     INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX chunks_ordinal ON chunks (documentId, chunkVersion, ordinal);
+CREATE INDEX chunks_page ON chunks (documentId, startPage);
+
+CREATE TABLE embeddings (
+  chunkId       TEXT PRIMARY KEY NOT NULL REFERENCES chunks (id) ON DELETE CASCADE,
+  documentId    TEXT NOT NULL,
+  vector        BLOB NOT NULL,
+  scale         REAL NOT NULL,
+  modelVersion  TEXT NOT NULL,
+  createdAt     INTEGER NOT NULL
+);
+
+CREATE INDEX embeddings_document ON embeddings (documentId, modelVersion);
+
+CREATE TABLE documentVectors (
+  documentId    TEXT PRIMARY KEY NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+  vector        BLOB NOT NULL,
+  scale         REAL NOT NULL,
+  modelVersion  TEXT NOT NULL,
+  chunkVersion  INTEGER NOT NULL,
+  chunkCount    INTEGER NOT NULL,
+  bytes         INTEGER NOT NULL DEFAULT 0,
+  updatedAt     INTEGER NOT NULL
+);
+
+CREATE INDEX documentVectors_model ON documentVectors (modelVersion, updatedAt);
+
+CREATE TABLE askCache (
+  threadId   TEXT NOT NULL,
+  ordinal    INTEGER NOT NULL,
+  role       TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  createdAt  INTEGER NOT NULL,
+  PRIMARY KEY (threadId, ordinal)
+);
+
+CREATE INDEX askCache_thread ON askCache (threadId, createdAt);
+`;
+
 const STEPS: { to: number; sql: string }[] = [
   { to: 1, sql: V1 },
   { to: 2, sql: V2 },
   { to: 3, sql: V3 },
   { to: 4, sql: V4 },
+  { to: 5, sql: V5 },
 ];
 
 /** Brings a freshly opened database up to `SCHEMA_VERSION`. */

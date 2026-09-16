@@ -8,6 +8,7 @@ import * as Collections from './model/collections';
 import * as Groups from './model/groups';
 import * as Library from './model/library';
 import { ACCOUNT_DELETE_BATCH, ACCOUNT_DELETE_DOCUMENTS } from './model/limits';
+import { agent } from './model/agent';
 import * as Notifications from './model/notifications';
 import { limit } from './model/rateLimits';
 
@@ -60,6 +61,7 @@ const PHASES = [
   'groups',
   'events',
   'devices',
+  'conversations',
   'settings',
   'done',
 ] as const;
@@ -76,6 +78,7 @@ const phaseValidator = v.union(
   v.literal('groups'),
   v.literal('events'),
   v.literal('devices'),
+  v.literal('conversations'),
   v.literal('settings'),
   v.literal('done'),
 );
@@ -257,6 +260,35 @@ async function runPhase(ctx: MutationCtx, user: Doc<'users'>, phase: Phase): Pro
       return rows.length === ACCOUNT_DELETE_DOCUMENTS;
     }
 
+    /**
+     * Every conversation this account had, and the Agent component's own rows
+     * underneath them.
+     *
+     * Deleting the `aiThreads` row alone would leave the messages — they live
+     * in the component's tables, not in this schema, so nothing in the cascade
+     * above reaches them. `deleteThreadAsync` schedules its own continuations,
+     * which is why this phase can hand it a page of threads and return.
+     */
+    case 'conversations': {
+      const rows = await ctx.db
+        .query('aiThreads')
+        .withIndex('by_user_and_last', (q) => q.eq('userId', user._id))
+        .take(ACCOUNT_DELETE_DOCUMENTS);
+      for (const row of rows) {
+        // A component thread that is already gone must not stop an account
+        // deletion — the row is what says the conversation exists, and this is
+        // the one phase that has no second chance. `ai.ts:forget` has the
+        // longer version of the argument.
+        try {
+          await agent.deleteThreadAsync(ctx, { threadId: row.threadId });
+        } catch (error) {
+          console.error(`could not delete agent thread ${row.threadId}`, error);
+        }
+        await ctx.db.delete('aiThreads', row._id);
+      }
+      return rows.length === ACCOUNT_DELETE_DOCUMENTS;
+    }
+
     case 'settings': {
       const sharing = await ctx.db
         .query('sharingSettings')
@@ -271,6 +303,13 @@ async function runPhase(ctx: MutationCtx, user: Doc<'users'>, phase: Phase): Pro
         .unique();
       if (notifications !== null) {
         await ctx.db.delete('notificationSettings', notifications._id);
+      }
+      const ai = await ctx.db
+        .query('aiSettings')
+        .withIndex('by_user', (q) => q.eq('userId', user._id))
+        .unique();
+      if (ai !== null) {
+        await ctx.db.delete('aiSettings', ai._id);
       }
       return false;
     }

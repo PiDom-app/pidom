@@ -561,7 +561,15 @@ export async function softDelete(db: SQLiteDatabase, id: string): Promise<void> 
   );
 }
 
-/** Removes a row for good. Called once the account has been told, and only then. */
+/**
+ * Removes a row for good. Called once the account has been told, and only then.
+ *
+ * Every per-document table is named here explicitly, including the three the
+ * index writes. `chunks` has `ON DELETE CASCADE` from `documents` and
+ * `embeddings` from `chunks`, but `PRAGMA foreign_keys` is a property of the
+ * connection rather than of the schema — a build that opened without it would
+ * leave a phone carrying vectors for a book nobody can name, and silently.
+ */
 export async function purge(db: SQLiteDatabase, id: string): Promise<void> {
   await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM documents WHERE id = ?', id);
@@ -570,6 +578,10 @@ export async function purge(db: SQLiteDatabase, id: string): Promise<void> {
     await txn.runAsync('DELETE FROM annotations WHERE documentId = ?', id);
     await txn.runAsync('DELETE FROM collectionDocuments WHERE documentId = ?', id);
     await txn.runAsync('DELETE FROM outlines WHERE documentId = ?', id);
+    await txn.runAsync('DELETE FROM embeddings WHERE documentId = ?', id);
+    await txn.runAsync('DELETE FROM chunks WHERE documentId = ?', id);
+    await txn.runAsync('DELETE FROM documentVectors WHERE documentId = ?', id);
+    await txn.runAsync('DELETE FROM localJobs WHERE documentId = ?', id);
   });
 }
 

@@ -64,6 +64,7 @@ export function ReaderChrome({
   onScrubTo,
   onOpenJump,
   onOpenSettings,
+  onOpenAsk,
   onStep,
   outline,
   uri,
@@ -97,6 +98,8 @@ export function ReaderChrome({
   onScrubTo: (page: number) => void;
   onOpenJump: () => void;
   onOpenSettings: () => void;
+  /** `null` on a document this device cannot answer about, which hides it. */
+  onOpenAsk: (() => void) | null;
   /** `+1` / `-1`, for the assistive-technology adjust actions on the track. */
   onStep: (by: 1 | -1) => void;
   /** Chapter starts, for the ticks and for naming the page under the thumb. */
@@ -272,6 +275,7 @@ export function ReaderChrome({
             onScrubTo={onScrubTo}
             onOpenJump={onOpenJump}
             onOpenSettings={onOpenSettings}
+            onOpenAsk={onOpenAsk}
             onStep={onStep}
           />
         </VStack>

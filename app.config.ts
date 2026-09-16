@@ -7,7 +7,12 @@ const config: ExpoConfig = {
   slug: 'pidom',
   owner: 'teum254s-team',
   // Unsigned EAS Update is a separate runtime from the prior signed build.
-  version: '1.0.2',
+  //
+  // 1.0.3 adds `onnxruntime-react-native` and `expo-battery`, which are native.
+  // `runtimeVersion` follows `version`, so an update built against 1.0.2 must
+  // not reach a build that has neither module — it would find the search model
+  // unloadable and the battery unreadable on the first pass of the index queue.
+  version: '1.0.3',
   orientation: 'default',
   icon: './assets/images/icon.png',
   scheme: 'pidom',
@@ -73,6 +78,11 @@ const config: ExpoConfig = {
     '@react-native-google-signin/google-signin',
     'expo-secure-store',
     ['expo-sqlite', { enableFTS: true, useSQLCipher: true }],
+    // The native graph runtime the on-device search model runs in, and the
+    // shim that points Transformers.js at it. Both are native, which is why
+    // `version` and `runtimeVersion` moved when they were added.
+    'onnxruntime-react-native',
+    '@automatalabs/react-native-transformers',
     'expo-sharing',
     [
       'expo-notifications',

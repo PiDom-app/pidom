@@ -9,12 +9,15 @@
  */
 
 import type * as account from "../account.js";
+import type * as ai from "../ai.js";
 import type * as collections from "../collections.js";
 import type * as crons from "../crons.js";
 import type * as groups from "../groups.js";
 import type * as library from "../library.js";
 import type * as maintenance from "../maintenance.js";
 import type * as model_access from "../model/access.js";
+import type * as model_agent from "../model/agent.js";
+import type * as model_ai from "../model/ai.js";
 import type * as model_annotations from "../model/annotations.js";
 import type * as model_auth from "../model/auth.js";
 import type * as model_collections from "../model/collections.js";
@@ -49,12 +52,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  ai: typeof ai;
   collections: typeof collections;
   crons: typeof crons;
   groups: typeof groups;
   library: typeof library;
   maintenance: typeof maintenance;
   "model/access": typeof model_access;
+  "model/agent": typeof model_agent;
+  "model/ai": typeof model_ai;
   "model/annotations": typeof model_annotations;
   "model/auth": typeof model_auth;
   "model/collections": typeof model_collections;
@@ -116,4 +122,5 @@ export declare const components: {
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   presence: import("@convex-dev/presence/_generated/component.js").ComponentApi<"presence">;
   pushNotifications: import("@convex-dev/expo-push-notifications/_generated/component.js").ComponentApi<"pushNotifications">;
+  agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
 };

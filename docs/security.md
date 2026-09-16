@@ -544,6 +544,131 @@ always a document that is fine. It collected nothing, every night, while
 orphaned text — the reader's own content, outliving their decision to remove it
 — accumulated. Orphans are recorded on the way out now, not hunted for.
 
+## What a question about a book sends
+
+Searching by meaning runs entirely on the handset. The model is a 129 MB ONNX
+file under `Documents/library/<profile>/model/`, the passages and their vectors
+are rows in the profile's SQLCipher database beside the library, and the scan is
+arithmetic in JavaScript. No vector has ever left a phone and there is no code
+path that would send one.
+
+**Ask is the first moment any part of a document crosses to a third party**, and
+what crosses is small and structural rather than a matter of trust:
+
+```
+device                         account                        model
+──────                         ───────                        ─────
+{ documentId, pages: [152,     requireReadable, then those    at most 8 pages,
+  153, 156, 31] } + a          rows out of documentPages      fenced and labelled
+  question                                                    as quotation
+```
+
+The client sends integers. `convex/model/ai.ts:contextFor` reads those page
+numbers back out of this deployment's own `documentPages` after the same access
+check the reader passed to open the page. Three things follow, and the third is
+the one worth stating:
+
+- A 613-page document sends at most eight pages, and only the eight the reader's
+  own question selected.
+- The wire carries no document text at all, in either direction, from the device.
+- **A client cannot put words in a book's mouth.** The words the model sees are
+  the words the account holds, so a citation under an answer is checkable rather
+  than claimed. A hand-rolled version of this that let the client post the
+  passages would have been simpler and would have made every citation a
+  statement by the client about itself.
+
+### Two switches, and neither defaults to yes
+
+`aiSettings.allowCloud` is off. `model/ai.ts:mayAsk` reads it on every question
+rather than once when a conversation was started, so a reader who turns Ask off
+stops the next question in an existing conversation as well as the next
+conversation. `convex/ai.test.ts` asserts exactly that.
+
+`sharingSettings.allowAiOnSharedDocuments` is off, and it is read off the
+**owner's** row. A document shared with somebody is still its owner's document,
+and sending its pages to a company that did not write it is the owner's decision
+— the same argument `allowDownloads` and `allowReshares` are made with, and the
+same default. A recipient's sheet says the owner has not allowed it rather than
+failing.
+
+Both are gates rather than banners. `docs/security.md` already has a paragraph
+about `showReadingActivity` sitting on a screen for months wired to nothing; a
+switch that reads as a protection and is none is worse than no switch, so both of
+these are checked in the mutation and both have a test that turns them off and
+watches a call be refused.
+
+### A passage from a PDF is untrusted input
+
+Anybody can write _ignore your instructions_ into a document and share it, and
+this application's whole premise is that readers open documents other people
+sent them. The quoted pages are fenced between `BEGIN PAGES` and `END PAGES`
+markers and the system prompt says that nothing between them is an instruction,
+which is mitigation — no prompt makes a model immune.
+
+**The real defence is that there is nothing for a successful injection to
+reach.** The agent in `convex/model/agent.ts` ships with `tools: {}`. Nothing the
+model returns picks a page, fetches a URL, writes a row or spends a token
+bucket. The worst a hostile document can do is make one answer wrong, in a sheet
+that shows the reader which pages it was given and takes them there in one tap.
+Adding a tool would change that and would need its own argument in that file.
+
+### The model file is verified before a session opens
+
+A model is executable input to a native graph loader, fetched over the network
+and signed by nothing this application controls. `model-store.ts:verifyModel`
+checks the size and then a digest pinned in `model.ts`, and a mismatch **deletes
+the file** rather than declining to use it — a file of the right size left on
+disk would be a file the next launch finds, skips the download for, and hands to
+the loader unverified.
+
+The digest is a frame chain rather than a file hash: `expo-crypto` has no
+incremental digest, which is why `validate.ts:HASHABLE_BYTE_MAX` caps whole-file
+hashing at 32 MB, and this file is 113 MB. So it is read in 8 MB frames and each
+frame's digest folds into the next. That is not SHA-256 of the file and the
+comment says so; it is a value that changes if any byte changes or if any two
+frames swap places, and the pinned constant was produced by the identical
+construction over the same URL.
+
+### No key, anywhere
+
+The model is reached through the Convex AI Gateway, which mints a short-lived
+deployment-scoped token inside the action. There is no API key in this
+repository, none in `npx convex env`, and none on the handset. This is not a
+problem solved so much as avoided — the paragraph above about `EXPO_ACCESS_TOKEN`
+is the same class of problem, and the difference is that this one had an option
+with no secret in it at all.
+
+When OpenRouter is added, `model/agent.ts:languageModelFor` is the one function
+that changes, its key is set with `npx convex env set` and read through the typed
+`env` object, and it is never `EXPO_PUBLIC_*` — that prefix is compiled into the
+bundle, which is to say printed on the side of every APK.
+
+### Bounded on every axis, and deleted on a clock
+
+`AI_PROMPT_MAX` on the question. `AI_CONTEXT_PAGES` × `PAGE_TEXT_MAX` — 64 KiB —
+on what leaves the deployment per turn. `AI_THREADS_PER_USER` on the account.
+Three token buckets: `aiThread`, `aiMessage`, and `aiTokens`, the last of which
+is spent _after_ a generation with `reserve: true`, so an answer that cost more
+than the estimate settles the difference and delays the next question rather
+than being cut off halfway.
+
+Retention is enforced twice, which is the pattern `expireShares` established and
+for the reason its comment gives: **a Convex query is not re-run because time
+advanced.** `ai.threads` filters on a cutoff the caller passes, so an expired
+conversation is gone from the list the moment it expires; `maintenance` enqueues
+`ai.expireThreads` nightly, which walks `by_expiry` and actually deletes it. A
+filter alone would leave it on screen; a sweep alone would leave it readable.
+
+Deleting an account has a `conversations` phase. Without it the `aiThreads` rows
+would go and the messages would not — they live in the component's tables, which
+nothing in this schema's cascade reaches.
+
+**What the reader keeps is not a conversation.** An answer kept from the sheet
+becomes a `documentAnnotations` row through the path annotations already take:
+it syncs, it survives, and the month does not apply to it. That is the whole
+mental model the feature asks somebody to hold — chat is temporary, what you
+save is yours.
+
 ## Sharing
 
 Everything above answers one question — does this row's `ownerId` equal the

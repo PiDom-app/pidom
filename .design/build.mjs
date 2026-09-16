@@ -126,6 +126,9 @@ const icons = {
   circleSlash: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
   layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 10.37-3.48 1.59a1 1 0 0 0 0 1.83l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.48-1.59"/><path d="m6.08 15.37-3.48 1.59a1 1 0 0 0 0 1.83l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.48-1.59"/>',
   sliders: '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
+  /* Intelligence. Two, because the rest of this vocabulary already existed. */
+  sparkles: '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>',
+  cpu: '<path d="M12 20v2"/><path d="M12 2v2"/><path d="M17 20v2"/><path d="M17 2v2"/><path d="M2 12h2"/><path d="M2 17h2"/><path d="M2 7h2"/><path d="M20 12h2"/><path d="M20 17h2"/><path d="M20 7h2"/><path d="M7 20v2"/><path d="M7 2v2"/><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/>',
 };
 const icon = (name, size, color, sw = 1.75) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block">${icons[name]}</svg>`;
@@ -5144,6 +5147,833 @@ function downloadModel() {
   });
 }
 
+/* ------------------------ the intelligence surfaces --------------- */
+
+/**
+ * Where a document's index can be, and what each state offers.
+ *
+ * Eleven, and the shape is `DL`'s on purpose: a reader who has learned what the
+ * Downloads screen's glyph column means has learned this one too. The tones are
+ * the same five and carry the same meaning — `warn` is waiting on a condition
+ * the reader can change, `destructive` is spent, `ok` is done, and everything
+ * quiet is `fgSubtle` so the two rows that need attention are not buried under
+ * ninety-eight green ones.
+ */
+const IX = (c) => ({
+  none: { glyph: 'scanText', tone: c.fgMuted, label: 'Not indexed', line: 'Findable by its words. Not yet by what it means.' },
+  waiting: { glyph: 'cloudUp', tone: c.fgSubtle, label: 'Waiting for its text', line: 'The account has not finished reading this one yet.' },
+  queued: { glyph: 'clock', tone: c.fgSubtle, label: 'Queued', line: 'Waiting for the document before it.' },
+  model: { glyph: 'cpu', tone: c.warn, label: 'Needs the model', line: 'The search model has not been downloaded to this phone.' },
+  wifi: { glyph: 'wifiOff', tone: c.warn, label: 'Waiting for Wi-Fi', line: 'Held because indexing is set to Wi-Fi only.' },
+  cap: { glyph: 'hardDrive', tone: c.warn, label: 'At the index ceiling', line: 'Raise it, or let an older index be dropped.' },
+  chunking: { glyph: 'layers', tone: c.primary, label: 'Reading the pages', line: null },
+  embedding: { glyph: 'sparkles', tone: c.primary, label: 'Preparing search', line: null },
+  ready: { glyph: 'fileCheck', tone: c.ok, label: 'Searchable by meaning', line: 'Works with no connection.' },
+  stale: { glyph: 'refresh', tone: c.warn, label: 'Built by an older model', line: 'Still searchable. Rebuilding improves what it finds.' },
+  failed: { glyph: 'circleSlash', tone: c.destructive, label: "Couldn't be indexed", line: 'Eight attempts. Its words are still searchable.' },
+});
+
+/**
+ * The transcript, in a design system with no bubbles in it.
+ *
+ * Every chat interface reaches for two coloured capsules, and this one cannot:
+ * `docs/design.md` has no cards, one accent, and a 6px radius everywhere. So a
+ * turn is a role label over a paragraph — the same `settingsLabel` typography
+ * every section heading in the app already uses — separated by whitespace
+ * rather than by a filled shape. It reads as a document, which is the right
+ * register for something sitting on top of one.
+ */
+function askTurn(c, { role, body, sources = null, streaming = false }) {
+  const you = role === 'you';
+  return `<div style="padding:14px ${PAD}px 0">
+    <div style="display:flex;align-items:center;gap:6px">
+      ${you ? '' : icon('sparkles', 12, c.primary, 2)}
+      <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${you ? c.fgSubtle : c.primary}">${you ? 'You' : 'Pidom'}</span>
+    </div>
+    <div style="margin-top:6px;font-size:${you ? 15 : 14}px;line-height:${you ? 21 : 21}px;color:${you ? c.fg : c.fg}" class="pretty">${body}${streaming ? `<span style="display:inline-block;width:7px;height:14px;margin-left:2px;vertical-align:-2px;background:${c.primary};border-radius:1px"></span>` : ''}</div>
+    ${sources === null ? '' : `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px">${sources
+      .map((p) => `<div style="display:flex;align-items:center;gap:4px;padding:5px 9px;border-radius:${R};background:${c.primaryTint}">${icon('quote', 11, c.primary, 2)}<span style="font-size:12px;color:${c.primary}" class="tnum">page ${p}</span></div>`)
+      .join('')}</div>`}
+  </div>`;
+}
+
+/**
+ * Ask, full screen.
+ *
+ * It was a sheet at a fixed 70%, and that was living with the problem rather
+ * than solving it. `docs/design.md` draws the line: a control must not hang off
+ * a box whose height is the reader's data, which is why the navigator became a
+ * route. A transcript is that data and a composer is that control, so this is a
+ * route too — the answer this document already gives for every surface that
+ * holds a list.
+ *
+ * The chrome is `sharePage`'s, because a sixth slightly different header would
+ * be a sixth application. What sits under it is gluestack's Chat AI, vendored
+ * and audited: its `PromptInput` is `absolute bottom-4` and rides the keyboard
+ * on a shared value, which is a layout that wants a whole screen and was
+ * fighting the sheet for its last few hundred pixels.
+ */
+function askScreen(c, { subtitle, body, composer = true, placeholder = 'Ask about this document', trailing = '' }) {
+  return `<div style="position:absolute;inset:0;background:${c.bg};display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;padding:44px ${PAD}px 12px;flex:0 0 auto">
+      ${icon('arrowLeft', 22, c.fg, 2)}
+      <div style="margin-left:10px;flex:0 0 auto">${icon('sparkles', 18, c.fgMuted)}</div>
+      <div style="flex:1;min-width:0;margin-left:10px">
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:${c.fg}">Ask</div>
+        <div style="margin-top:2px;font-size:12px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>
+      </div>
+      ${trailing}
+    </div>
+    <div style="height:1px;background:${c.hairline};flex:0 0 auto"></div>
+
+    <div style="flex:1;min-height:0;overflow:hidden">${body}</div>
+
+    ${composer
+      ? `<div style="flex:0 0 auto;padding:0 ${PAD}px 28px">
+           <div style="border-radius:22px;background:${c.hover};padding:10px 12px">
+             <div style="font-size:16px;color:${c.fgSubtle};padding:4px 4px 10px">${placeholder}</div>
+             <div style="display:flex;align-items:center;justify-content:space-between">
+               <div style="display:flex;align-items:center;gap:8px">
+                 <div style="width:34px;height:34px;border-radius:9999px;background:${c.primaryTint};display:flex;align-items:center;justify-content:center"><span style="font-size:20px;color:${c.primary}">+</span></div>
+                 <div style="height:34px;display:flex;align-items:center;padding:0 12px;border-radius:9999px;background:${c.primaryTint}"><span style="font-size:13px;color:${c.primary}">gpt-4o-mini</span></div>
+               </div>
+               <div style="width:36px;height:36px;border-radius:9999px;background:${c.primary};display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:${c.onPrimary}">↑</span></div>
+             </div>
+           </div>
+         </div>`
+      : '<div style="height:28px;flex:0 0 auto"></div>'}
+  </div>`;
+}
+
+/**
+ * The reader, with the one control this feature adds.
+ *
+ * Not a seventh glyph in the top bar. `reader-chrome.tsx` says in as many words
+ * that the bar carries six already and a seventh is the one that finally turns
+ * the title into an ellipsis, so Ask sits on the bottom bar beside the page
+ * count, where there has always been room and where the reader's thumb already
+ * is. It is the only labelled control in either bar, because it is the only one
+ * whose glyph does not say what it does.
+ */
+function askClosed() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: PAPER.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${PAPER.bg}">
+  <div style="padding:116px 40px 0">${readerPage({ top: 0, side: 0 })}</div>
+  ${folio(142)}
+  ${readerTop(c, { title: doc.t })}
+
+  <div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:${c.bg};box-shadow:0 -1px 0 ${c.hairline}">
+    <div style="padding:16px ${PAD}px 0">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:12px;color:${c.fgMuted}" class="tnum">142 of ${doc.p}</span>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:${R};background:${c.primaryTint}">
+          ${icon('sparkles', 14, c.primary, 2)}<span style="font-size:12px;font-weight:500;color:${c.primary}">Ask</span>
+        </div>
+        ${icon('settings', 19, c.fgMuted, 2)}
+      </div>
+      <div style="margin-top:10px;height:2px;border-radius:${R};background:${c.border}">
+        <div style="width:28%;height:100%;border-radius:${R};background:${c.primary}"></div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/** A question, answered from four pages of a five-hundred-page book. */
+function ask() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    trailing: `<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:${R};background:${c.surface}">${icon('clock', 11, c.fgSubtle, 2)}<span style="font-size:11px;color:${c.fgSubtle}">28 days</span></div>`,
+    body: `
+      ${askTurn(c, { role: 'you', body: 'Why does he think small samples mislead people who should know better?' })}
+      ${askTurn(c, {
+        role: 'pidom',
+        body: 'Because the intuition that judges a sample never asks how large it is. Kahneman’s argument is that statisticians reading their own results fall for it too — they trust a result from twelve subjects with the confidence a result from twelve hundred would earn, since the mind evaluates <i>how convincing the story is</i> rather than <i>how much evidence produced it</i>. Small samples produce more extreme results, so they tell better stories.',
+        sources: [152, 153, 156],
+      })}
+      <div style="padding:16px ${PAD}px 0;display:flex;align-items:center;gap:8px">
+        ${icon('highlighter', 14, c.fgSubtle, 2)}<span style="font-size:12px;color:${c.fgSubtle}">Keep this answer</span>
+      </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Where the answer came from, which is not a footnote.
+ *
+ * The passages are the product. A model given four pages of a book and asked to
+ * summarise them is doing a small, checkable job, and the only way a reader can
+ * check it is to be shown the four pages and taken to them in one tap. So the
+ * citations expand into the passages themselves, each one a row that goes to
+ * the page — `search-inside-screen.tsx`'s result row, in a sheet.
+ */
+function askSources() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const source = (page, text, why) =>
+    `<div style="padding:12px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}" class="tnum">page ${page}</span>
+        <div style="flex:1"></div>
+        <span style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:${why === 'meaning' ? c.primary : c.fgSubtle}">${why}</span>
+        ${icon('chevronRight', 14, c.fgSubtle, 2)}
+      </div>
+      <div style="margin-top:5px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="c2">${text}</div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    trailing: icon('close', 18, c.fgSubtle, 2),
+    body: `
+      <div style="padding:14px ${PAD}px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Four pages went to the model</div>
+      ${source(152, 'The phenomenon we were studying is so common and so important in the everyday world that you should know its name: it is an anchoring effect, and it survives being pointed out.', 'meaning')}
+      ${source(153, 'Any number that you are asked to consider as a possible solution to an estimation problem will induce an effect of the same kind.', 'meaning')}
+      ${source(156, 'Our thoughts and our behaviour are influenced by contexts we are not aware of, and by samples far too small to carry the conclusions drawn from them.', 'both')}
+      ${source(31, 'A random event, by definition, does not lend itself to explanation, but collections of random events do behave in a highly regular fashion.', 'words')}
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:14px ${PAD}px">
+        ${icon('lock', 15, c.fgSubtle, 2)}
+        <div style="flex:1;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">This phone sent four page numbers. Your account read those four pages and sent them on. Nothing else in the book left it.</div>
+      </div>`,
+    composer: false,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * A passage, carried in as the question's context.
+ *
+ * `selection-bar.tsx` had three buttons and now has four, which is the whole
+ * change: the selection is already bounded at `PAGE_TEXT_MAX` and already never
+ * logged, so Ask inherits both rules rather than restating them. The quoted
+ * block at the top of the sheet is the reader's own selection, shown back so
+ * there is no doubt what the answer is about.
+ */
+function askFromSelection() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    placeholder: 'What would you like to know?',
+    body: `
+      <div style="margin:14px ${PAD}px 0;padding:12px 14px;border-radius:${R};background:${c.surface};box-shadow:inset 0 0 0 1px ${c.hairline}">
+        <div style="display:flex;align-items:center;gap:6px">
+          ${icon('quote', 12, c.fgSubtle, 2)}
+          <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}" class="tnum">page 142 · selected</span>
+        </div>
+        <div style="margin-top:7px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="c5">“The exaggerated faith of researchers in what can be learned from a few observations is closely related to the halo effect, the sense we often get that we know and understand a person about whom we actually know very little.”</div>
+      </div>
+      <div style="padding:16px ${PAD}px 0;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Or start with</div>
+      ${['Explain this in plain language', 'What is the halo effect?', 'Where else does he argue this?']
+        .map((q) => `<div style="display:flex;align-items:center;gap:12px;padding:11px ${PAD}px">${icon('sparkles', 15, c.fgMuted, 2)}<span style="flex:1;font-size:14px;color:${c.fg}">${q}</span>${icon('chevronRight', 14, c.fgSubtle, 2)}</div>`)
+        .join('')}`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * With no connection, and the honest answer.
+ *
+ * The index is on the phone and the model that writes prose is not, so the half
+ * that still works runs and says which half it is. This is the board that
+ * exists to refuse the obvious shortcut: a greyed-out send button teaches a
+ * reader nothing, and an apology teaches them less than four passages they can
+ * open. Finding the right pages was always the hard part; the sentences on top
+ * of them are what needs a network.
+ */
+function askOffline() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const passage = (page, text) =>
+    `<div style="padding:12px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}" class="tnum">page ${page}</span>
+        <div style="flex:1"></div>
+        ${icon('chevronRight', 14, c.fgSubtle, 2)}
+      </div>
+      <div style="margin-top:5px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="c2">${text}</div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    trailing: icon('wifiOff', 17, c.warn, 2),
+    placeholder: 'Find passages about…',
+    body: `
+      ${askTurn(c, { role: 'you', body: 'Why do small samples mislead?' })}
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:16px ${PAD}px 12px">
+        ${icon('wifiOff', 15, c.warn, 2)}
+        <div style="flex:1;font-size:12px;line-height:17px;color:${c.warn}" class="pretty">No connection, so nothing is written for you. The four passages your phone found on its own are below.</div>
+      </div>
+      ${passage(152, 'The phenomenon we were studying is so common and so important in the everyday world that you should know its name: it is an anchoring effect.')}
+      ${passage(31, 'A random event, by definition, does not lend itself to explanation, but collections of random events do behave in a highly regular fashion.')}
+      ${passage(156, 'Our thoughts and our behaviour are influenced by contexts we are not aware of, and by samples far too small to carry the conclusions drawn from them.')}`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * The gate, asked once, before anything leaves.
+ *
+ * Not a banner and not a checkbox in settings somebody scrolls past. Everything
+ * up to this point happened on the phone; this is the first moment any part of
+ * a document crosses to a company that did not write it, and the sentence that
+ * says so is the whole screen rather than a line under a button.
+ *
+ * Refusing is not a dead end, which is why the second control is a real one:
+ * the passages still work, and the reader who says no keeps the half of the
+ * feature that never needed permission.
+ */
+function askConsent() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const point = (glyph, title, body, tone = null) =>
+    `<div style="display:flex;align-items:flex-start;gap:12px;padding:11px ${PAD}px">
+      <div style="margin-top:1px">${icon(glyph, 16, tone ?? c.fgMuted, 2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;color:${tone ?? c.fg}">${title}</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${body}</div>
+      </div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    composer: false,
+    body: `
+      <div style="padding:16px ${PAD}px 4px">
+        <div style="font-size:17px;font-weight:600;letter-spacing:-.014em;color:${c.fg}">What leaves this phone</div>
+        <div style="margin-top:7px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Searching by meaning has been running here the whole time. Answering in sentences cannot.</div>
+      </div>
+      ${point('send', 'Your question, and at most eight pages', 'Your phone picks the pages. It sends their numbers; your account reads them and passes the text to the model.')}
+      ${point('clock', 'Conversations are deleted after a month', 'Anything you keep — a passage, a note — is yours and stays.')}
+      ${point('ban', 'Never the whole document', 'Not the file, not the index, not a page you did not ask about.', c.ok)}
+      <div style="padding:14px ${PAD}px 0">
+        ${primaryButton(c, 'Turn on Ask')}
+        <div style="margin-top:10px">${quietButton(c, 'Just find the passages')}</div>
+      </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Conversations about one document, and how much of their month is left.
+ *
+ * The expiry is on every row rather than in a paragraph somewhere, because a
+ * month is long enough to forget and the row is the only place a reader looks.
+ * `documentShares` already puts "Expires in 12 days" on a share for the same
+ * reason, and this is that line, applied to something that deletes itself
+ * rather than to something that stops working.
+ */
+function askThreads() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  const thread = (title, when, left, warn = false) =>
+    `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="margin-top:2px">${icon('messageSquare', 15, c.fgMuted, 2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg}" class="c2">${title}</div>
+        <div style="margin-top:3px;font-size:12px;color:${c.fgSubtle}">${when}</div>
+      </div>
+      <span style="flex:0 0 auto;font-size:11px;padding-top:2px;color:${warn ? c.warn : c.fgSubtle}" class="tnum">${left}</span>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    composer: false,
+    trailing: icon('plus', 19, c.fg, 2),
+    body: `
+      <div style="padding:14px ${PAD}px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">Conversations</div>
+      ${thread('Why do small samples mislead?', 'Yesterday · 6 messages', '28 days')}
+      ${thread('The difference between System 1 and System 2, in his words rather than the summaries', '11 March · 14 messages', '19 days')}
+      ${thread('What does he mean by an availability cascade?', '24 February · 3 messages', '2 days', true)}
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:14px ${PAD}px">
+        ${icon('clock', 15, c.fgSubtle, 2)}
+        <div style="flex:1;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Conversations are deleted a month after they start, on the server rather than hidden here. Passages and notes you kept are not conversations and are never touched.</div>
+      </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * The budget, spent.
+ *
+ * A limit nobody can see is a failure with no cause, which is the whole reason
+ * `outcome.ts` treats `RATE_LIMITED` as its own outcome rather than as an
+ * error: the queue already knows to wait rather than to count the attempt. This
+ * is that fact given a sentence and a time, and the passages still work, which
+ * is the point worth making twice.
+ */
+function askLimited() {
+  const c = DARK;
+  const doc = byTitle('Thinking,');
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    composer: false,
+    body: `
+      ${askTurn(c, { role: 'you', body: 'And what about the planning fallacy?' })}
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:16px ${PAD}px 0">
+        ${icon('clock', 15, c.warn, 2)}
+        <div style="flex:1">
+          <div style="font-size:14px;color:${c.warn}">You have asked a lot today</div>
+          <div style="margin-top:4px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Answers come back at about forty an hour, and this hour is spent. The next one is available in about eleven minutes. Nothing was lost — your question is still here.</div>
+        </div>
+      </div>
+      <div style="padding:16px ${PAD}px 0">
+        ${quietButton(c, 'Find the passages instead', { glyph: 'textSearch' })}
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:16px ${PAD}px">
+        ${icon('info', 15, c.fgSubtle, 2)}
+        <div style="flex:1;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Searching by meaning has no limit at all. It runs on this phone and costs nobody anything.</div>
+      </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * A document Ask cannot answer about yet, and what it is waiting for.
+ *
+ * Three conditions in order, because they happen in order and only one of them
+ * is ever the reader's to fix. A document that is on this phone and not in the
+ * account has no text anywhere in the system — `react-native-pdf` has no text
+ * API, so the words only exist once the account has read the file — and saying
+ * "not indexed" would name the symptom rather than the cause.
+ */
+function askNotIndexed() {
+  const c = DARK;
+  const doc = byTitle('Lease Agreement') ?? DOCS[0];
+  const step = (state, label, note, done) =>
+    `<div style="display:flex;align-items:flex-start;gap:12px;padding:11px ${PAD}px">
+      <div style="margin-top:1px">${icon(done ? 'check' : IX(c)[state].glyph, 16, done ? c.ok : IX(c)[state].tone, 2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;color:${done ? c.fgMuted : c.fg}">${label}</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${note}</div>
+      </div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">
+  ${askScreen(c, {
+    subtitle: doc.t,
+    composer: false,
+    body: `
+      <div style="padding:16px ${PAD}px 4px">
+        <div style="font-size:17px;font-weight:600;letter-spacing:-.014em;color:${c.fg}">Not ready for this one yet</div>
+        <div style="margin-top:7px;font-size:13px;line-height:19px;color:${c.fgMuted}" class="pretty">Three things have to be true before a document can be asked about. Two of them are.</div>
+      </div>
+      ${step('ready', 'In your account', 'Synced, and its text read out of the copy there.', true)}
+      ${step('ready', 'On this phone', 'Downloaded, so its pages can be read without a connection.', true)}
+      ${step('model', 'Indexed on this phone', 'The search model has not been downloaded. It is 129 MB and only ever downloads on Wi-Fi.', false)}
+      <div style="padding:16px ${PAD}px 0">
+        ${primaryButton(c, 'Download the model', { glyph: 'cpu' })}
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:16px ${PAD}px">
+        ${icon('textSearch', 15, c.fgSubtle, 2)}
+        <div style="flex:1;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Searching this document by its words works now and always has. The model adds searching it by what it means.</div>
+      </div>`,
+  })}
+</div>`,
+  });
+}
+
+/**
+ * Two ways of finding the same thing, side by side and labelled.
+ *
+ * The chip row is `Segments` — the same control the navigator and the sharing
+ * screens use, which is why this app has no `Tabs`. What is new is the label on
+ * each result: a hit is there because the words matched, because the meaning
+ * matched, or because both did, and hiding that would make the one surprising
+ * result of the four look like a bug.
+ *
+ * The page-31 hit is the argument for the whole feature. It does not contain
+ * the word "sample" anywhere.
+ */
+function searchMeaning() {
+  const c = DARK;
+  const hit = (title, page, text, why) =>
+    `<div style="padding:14px ${PAD}px;border-bottom:1px solid ${c.hairline}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.008em;color:${c.fg};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
+        <span style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:${why === 'words' ? c.fgSubtle : c.primary};flex:0 0 auto">${why}</span>
+        <span style="font-size:11px;color:${c.fgSubtle};flex:0 0 auto" class="tnum">page ${page}</span>
+      </div>
+      <div style="margin-top:5px;font-size:12px;line-height:18px;color:${c.fgMuted}" class="c2">${text}</div>
+    </div>`;
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="height:844px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:52px ${PAD}px 0">
+    ${icon('arrowLeft', 22, c.fg, 2)}
+    <div style="flex:1;height:40px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:${R};background:${c.surface};box-shadow:inset 0 0 0 1px ${c.hairline}">
+      ${icon('search', 16, c.fgSubtle)}
+      <span style="font-size:14px;color:${c.fg}">why a small sample fools an expert</span>
+    </div>
+  </div>
+
+  ${segments(c, [{ label: 'Meaning', on: true }, { label: 'Words', on: false }, { label: 'Titles', on: false }])}
+  <div style="height:1px;background:${c.hairline}"></div>
+
+  <div style="padding:14px ${PAD}px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">9 passages in 3 documents</div>
+
+  <div style="flex:1;border-top:1px solid ${c.hairline};overflow:hidden">
+    ${hit('Thinking, Fast and Slow', 153, 'The exaggerated faith of researchers in what can be learned from a few observations is closely related to the halo effect.', 'meaning')}
+    ${hit('Thinking, Fast and Slow', 31, 'A random event, by definition, does not lend itself to explanation, but collections of random events do behave in a highly regular fashion.', 'meaning')}
+    ${hit('Thinking, Fast and Slow', 152, 'Any number that you are asked to consider as a possible solution to an estimation problem will induce an effect of the same kind.', 'both')}
+    ${hit('The Design of Everyday Things', 88, 'Five users will find most of the problems, which is true of the problems five users can find.', 'meaning')}
+    ${hit('Designing Data-Intensive Applications', 14, 'Percentiles from a small sample of requests are noisy, and the tail is where the noise lives.', 'words')}
+
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:16px ${PAD}px">
+      ${icon('sparkles', 17, c.fgSubtle, 2)}
+      <div style="flex:1">
+        <div style="font-size:13px;color:${c.fgMuted}">Page 31 does not contain any of these words</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">It is here because it is about the same thing. That is the whole difference between the two chips above.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:0 ${PAD}px 16px">
+      ${icon('scanText', 17, c.fgSubtle, 2)}
+      <div style="flex:1">
+        <div style="font-size:13px;color:${c.fgMuted}">6 documents have no index yet</div>
+        <div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Four are being prepared now. Two are on this phone only, so there is no text to read.</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * The library while an index is being built, which is most of a long evening.
+ *
+ * One line of metadata on one tile, in the slot the page count already
+ * occupies. A book being indexed is not a book you cannot read — every other
+ * thing about it works — so it gets the tile's quietest line and not a banner,
+ * a badge or a spinner. `docs/design.md`'s rule for `Badge` is that it carries
+ * a number somebody has to act on, and a percentage that finishes on its own is
+ * not one.
+ */
+function homeIndexing() {
+  const c = DARK;
+  const t = (title, opts) => tile(byTitle(title), { dark: true, ...opts });
+  const indexing = (title, pct) => {
+    const doc = byTitle(title);
+    return `<div style="width:${COVER_W}px;flex:0 0 auto">
+      ${pageCover(doc, { w: COVER_W })}
+      <div style="margin-top:8px;font-size:12px;line-height:16px;letter-spacing:-.006em;color:${c.fg}" class="c2">${doc.t}</div>
+      <div style="margin-top:7px;height:2px;border-radius:${R};background:${c.border};overflow:hidden"><div style="width:${pct}%;height:100%;border-radius:${R};background:${c.primary}"></div></div>
+      <div style="margin-top:5px;display:flex;align-items:center;gap:5px;font-size:10px;line-height:13px;color:${c.fgSubtle}">
+        ${icon('sparkles', 11, c.fgSubtle, 2)}<span class="tnum">Preparing search · ${pct}%</span>
+      </div>
+    </div>`;
+  };
+
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `${header(c)}
+${searchTrigger(c)}
+${rail('Recently added', [
+    indexing('Designing Data', 38),
+    t('Annual Report', { real: true }),
+    t('Lease Agreement', { real: true }),
+    t('Sapiens', { real: true }),
+  ], c)}
+${rail('Continue reading', [
+    t('Thinking,', { showProgress: true, real: true }),
+    t('The Design of', { showProgress: true, real: true }),
+    t('Convex Backend', { showProgress: true }),
+    t('Kubernetes', { showProgress: true, real: true }),
+  ], c)}
+<div style="margin:26px ${PAD}px 0;display:flex;align-items:flex-start;gap:10px">
+  ${icon('sparkles', 13, c.fgSubtle, 2)}
+  <span style="font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">Designing Data-Intensive Applications is being prepared for search by meaning — 2,100 of 5,400 passages. It opens, reads and searches by word right now, and picks up where it stopped if you close the app.</span>
+</div>`,
+  });
+}
+
+/**
+ * Two screens' worth of settings, and the line down the middle of them.
+ *
+ * Everything under Search and Indexing is this handset's answer and stays on
+ * it, for `preferences-store.ts`'s reason: a phone's answer about its data plan
+ * is not an answer a tablet ever gave. Everything under Ask and Conversations
+ * is the account's, because a conversation started here has to be readable
+ * there. The screen says which is which on each group rather than leaving the
+ * reader to discover it on a second device.
+ *
+ * `downloadSettings` is the shape, down to the two parts: one screen is taller
+ * than an artboard, and pretending otherwise draws a screen nobody can reach
+ * the bottom of.
+ */
+function intelligence(part) {
+  const c = DARK;
+  const top = part === 'top';
+  return dc({
+    w: 390, h: 844, bg: c.bg,
+    body: `<div style="position:relative;height:844px;overflow:hidden;background:${c.bg}">${sharePage(c, {
+      glyph: 'sparkles',
+      title: 'Search & Ask',
+      subtitle: 'Finding what a document means',
+      body: top
+        ? `<div style="flex:1;overflow:hidden">
+        ${settingsLabel(c, 'On this phone', 14)}
+        ${settingsSwitch(c, { label: 'Search by meaning', note: 'Finds a passage that is about what you typed, not only one that contains it.', on: true })}
+        ${settingsPick(c, { label: 'Model', note: 'multilingual-e5-small, 94 languages. Runs here; nothing it reads is sent anywhere.', value: '129 MB' })}
+        <div style="height:1px;margin:8px ${PAD}px 0;background:${c.hairline}"></div>
+        ${settingsLabel(c, 'Indexing')}
+        ${settingsSwitch(c, { label: 'Index new documents automatically', note: 'A document is indexed once its text has arrived from your account.', on: true })}
+        ${settingsSwitch(c, { label: 'Index over Wi-Fi only', note: 'Indexing itself uses no data. This holds the text it needs to fetch first.', on: true })}
+        ${settingsPick(c, { label: 'Stop indexing below', note: 'Never runs the battery down finishing a book you are not reading.', value: '20% battery' })}
+        ${settingsPick(c, { label: 'Keep at most', note: '340 MB of 2 GB used. The oldest index is dropped first, and rebuilds when you open it.', value: '2 GB' })}
+        ${quietNotice(c, 'cpu', 'The model never leaves this phone and never phones home. It is downloaded once, checked against a known fingerprint before it is used, and deleted whenever you say so.')}
+      </div>`
+        : `<div style="flex:1;overflow:hidden">
+        ${settingsLabel(c, 'Library', 14)}
+        ${settingsPick(c, { label: 'Indexed', note: '4 waiting for their text · 2 on this phone only · 1 needs rebuilding', value: '31 of 38' })}
+        ${settingsPick(c, { label: 'Index size', note: 'About 400 KB a book. Removing an index does not remove the book.', value: '340 MB' })}
+        <div style="height:1px;margin:8px ${PAD}px 0;background:${c.hairline}"></div>
+        ${settingsLabel(c, 'Ask · your account')}
+        ${settingsSwitch(c, { label: 'Allow Ask', note: 'Sends your question and the pages your phone picked. Off, and Ask still finds passages.', on: true })}
+        ${settingsPick(c, { label: 'Pages sent per question', note: 'More pages is a better answer and more of your book leaving the phone.', value: '8' })}
+        ${settingsPick(c, { label: 'Keep conversations for', note: 'Deleted on the server when the time is up, not hidden here.', value: '30 days' })}
+        ${settingsPick(c, { label: 'Documents other people shared with me', note: 'Their book, their decision. Yours is on Sharing & privacy.', value: '2 allow it' })}
+        ${quietNotice(c, 'ban', 'Your library is never used to train anything, and no part of a document is stored by the model. What you keep from a conversation becomes a note and outlives it.', c.ok)}
+      </div>`,
+    })}</div>`,
+  });
+}
+
+/**
+ * The Ask screen, taken apart, and the decision that is worth writing down.
+ *
+ * It was a sheet. The first version pinned it to a fixed 70% of the screen, and
+ * the note on this board argued for that height at some length — which was the
+ * tell. `docs/design.md` already had the rule: **a control must not hang off a
+ * box whose height is the reader's data.** The navigator became a route because
+ * of it, after Contents at 355 rows and Bookmarks at one moved its segmented
+ * control two-thirds up the screen between them and the next tap landed on the
+ * backdrop.
+ *
+ * A transcript is that data and a composer is that control, so pinning the box
+ * was living with the problem. A route is the answer, and it is the answer this
+ * document already gave for every other surface that holds a list.
+ */
+function askAnatomy() {
+  const c = DARK;
+  const note = (n, title, body) =>
+    `<div style="display:flex;gap:12px;padding:9px 0">
+      <div style="width:20px;height:20px;border-radius:9999px;background:${c.primaryTint};display:flex;align-items:center;justify-content:center;flex:0 0 auto"><span style="font-size:11px;font-weight:600;color:${c.primary}">${n}</span></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:${c.fg}">${title}</div><div style="margin-top:3px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${body}</div></div>
+    </div>`;
+
+  return dc({
+    w: 900, h: 560, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">The Ask screen</div>
+  <div style="margin-top:24px;display:flex;gap:40px;align-items:flex-start">
+    <div style="width:280px;flex:0 0 auto;position:relative;height:420px;border-radius:${R};overflow:hidden;box-shadow:inset 0 0 0 1px ${c.border};background:${c.bg}">
+      <div style="display:flex;align-items:center;padding:18px 16px 10px">
+        ${icon('arrowLeft', 18, c.fg, 2)}
+        <div style="margin-left:8px">${icon('sparkles', 15, c.fgMuted)}</div>
+        <div style="flex:1;min-width:0;margin-left:8px">
+          <div style="font-size:13px;font-weight:600;color:${c.fg}">Ask</div>
+          <div style="margin-top:1px;font-size:11px;color:${c.fgSubtle};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Thinking, Fast and Slow</div>
+        </div>
+        <div style="padding:3px 7px;border-radius:${R};background:${c.surface}"><span style="font-size:10px;color:${c.fgSubtle}">28 days</span></div>
+      </div>
+      <div style="height:1px;background:${c.hairline}"></div>
+      <div style="padding:14px 16px 0">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">You</div>
+        <div style="margin-top:4px;font-size:12px;line-height:17px;color:${c.fg}">Why do small samples mislead?</div>
+        <div style="margin-top:14px;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.primary}">Pidom</div>
+        <div style="margin-top:4px;font-size:12px;line-height:17px;color:${c.fg}" class="c5">Because the intuition that judges a sample never asks how large it is. Small samples produce more extreme results, so they tell better stories.</div>
+        <div style="display:flex;gap:5px;margin-top:9px">
+          ${[152, 153, 156].map((p) => `<div style="padding:3px 7px;border-radius:${R};background:${c.primaryTint}"><span style="font-size:10px;color:${c.primary}">page ${p}</span></div>`).join('')}
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px">
+          ${icon('highlighter', 14, c.fgMuted, 2)}${icon('copy', 14, c.fgMuted, 2)}
+        </div>
+      </div>
+      <div style="position:absolute;left:14px;right:14px;bottom:14px;border-radius:18px;background:${c.hover};padding:9px 10px">
+        <div style="font-size:12px;color:${c.fgSubtle};padding:2px 2px 8px">Ask about this document</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:26px;height:26px;border-radius:9999px;background:${c.primaryTint};display:flex;align-items:center;justify-content:center"><span style="font-size:15px;color:${c.primary}">+</span></div>
+            <div style="height:26px;display:flex;align-items:center;padding:0 9px;border-radius:9999px;background:${c.primaryTint}"><span style="font-size:11px;color:${c.primary}">gpt-4o-mini</span></div>
+          </div>
+          <div style="width:28px;height:28px;border-radius:9999px;background:${c.primary};display:flex;align-items:center;justify-content:center"><span style="font-size:13px;color:${c.onPrimary}">↑</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0">
+      ${note(1, 'A route, not a sheet', 'A transcript\u2019s height is the reader\u2019s data and a composer is a control, which is the pair <b style="color:' + c.fg + '">docs/design.md</b> says must not be attached to each other. The navigator became a route for the same reason; pinning a sheet to 70% was living with the problem.')}
+      ${note(2, 'Pushed, so the document stays', 'The reader is one screen behind this, still mounted. Coming back is not reopening a 400-page file \u2014 which is why <b style="color:' + c.fg + '">navigator</b> and <b style="color:' + c.fg + '">bookmark</b> are pushed rather than presented too.')}
+      ${note(3, 'The composer owns the bottom', 'It is <b style="color:' + c.fg + '">absolute bottom-4</b> and rides the keyboard on a shared value from <b style="color:' + c.fg + '">KeyboardProvider</b>. On a whole screen that is simply where it sits; in a sheet it was competing with the sheet for the same last few hundred pixels.')}
+      ${note(4, 'No bubbles', 'There are no cards in this application and one accent colour in it. A turn is a role label over a paragraph \u2014 the typography every <b style="color:' + c.fg + '">Section</b> heading already uses.')}
+      ${note(5, 'Citations are controls', 'Each goes to its page and drops back to the reader. An answer nobody can check against the book is an answer <i>about</i> a book rather than <i>from</i> one.')}
+      ${note(6, 'Two actions, both wired', 'Keep writes an annotation through the path a selected passage already takes, so it outlives the month. Copy copies. The component ships a third slot and it is empty rather than decorative.')}
+    </div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * Every state a document's index can be in, the sentence its row says, and the
+ * one thing it offers.
+ *
+ * `DownloadStates` exists for the reason this does: a state machine that lives
+ * only in a TypeScript union is a state machine nobody reviews, and four of the
+ * download states had been collapsed into "missing" for a year because nothing
+ * ever laid them out side by side. Eleven here, and three of them — waiting,
+ * model, cap — are conditions the reader can act on, which is why they are the
+ * only ones in `warn`.
+ */
+function indexStates() {
+  const c = DARK;
+  const s = IX(c);
+  const order = ['none', 'waiting', 'queued', 'model', 'wifi', 'cap', 'chunking', 'embedding', 'ready', 'stale', 'failed'];
+  const does = {
+    none: 'Index this one',
+    waiting: '—',
+    queued: 'Move to front · Cancel',
+    model: 'Download the model · Settings',
+    wifi: 'Index anyway · Settings',
+    cap: 'Raise the ceiling · Drop the oldest',
+    chunking: 'Pause · Cancel',
+    embedding: 'Pause · Cancel',
+    ready: 'Search · Ask · Remove index',
+    stale: 'Rebuild · Leave it',
+    failed: 'Try again',
+  };
+  const progress = { chunking: 'Reading page 412 of 613.', embedding: '2,100 of 5,400 passages. Resumes where it stopped.' };
+  const row = (k) =>
+    `<div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid ${c.hairline}">
+      <div style="width:20px;margin-top:1px">${icon(s[k].glyph, 16, s[k].tone, 2)}</div>
+      <div style="width:210px;flex:0 0 auto">
+        <div style="font-size:13px;font-weight:600;color:${s[k].tone}">${s[k].label}</div>
+        <div style="margin-top:3px;font-size:11px;font-family:ui-monospace,Menlo,monospace;color:${c.fgDisabled}">${k}</div>
+      </div>
+      <div style="flex:1;min-width:0;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${s[k].line ?? progress[k]}</div>
+      <div style="width:240px;flex:0 0 auto;font-size:12px;line-height:17px;color:${c.fgMuted}">${does[k]}</div>
+    </div>`;
+
+  return dc({
+    w: 1024, h: 760, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Where an index is, and what it is waiting for</div>
+  <div style="margin-top:8px;max-width:720px;font-size:13px;line-height:20px;color:${c.fgMuted}" class="pretty">Three of these are conditions somebody can change and eight are not, which is the only distinction the colour makes. Nothing on this chart stops a document being opened, read, or searched by its words — an index that has not been built costs the reader one of four ways of finding a page, and the row says which.</div>
+
+  <div style="margin-top:24px;display:flex;gap:14px;padding-bottom:10px;border-bottom:1px solid ${c.border}">
+    <div style="width:34px"></div>
+    <div style="width:210px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">State</div>
+    <div style="flex:1;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">What the row says</div>
+    <div style="width:240px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle}">What it offers</div>
+  </div>
+  ${order.map(row).join('')}
+
+  <div style="margin-top:20px;display:flex;gap:28px;max-width:940px">
+    <div style="flex:1;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty"><b style="color:${c.fg}">A crash is a state too, and it is not on this chart.</b> <b style="color:${c.fg}">chunking</b> and <b style="color:${c.fg}">embedding</b> are rewritten to <b style="color:${c.fg}">queued</b> at launch, the way an interrupted download is rewritten to <b style="color:${c.fg}">paused</b>. The cursor on the row is the last passage that was written, so a book abandoned at page 643 resumes at page 643 rather than at page one.</div>
+    <div style="flex:1;font-size:12px;line-height:18px;color:${c.fgSubtle}" class="pretty"><b style="color:${c.fg}">stale is not an error.</b> An index built by an older model still answers, and is left alone until the reader asks otherwise. A model upgrade writes a second index alongside the first and switches to it when it is complete — nothing is ever half-rebuilt while somebody is searching it.</div>
+  </div>
+</div>`,
+  });
+}
+
+/**
+ * What stays on the phone, what crosses to the account, what reaches the model,
+ * and the column headed Never.
+ *
+ * `DownloadModel` is the precedent and the reason: the order of these steps is
+ * the entire privacy argument, and it is not recoverable by reading any one
+ * file. The thing to stare at is the second row. The device sends four
+ * integers. It is the account — which already holds the text, already knows who
+ * owns the document, and already refuses a stranger — that reads the pages and
+ * passes them on, which is what makes a citation something other than a claim.
+ */
+function aiBoundary() {
+  const c = DARK;
+  const box = (title, lines, { tone = null, w = 232 } = {}) =>
+    `<div style="width:${w}px;border-radius:${R};padding:14px 16px;box-shadow:inset 0 0 0 1px ${tone === 'danger' ? c.destructive : tone === 'ok' ? c.ok : c.border}">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:${tone === 'danger' ? c.destructive : tone === 'ok' ? c.ok : c.fg}">${title}</div>
+       ${lines.map((l) => `<div style="margin-top:7px;font-size:12px;line-height:17px;color:${c.fgSubtle}" class="pretty">${l}</div>`).join('')}
+     </div>`;
+  const arrow = () => `<div style="display:flex;align-items:center;justify-content:center;width:38px">${icon('arrowRight', 17, c.fgMuted, 2)}</div>`;
+  const label = (t) => `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.fgSubtle};margin-bottom:12px">${t}</div>`;
+  const b = (t) => `<b style="color:${c.fg}">${t}</b>`;
+
+  return dc({
+    w: 900, h: 760, bg: c.bg,
+    body: `<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:${c.fg}">Where a question goes</div>
+  <div style="margin-top:8px;max-width:700px;font-size:13px;line-height:20px;color:${c.fgMuted}" class="pretty">Two planes, and the line between them is not where it usually is. Every expensive, private thing — reading the book, cutting it into passages, turning them into vectors, deciding which four matter — happens on the handset. What crosses is a question and four page numbers.</div>
+
+  <div style="margin-top:28px">${label('On this phone, always')}
+    <div style="display:flex;align-items:stretch">
+      ${box('The index is built here', ['A 129 MB model, downloaded once and checked against a known fingerprint. It reads the pages your account already extracted and turns each passage into 384 numbers.'])}
+      ${arrow()}
+      ${box('And stored here', ['Inside the same SQLCipher database as your library, under the same key. 388 bytes a passage, about 400 KB a book. No vector has ever left a phone.'])}
+      ${arrow()}
+      ${box('And searched here', ['With no connection, no account and no permission. Searching by meaning is not a feature you are lent — it is on the device and it stays working.'], { tone: 'ok' })}
+    </div>
+  </div>
+
+  <div style="margin-top:26px">${label('What crosses, when you ask a question')}
+    <div style="display:flex;align-items:stretch">
+      ${box('Four integers and a sentence', [`${b('{ documentId, pages: [152, 153, 156, 31] }')} and what you typed. The phone does not send the passages it found — it sends where they are.`])}
+      ${arrow()}
+      ${box('Your account reads them', ['The same ownership check the reader passes, then those four rows out of ' + b('documentPages') + '. A client cannot put words in a book’s mouth, because it never supplies any.'])}
+      ${arrow()}
+      ${box('The model sees a bounded window', ['At most eight pages, 64 KB, fenced and labelled as quoted material. The agent has no tools, so nothing it writes can reach anything.'])}
+    </div>
+  </div>
+
+  <div style="margin-top:26px">${label('Never')}
+    <div style="display:flex;align-items:stretch;gap:18px">
+      ${box('The document', ['Not the file, not the index, not a page nobody asked about. A 613-page book sends at most eight of them, and only the eight the reader’s own question selected.'], { tone: 'danger', w: 250 })}
+      ${box('A key on the handset', ['The model is reached from the deployment. No API key is bundled, shipped in an update, or held in ' + b('EXPO_PUBLIC_*') + ' where anybody with the APK can read it.'], { tone: 'danger', w: 250 })}
+      ${box('Somebody else’s book, by default', ['A document shared with you is not yours to send. ' + b('allowAiOnSharedDocuments') + ' is the owner’s switch, it is off, and the sheet says so rather than failing.'], { tone: 'danger', w: 250 })}
+    </div>
+  </div>
+
+  <div style="margin-top:26px;padding-top:18px;border-top:1px solid ${c.hairline};font-size:12px;line-height:18px;color:${c.fgSubtle};max-width:820px" class="pretty"><b style="color:${c.fg}">A passage from a PDF is untrusted input, and it is treated as such.</b> Anybody can put “ignore your instructions” in a document and share it. The context block is fenced and labelled as quotation, the agent ships with no tools at all, and nothing the model returns chooses a page, fetches a URL or writes a row — so the worst a hostile document can do is make one answer wrong.</div>
+</div>`,
+  });
+}
+
 const out = {
   'Main.dc.html': home(true),
   'HomeLight.dc.html': home(false),
@@ -5267,6 +6097,24 @@ const out = {
   'DownloadStates.dc.html': downloadStates(),
   'DownloadRowAnatomy.dc.html': downloadRowAnatomy(),
   'DownloadModel.dc.html': downloadModel(),
+
+  /* Search by meaning, and Ask. */
+  'AskClosed.dc.html': askClosed(),
+  'Ask.dc.html': ask(),
+  'AskSources.dc.html': askSources(),
+  'AskFromSelection.dc.html': askFromSelection(),
+  'AskOffline.dc.html': askOffline(),
+  'AskConsent.dc.html': askConsent(),
+  'AskThreads.dc.html': askThreads(),
+  'AskLimited.dc.html': askLimited(),
+  'AskNotIndexed.dc.html': askNotIndexed(),
+  'SearchMeaning.dc.html': searchMeaning(),
+  'HomeIndexing.dc.html': homeIndexing(),
+  'Intelligence.dc.html': intelligence('top'),
+  'IntelligenceScrolled.dc.html': intelligence('rest'),
+  'AskAnatomy.dc.html': askAnatomy(),
+  'IndexStates.dc.html': indexStates(),
+  'AiBoundary.dc.html': aiBoundary(),
 };
 for (const [name, html] of Object.entries(out)) { writeFileSync(new URL('./' + name, import.meta.url), html); }
 
@@ -5401,6 +6249,27 @@ const canvas = {
     { file: 'DownloadStates.dc.html', title: 'Where a file is, and what it waits for', x: 0, y: 23828, w: 1024, h: 760 },
     { file: 'DownloadRowAnatomy.dc.html', title: 'The download row — anatomy', x: 1124, y: 23828, w: 900, h: 560 },
     { file: 'DownloadModel.dc.html', title: 'How a PDF gets onto this phone', x: 2124, y: 23828, w: 900, h: 760 },
+
+    /* Search by meaning, and Ask. */
+    { file: 'AskClosed.dc.html', title: 'Reader \u2014 where Ask sits', x: 0, y: 24792, w: 390, h: 844 },
+    { file: 'Ask.dc.html', title: 'Ask \u2014 a question, answered from four pages', x: 490, y: 24792, w: 390, h: 844 },
+    { file: 'AskSources.dc.html', title: 'Ask \u2014 where the answer came from', x: 980, y: 24792, w: 390, h: 844 },
+    { file: 'AskFromSelection.dc.html', title: 'Ask \u2014 about this passage', x: 1470, y: 24792, w: 390, h: 844 },
+    { file: 'AskOffline.dc.html', title: 'Ask \u2014 with no connection', x: 1960, y: 24792, w: 390, h: 844 },
+    { file: 'AskConsent.dc.html', title: 'Ask \u2014 what leaves this phone', x: 2450, y: 24792, w: 390, h: 844 },
+
+    { file: 'AskThreads.dc.html', title: 'Ask \u2014 conversations, and what is left of the month', x: 0, y: 25756, w: 390, h: 844 },
+    { file: 'AskLimited.dc.html', title: 'Ask \u2014 today\u2019s budget, spent', x: 490, y: 25756, w: 390, h: 844 },
+    { file: 'AskNotIndexed.dc.html', title: 'Ask \u2014 this document is not ready', x: 980, y: 25756, w: 390, h: 844 },
+    { file: 'SearchMeaning.dc.html', title: 'Search inside \u2014 meaning and words', x: 1470, y: 25756, w: 390, h: 844 },
+    { file: 'HomeIndexing.dc.html', title: 'Home \u2014 preparing search', x: 1960, y: 25756, w: 390, h: 844 },
+
+    { file: 'Intelligence.dc.html', title: 'Search & Ask \u2014 model and indexing', x: 0, y: 26720, w: 390, h: 844 },
+    { file: 'IntelligenceScrolled.dc.html', title: 'Search & Ask \u2014 library, Ask, conversations', x: 490, y: 26720, w: 390, h: 844 },
+
+    { file: 'IndexStates.dc.html', title: 'Where an index is, and what it waits for', x: 0, y: 27684, w: 1024, h: 760 },
+    { file: 'AskAnatomy.dc.html', title: 'The Ask sheet \u2014 anatomy', x: 1124, y: 27684, w: 900, h: 560 },
+    { file: 'AiBoundary.dc.html', title: 'Where a question goes', x: 2124, y: 27684, w: 900, h: 760 },
   ],
   annotations: [
     { id: 'note-downloads', x: 0, y: 21730, w: 880, text: 'Four of these states did not exist, and their absence was a wrong answer rather than a missing feature.\nA download held for Wi-Fi, one queued behind two others, one paused halfway and one that had simply failed were all \u201cmissing\u201d on the tile \u2014 the same word as a document nobody had ever asked for. A reader about to board a flight could not tell which of the four they were looking at, which is the one moment the answer matters.\nNothing here reaches the account. documentFiles is the only table with no counterpart on the server, because only the phone can honestly say whether a file is on it and whether it opens.' },
@@ -5420,6 +6289,9 @@ const canvas = {
     { id: 'note-roundtwo', x: 0, y: 19814, w: 880, text: 'The feature was built and was not reachable.\nNothing about sharing was live \u2014 the library had a Convex subscription so a favourite crossed devices in a second, and shares waited on a 30-second heartbeat that would not run while the outbox had anything in it. The event feed had a table, a sync pass and an unread count, and no screen. Avatars were frozen at sign-up because the profile refresh fired once per account rather than once per launch. And the content sat low: an empty state 64px down, a share detail with a hard spacer pushing its buttons to the bezel and no way to scroll past a long title.\nThese are the surfaces that close that, and the layout rule they all now follow: content starts at the top, loading shows the shape of what is coming, and nothing is centred unless being centred is the point.' },
     { id: 'note-delete', x: 2450, y: 20778, w: 380, text: 'The one dialog that asks for a typed word. Everything else destructive here is one tap behind a sentence, which is right for a document that downloads again. This is not, and it is honest about the one thing it cannot reach.' },
     { id: 'note-notify', x: 2940, y: 18886, w: 380, text: 'A push says a PDF was shared with you and who by. Never the title \u2014 it renders on a locked screen. The rest arrives from an authenticated query once the app is open and the recipient has been checked.' },
+    { id: 'note-ask', x: 0, y: 24622, w: 880, text: 'Finding the right four pages was always the hard part.\nA reader who remembers an argument and not its wording had no way back to it \u2014 FTS5 answers \u201cwhich page contains this string\u201d and nothing else, so a 1,000-page book was searchable only in the vocabulary its author happened to use. Every passage on this phone is now 384 numbers as well as its words, and the two indexes are asked the same question and their answers fused.\nWhich is why Ask is a small feature rather than a large one. The model is handed at most eight pages and asked to write about them; the work that makes the answer right happened on the device before the question left it.\nThe surface is gluestack\u2019s Chat AI, vendored and audited on the way in \u2014 two styled imports repointed at the shim, three colour classes that named nothing pointed at tokens, and a dozen type errors the generator shipped, one of which was a ReferenceError that would have thrown the moment a branch rendered.' },
+    { id: 'note-nobubbles', x: 2450, y: 24622, w: 380, text: 'A route rather than a sheet, and the rule is already written down: a control must not hang off a box whose height is the reader\u2019s data. A transcript is that data and a composer is that control.' },
+    { id: 'note-index-local', x: 0, y: 27594, w: 880, text: 'The line between the two planes is not where it usually is.\nReading the book, cutting it into passages, embedding them and deciding which four matter all happen on the handset, offline, in the same encrypted database as the library. What crosses the wire when somebody asks a question is a sentence and four integers \u2014 the account reads its own pages back, which is what makes a citation something other than a claim.\nNothing here adds a workpool. convex.config.ts spends 4 + 2 + 2 of the deployment\u2019s twenty already, and an index that ran in the cloud would be thousands of writes per book for an answer the phone can compute for free.' },
     { id: 'note-device-storage', x: 0, y: 14030, w: 880, text: 'The screen the refusal always assumed.\nAn import with no room says to remove a download or two, and until now nothing said which ones were large — the account’s Storage section reported what was in the account, which is the other half.\nEvery row says what removing it costs. A document in the account comes back on a tap; a document that is only here does not come back at all. Same gesture, two consequences, so the row says which before the reader commits. And no covers: this is the one library surface where a document is a quantity rather than something to open.' },
   ],
   launch: { view: 'canvas' },

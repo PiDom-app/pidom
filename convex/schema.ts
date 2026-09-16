@@ -87,6 +87,48 @@ export const sharingSettingsFields = {
   allowDownloads: v.optional(v.boolean()),
   allowReshares: v.optional(v.boolean()),
 
+  /**
+   * Whether somebody this account shared a document with may ask a model about it.
+   *
+   * The owner's switch rather than the recipient's, and off — beside
+   * `allowDownloads` and `allowReshares`, which default the same way for the
+   * same reason. A document shared with somebody is still this account's
+   * document, and sending its pages to a third party is a decision that belongs
+   * to whoever owns the book.
+   *
+   * `model/ai.ts:mayAsk` reads it off the *owner's* row on every question, so
+   * turning it off stops the next question everywhere rather than only on the
+   * screen that shows the switch. Optional because this table has rows in
+   * production that predate it; `AI_DEFAULTS` supplies the false.
+   */
+  allowAiOnSharedDocuments: v.optional(v.boolean()),
+
+  updatedAt: v.number(),
+};
+
+/**
+ * What an account has said about Ask.
+ *
+ * Lifted out for the reason the other two field sets are: `convex/settings.ts`
+ * derives its wire validator from this object rather than hand-writing a second
+ * copy, after a hand-written copy that fell behind its table took down every
+ * settings screen at once for every account.
+ *
+ * `allowCloud` is the only field here that is a security control, and it is a
+ * gate rather than a banner: `model/ai.ts:mayAsk` reads it on every question
+ * and it defaults to false. Nothing about a document reaches a model until
+ * somebody has said so, on a screen that says what leaves the phone.
+ */
+export const aiSettingsFields = {
+  userId: v.id('users'),
+  /** Off until the reader says otherwise. */
+  allowCloud: v.boolean(),
+  /** Which model answers. A string rather than a union: the list is the gateway's. */
+  model: v.string(),
+  /** How many pages one question may carry. Clamped again by `AI_CONTEXT_PAGES`. */
+  contextPages: v.number(),
+  /** Days a conversation lives. Enforced on read and swept nightly. */
+  retentionDays: v.number(),
   updatedAt: v.number(),
 };
 
@@ -1184,6 +1226,44 @@ export default defineSchema({
    * enforces reads as covered when it is not.
    */
   sharingSettings: defineTable(sharingSettingsFields).index('by_user', ['userId']),
+
+  /** Same absent-row-means-defaults rule again. See `model/ai.ts:AI_DEFAULTS`. */
+  aiSettings: defineTable(aiSettingsFields).index('by_user', ['userId']),
+
+  /**
+   * One row per conversation, and the clock its deletion runs on.
+   *
+   * The conversation itself — every message, every step — lives in the Agent
+   * component's own tables, which is what `_generated/ai/guidelines.md`
+   * requires in as many words: *do not hand-roll a messages table*. This holds
+   * the three things the component has no view on. Who owns the thread, so a
+   * caller can be refused one that is not theirs. Which document it is about,
+   * so a reader's list can be scoped to the book in front of them. And when it
+   * stops existing.
+   *
+   * **`expiresAt` is enforced twice, and that is deliberate.** The read filters
+   * on it, so an expired thread is gone from the list the moment it expires;
+   * and `maintenance.expireAiThreads` sweeps `by_expiry` nightly and actually
+   * deletes it. `documentShares` does the same through `by_status_and_expiry`,
+   * and the comment on `expireShares` says why: a Convex query is not re-run
+   * because time advanced, so a filter alone would leave an expired thread on
+   * screen until something else happened, and a sweep alone would leave it
+   * readable until the sweep ran.
+   */
+  aiThreads: defineTable({
+    userId: v.id('users'),
+    /** The Agent component's own thread id. A string, because it is not our table. */
+    threadId: v.string(),
+    documentId: v.optional(v.id('documents')),
+    title: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    lastMessageAt: v.number(),
+  })
+    .index('by_user_and_last', ['userId', 'lastMessageAt'])
+    .index('by_user_and_document', ['userId', 'documentId', 'lastMessageAt'])
+    .index('by_thread', ['threadId'])
+    .index('by_expiry', ['expiresAt']),
 
   /**
    * One attempt to push one event to one device.

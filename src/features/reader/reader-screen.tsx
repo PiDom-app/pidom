@@ -13,7 +13,13 @@ import { useResolvedTheme } from '@/providers/theme-provider';
 import { DocumentActions } from '../library/components/document-actions';
 import type { LibraryDocument } from '../library/data/types';
 import { useLibraryActions } from '../library/data/use-library-actions';
+import { useQuery } from 'convex/react';
+
+import { api } from '@convex/_generated/api';
 import { useLibraryStatus } from '../library/data/use-library-status';
+import { semanticSearchAvailable } from '@/features/intelligence/retrieve/retrieve';
+import { requestForReading } from '@/features/intelligence/index/actions';
+import { database } from '../library/local/db';
 import { documentFile } from '../library/local/paths';
 import { FindBar } from './find-bar';
 import { forgetPassword, readPassword, savePassword } from './document-password';
@@ -99,7 +105,19 @@ export function ReaderScreen() {
   const { id, page: requested } = useLocalSearchParams<{ id: string; page?: string }>();
   const documentId = id === undefined || id === '' ? undefined : id;
 
-  const { profileId } = useLibraryStatus();
+  const { profileId, ready } = useLibraryStatus();
+
+  /**
+   * Whether Ask can answer about this document at all.
+   *
+   * The model being on the phone is the condition, because retrieval runs here
+   * before anything is sent — a sheet with no index would have no pages to
+   * offer and nothing to cite. Absent rather than present-and-refused, which is
+   * the rule `onShare` already follows for a local-only document.
+   */
+  const canAsk = profileId !== null && semanticSearchAvailable(profileId);
+
+  const aiSettings = useQuery(api.settings.mine, ready ? {} : 'skip');
   const theme = useResolvedTheme();
   const layout = useReaderLayout();
   const { fetchDocument } = useLibraryActions();
@@ -254,6 +272,61 @@ export function ReaderScreen() {
     router.push({ pathname: '/share', params: { id: documentId } });
   }, [router, documentId]);
 
+  /**
+   * The book on screen goes to the front of the index queue.
+   *
+   * Somebody with a document open is the person most likely to search it in the
+   * next minute, and a background sweep that queued forty books an hour ago
+   * should not be ahead of them. `enqueue` takes the higher of the two
+   * priorities, so this promotes a job already waiting rather than making a
+   * second one — and it is idempotent, so reopening the same book costs one
+   * `ON CONFLICT`.
+   *
+   * Fire and forget. Nothing on this screen waits for it and nothing renders
+   * differently because of it.
+   */
+  useEffect(() => {
+    if (documentId === undefined || profileId === null || !canAsk) {
+      return;
+    }
+    void (async () => {
+      const db = await database(profileId);
+      if (db !== null) {
+        await requestForReading(db, documentId);
+      }
+    })();
+  }, [documentId, profileId, canAsk]);
+
+  /**
+   * Ask, as a pushed screen.
+   *
+   * A route rather than a sheet, for the reason the navigator is one: a
+   * transcript's height is the reader's data, and `docs/design.md` says a
+   * control must not hang off a box shaped by it. Pushed rather than
+   * presented, so this document stays mounted underneath and coming back is
+   * not reopening a 400-page file.
+   *
+   * `about` is a passage the reader selected, when Ask was opened from the
+   * selection bar rather than from the chrome. It rides in as a parameter the
+   * way the navigator's segment does.
+   */
+  const openAsk = useCallback(
+    (about: string | null) => {
+      if (documentId === undefined) {
+        return;
+      }
+      router.push({
+        pathname: '/ask',
+        params: {
+          id: documentId,
+          page: String(session.page),
+          ...(about === null ? {} : { about }),
+        },
+      });
+    },
+    [router, documentId, session.page],
+  );
+
   const commands = useReaderCommands({
     canvas,
     page: session.page,
@@ -271,6 +344,7 @@ export function ReaderScreen() {
     onOpenNavigator: openNavigator,
     onOpenSearch: () => setOverlay({ kind: 'find' }),
     onOpenPageJump: () => setOverlay({ kind: 'jump' }),
+    onOpenAsk: openAsk,
     onOpenShare: openShare,
     // The three things `ReaderAnatomy` says this does. The position write and
     // the wake-lock release are unmount effects, so leaving is all it takes —
@@ -493,6 +567,10 @@ export function ReaderScreen() {
           setOverlay({ kind: 'find' });
         }}
         onKeep={(passage) => keep({ page: session.page, text: passage })}
+        // Carried in as the question's opening context. The selection is already
+        // bounded at `PAGE_TEXT_MAX` and already never logged, so Ask inherits
+        // both rules rather than restating them.
+        onAsk={canAsk ? (passage) => commands.openAsk(passage) : undefined}
         onDismiss={() => setSelection(null)}
       />
 
@@ -516,6 +594,9 @@ export function ReaderScreen() {
         onScrubTo={commands.goToPage}
         onOpenJump={commands.openPageJump}
         onOpenSettings={() => setOverlay({ kind: 'settings' })}
+        // Absent rather than present-and-refused on a document this device
+        // cannot answer about, which is the rule `onShare` above follows.
+        onOpenAsk={canAsk ? () => commands.openAsk(null) : null}
         onStep={(by) => (by === 1 ? commands.nextPage() : commands.previousPage())}
         outline={outline}
         uri={uri}

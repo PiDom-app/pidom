@@ -927,6 +927,134 @@
       "y": 23828,
       "w": 900,
       "h": 760
+    },
+    {
+      "file": "AskClosed.dc.html",
+      "title": "Reader — where Ask sits",
+      "x": 0,
+      "y": 24792,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Ask.dc.html",
+      "title": "Ask — a question, answered from four pages",
+      "x": 490,
+      "y": 24792,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskSources.dc.html",
+      "title": "Ask — where the answer came from",
+      "x": 980,
+      "y": 24792,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskFromSelection.dc.html",
+      "title": "Ask — about this passage",
+      "x": 1470,
+      "y": 24792,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskOffline.dc.html",
+      "title": "Ask — with no connection",
+      "x": 1960,
+      "y": 24792,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskConsent.dc.html",
+      "title": "Ask — what leaves this phone",
+      "x": 2450,
+      "y": 24792,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskThreads.dc.html",
+      "title": "Ask — conversations, and what is left of the month",
+      "x": 0,
+      "y": 25756,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskLimited.dc.html",
+      "title": "Ask — today’s budget, spent",
+      "x": 490,
+      "y": 25756,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "AskNotIndexed.dc.html",
+      "title": "Ask — this document is not ready",
+      "x": 980,
+      "y": 25756,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SearchMeaning.dc.html",
+      "title": "Search inside — meaning and words",
+      "x": 1470,
+      "y": 25756,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "HomeIndexing.dc.html",
+      "title": "Home — preparing search",
+      "x": 1960,
+      "y": 25756,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Intelligence.dc.html",
+      "title": "Search & Ask — model and indexing",
+      "x": 0,
+      "y": 26720,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "IntelligenceScrolled.dc.html",
+      "title": "Search & Ask — library, Ask, conversations",
+      "x": 490,
+      "y": 26720,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "IndexStates.dc.html",
+      "title": "Where an index is, and what it waits for",
+      "x": 0,
+      "y": 27684,
+      "w": 1024,
+      "h": 760
+    },
+    {
+      "file": "AskAnatomy.dc.html",
+      "title": "The Ask sheet — anatomy",
+      "x": 1124,
+      "y": 27684,
+      "w": 900,
+      "h": 560
+    },
+    {
+      "file": "AiBoundary.dc.html",
+      "title": "Where a question goes",
+      "x": 2124,
+      "y": 27684,
+      "w": 900,
+      "h": 760
     }
   ],
   "annotations": [
@@ -1048,6 +1176,27 @@
       "y": 18886,
       "w": 380,
       "text": "A push says a PDF was shared with you and who by. Never the title — it renders on a locked screen. The rest arrives from an authenticated query once the app is open and the recipient has been checked."
+    },
+    {
+      "id": "note-ask",
+      "x": 0,
+      "y": 24622,
+      "w": 880,
+      "text": "Finding the right four pages was always the hard part.\nA reader who remembers an argument and not its wording had no way back to it — FTS5 answers “which page contains this string” and nothing else, so a 1,000-page book was searchable only in the vocabulary its author happened to use. Every passage on this phone is now 384 numbers as well as its words, and the two indexes are asked the same question and their answers fused.\nWhich is why Ask is a small feature rather than a large one. The model is handed at most eight pages and asked to write about them; the work that makes the answer right happened on the device before the question left it.\nThe surface is gluestack’s Chat AI, vendored and audited on the way in — two styled imports repointed at the shim, three colour classes that named nothing pointed at tokens, and a dozen type errors the generator shipped, one of which was a ReferenceError that would have thrown the moment a branch rendered."
+    },
+    {
+      "id": "note-nobubbles",
+      "x": 2450,
+      "y": 24622,
+      "w": 380,
+      "text": "A route rather than a sheet, and the rule is already written down: a control must not hang off a box whose height is the reader’s data. A transcript is that data and a composer is that control."
+    },
+    {
+      "id": "note-index-local",
+      "x": 0,
+      "y": 27594,
+      "w": 880,
+      "text": "The line between the two planes is not where it usually is.\nReading the book, cutting it into passages, embedding them and deciding which four matter all happen on the handset, offline, in the same encrypted database as the library. What crosses the wire when somebody asks a question is a sentence and four integers — the account reads its own pages back, which is what makes a citation something other than a claim.\nNothing here adds a workpool. convex.config.ts spends 4 + 2 + 2 of the deployment’s twenty already, and an index that ran in the cloud would be thousands of writes per book for an answer the phone can compute for free."
     },
     {
       "id": "note-device-storage",

@@ -559,6 +559,130 @@ The text goes when the file goes. `deleteDocument` and `removeDownload` both
 call `forgetLocally`, because a delete that leaves the reader's document content
 in a database on their phone is a delete that did not happen.
 
+## Searching by what a document means
+
+The device could find a word in a book and could not find an idea. FTS5 answers
+"which page contains this string", so a reader who remembers an argument and not
+its wording had no way back to it, and a 1,000-page book was searchable only in
+the vocabulary its author happened to use.
+
+```
+mirrored pages → chunker → passages (ranges, not text) → e5-small → 384 int8
+                                                                  ↓
+   query → e5-small → one vector → scan → fused with FTS5 → ten passages
+```
+
+**The text is already here and is not read twice.** The chunker reads the FTS5
+`pages` table `use-text-mirror.ts` fills, which means a document is
+semantically indexable exactly when it is already locally searchable — synced,
+extracted by the Node action, and mirrored down once. `react-native-pdf` has no
+text API, so this is not a shortcut: there is no other text on the device to
+read.
+
+**A passage is a range.** `chunks` stores a page and a character offset at each
+end, never the words. Storing them would put a second copy of every book on the
+phone, and the phone's disk is the resource this whole feature spends. The text
+comes back by slicing when somebody actually asks to see it, which is ten
+passages out of the thousand a search scored.
+
+**A vector is 388 bytes.** 384 signed values and the float that scales them,
+about 400 KB a book. It is a BLOB in an ordinary table rather than a `vec0`
+virtual table because `sqlite-vec`'s iOS framework is missing from
+`expo-sqlite@57.0.2` and the issue is open — a retrieval path that exists on
+Android and not on iOS is two products. The scan is 384 multiply-adds over an
+`Int8Array` view with nothing allocated in the loop, which is milliseconds for
+one document.
+
+**Library-wide search has a first stage.** A hundred books is three hundred
+thousand passages. `documentVectors` holds one vector a document, so a hundred
+dot products decide which handful are worth opening and only those are scanned
+passage by passage.
+
+**The two indexes are fused, not chosen between.** Exact terms, names, numbers,
+equations and citations are where keyword search beats embeddings outright, and
+"the argument about small samples" is where it returns nothing. `retrieve.ts`
+combines them by reciprocal rank — the two scores are not on the same scale and
+normalising them per query would need a distribution neither has — and every hit
+carries why it is there, which the search screen shows. A page that contains none
+of the words typed looks like a bug without that label.
+
+### The queue
+
+`src/features/intelligence/index/engine.ts` is `downloads/engine.ts` with
+different work in the middle: claim the next row, ask the policy whether a rule
+forbids it, do one bounded batch, advance a durable cursor, defer with backoff or
+settle. It imports `backoffFor` and `MAX_ATTEMPTS` from `sync/outcome.ts`, the
+same two the download engine imports.
+
+The cursor is the design. A 1,000-page book is minutes of inference and a reader
+will lock their phone in the middle of it, so every batch ends in a write and
+`clearStaleJobs` at the next launch rewrites whatever was `running` back to
+`queued` — `clearStaleTransfers`' job, for a different queue. An interruption
+costs the batch that was in flight rather than the book.
+
+`expo-background-task` is not used and the code says why: Android's WorkManager
+has a fifteen-minute floor and iOS decides for itself whether a task runs at all,
+so neither is what makes a long book finish. The durable row is.
+
+**Nothing here reaches the account.** The text was mirrored long before this
+runs, the model is on the disk, and the vectors never leave. A phone in aeroplane
+mode with four mirrored books indexes all four.
+
+### Versions, and why an index is never mutated in place
+
+Every chunk and every vector carries `chunkVersion` and `modelVersion`, and
+nothing reads a row whose version does not match the one it is asking with. So
+improving the chunker or changing the model writes a **second index alongside the
+first**, and `documentVectors` is the switch: until a row there names a version,
+nothing searches that version's chunks. A rebuild can take an evening, be
+interrupted four times, and never once leave the reader searching half an index.
+
+That is also why a job queued under one model is not resumed under another. The
+vectors it already wrote are not comparable with the ones it would write now, and
+half an index in two vocabularies is worse than none.
+
+## Ask
+
+The reader's question, the passages their own phone chose, and a model.
+
+```
+device                              account                        model
+──────                              ───────                        ─────
+retrieve() picks ten passages   →   requireReadable, then those
+sends { documentId, pages[] }       pages out of documentPages  →  ≤ 8 pages,
+                                    Agent thread, streamed back     fenced
+```
+
+**The retrieval is the feature; the sentences are the cheap part.** The model is
+handed at most eight pages that were selected on the device for their relevance
+and asked to write about them, which is a small checkable job — and the only way
+a reader can check it is to be shown the pages and taken to them in one tap,
+which is what the citations under an answer are.
+
+**The device sends integers.** `convex/model/ai.ts:contextFor` reads the pages
+back out of this deployment's own `documentPages`, so the words the model sees
+are the words the account holds and a citation is checkable rather than claimed.
+`docs/security.md` has the rest of that argument, including the two consent
+switches and why the agent ships with no tools.
+
+**Streaming is a query.** `agent.streamText(..., { saveStreamDeltas: true })`
+writes deltas into the component's own tables and the client subscribes to them,
+so an answer arrives a word at a time over the same reactive socket as a list of
+bookmarks. No SSE, no long-lived HTTP request, nothing React Native handles
+differently.
+
+**The screen is a route, pushed over the reader**, so the document stays mounted
+underneath and a citation is a `requestJump` and a `back` rather than a second
+copy of a 400-page file — the pattern `navigator` and `bookmark` already use.
+`docs/design.md` has why it is not a sheet.
+
+**A conversation is deleted after a month, in both places it was stored.** The
+server sweeps `aiThreads.by_expiry` nightly and the read filters on a cutoff the
+caller passes; the device's own `askCache` — the last few turns, so the screen
+reopened in a tunnel is not blank — is pruned against the thread list. What the
+reader _keeps_ from an answer becomes a `documentAnnotations` row through the
+path annotations already take, and the month does not apply to it.
+
 ## Opening a PDF from another app
 
 `app.config.ts` registers Pidom as a PDF handler: an Android `intentFilters` entry for

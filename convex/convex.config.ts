@@ -1,4 +1,5 @@
 import { defineApp } from 'convex/server';
+import agent from '@convex-dev/agent/convex.config.js';
 import pushNotifications from '@convex-dev/expo-push-notifications/convex.config.js';
 import presence from '@convex-dev/presence/convex.config.js';
 import r2 from '@convex-dev/r2/convex.config.js';
@@ -72,6 +73,18 @@ import workpool from '@convex-dev/workpool/convex.config.js';
  * Its own component tables are the only place that state lives. See
  * `./presence.ts`, which wraps every entry point in an access check.
  *
+ * **Agent** holds the conversations Ask runs — threads, messages, the steps of
+ * a generation, and the streaming deltas the client subscribes to.
+ * `_generated/ai/guidelines.md` requires it in as many words: *do not hand-roll
+ * a messages table or call an LLM SDK directly from your functions for these.*
+ * None of its functions is exposed to a client; `./ai.ts` wraps each entry point
+ * with `requireUser`, an access check and a rate limit, the way `./r2.ts` wraps
+ * R2's and `./presence.ts` wraps presence's.
+ *
+ * It brings no pool, which is why it is here rather than in the paragraph
+ * below: retention runs on the `maintenance` pool that already exists, and a
+ * generation is an action the scheduler starts rather than a queued job.
+ *
  * Parallelism is the number to watch: the free plan allows 20 across every pool
  * in the deployment, and the workflow component carries a pool of its own. The
  * three written here are 4, 2 and 2; the push component brings one of its own.
@@ -84,5 +97,6 @@ app.use(workpool, { name: 'receipts' });
 app.use(rateLimiter);
 app.use(presence);
 app.use(pushNotifications, { env: {} });
+app.use(agent);
 
 export default app;

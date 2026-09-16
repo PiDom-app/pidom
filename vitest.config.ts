@@ -31,7 +31,11 @@ export default defineConfig({
         test: {
           name: 'decisions',
           environment: 'node',
-          include: ['src/features/library/sync/outcome.test.ts'],
+          include: [
+            'src/features/library/sync/outcome.test.ts',
+            'src/features/intelligence/index/chunker.test.ts',
+            'src/features/intelligence/retrieve/vectors.test.ts',
+          ],
         },
       },
       {

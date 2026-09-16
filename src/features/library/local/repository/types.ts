@@ -78,6 +78,78 @@ export type HoldReason =
   | 'cap';
 
 /**
+ * Where a document's semantic index is, on this device.
+ *
+ * `FileState`'s shape, and that is not imitation for its own sake: a reader who
+ * has learned what the Downloads glyph column means has learned this one, and
+ * the two queues are drained by engines that differ only in what they do with a
+ * claimed row. `IndexStates` on the canvas lays all eleven out side by side.
+ *
+ * Nothing here stops a document being opened, read, or searched by its words.
+ * An index that has not been built costs one of the ways of finding a page, and
+ * every state says which.
+ */
+export type IndexState =
+  /** Findable by its words. Not yet by what it means. */
+  | 'none'
+  /**
+   * The account has not finished reading this document yet.
+   *
+   * Not a failure and not the reader's to fix. `react-native-pdf` has no text
+   * API, so the words exist nowhere in the system until the extraction in
+   * `convex/node/extract.ts` has run and `use-text-mirror.ts` has pulled the
+   * pages down. A document that is on this phone and in nobody's account never
+   * leaves this state, and the row says so rather than saying "not indexed",
+   * which would name the symptom.
+   */
+  | 'waiting'
+  /** Asked for, and waiting its turn behind whatever is running. */
+  | 'queued'
+  /**
+   * Asked for, and not allowed to run yet.
+   *
+   * `heldReason` says which rule. Separate from `queued` for the reason a
+   * download's hold is: a queue resolves itself and a hold needs a changed
+   * circumstance or the reader's permission.
+   */
+  | 'held'
+  /** Cutting the mirrored pages into passages. Cheap, and quick. */
+  | 'chunking'
+  /** Running the model over them. This is the part that takes an evening. */
+  | 'embedding'
+  /** Searchable by meaning, with no connection. */
+  | 'ready'
+  /**
+   * Built by an older model or an older chunker, and still answering.
+   *
+   * Not an error, which is why it is its own state: a rebuild is expensive and
+   * the existing index works, so this is an offer rather than a job. The wrong
+   * answer is to spend somebody's battery re-indexing forty books because a
+   * constant changed.
+   */
+  | 'stale'
+  /** The attempts are spent. Its words are still searchable. */
+  | 'failed';
+
+/**
+ * Why an index that was asked for is not being built.
+ *
+ * Every one of these has a sentence on the settings screen and an offer beside
+ * it. `model` is the only one that is an instruction rather than a wait.
+ */
+export type IndexHold =
+  /** Indexing is set to Wi-Fi only and the text still has to be fetched. */
+  | 'wifi'
+  /** The battery is below the floor the reader set. */
+  | 'battery'
+  /** The model has not been downloaded to this phone. */
+  | 'model'
+  /** The index is at the ceiling the reader set for this device. */
+  | 'cap'
+  /** Not enough room on the device, once `HEADROOM_BYTES` is respected. */
+  | 'space';
+
+/**
  * How far a row has got towards the account.
  *
  * `local` means it has never been sent and has no remote counterpart — a

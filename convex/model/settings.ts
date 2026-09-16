@@ -74,6 +74,15 @@ export const SHARING_DEFAULTS: SharingSettings = {
   requireExpiry: false,
   allowDownloads: true,
   allowReshares: true,
+
+  /**
+   * Off, beside the two permissions above it that also survive being taken away.
+   *
+   * It governs whether somebody this account shared a document with may send
+   * its pages to a model. `model/ai.ts:mayAsk` reads it off the owner's row on
+   * every question, so turning it off stops the next question everywhere.
+   */
+  allowAiOnSharedDocuments: false,
 };
 
 export const NOTIFICATION_DEFAULTS: NotificationSettings = {

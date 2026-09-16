@@ -77,6 +77,73 @@ export async function mirrorPages(
 }
 
 /** Which documents already have their text here, so the mirror runs once each. */
+/**
+ * The mirrored text of some pages, in page order.
+ *
+ * FTS5 stores the content of an ordinary (non-`content=`) virtual table, so the
+ * `text` column is readable exactly like any other and there is no need for a
+ * second copy of the book anywhere. That is what lets the semantic index store
+ * ranges rather than passages: a chunk names a page and two offsets, and this
+ * is how the words come back when somebody actually asks to see them.
+ *
+ * `pages` is an argument rather than a range because both callers have a list:
+ * the chunker walks a window of page numbers, and retrieval rehydrates the
+ * handful of pages its hits happen to be on.
+ */
+export async function pageTextOf(
+  profileId: string,
+  documentId: string,
+  pages: readonly number[],
+): Promise<Map<number, string>> {
+  const db = await database(profileId);
+  if (db === null || !localSearchAvailable() || !SAFE_ID.test(documentId) || pages.length === 0) {
+    return new Map();
+  }
+
+  try {
+    // Page numbers are numbers by the time they are here — they come off a
+    // chunk row or a search hit, never off anything typed — but they are bound
+    // rather than interpolated all the same.
+    const marks = pages.map(() => '?').join(', ');
+    const rows = await db.getAllAsync<{ page: number; text: string }>(
+      `SELECT page, text FROM pages WHERE documentId = ? AND page IN (${marks}) ORDER BY page ASC`,
+      [documentId, ...pages],
+    );
+    return new Map(rows.map((row) => [row.page, row.text]));
+  } catch (error) {
+    log.debug(SCOPE, 'could not read mirrored pages', error);
+    return new Map();
+  }
+}
+
+/**
+ * Every page number this device holds text for, in order.
+ *
+ * What the chunker walks. Numbers rather than text, so a 600-page book is a
+ * few kilobytes of integers and the pages themselves are read a window at a
+ * time.
+ */
+export async function mirroredPageNumbers(
+  profileId: string,
+  documentId: string,
+): Promise<number[]> {
+  const db = await database(profileId);
+  if (db === null || !localSearchAvailable() || !SAFE_ID.test(documentId)) {
+    return [];
+  }
+
+  try {
+    const rows = await db.getAllAsync<{ page: number }>(
+      `SELECT page FROM pages WHERE documentId = ? ORDER BY page ASC`,
+      documentId,
+    );
+    return rows.map((row) => row.page);
+  } catch (error) {
+    log.debug(SCOPE, 'could not list mirrored pages', error);
+    return [];
+  }
+}
+
 export async function mirroredIds(profileId: string): Promise<Set<string>> {
   const db = await database(profileId);
   if (db === null || !localSearchAvailable()) {

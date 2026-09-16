@@ -1,11 +1,12 @@
 import { v } from 'convex/values';
 
-import { notificationSettingsFields, sharingSettingsFields } from './schema';
+import { aiSettingsFields, notificationSettingsFields, sharingSettingsFields } from './schema';
 import { mutation, query } from './_generated/server';
 import { requireUser } from './model/auth';
 import * as Discovery from './model/discovery';
 import { SHARE_EXPIRY_MAX_MS, clamp, invalid } from './model/limits';
 import { limit } from './model/rateLimits';
+import * as Ai from './model/ai';
 import * as Settings from './model/settings';
 
 /**
@@ -37,7 +38,11 @@ import * as Settings from './model/settings';
  * `Omit` on `SharingSettings` in `convex/model/settings.ts`, which this now
  * mirrors by construction rather than by agreement.
  */
-const { userId: _sharingUserId, updatedAt: _sharingUpdatedAt, ...sharingFields } = sharingSettingsFields;
+const {
+  userId: _sharingUserId,
+  updatedAt: _sharingUpdatedAt,
+  ...sharingFields
+} = sharingSettingsFields;
 const sharingValidator = v.object(sharingFields);
 
 const {
@@ -47,11 +52,15 @@ const {
 } = notificationSettingsFields;
 const notificationsValidator = v.object(notificationFields);
 
+const { userId: _aiUserId, updatedAt: _aiUpdatedAt, ...aiFields } = aiSettingsFields;
+const aiValidator = v.object(aiFields);
+
 export const mine = query({
   args: {},
   returns: v.object({
     sharing: sharingValidator,
     notifications: notificationsValidator,
+    ai: aiValidator,
     handle: v.union(v.string(), v.null()),
   }),
   handler: async (ctx) => {
@@ -59,8 +68,47 @@ export const mine = query({
     return {
       sharing: await Settings.sharingOf(ctx, user._id),
       notifications: await Settings.notificationsOf(ctx, user._id),
+      ai: await Ai.aiOf(ctx, user._id),
       handle: user.handle ?? null,
     };
+  },
+});
+
+/**
+ * Changes some of the Ask settings.
+ *
+ * Every field optional, for the reason the other two updaters give: a screen
+ * sends the switch that moved rather than the whole object, so two screens
+ * racing on one row disagree about one value instead of about all of them.
+ *
+ * The two numbers are clamped rather than validated. `v.number()` accepts
+ * `-1` and `Infinity`, and a client asking for a thousand days of retention
+ * would otherwise turn a retention policy into a setting — `model/limits.ts`
+ * opens with exactly this argument.
+ */
+export const updateAi = mutation({
+  args: {
+    allowCloud: v.optional(v.boolean()),
+    model: v.optional(v.string()),
+    contextPages: v.optional(v.number()),
+    retentionDays: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'editSettings');
+
+    await Ai.patchAi(ctx, user._id, {
+      ...(args.allowCloud === undefined ? {} : { allowCloud: args.allowCloud }),
+      ...(args.model === undefined ? {} : { model: Ai.cleanModel(args.model) }),
+      ...(args.contextPages === undefined
+        ? {}
+        : { contextPages: Ai.clampContextPages(args.contextPages) }),
+      ...(args.retentionDays === undefined
+        ? {}
+        : { retentionDays: Ai.clampRetentionDays(args.retentionDays) }),
+    });
+    return null;
   },
 });
 
@@ -81,6 +129,15 @@ export const updateSharing = mutation({
     showOnlineStatus: v.optional(v.boolean()),
     showReadingActivity: v.optional(v.boolean()),
     allowGroupInvites: v.optional(v.boolean()),
+    /**
+     * Whether people this account shares with may ask a model about the book.
+     *
+     * Here rather than on `updateAi` because it is a fact about sharing rather
+     * than about Ask: it governs what *other* readers may do with this
+     * account's documents, which is the same question `allowDownloads` and
+     * `allowReshares` above it answer.
+     */
+    allowAiOnSharedDocuments: v.optional(v.boolean()),
 
     /**
      * `null` takes a default expiry off; a number sets one, in days.

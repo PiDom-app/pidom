@@ -40,6 +40,12 @@ export type ReconcileInterval = 5 | 15 | 30 | 60;
 
 export type VerifyCadence = 'always' | 'weekly' | 'never';
 
+/** Battery below which indexing waits. A fraction, so `0` is never wait. */
+export type IndexBatteryFloor = 0 | 0.2 | 0.5;
+
+/** The ceiling for every index on this device, in gigabytes. `0` is none. */
+export type IndexCap = 0 | 1 | 2 | 5;
+
 type PreferencesState = {
   /** Hold large transfers unless the connection is Wi-Fi. Off by default. */
   wifiOnly: boolean;
@@ -101,6 +107,42 @@ type PreferencesState = {
    */
   reconcileEveryMinutes: 5 | 15 | 30 | 60;
 
+  /**
+   * Index a document for meaning once its text has arrived.
+   *
+   * On, because the index is what makes search work and a reader who has
+   * downloaded the model has already said yes to the expensive part. Read by
+   * `intelligence/index/policy.ts`.
+   */
+  indexAutomatically: boolean;
+  /**
+   * Hold indexing until this device is on Wi-Fi.
+   *
+   * Indexing itself uses no data — the model and the text are both already
+   * here. What this holds is the mirror fetch that has to happen first for a
+   * document whose pages have not been pulled down yet, which for a 600-page
+   * book is a few hundred kilobytes. Read by `intelligence/index/policy.ts`.
+   */
+  indexOnWifiOnly: boolean;
+  /**
+   * Stop indexing below this much battery, unless the device is charging.
+   *
+   * Indexing a long book is minutes of sustained inference, and doing it at
+   * 12% on a phone somebody is reading on spends the thing they need for the
+   * reading. Read by `intelligence/index/policy.ts`.
+   */
+  indexBatteryFloor: IndexBatteryFloor;
+  /**
+   * The ceiling for every index on this device, in gigabytes. `0` is none.
+   *
+   * A separate ceiling from `storageCapGb` because the two are different
+   * quantities with different consequences: a download removed comes back on a
+   * tap, and an index removed has to be rebuilt. Read by
+   * `intelligence/index/policy.ts` and by the eviction in
+   * `intelligence/index/actions.ts`.
+   */
+  indexCapGb: IndexCap;
+
   /** False until the persisted value has been read back. */
   hydrated: boolean;
   set: (patch: Partial<PreferencesState>) => void;
@@ -148,6 +190,11 @@ export const usePreferencesStore = create<PreferencesState>()(
       syncOnCellular: true,
       reconcileEveryMinutes: 15,
 
+      indexAutomatically: true,
+      indexOnWifiOnly: true,
+      indexBatteryFloor: 0.2,
+      indexCapGb: 2,
+
       hydrated: false,
       set: (patch) => set(patch),
       setWifiOnly: (wifiOnly) => set({ wifiOnly }),
@@ -164,7 +211,7 @@ export const usePreferencesStore = create<PreferencesState>()(
        * phone that last wrote `{ wifiOnly }` keeps its answer and picks up
        * every default added since. Nothing to migrate, and nothing to guess.
        */
-      version: 2,
+      version: 3,
       onRehydrateStorage: () => () => {
         usePreferencesStore.setState({ hydrated: true });
       },
@@ -185,5 +232,11 @@ export function preferencesNow(): PreferencesState {
 /** The ceiling in bytes, or `null` when the reader has not set one. */
 export function storageCapBytes(): number | null {
   const gb = usePreferencesStore.getState().storageCapGb;
+  return gb === 0 ? null : gb * 1024 * 1024 * 1024;
+}
+
+/** The index ceiling in bytes, or `null` when the reader has not set one. */
+export function indexCapBytes(): number | null {
+  const gb = usePreferencesStore.getState().indexCapGb;
   return gb === 0 ? null : gb * 1024 * 1024 * 1024;
 }

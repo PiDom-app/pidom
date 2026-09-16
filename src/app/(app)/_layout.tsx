@@ -7,6 +7,7 @@ import { useSyncIntents } from '@/features/library/data/use-sync-intents';
 import { useIncomingDocument } from '@/features/library/import/use-incoming-document';
 import { useLocalLibrary } from '@/features/library/local/use-local-library';
 import { useDownloadQueue } from '@/features/library/downloads/use-download-queue';
+import { useIndexQueue } from '@/features/intelligence/index/use-index-queue';
 import { useSyncEngine } from '@/features/library/sync/use-sync-engine';
 import { usePushNotifications } from '@/features/notifications/use-push-registration';
 import { useSharingSync } from '@/features/sharing/data/use-sharing-sync';
@@ -58,6 +59,7 @@ export default function AppLayout() {
   // drains changes and may retry them freely; this one moves files, where a
   // retry is somebody's data allowance and a hold is a setting doing its job.
   useDownloadQueue();
+  useIndexQueue();
   // A PDF opened from another app. Here rather than on a screen, because a
   // document can arrive while the reader is anywhere — and only here, because a
   // file handed over while signed out has no account to go into.
@@ -92,6 +94,11 @@ export default function AppLayout() {
       {/* What opens with no connection, and what any of it is waiting for. */}
       <Stack.Screen name="downloads" />
       <Stack.Screen name="download-settings" />
+      {/* Over the reader, and pushed rather than presented, for the reason the
+          navigator is: the document stays mounted underneath. */}
+      <Stack.Screen name="ask" />
+      {/* How this device finds what a document means, and what Ask may send. */}
+      <Stack.Screen name="intelligence" />
 
       {/* Sharing. A document is still one row with one owner; these are the
           screens for the grants on top of it. All pushed rather than presented:

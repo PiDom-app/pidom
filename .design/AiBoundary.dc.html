@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #6a59e8; } a:hover { color: #7a6af0; }
+    .c2, .c5 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    .c2 { -webkit-line-clamp: 2; } .c5 { -webkit-line-clamp: 5; }
+    .pretty { text-wrap: pretty; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width:900px;min-height:760px;background:#000000;overflow:hidden">
+<div style="padding:36px 40px">
+  <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;color:#e8e6e3">Where a question goes</div>
+  <div style="margin-top:8px;max-width:700px;font-size:13px;line-height:20px;color:#8f8d88" class="pretty">Two planes, and the line between them is not where it usually is. Every expensive, private thing — reading the book, cutting it into passages, turning them into vectors, deciding which four matter — happens on the handset. What crosses is a question and four page numbers.</div>
+
+  <div style="margin-top:28px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68;margin-bottom:12px">On this phone, always</div>
+    <div style="display:flex;align-items:stretch">
+      <div style="width:232px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">The index is built here</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">A 129 MB model, downloaded once and checked against a known fingerprint. It reads the pages your account already extracted and turns each passage into 384 numbers.</div>
+     </div>
+      <div style="display:flex;align-items:center;justify-content:center;width:38px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8f8d88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div style="width:232px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">And stored here</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Inside the same SQLCipher database as your library, under the same key. 388 bytes a passage, about 400 KB a book. No vector has ever left a phone.</div>
+     </div>
+      <div style="display:flex;align-items:center;justify-content:center;width:38px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8f8d88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div style="width:232px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #3dc280">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#3dc280">And searched here</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">With no connection, no account and no permission. Searching by meaning is not a feature you are lent — it is on the device and it stays working.</div>
+     </div>
+    </div>
+  </div>
+
+  <div style="margin-top:26px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68;margin-bottom:12px">What crosses, when you ask a question</div>
+    <div style="display:flex;align-items:stretch">
+      <div style="width:232px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">Four integers and a sentence</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty"><b style="color:#e8e6e3">{ documentId, pages: [152, 153, 156, 31] }</b> and what you typed. The phone does not send the passages it found — it sends where they are.</div>
+     </div>
+      <div style="display:flex;align-items:center;justify-content:center;width:38px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8f8d88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div style="width:232px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">Your account reads them</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">The same ownership check the reader passes, then those four rows out of <b style="color:#e8e6e3">documentPages</b>. A client cannot put words in a book’s mouth, because it never supplies any.</div>
+     </div>
+      <div style="display:flex;align-items:center;justify-content:center;width:38px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8f8d88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div style="width:232px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #262523">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#e8e6e3">The model sees a bounded window</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">At most eight pages, 64 KB, fenced and labelled as quoted material. The agent has no tools, so nothing it writes can reach anything.</div>
+     </div>
+    </div>
+  </div>
+
+  <div style="margin-top:26px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6e6c68;margin-bottom:12px">Never</div>
+    <div style="display:flex;align-items:stretch;gap:18px">
+      <div style="width:250px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #eb5757">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#eb5757">The document</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">Not the file, not the index, not a page nobody asked about. A 613-page book sends at most eight of them, and only the eight the reader’s own question selected.</div>
+     </div>
+      <div style="width:250px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #eb5757">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#eb5757">A key on the handset</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">The model is reached from the deployment. No API key is bundled, shipped in an update, or held in <b style="color:#e8e6e3">EXPO_PUBLIC_*</b> where anybody with the APK can read it.</div>
+     </div>
+      <div style="width:250px;border-radius:6px;padding:14px 16px;box-shadow:inset 0 0 0 1px #eb5757">
+       <div style="font-size:13px;font-weight:600;letter-spacing:-.008em;color:#eb5757">Somebody else’s book, by default</div>
+       <div style="margin-top:7px;font-size:12px;line-height:17px;color:#6e6c68" class="pretty">A document shared with you is not yours to send. <b style="color:#e8e6e3">allowAiOnSharedDocuments</b> is the owner’s switch, it is off, and the sheet says so rather than failing.</div>
+     </div>
+    </div>
+  </div>
+
+  <div style="margin-top:26px;padding-top:18px;border-top:1px solid #1c1b1a;font-size:12px;line-height:18px;color:#6e6c68;max-width:820px" class="pretty"><b style="color:#e8e6e3">A passage from a PDF is untrusted input, and it is treated as such.</b> Anybody can put “ignore your instructions” in a document and share it. The context block is fenced and labelled as quotation, the agent ships with no tools at all, and nothing the model returns chooses a page, fetches a URL or writes a row — so the worst a hostile document can do is make one answer wrong.</div>
+</div>
+</div>
+</x-dc>
+
+</body>
+</html>

@@ -1551,6 +1551,9 @@ describe('reading your settings', () => {
     expect(settings.sharing.requireExpiry).toBe(false);
     expect(settings.sharing.allowDownloads).toBe(true);
     expect(settings.sharing.allowReshares).toBe(true);
+    // The newest, and off for the reason the two above it start on: this one
+    // decides whether somebody else may send this reader's book to a model.
+    expect(settings.sharing.allowAiOnSharedDocuments).toBe(false);
     expect(settings.notifications.allow).toBe(true);
     expect(settings.notifications.annotationActivity).toBe(false);
   });
@@ -1572,6 +1575,7 @@ describe('reading your settings', () => {
       requireExpiry: true,
       allowDownloads: false,
       allowReshares: false,
+      allowAiOnSharedDocuments: true,
     });
 
     expect((await owner.query(api.settings.mine, {})).sharing).toStrictEqual({
@@ -1587,6 +1591,7 @@ describe('reading your settings', () => {
       requireExpiry: true,
       allowDownloads: false,
       allowReshares: false,
+      allowAiOnSharedDocuments: true,
     });
 
     // `null` is how the default expiry is taken off again.
@@ -1705,8 +1710,8 @@ describe('revoking a group share', () => {
         (share) => share.document?.id,
       ),
     ).not.toContain(documentId);
-    expect(
-      (await inboxEntry(friend, (share) => share.document?.id === documentId))?.status,
-    ).toBe('revoked');
+    expect((await inboxEntry(friend, (share) => share.document?.id === documentId))?.status).toBe(
+      'revoked',
+    );
   });
 });

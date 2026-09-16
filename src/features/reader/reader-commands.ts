@@ -48,6 +48,15 @@ export type ReaderCommands = {
   openNavigator: (segment: NavigatorSegment) => void;
   openSearch: () => void;
   openPageJump: () => void;
+  /**
+   * Ask, over the page.
+   *
+   * Here rather than on the chrome directly, for the reason everything else on
+   * this surface is: the selection bar opens it with a passage, the bottom bar
+   * opens it empty, and a third caller will want it too. One verb, one place
+   * that decides what it does.
+   */
+  openAsk: (about: string | null) => void;
   /** Who else may open this document — a screen, like the navigator. */
   openShare: () => void;
   closeReader: () => void;
@@ -66,6 +75,7 @@ export function useReaderCommands({
   onOpenNavigator,
   onOpenSearch,
   onOpenPageJump,
+  onOpenAsk,
   onOpenShare,
   onClose,
 }: {
@@ -82,6 +92,7 @@ export function useReaderCommands({
   onOpenNavigator: (segment: NavigatorSegment) => void;
   onOpenSearch: () => void;
   onOpenPageJump: () => void;
+  onOpenAsk: (about: string | null) => void;
   onOpenShare: () => void;
   onClose: () => void;
 }): ReaderCommands {
@@ -143,6 +154,7 @@ export function useReaderCommands({
       openNavigator: onOpenNavigator,
       openSearch: onOpenSearch,
       openPageJump: onOpenPageJump,
+      openAsk: onOpenAsk,
       openShare: onOpenShare,
       closeReader: onClose,
     }),
@@ -158,6 +170,7 @@ export function useReaderCommands({
       onOpenNavigator,
       onOpenSearch,
       onOpenPageJump,
+      onOpenAsk,
       onOpenShare,
       onClose,
     ],

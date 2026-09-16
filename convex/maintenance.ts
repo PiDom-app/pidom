@@ -58,6 +58,10 @@ export const nightly = internalMutation({
     await maintenance.enqueueMutation(ctx, internal.maintenance.prunePagesOfUnsynced, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.cleanupWorkflows, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.prunePushDeliveries, {});
+    // Conversations whose month is up. The read in `ai.threads` already hides
+    // them the moment they expire; this is what actually removes them, which is
+    // the half that makes "deleted after a month" a fact rather than a filter.
+    await maintenance.enqueueMutation(ctx, internal.ai.expireThreads, {});
     return null;
   },
 });

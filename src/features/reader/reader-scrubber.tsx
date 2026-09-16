@@ -1,4 +1,4 @@
-import { Rows3 } from 'lucide-react-native';
+import { Rows3, Sparkles } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -69,6 +69,7 @@ export function ReaderScrubber({
   onScrubTo,
   onOpenJump,
   onOpenSettings,
+  onOpenAsk,
   onStep,
 }: {
   page: number;
@@ -82,6 +83,8 @@ export function ReaderScrubber({
   onScrubTo: (page: number) => void;
   onOpenJump: () => void;
   onOpenSettings: () => void;
+  /** `null` when this device cannot answer, which hides the control. */
+  onOpenAsk: (() => void) | null;
   /** `+1` / `-1`, for the assistive-technology adjust actions. */
   onStep: (by: 1 | -1) => void;
 }) {
@@ -213,6 +216,27 @@ export function ReaderScrubber({
           <Text size="xs" className="text-fg-subtle">
             {pageCount > 0 ? `${Math.round((page / pageCount) * 100)}%` : ''}
           </Text>
+
+          {/* Ask, and the only labelled control in either bar.
+              Not a seventh glyph in the top bar: `reader-chrome.tsx` says in as
+              many words that the bar carries six already and a seventh is the
+              one that finally turns the title into an ellipsis. It is labelled
+              because it is the only control here whose glyph does not say what
+              it does. */}
+          {onOpenAsk === null ? null : (
+            <Pressable
+              onPress={onOpenAsk}
+              accessibilityRole="button"
+              accessibilityLabel="Ask about this document"
+              className="flex-row items-center gap-1.5 rounded-md bg-primary-tint px-2.5 py-1 data-[active=true]:bg-hover"
+            >
+              <Icon as={Sparkles} size="xs" className="text-primary" />
+              <Text size="xs" className="text-primary">
+                Ask
+              </Text>
+            </Pressable>
+          )}
+
           <Pressable
             onPress={onOpenSettings}
             accessibilityRole="button"
