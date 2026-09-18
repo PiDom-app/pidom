@@ -31,14 +31,17 @@ import { localSearchAvailable, searchLocally } from '../local/text-index';
  * with a different answer — so this is a second surface rather than a mode on
  * the first.
  *
- * **The device's own index is the primary now, not the fallback.** It used to
- * branch: the account when the socket was up, this phone when it was not. Two
- * paths, two shapes of answer, and the one that was exercised least was the one
- * that ran when a reader most needed it. The local index answers every search
- * and the account's answer is a wider net laid over it — the same rows, plus
- * any pages this phone has not mirrored yet.
+ * **The device's own index is the only index now.** It used to branch: the
+ * account when the socket was up, this phone when it was not. Two paths, two
+ * shapes of answer, and the one that was exercised least was the one that ran
+ * when a reader most needed it. The account's half was a Convex search index
+ * over a row per page of every synced book — the single largest thing in the
+ * deployment, and text the phone already held a copy of. It is gone, and the
+ * mirror widened to cover every document in the account rather than only the
+ * downloaded ones, so this screen answers more than it used to and answers it
+ * in a frame.
  *
- * **A local-only document is absent from both**, and the screen says so rather
+ * **A local-only document is absent from it**, and the screen says so rather
  * than leaving a reader to wonder where their book went: extraction reads the
  * copy in the account, because that is the only copy a server can see. That
  * sentence is the whole reason this screen has a footer.
@@ -96,40 +99,11 @@ export function SearchInsideScreen() {
   }, [catalogue]);
 
   /**
-   * The account's id for the document being searched, if it has one.
+   * The search, against the device's own index.
    *
-   * A document imported on this phone and not yet synced has none, and would
-   * have nothing to search there anyway — extraction reads the copy in the
-   * account, which is the only copy a server can see.
-   */
-  const remoteScope = useMemo(
-    () =>
-      scope === null ? null : ((catalogue ?? []).find((row) => row.id === scope)?.remoteId ?? null),
-    [scope, catalogue],
-  );
-
-  /**
-   * The account's answer, when there is one.
-   *
-   * Scoped by the *account's* id for the document, which a document imported on
-   * this phone and not yet synced does not have — and would have nothing to
-   * search anyway, for the same reason it has no text status.
-   */
-  const online = useQuery(
-    api.library.searchInside,
-    ready && long && !offline && (scope === null || remoteScope !== null)
-      ? {
-          term: trimmed,
-          ...(remoteScope === null ? {} : { documentId: remoteScope as Id<'documents'> }),
-        }
-      : 'skip',
-  );
-
-  /**
-   * The same search against the device's own index, always.
-   *
-   * A mirror of what the server extracted, so it can only know about documents
-   * that were synced, extracted and then pulled down here; the footer says so.
+   * A mirror of what extraction produced, pulled down as one object per
+   * document, so it can only know about documents that were synced, extracted
+   * and then mirrored here; the footer says so.
    */
   const [local, setLocal] = useState<LocalHit[] | undefined>(undefined);
   useEffect(() => {
@@ -151,24 +125,23 @@ export function SearchInsideScreen() {
   }, [long, profileId, trimmed, scope]);
 
   /**
-   * One list, from whichever indexes answered.
+   * One list, with a title put on every row.
    *
-   * Merged on the pair the reader can actually distinguish — a document and a
-   * page — so a page both found is one row rather than two. The account's
-   * snippet wins where they overlap: it searched the whole document rather than
-   * whatever this phone has mirrored so far.
+   * Still keyed on the pair a reader can distinguish — a document and a page —
+   * because the index can return the same page twice for a phrase that appears
+   * on it more than once, and two identical rows is not an answer.
    */
   const hits = useMemo<SearchHit[] | undefined>(() => {
     if (!long) {
       return undefined;
     }
-    if (local === undefined && online === undefined) {
+    if (local === undefined) {
       return undefined;
     }
 
     const merged = new Map<string, SearchHit>();
 
-    for (const hit of local ?? []) {
+    for (const hit of local) {
       const known = titles.get(hit.documentId);
       merged.set(`${known?.id ?? hit.documentId}:${hit.page}`, {
         documentId: (known?.id ?? hit.documentId) as Id<'documents'>,
@@ -178,20 +151,11 @@ export function SearchInsideScreen() {
       });
     }
 
-    for (const hit of online ?? []) {
-      const known = titles.get(hit.documentId);
-      merged.set(`${known?.id ?? hit.documentId}:${hit.page}`, {
-        ...hit,
-        documentId: (known?.id ?? hit.documentId) as Id<'documents'>,
-        title: known?.title ?? hit.title,
-      });
-    }
-
-    // In page order within a document, which is reading order. Both indexes
-    // return by relevance, and stepping through a book by relevance is not
+    // In page order within a document, which is reading order. The index
+    // returns by relevance, and stepping through a book by relevance is not
     // something a reader can follow.
     return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title) || a.page - b.page);
-  }, [long, local, online, titles]);
+  }, [long, local, titles]);
 
   // Only for a library-wide search. Searching inside one document the reader
   // picked needs no explanation of where their other documents are.
@@ -341,8 +305,9 @@ function Prompt({ scoped }: { scoped: boolean }) {
  *
  * A reader whose book is missing from a search deserves the reason, and there
  * are exactly two: it is not in the account, or it is a scan with no text in
- * it. Both come off `library.usage`, which was already scanning the owner's
- * documents to total up storage — so the footer costs no query of its own.
+ * it. Both come off `library.usage`, which the settings screen already reads to
+ * total up storage — four counters on the account's own row, so the footer
+ * costs no query of its own and no scan on either screen.
  */
 function Unsearchable({ localOnly, scans }: { localOnly: number; scans: number }) {
   if (localOnly === 0 && scans === 0) {

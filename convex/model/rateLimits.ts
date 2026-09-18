@@ -46,6 +46,27 @@ const LIMITS = {
   downloadUrl: { kind: 'token bucket', rate: 200, period: HOUR, capacity: 40 },
 
   /**
+   * A signed URL for a document's extracted text, for the offline search index.
+   *
+   * Its own bucket rather than `downloadUrl`'s, because the shape of the demand
+   * is genuinely different: this is asked for **once per document per device**,
+   * unprompted, in the background, for every synced document in the account —
+   * a new phone signing in to a three-hundred-book library makes three hundred
+   * of these and then never makes another.
+   *
+   * So the capacity is a first pass at a real library and the rate is what
+   * finishes one in an hour of the app being open. Meeting it is not a failure:
+   * the mirror stops for this launch and resumes on the next, and nothing a
+   * reader is looking at depends on it.
+   *
+   * Cheap enough to justify the width — one row read and a signature, no bytes.
+   * The egress it leads to is R2's, which is not billed at all. What the bucket
+   * is really for is the loop: it is a mutation, and a client stuck retrying it
+   * spends function calls.
+   */
+  textUrl: { kind: 'token bucket', rate: 400, period: HOUR, capacity: 80 },
+
+  /**
    * Reprocessing. Each one is a Node action that pulls a file out of R2 and
    * runs pdf.js over it, so this is the most expensive thing a reader can ask
    * for and the only one they can ask for repeatedly by tapping.

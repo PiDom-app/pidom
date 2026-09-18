@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+# Checks the formatting of what is being pushed, so the CI gate is not the first
+# thing to notice. The work is in `scripts/format-pushed.mjs`; this is the shim
+# git executes, and it passes git's ref updates through on stdin.
+#
+# `git push --no-verify` skips it.
+exec node "$(git rev-parse --show-toplevel)/scripts/format-pushed.mjs"

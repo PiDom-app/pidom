@@ -153,6 +153,19 @@ export async function upsertFromIdentity(
     createdAt: now,
     lastSeenAt: now,
     ...claims,
+    // Counted from the start, at the one moment the answer is knowable without
+    // looking: an account created a line ago owns nothing. `Usage.read` treats a
+    // missing field as "never counted" and scans the library to answer, which is
+    // the read `users.usage` exists to remove — and leaving it absent here would
+    // mean every account did that scan on two screens, reactively, until the
+    // nightly recount happened to reach it.
+    usage: {
+      syncedCount: 0,
+      syncedBytes: 0,
+      localOnlyCount: 0,
+      scanCount: 0,
+      countedAt: now,
+    },
   });
 
   const created = await ctx.db.get('users', id);

@@ -9,13 +9,8 @@ import {
   OUTLINE_ENTRY_MAX,
   OUTLINE_TITLE_MAX,
   PAGE_COUNT_MAX,
-  PAGE_TEXT_MAX,
-  SEARCH_LIMIT,
-  SEARCH_TERM_MAX,
-  SNIPPET_CHARS,
   clamp,
   cleanText,
-  invalid,
 } from './limits';
 
 /**
@@ -24,7 +19,7 @@ import {
  * Two halves that never meet. The **device** half writes `processing`, the page
  * count and the outline, all off one `<Pdf>` load — it is the only place that
  * can, because the file is on the phone. The **cloud** half writes `textStatus`
- * and the page text, and it is the only place that can do *that*, because the
+ * and the text object, and it is the only place that can do *that*, because the
  * copy in R2 is the only one the server can read.
  *
  * A local-only document therefore ends at `processing: 'ready'` with no text
@@ -187,166 +182,17 @@ export async function deleteJob(ctx: MutationCtx, documentId: Id<'documents'>): 
   }
 }
 
-/* ── searching inside ────────────────────────────────────────────────── */
-
-/**
- * Pages whose text matches, across the library or within one document.
- *
- * `ownerId` on the search index is load-bearing in the way it is on
- * `search_title`: a search index has no implicit scope, so without the filter
- * one reader's query would range over every page of every document in the
- * deployment.
- *
- * The document titles are fetched afterwards rather than denormalised onto
- * every page row. A 600-page book would otherwise carry 600 copies of its own
- * title, and renaming it would be 600 writes.
- */
-export async function searchInside(
-  ctx: QueryCtx,
-  owner: Doc<'users'>,
-  term: string,
-  documentId: Id<'documents'> | undefined,
-): Promise<SearchHit[]> {
-  const trimmed = term.trim();
-  if (trimmed === '') {
-    return [];
-  }
-  if (trimmed.length > SEARCH_TERM_MAX) {
-    invalid(`Search terms are limited to ${SEARCH_TERM_MAX} characters.`);
-  }
-
-  /**
-   * Whose pages are being searched.
-   *
-   * Across the library it is the caller's own, and that is the only honest
-   * answer — a search with no document named is "find it in my books", and
-   * folding in everything anybody ever shared would turn one query into a walk
-   * of every grant the caller holds.
-   *
-   * Inside one document it is the document's owner, because `documentPages`
-   * carries the owner's id and a recipient's does not match it. Which is
-   * exactly why the access check comes first and the id comes from the row it
-   * returns rather than from the caller: this is the one place in this backend
-   * where a query is scoped to somebody else's id, and it is scoped to the id
-   * of a document the caller has just been proven able to read.
-   */
-  let scopeOwnerId = owner._id;
-  if (documentId !== undefined) {
-    const { doc } = await requireReadable(ctx, owner, documentId);
-    scopeOwnerId = doc.ownerId;
-  }
-
-  const pages = await ctx.db
-    .query('documentPages')
-    .withSearchIndex('search_text', (q) => {
-      const scoped = q.search('text', trimmed).eq('ownerId', scopeOwnerId);
-      return documentId === undefined ? scoped : scoped.eq('documentId', documentId);
-    })
-    .take(SEARCH_LIMIT);
-
-  // One read per distinct document rather than one per hit: twenty-five hits in
-  // one book is one lookup.
-  const titles = new Map<string, string>();
-  for (const page of pages) {
-    if (!titles.has(page.documentId)) {
-      const doc = await ctx.db.get('documents', page.documentId);
-      // A page whose document is gone is a page the delete cascade has not
-      // reached. Dropped rather than shown as a hit with no title.
-      titles.set(page.documentId, doc === null ? '' : doc.title);
-    }
-  }
-
-  return pages
-    .filter((page) => titles.get(page.documentId) !== '')
-    .map((page) => ({
-      documentId: page.documentId,
-      title: titles.get(page.documentId) ?? '',
-      page: page.page,
-      snippet: snippetOf(page.text, trimmed),
-    }));
-}
-
-/**
- * The line under a hit's page number.
- *
- * Built here rather than in the client because the client never receives the
- * page's text — a search result carrying 8 KB per hit would be a quarter of a
- * megabyte over the wire to draw twenty-five lines.
- *
- * The match is found on the first word of the term, since Tantivy matched on
- * words and the whole phrase may not appear contiguously. A term that cannot be
- * located falls back to the head of the page, which is still a useful line.
- */
-export function snippetOf(text: string, term: string): string {
-  const collapsed = text.replace(/\s+/g, ' ').trim();
-  const firstWord = term.trim().split(/\s+/)[0] ?? '';
-
-  const at =
-    firstWord === '' ? -1 : collapsed.toLocaleLowerCase().indexOf(firstWord.toLocaleLowerCase());
-
-  if (at === -1) {
-    return collapsed.slice(0, SNIPPET_CHARS * 2);
-  }
-
-  const from = Math.max(0, at - SNIPPET_CHARS);
-  const to = Math.min(collapsed.length, at + firstWord.length + SNIPPET_CHARS);
-  // Ellipses only where text was actually cut, so a short page does not read as
-  // though something was hidden.
-  return `${from > 0 ? '…' : ''}${collapsed.slice(from, to)}${to < collapsed.length ? '…' : ''}`;
-}
-
 /* ── page text ───────────────────────────────────────────────────────── */
 
 /**
- * Writes one batch of extracted pages.
+ * Deletes a document's extracted pages, up to a bound. **Legacy.**
  *
- * Called from the extraction action rather than returned through a workflow
- * step, and that is the constraint the whole pipeline is shaped around: the
- * workflow component caps a run's total step arguments and returns at 1 MB, and
- * a 600-page book's text is far past it. Steps carry counts; text takes this
- * path straight into the table.
- *
- * `internalMutation` reaches this, so there is no `owner` to check against —
- * the ownership that matters was checked when the workflow was started, and the
- * `ownerId` written here is copied off the document row rather than passed in.
- */
-export async function writePages(
-  ctx: MutationCtx,
-  documentId: Id<'documents'>,
-  pages: { page: number; text: string }[],
-): Promise<number> {
-  const doc = await ctx.db.get('documents', documentId);
-  if (doc === null) {
-    // The document was deleted while its text was being extracted. There is
-    // nothing for these pages to belong to, so they are dropped.
-    return 0;
-  }
-
-  let written = 0;
-  for (const entry of pages) {
-    const text = entry.text.replace(/\s+/g, ' ').trim();
-    if (text === '') {
-      // An image-only page. Skipped rather than stored empty, so "how many
-      // pages carry text" is answerable by counting rows.
-      continue;
-    }
-    await ctx.db.insert('documentPages', {
-      ownerId: doc.ownerId,
-      documentId: doc._id,
-      page: Math.round(clamp(entry.page, 1, PAGE_COUNT_MAX)),
-      text: text.slice(0, PAGE_TEXT_MAX),
-    });
-    written += 1;
-  }
-  return written;
-}
-
-/**
- * Deletes a document's extracted pages, up to a bound.
- *
- * Bounded because a mutation writes 16,000 documents and a re-extraction of a
- * 2,000-page book has to clear the previous run first. Returns how many went,
- * so a caller can keep going until it returns zero.
+ * Page text is one R2 object now (`documents.textStorageKey`), so a document
+ * extracted since that change has no rows here at all and deleting it is one
+ * object delete. What is left is everything extracted before, and this is how
+ * it goes: bounded, because a mutation writes 16,000 documents and a 2,000-page
+ * book is past that. Returns how many went, so a caller can keep going until it
+ * returns zero.
  */
 export async function deletePages(
   ctx: MutationCtx,

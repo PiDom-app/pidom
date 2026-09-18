@@ -204,7 +204,7 @@ jobs:
 
           gh release create "$TAG" "$APK" "${APK}.sha256" \
             --target "$GITHUB_SHA" \
-            --title "Pidom ${APP_VERSION} (Android ${VERSION_CODE})" \
+            --title "Pidom ${APP_VERSION}" \
             --notes-file "$RELEASE_NOTES"
 
       - name: Publish EAS Update

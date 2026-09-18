@@ -181,6 +181,33 @@ export default defineSchema({
      * from the row and reaches nobody's network.
      */
     about: v.optional(v.string()),
+
+    /**
+     * What this account is using, kept rather than counted.
+     *
+     * `library.usage` renders the storage figure on the settings screen and the
+     * two caveats under a search result, and it used to answer by reading up to
+     * two thousand document rows — as a *reactive* query, so every favourite
+     * toggle and every page turn re-ran it on every device the account had
+     * open. That is the largest read in the app that nobody asked for.
+     *
+     * Maintained by `model/usage.ts` from the four mutations that can change
+     * whether a document is synced, and re-derived by the nightly pass so drift
+     * cannot become permanent. Absent on an account that predates it, which
+     * `usage` reads as "not counted yet" and answers by scanning once.
+     */
+    usage: v.optional(
+      v.object({
+        syncedCount: v.number(),
+        syncedBytes: v.number(),
+        /** Documents nowhere but the phone that imported them. */
+        localOnlyCount: v.number(),
+        /** Synced, parsed, and carrying no text layer. Scans. */
+        scanCount: v.number(),
+        /** When these were last re-derived from the rows themselves. */
+        countedAt: v.number(),
+      }),
+    ),
   })
     .index('by_subject', ['subject'])
     // Discovery, and nothing else. Both of these answer "is there an account
@@ -416,6 +443,40 @@ export default defineSchema({
     uploadedAt: v.optional(v.number()),
     /** sha256, read back from R2's own metadata rather than taken from the client. */
     contentHash: v.optional(v.string()),
+
+    /**
+     * Every page's text, as one R2 object rather than a row per page.
+     *
+     * This used to be `documentPages` — one row per page, each one also copied
+     * into a Tantivy search index, both billed against a half-gigabyte
+     * allowance. A six-hundred-page book was well over a megabyte of text
+     * stored twice, which put the whole deployment's ceiling at a few hundred
+     * books. The same book is one object here, in a bucket with ten gigabytes
+     * free and no charge for sending it.
+     *
+     * `{ v: 1, pages: [{ p, t }] }`, written once by extraction and never
+     * edited — a reprocess writes the key again from scratch. That is what lets
+     * it be served `immutable`: a device fetches a book's text once, ever.
+     *
+     * Searching is not lost by moving it here. The device already keeps an
+     * FTS5 mirror of every page it has (`src/features/library/local/text-index.ts`)
+     * and now mirrors every synced document rather than only downloaded ones,
+     * so search inside is answered locally, completely, and offline.
+     */
+    textStorageKey: v.optional(v.string()),
+    /** Size of that object, so the mirror can decide before it spends the data. */
+    textBytes: v.optional(v.number()),
+
+    /**
+     * The shared content this document is one reference to, when it has one.
+     *
+     * Two accounts holding the same PDF hold one object between them, addressed
+     * by the sha256 **R2 itself reported** — never by the client's fingerprint,
+     * which covers 128 KB of a file and is trivially forged. Absent means this
+     * document owns its bytes outright, which is what every document did before
+     * this existed and what any upload R2 gave no digest for still does.
+     */
+    blobId: v.optional(v.id('contentBlobs')),
   })
     // Recently Added, and the all-library list. `_creationTime` is appended to
     // every index automatically, so this already sorts newest-first under
@@ -453,6 +514,78 @@ export default defineSchema({
     }),
 
   /**
+   * One PDF's bytes, shared by every document that turned out to be that PDF.
+   *
+   * A set text goes round a class and forty people import the same file. Before
+   * this there were forty objects in the bucket and forty runs of pdf.js over
+   * identical pages; now there is one of each, and the fortieth import is a row
+   * and a counter.
+   *
+   * **Addressed by the sha256 R2 reported, never by anything a client said.**
+   * The client's `fingerprint` reads 64 KB from each end of the file and is
+   * forgeable in an afternoon; it may suggest that a reader already has a
+   * document *of their own*, and nothing else. A blob is only ever reached
+   * through a hash the server read back out of object metadata after the bytes
+   * were already stored — so the worst a forged fingerprint achieves is a
+   * pointless upload.
+   *
+   * The counterpart invariant is that nothing asks this table a question on a
+   * client's behalf. There is no function, public or otherwise, that answers
+   * "does this file exist here" — dedupe happens *after* an upload the client
+   * would have made anyway, and its only visible effect is that extraction is
+   * skipped. Ingress and egress are both free on R2, so the duplicate upload
+   * that buys that silence costs nothing.
+   *
+   * `storageKey` is wherever the first uploader's object physically sits. The
+   * bytes are not copied to a canonical name — copying would mean an S3 call
+   * from inside a mutation, and the name an object has matters far less than
+   * how many documents point at it. `refCount` is the only thing that decides
+   * whether it may be deleted.
+   */
+  contentBlobs: defineTable({
+    /** sha256 hex, from `r2.getMetadata`. Never from a caller. */
+    contentHash: v.string(),
+    /** The object itself. Usually the first uploader's `<owner>/<doc>.pdf`. */
+    storageKey: v.string(),
+    /** Extracted text, shared by everyone pointing here. Same object, one extraction. */
+    textStorageKey: v.optional(v.string()),
+    textBytes: v.optional(v.number()),
+    byteSize: v.number(),
+    pageCount: v.optional(v.number()),
+    /** Mirrors the `documents.textStatus` union, so a share can be copied across. */
+    textStatus: v.optional(
+      v.union(
+        v.literal('queued'),
+        v.literal('extracting'),
+        v.literal('ready'),
+        v.literal('none'),
+        v.literal('failed'),
+      ),
+    ),
+    /**
+     * How many documents point here.
+     *
+     * Incremented in the same mutation that writes `documents.blobId`, and
+     * decremented in the same one that clears it. Convex mutations are
+     * serializable, so this is a plain read-modify-write and not a race.
+     * Reaching zero is what releases the object — and only the nightly pass
+     * acts on that, never the delete itself, because an R2 failure inside the
+     * delete would roll back a document the reader watched disappear.
+     */
+    refCount: v.number(),
+    createdAt: v.number(),
+  })
+    // "Has anyone stored these exact bytes?", asked once per upload, server-side.
+    .index('by_hash', ['contentHash'])
+    // The sweep's allowlist: given an object key, is anything still using it?
+    // A point lookup, for the reason spelled out at `convex/library.ts` — an
+    // allowlist assembled from a bounded scan is a delete list with holes. Two
+    // indexes because a blob names two objects, and the text one is reached by
+    // a key that still looks like the first uploader's own.
+    .index('by_key', ['storageKey'])
+    .index('by_text_key', ['textStorageKey']),
+
+  /**
    * A document's table of contents, as one row rather than one row per entry.
    *
    * An outline is read whole or not at all — the Contents sheet opens with all
@@ -482,15 +615,24 @@ export default defineSchema({
   }).index('by_document', ['documentId']),
 
   /**
-   * One page's text, which is what makes searching inside a document possible.
+   * One page's text. **Legacy — being drained, and then deleted.**
    *
-   * Only a synced document has these rows: extraction reads the copy in R2,
-   * because that copy is the only one the server can see. Deleting the cloud
-   * copy deletes them — see `Library.detachUpload`.
+   * This was how searching inside a document worked, and it was also the reason
+   * the deployment's storage allowance was disappearing. Every page was held
+   * twice: once as a row, and once inside the `search_text` Tantivy index,
+   * which is metered separately and priced higher. A 600-page book cost roughly
+   * 2.5 MB across the two — a few hundred books for the entire deployment.
    *
-   * A row per page rather than a row per document, and the search index is why:
-   * a hit has to name a page for the reader to jump to, and a 600-page book's
-   * text is far past Convex's 1 MiB document limit besides.
+   * Page text now lives in R2 as one object per document
+   * (`documents.textStorageKey`), and the search that needed this index is
+   * answered by the device's own FTS5 mirror, which is complete and works with
+   * no connection. **The search index is gone**, which is the larger half of
+   * the saving and could be dropped immediately — nothing reads it any more.
+   *
+   * The table itself outlives the index by exactly as long as it takes
+   * `maintenance.migratePagesToR2` to move the rows that were written before
+   * the change and delete them. `by_document_and_page` is what both that job
+   * and the delete-time drain read, so it stays until the table does.
    */
   documentPages: defineTable({
     ownerId: v.id('users'),
@@ -501,15 +643,7 @@ export default defineSchema({
   })
     // Reading a document's pages back in order, and deleting them all when its
     // cloud copy goes away.
-    .index('by_document_and_page', ['documentId', 'page'])
-    // `ownerId` as a filter field is what keeps one reader's search out of
-    // another's documents — a search index has no implicit scope. `documentId`
-    // beside it is what makes "search inside this one" one query rather than a
-    // whole-library search filtered afterwards.
-    .searchIndex('search_text', {
-      searchField: 'text',
-      filterFields: ['ownerId', 'documentId'],
-    }),
+    .index('by_document_and_page', ['documentId', 'page']),
 
   /**
    * Documents whose page text still needs clearing.

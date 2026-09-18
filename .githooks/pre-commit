@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Formats the staged files so a commit cannot carry a formatting slip into CI.
+# The work is in `scripts/format-staged.mjs`; this is the shim git executes.
+#
+# `--no-verify` skips it, which is deliberate — the pre-push hook is the net.
+exec node "$(git rev-parse --show-toplevel)/scripts/format-staged.mjs"

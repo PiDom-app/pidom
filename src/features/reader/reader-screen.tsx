@@ -220,8 +220,6 @@ export function ReaderScreen() {
   const find = useFindInDocument({
     documentId,
     profileId,
-    remoteId: document?.remoteId ?? null,
-    isSynced: document?.isSynced ?? false,
     active: finding,
   });
 
