@@ -8,12 +8,15 @@ import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { ActionCtx } from '../_generated/server';
 import { internalAction } from '../_generated/server';
+import { r2 } from '../r2';
 import {
   AUTHOR_MAX,
   EXTRACT_BYTE_MAX,
   EXTRACT_PAGE_MAX,
+  EXTRACT_PROGRESS_EVERY,
   EXTRACT_TIMEOUT_MS,
-  PAGE_BATCH,
+  PAGE_TEXT_MAX,
+  TEXT_BYTE_MAX,
   TITLE_MAX,
 } from '../model/limits';
 
@@ -33,10 +36,18 @@ import {
  * and ten minutes against the Convex runtime's 64 MiB and thirty, and its
  * arguments cap at 5 MiB rather than 16.
  *
- * **The text never comes back through the return value.** It is written to
- * `documentPages` a batch at a time from inside this action, because the
- * workflow component caps a run's total step arguments and returns at 1 MB and
- * a 600-page book is far past that. What comes back is counts.
+ * **The text never comes back through the return value.** It goes straight from
+ * here into R2 as one object, because the workflow component caps a run's total
+ * step arguments and returns at 1 MB and a 600-page book is far past that. What
+ * comes back is counts.
+ *
+ * That object replaced a table. Page text used to be a row per page, each one
+ * also copied into a search index that is metered separately and priced higher,
+ * which put a few hundred books between the whole deployment and a full
+ * database. One object per document, in a bucket with ten gigabytes free and no
+ * egress charge, is the same text for a twentieth of the bill — and the search
+ * it used to serve is answered by the FTS5 index on the reader's own device,
+ * which works with no connection.
  *
  * **This parses a file Pidom did not write**, which is the whole security
  * posture below: no font machinery, a size bound, a page bound, and a timeout
@@ -45,12 +56,14 @@ import {
 
 /** What the action reports back to the workflow. Counts, never content. */
 const resultValidator = v.object({
-  /** Pages that carried text and were written. */
+  /** Pages that carried text and went into the object. */
   written: v.number(),
   /** Pages the document has, as pdf.js counted them. */
   totalPages: v.number(),
   /** False for a scan: it parsed, and there was no text layer in it. */
   hasText: v.boolean(),
+  /** Size of the stored object, or `null` when nothing was stored. */
+  textBytes: v.union(v.number(), v.null()),
   /** From the PDF's own metadata, when it carries any worth having. */
   title: v.union(v.string(), v.null()),
   author: v.union(v.string(), v.null()),
@@ -61,6 +74,8 @@ export const extractText = internalAction({
     documentId: v.id('documents'),
     /** Minted server-side in `library.uploadUrl`; never an argument the client set. */
     storageKey: v.string(),
+    /** Minted server-side in `workflows.document.target`, from the row's own ids. */
+    textStorageKey: v.string(),
     byteSize: v.number(),
   },
   returns: resultValidator,
@@ -103,11 +118,35 @@ export const extractText = internalAction({
     // runs inside one timeout. unpdf's serverless build parses on the event
     // loop with no worker to kill, so a PDF that sends pdf.js spinning cannot
     // be interrupted — only outlived.
-    return await race(parse(ctx, args.documentId, bytes), EXTRACT_TIMEOUT_MS);
+    return await race(
+      parse(ctx, args.documentId, args.textStorageKey, bytes),
+      EXTRACT_TIMEOUT_MS,
+    );
   },
 });
 
-async function parse(ctx: ActionCtx, documentId: Id<'documents'>, bytes: Uint8Array) {
+/** One page, under the shortest names that still read. */
+type StoredPage = { p: number; t: string };
+
+/**
+ * The stored shape, versioned.
+ *
+ * `v` is there because the reader on the other end is an app store build that
+ * may be months old by the time this changes. A device that does not recognise
+ * a version can say so and re-mirror later, which is a far better failure than
+ * silently parsing a shape it half understands.
+ *
+ * `p`/`t` rather than `page`/`text`: the names repeat once per page, and at two
+ * thousand pages the long ones are twelve kilobytes of nothing.
+ */
+const FORMAT_VERSION = 1;
+
+async function parse(
+  ctx: ActionCtx,
+  documentId: Id<'documents'>,
+  textStorageKey: string,
+  bytes: Uint8Array,
+) {
   const pdf = await openDocument(bytes);
 
   const totalPages = pdf.numPages;
@@ -118,40 +157,73 @@ async function parse(ctx: ActionCtx, documentId: Id<'documents'>, bytes: Uint8Ar
   const meta = await getMeta(pdf).catch(() => null);
   const info = (meta?.info ?? {}) as { Title?: unknown; Author?: unknown };
 
-  let written = 0;
-  // Separate from `written`, because they answer different questions: `read` is
-  // what the Details sheet shows as "218 of 499", and `written` is how many of
-  // those pages carried any text at all. On a scan they diverge completely.
-  let read = 0;
-  let batch: { page: number; text: string }[] = [];
+  const pages: StoredPage[] = [];
+  // Tracked as the pages accumulate rather than measured at the end, so a
+  // pathological document is stopped while it is still cheap to stop. The
+  // figure is the text alone; the JSON around it adds about fifteen bytes a
+  // page, which `TEXT_BYTE_MAX` has room for.
+  let textBytes = 0;
 
   for (let page = 1; page <= totalPages; page += 1) {
     // Page by page rather than `extractText(pdf)`, so the text of a 2,000-page
     // book is never all in memory at once and the Details sheet can say
     // "218 of 499" instead of spinning.
     const content = await (await pdf.getPage(page)).getTextContent();
-    const text = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
+    const raw = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
+    const text = raw.replace(/\s+/g, ' ').trim().slice(0, PAGE_TEXT_MAX);
 
-    batch.push({ page, text });
+    // An image-only page is skipped rather than stored empty, so the object
+    // holds only pages a search could match and `written` still answers "how
+    // many pages carry text".
+    if (text !== '' && textBytes < TEXT_BYTE_MAX) {
+      pages.push({ p: page, t: text });
+      textBytes += text.length;
+    }
 
-    if (batch.length >= PAGE_BATCH) {
-      read += batch.length;
-      written += await flush(ctx, documentId, batch, read, totalPages);
-      batch = [];
+    if (page % EXTRACT_PROGRESS_EVERY === 0) {
+      await ctx.runMutation(internal.workflows.document.progress, {
+        documentId,
+        pagesDone: page,
+        pagesTotal: totalPages,
+      });
     }
   }
 
-  if (batch.length > 0) {
-    read += batch.length;
-    written += await flush(ctx, documentId, batch, read, totalPages);
+  /**
+   * One write, at the end.
+   *
+   * `r2.store` rather than the raw S3 client underneath it, and that is a
+   * deliberate constraint rather than convenience: `store` registers the object
+   * in the component's own metadata table, which is what `listMetadata` walks
+   * and therefore what the nightly sweep can see. An object written around it
+   * is an object nothing can enumerate, which means nothing can ever collect
+   * it — a permanent bill for a file no reader can reach.
+   *
+   * `immutable`, for a year, because it is: a re-extraction writes this key
+   * again from scratch and a device fetches a book's text exactly once. And
+   * `private`, because it is the reader's document content and a signed URL is
+   * not an invitation for a proxy to keep a copy.
+   */
+  let stored: number | null = null;
+  if (pages.length > 0) {
+    const body = new TextEncoder().encode(
+      JSON.stringify({ v: FORMAT_VERSION, pages } satisfies { v: number; pages: StoredPage[] }),
+    );
+    await r2.store(ctx, body, {
+      key: textStorageKey,
+      type: 'application/json',
+      cacheControl: 'private, max-age=31536000, immutable',
+    });
+    stored = body.byteLength;
   }
 
   return {
-    written,
+    written: pages.length,
     totalPages,
     // A document that parsed and produced no text is a scan. That is a finished
     // answer — `textStatus: 'none'` — rather than a failure to retry.
-    hasText: written > 0,
+    hasText: pages.length > 0,
+    textBytes: stored,
     title: cleanMeta(info.Title, TITLE_MAX),
     author: cleanMeta(info.Author, AUTHOR_MAX),
   };
@@ -196,23 +268,6 @@ async function openDocument(bytes: Uint8Array) {
     }
     throw error;
   }
-}
-
-/** Writes one batch and moves the job's counter. */
-async function flush(
-  ctx: ActionCtx,
-  documentId: Id<'documents'>,
-  batch: { page: number; text: string }[],
-  read: number,
-  totalPages: number,
-): Promise<number> {
-  return await ctx.runMutation(internal.workflows.document.storePages, {
-    documentId,
-    pages: batch,
-    // Sent rather than derived, because the mutation cannot see the loop.
-    pagesDone: read,
-    pagesTotal: totalPages,
-  });
 }
 
 /**

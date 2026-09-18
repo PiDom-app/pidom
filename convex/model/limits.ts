@@ -209,34 +209,108 @@ export const EXTRACT_TIMEOUT_MS = 120_000;
 /**
  * Text kept per page.
  *
- * A Convex document caps at 1 MiB, and a page carrying more than 8 KB of text
- * is a table of figures nobody searches by phrase. Truncated rather than
- * refused: most of a page still finds the page.
+ * A page carrying more than 8 KB of text is a table of figures nobody searches
+ * by phrase. Truncated rather than refused: most of a page still finds the page.
+ *
+ * It used to be bounded by Convex's 1 MiB document limit, because a page was a
+ * row. It is a key in one R2 object now, and the ceiling that matters is the
+ * whole object — see `TEXT_BYTE_MAX`.
  */
 export const PAGE_TEXT_MAX = 8 * 1024;
 
-/** Pages written per mutation. A mutation writes 16 MiB and 16,000 documents. */
-export const PAGE_BATCH = 50;
+/**
+ * The largest text object the extractor will write.
+ *
+ * `EXTRACT_PAGE_MAX * PAGE_TEXT_MAX` is 16 MB, which is the worst case a
+ * pathological document could reach — a real book is nearer two. The bound
+ * exists because the other end of this is a phone: the device fetches the whole
+ * object and parses it in one go, and there is no useful reading of a book whose
+ * text will not fit in a mobile JSON parse.
+ *
+ * Pages past it are dropped rather than the document being failed. Most of a
+ * book still finds most of the book, and `textStatus` would be lying if it said
+ * `failed` for something that parsed perfectly well.
+ */
+export const TEXT_BYTE_MAX = 12 * 1024 * 1024;
+
+/**
+ * How often extraction tells the job row where it has got to.
+ *
+ * The Details sheet says "218 of 499" rather than spinning, and it can only say
+ * that because the action reports in. It used to report in as a side effect of
+ * writing pages — fifty at a time, each one carrying its batch of text — so the
+ * counter was free and the write was enormous. Now the text is one object
+ * written at the end, and this is a small patch of two numbers on its own.
+ *
+ * A hundred is a compromise between the two ways it can be wrong: too often is
+ * function calls spent on a progress bar, and too rarely is a reader watching a
+ * number sit still while something is plainly happening. Six patches for a
+ * six-hundred-page book, against the twelve much larger mutations before.
+ */
+export const EXTRACT_PROGRESS_EVERY = 100;
 
 /**
  * Pages one mutation will delete in a pass.
  *
+ * **Legacy.** Nothing writes `documentPages` any more — extraction puts a
+ * document's text in one R2 object — so this bounds the drain of what is left
+ * rather than the steady state. It goes when the table does.
+ *
  * Deleting reads first, and a page holds up to `PAGE_TEXT_MAX`, so 400 of them
- * is around 3 MB against a mutation's 16 MiB read budget — headroom, rather
- * than a number chosen to sit on the edge. A book longer than this is finished
- * by the nightly prune, which is what a nightly prune is for.
+ * is around 3 MB against a mutation's 16 MiB read budget.
  */
 export const PAGE_DELETE_BUDGET = 400;
 
 /**
- * Documents the nightly prune clears in one run.
+ * Documents the page prune clears in one run. Legacy, with `PAGE_DELETE_BUDGET`.
  *
- * It drains `pagePruneQueue`, so every one of these is a document that really
- * does have text to clear — nothing is spent looking. Four of them at
- * `PAGE_DELETE_BUDGET` each is around 12 MB of reads against a mutation's
- * 16 MiB, which is the ceiling this number is set by.
+ * Four of them at `PAGE_DELETE_BUDGET` each is around 12 MB of reads against a
+ * mutation's 16 MiB, which is the ceiling this number is set by.
  */
 export const PRUNE_DOCUMENTS = 4;
+
+/**
+ * Passes the delete-time drain will chain before leaving the rest to the queue.
+ *
+ * `detachUpload` and `removeDocument` clear what they can inside their own
+ * transaction and then schedule this many follow-ups, a second apart, rather
+ * than handing a long book to a job that runs once a night. Deleting a shelf of
+ * textbooks used to leave their text in the account for days; it now clears in
+ * seconds.
+ *
+ * Twelve passes at `PAGE_DELETE_BUDGET` is 4,800 pages, which is past
+ * `EXTRACT_PAGE_MAX` twice over. The queue is still written, because a chain
+ * that is interrupted has to be finishable by something.
+ */
+export const PAGE_DRAIN_PASSES = 12;
+
+/**
+ * Documents the backfill moves from `documentPages` to R2 per run.
+ *
+ * Each one reads up to `EXTRACT_PAGE_MAX` rows and writes one object, so this is
+ * deliberately small: it is a migration that has to converge, not one that has
+ * to finish tonight. It runs from the nightly pass and is safe to run again.
+ */
+export const MIGRATE_DOCUMENTS = 8;
+
+/**
+ * Released content blobs the nightly pass collects per run.
+ *
+ * A blob reaches `refCount === 0` in the transaction that removed the last
+ * document pointing at it. The objects are deleted here rather than there, so a
+ * Cloudflare failure cannot roll back a delete the reader already saw succeed.
+ */
+export const BLOB_RELEASE_LIMIT = 50;
+
+/**
+ * Accounts whose usage counters the nightly pass re-derives.
+ *
+ * `users.usage` is maintained incrementally by the handful of mutations that
+ * change whether a document is synced — which is the only way to answer "how
+ * much am I using" without reading the whole library on every subscription. A
+ * maintained counter can drift; this is what stops drift being permanent.
+ */
+export const USAGE_RECOUNT_ACCOUNTS = 5;
 
 /**
  * Finished workflows whose journals the nightly cleanup drops.
@@ -247,18 +321,6 @@ export const PRUNE_DOCUMENTS = 4;
  * Fifty a night stays well ahead of any realistic import rate.
  */
 export const WORKFLOW_CLEANUP_LIMIT = 50;
-
-/** Characters either side of a search hit, for the line under the page number. */
-export const SNIPPET_CHARS = 90;
-
-/**
- * Pages the device pulls per request when mirroring text for offline search.
- *
- * A function returns 16 MiB and a page holds up to `PAGE_TEXT_MAX`, so 100 is
- * around 800 KB — a comfortable request on mobile data, and a 600-page book in
- * six of them. The mirror runs once per document and never again.
- */
-export const PAGE_MIRROR_BATCH = 100;
 
 /**
  * How long a job may claim to be running before the nightly sweep re-drives it.

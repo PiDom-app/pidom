@@ -3,33 +3,44 @@ import { v } from 'convex/values';
 
 import { components, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { internalMutation } from './_generated/server';
+import { internalAction, internalMutation, internalQuery } from './_generated/server';
 import {
+  BLOB_RELEASE_LIMIT,
   DELIVERY_PRUNE_LIMIT,
+  EXTRACT_PAGE_MAX,
   JOB_STALE_MS,
   JOB_SWEEP_LIMIT,
+  MIGRATE_DOCUMENTS,
   PAGE_DELETE_BUDGET,
+  PAGE_DRAIN_PASSES,
   PRUNE_DOCUMENTS,
   SHARE_EXPIRY_SWEEP,
+  USAGE_RECOUNT_ACCOUNTS,
   WORKFLOW_CLEANUP_LIMIT,
 } from './model/limits';
+import * as Blobs from './model/blobs';
+import { textKey } from './model/library';
 import * as Processing from './model/processing';
 import * as Sharing from './model/sharing';
+import * as Usage from './model/usage';
+import { r2 } from './r2';
 import { queueExtraction, workflow } from './workflows/document';
 
 /**
  * The work that keeps the deployment honest overnight.
  *
- * Four jobs, all repairs for the same class of problem: something that
+ * Every job here is a repair for the same class of problem: something that
  * accumulates because nothing else will ever collect it. Neither R2 nor Convex
  * garbage-collects anything, and nothing in any screen can show the wreckage,
- * so without this it grows forever and the reader pays for it.
+ * so without this it grows forever and the reader pays for it. Two of them —
+ * the page-text backfill and the blob release — are also the halves of a
+ * migration that has to converge without anybody watching it.
  *
  * **A pool rather than a flow**, and that is the distinction against
- * `convex/workflows/document.ts` next door. These three are independent,
- * unordered and idempotent: any one can fail and be retried without the others
- * knowing. A workflow's whole value is ordering and a resumable journal, and
- * there is nothing here to order.
+ * `convex/workflows/document.ts` next door. These are independent, unordered
+ * and idempotent: any one can fail and be retried without the others knowing.
+ * A workflow's whole value is ordering and a resumable journal, and there is
+ * nothing here to order.
  *
  * **Its own pool rather than the workflow's**, so a night of maintenance cannot
  * sit in front of a reader's import. Two at a time: the free plan allows 20
@@ -56,6 +67,13 @@ export const nightly = internalMutation({
     await maintenance.enqueueMutation(ctx, internal.library.sweepOrphanedObjects, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.redriveStaleJobs, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.prunePagesOfUnsynced, {});
+    // Actions, not mutations: both of these talk to R2. The pool's own retry
+    // covers them — `retryActionsByDefault` — which is the point of putting an
+    // R2 call in an action rather than beside a database write that would roll
+    // back with it.
+    await maintenance.enqueueAction(ctx, internal.maintenance.migratePagesToR2, {});
+    await maintenance.enqueueAction(ctx, internal.maintenance.releaseBlobs, {});
+    await maintenance.enqueueMutation(ctx, internal.maintenance.recountUsage, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.cleanupWorkflows, {});
     await maintenance.enqueueMutation(ctx, internal.maintenance.prunePushDeliveries, {});
     return null;
@@ -216,6 +234,317 @@ export const prunePagesOfUnsynced = internalMutation({
       deleted += await Processing.drainPagePrune(ctx, row, PAGE_DELETE_BUDGET);
     }
     return deleted;
+  },
+});
+
+/**
+ * Keeps clearing one document's page rows until they are gone.
+ *
+ * The other half of `Library.dropPageText`. A delete clears what one mutation's
+ * read budget allows and then schedules this, a second apart, up to
+ * `PAGE_DRAIN_PASSES` times — so a shelf of long textbooks empties in seconds
+ * rather than over the nights it took when the only drain was the nightly
+ * queue. This is the reader's own document text, and "it will be gone by
+ * Thursday" was never a good answer.
+ *
+ * Self-limiting in two directions: `passesLeft` counts down, and a pass that
+ * finds less than a full batch stops the chain. Whatever a broken chain leaves
+ * behind is still on `pagePruneQueue`, which is what the nightly pass drains.
+ */
+export const drainDocumentPages = internalMutation({
+  args: { documentId: v.id('documents'), passesLeft: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const deleted = await Processing.deletePages(ctx, args.documentId, PAGE_DELETE_BUDGET);
+
+    if (deleted < PAGE_DELETE_BUDGET) {
+      // Empty. The queue row is the note that said otherwise, so it goes too.
+      const queued = await ctx.db
+        .query('pagePruneQueue')
+        .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
+        .unique();
+      if (queued !== null) {
+        await ctx.db.delete('pagePruneQueue', queued._id);
+      }
+      return null;
+    }
+
+    if (args.passesLeft > 1) {
+      await ctx.scheduler.runAfter(1_000, internal.maintenance.drainDocumentPages, {
+        documentId: args.documentId,
+        passesLeft: args.passesLeft - 1,
+      });
+    }
+    return null;
+  },
+});
+
+/**
+ * Moves page text out of the database and into R2, a few documents a night.
+ *
+ * The backfill for everything extracted before page text became one object per
+ * document. It is the whole reason the old table still exists: dropping it
+ * outright would take the text of every book anybody had already synced, and
+ * their devices would have nothing to re-mirror from until somebody reprocessed
+ * each one by hand.
+ *
+ * Deliberately slow and repeatable. Each document is one bounded read of its
+ * rows, one object written, one patch, and then the rows go — so a run that
+ * fails halfway leaves a document either wholly migrated or wholly not, and the
+ * next night picks it up again. Nothing here is ordered against anything else.
+ *
+ * An action rather than a mutation, because writing to R2 needs the bucket
+ * credentials from the deployment's environment. The reads and writes on either
+ * side of the object are their own mutations, so neither transaction is held
+ * open across a network call.
+ */
+export const migratePagesToR2 = internalAction({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx): Promise<number> => {
+    const pending = await ctx.runQuery(internal.maintenance.pendingMigration, {});
+
+    let moved = 0;
+    for (const target of pending) {
+      const pages = await ctx.runQuery(internal.maintenance.pagesForMigration, {
+        documentId: target.documentId,
+      });
+      if (pages.length === 0) {
+        // Nothing to move. `textStatus: 'ready'` with no rows is a document
+        // whose pages were already cleared — marked `none` rather than left to
+        // be reconsidered every night for ever.
+        await ctx.runMutation(internal.maintenance.finishMigration, {
+          documentId: target.documentId,
+          textStorageKey: null,
+          textBytes: null,
+        });
+        continue;
+      }
+
+      const body = new TextEncoder().encode(
+        JSON.stringify({ v: 1, pages: pages.map((page) => ({ p: page.page, t: page.text })) }),
+      );
+      await r2.store(ctx, body, {
+        key: target.textStorageKey,
+        type: 'application/json',
+        cacheControl: 'private, max-age=31536000, immutable',
+      });
+
+      await ctx.runMutation(internal.maintenance.finishMigration, {
+        documentId: target.documentId,
+        textStorageKey: target.textStorageKey,
+        textBytes: body.byteLength,
+      });
+      moved += 1;
+    }
+    return moved;
+  },
+});
+
+/** Documents whose text is still in the database. Bounded, oldest first. */
+export const pendingMigration = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({ documentId: v.id('documents'), textStorageKey: v.string() }),
+  ),
+  handler: async (ctx) => {
+    // Off `by_queued`-style ordering there is nothing to index on — "ready and
+    // no text key" is not a shape worth an index for a migration that runs a
+    // handful of times. The scan is bounded by `.take`, and it shrinks every
+    // night as documents are migrated out of the set it matches.
+    const candidates = await ctx.db
+      .query('documents')
+      .withIndex('by_owner')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('textStatus'), 'ready'),
+          q.eq(q.field('textStorageKey'), undefined),
+        ),
+      )
+      .take(MIGRATE_DOCUMENTS);
+
+    return candidates.map((doc) => ({
+      documentId: doc._id,
+      // Minted here from the row's own ids, like every other key in this
+      // backend. The migration never takes one from anywhere.
+      textStorageKey: textKey(doc.ownerId, doc._id),
+    }));
+  },
+});
+
+/** One document's pages, in order. The read the object is built from. */
+export const pagesForMigration = internalQuery({
+  args: { documentId: v.id('documents') },
+  returns: v.array(v.object({ page: v.number(), text: v.string() })),
+  handler: async (ctx, args) => {
+    const pages = await ctx.db
+      .query('documentPages')
+      .withIndex('by_document_and_page', (q) => q.eq('documentId', args.documentId))
+      .take(EXTRACT_PAGE_MAX);
+    return pages.map((page) => ({ page: page.page, text: page.text }));
+  },
+});
+
+/**
+ * Records a migrated document and deletes the rows the object replaced.
+ *
+ * The delete is chained rather than done here for the same reason a document's
+ * own delete is: the rows are read before they go, a page holds up to
+ * `PAGE_TEXT_MAX`, and a 2,000-page book is past what one mutation may read.
+ */
+export const finishMigration = internalMutation({
+  args: {
+    documentId: v.id('documents'),
+    textStorageKey: v.union(v.string(), v.null()),
+    textBytes: v.union(v.number(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get('documents', args.documentId);
+    if (doc === null) {
+      return null;
+    }
+
+    if (args.textStorageKey === null) {
+      const patch = { textStatus: 'none' as const, updatedAt: Date.now() };
+      await Usage.changed(ctx, doc, patch);
+      await ctx.db.patch('documents', doc._id, patch);
+      return null;
+    }
+
+    await ctx.db.patch('documents', doc._id, {
+      textStorageKey: args.textStorageKey,
+      ...(args.textBytes === null ? {} : { textBytes: args.textBytes }),
+      updatedAt: Date.now(),
+    });
+
+    // So the next account to import these bytes inherits the object rather than
+    // re-parsing the file.
+    if (doc.blobId !== undefined) {
+      await Blobs.setText(ctx, doc.blobId, {
+        textStorageKey: args.textStorageKey,
+        ...(args.textBytes === null ? {} : { textBytes: args.textBytes }),
+        textStatus: 'ready',
+      });
+    }
+
+    await Processing.queuePagePrune(ctx, doc._id);
+    await ctx.scheduler.runAfter(1_000, internal.maintenance.drainDocumentPages, {
+      documentId: doc._id,
+      passesLeft: PAGE_DRAIN_PASSES,
+    });
+    return null;
+  },
+});
+
+/**
+ * Deletes the objects of content nothing points at any more.
+ *
+ * A blob reaches `refCount === 0` in the transaction that removed the last
+ * document referencing it, and that transaction deliberately does not delete
+ * anything: an R2 call failing inside it would roll back a delete the reader
+ * has already watched succeed. So the bytes are collected here instead, where
+ * the worst case of a failure is that tomorrow's run tries again.
+ *
+ * The row goes with the objects. A released blob kept as a tombstone would
+ * shadow the next upload of the same bytes — `by_hash` would find it, hand out
+ * a `storageKey` pointing at nothing, and every account that deduped onto it
+ * would have a document that 404s.
+ */
+export const releaseBlobs = internalAction({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx): Promise<number> => {
+    const released = await ctx.runQuery(internal.maintenance.releasedBlobs, {});
+
+    let collected = 0;
+    for (const blob of released) {
+      await r2.deleteObject(ctx, blob.storageKey).catch(() => undefined);
+      if (blob.textStorageKey !== null) {
+        await r2.deleteObject(ctx, blob.textStorageKey).catch(() => undefined);
+      }
+      // Only after the objects are gone. A row dropped first would leave bytes
+      // nothing in the deployment can name, which is the one kind of waste the
+      // nightly sweep cannot find either — it asks this table what is still in
+      // use, and an object with no row reads as an orphan only if its key parses
+      // as a document's. A `blobs/` key does not.
+      await ctx.runMutation(internal.maintenance.forgetBlob, { blobId: blob.blobId });
+      collected += 1;
+    }
+    return collected;
+  },
+});
+
+/** Blobs nothing references. The list `releaseBlobs` works from. */
+export const releasedBlobs = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      blobId: v.id('contentBlobs'),
+      storageKey: v.string(),
+      textStorageKey: v.union(v.string(), v.null()),
+    }),
+  ),
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query('contentBlobs')
+      .filter((q) => q.eq(q.field('refCount'), 0))
+      .take(BLOB_RELEASE_LIMIT);
+    return rows.map((row) => ({
+      blobId: row._id,
+      storageKey: row.storageKey,
+      textStorageKey: row.textStorageKey ?? null,
+    }));
+  },
+});
+
+/** Drops a released blob's row, once its objects are gone. */
+export const forgetBlob = internalMutation({
+  args: { blobId: v.id('contentBlobs') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const blob = await ctx.db.get('contentBlobs', args.blobId);
+    // Re-checked rather than trusted from the enqueue: an account can import
+    // the same file in the seconds between the query and here, and a blob that
+    // has been claimed again must not lose its row.
+    if (blob !== null && blob.refCount === 0) {
+      await ctx.db.delete('contentBlobs', blob._id);
+    }
+    return null;
+  },
+});
+
+/**
+ * Re-derives a few accounts' usage counters from their rows.
+ *
+ * `users.usage` is maintained incrementally, which is what lets `library.usage`
+ * be a single row read instead of a reactive scan of the whole library on every
+ * device. The cost of that is drift: a mutation added later that forgets to
+ * report, a path nobody thought of. This is the guard — the numbers are wrong
+ * for at most a few days, on a screen that shows them to one person, rather
+ * than wrong for ever.
+ *
+ * Oldest count first, so the pass cycles through every account rather than
+ * re-checking the same few.
+ */
+export const recountUsage = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const accounts = await ctx.db.query('users').take(USAGE_RECOUNT_ACCOUNTS * 4);
+
+    // Sorted in memory rather than by an index. An index on `usage.countedAt`
+    // would be a write on every document change in the deployment to order a
+    // job that runs once a night; this reads a small multiple of what it needs
+    // and takes the stalest of them.
+    const stalest = accounts
+      .sort((a, b) => (a.usage?.countedAt ?? 0) - (b.usage?.countedAt ?? 0))
+      .slice(0, USAGE_RECOUNT_ACCOUNTS);
+
+    for (const account of stalest) {
+      await Usage.recount(ctx, account._id);
+    }
+    return stalest.length;
   },
 });
 

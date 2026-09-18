@@ -6,15 +6,16 @@ import { requireReadable } from './model/access';
 import * as Annotations from './model/annotations';
 import { requireUser } from './model/auth';
 import * as Library from './model/library';
+import * as Blobs from './model/blobs';
 import * as Processing from './model/processing';
 import { limit } from './model/rateLimits';
+import * as Usage from './model/usage';
 import { queueExtraction } from './workflows/document';
 import {
   COLLECTION_COVER_LIMIT,
   COLLECTION_LIMIT,
   DOWNLOAD_URL_SECONDS,
   OUTLINE_ENTRY_MAX,
-  PAGE_MIRROR_BATCH,
   SWEEP_LIMIT,
 } from './model/limits';
 import { r2 } from './r2';
@@ -122,8 +123,14 @@ export const allAnnotations = query({
  *
  * At 100 MB a document, R2's 10 GB free tier is around a hundred documents —
  * close enough that somebody deciding whether to sync a textbook deserves to
- * know where they stand. Summed from rows the screen already has rather than
- * asked of Cloudflare, so it costs one index scan and no egress.
+ * know where they stand.
+ *
+ * Four numbers off the `users` row, not a scan. This is a *reactive* query
+ * mounted on two screens, so the scan it used to do re-ran on every device the
+ * account had open every time any document changed — the largest read in the
+ * app that nobody had asked for, and one that grew with the library rather than
+ * with what the screen showed. `convex/model/usage.ts` maintains the counters
+ * where they change and re-derives them nightly so they cannot drift.
  */
 export const usage = query({
   args: {},
@@ -137,32 +144,10 @@ export const usage = query({
   }),
   handler: async (ctx) => {
     const user = await requireUser(ctx);
-    const docs = await ctx.db
-      .query('documents')
-      .withIndex('by_owner', (q) => q.eq('ownerId', user._id))
-      .take(SWEEP_LIMIT);
-
-    let syncedCount = 0;
-    let syncedBytes = 0;
-    let localOnlyCount = 0;
-    let scanCount = 0;
-
-    // The last two ride along on the scan the first two already do. They are
-    // the two reasons a document can be missing from a search result, and the
-    // search screen says both — a reader whose book is absent deserves the
-    // reason rather than an empty list.
-    for (const doc of docs) {
-      if (doc.storageKey === undefined) {
-        localOnlyCount += 1;
-        continue;
-      }
-      syncedCount += 1;
-      syncedBytes += doc.byteSize;
-      if (doc.textStatus === 'none') {
-        scanCount += 1;
-      }
-    }
-    return { syncedCount, syncedBytes, localOnlyCount, scanCount };
+    // The last two are the two reasons a document can be missing from a search
+    // result, and the search screen says both — a reader whose book is absent
+    // deserves the reason rather than an empty list.
+    return await Usage.read(ctx, user);
   },
 });
 
@@ -182,75 +167,6 @@ export const outline = query({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     return await Processing.outlineFor(ctx, user, args.documentId);
-  },
-});
-
-/**
- * Pages matching a term, across the library or inside one document.
- *
- * Only synced documents can answer: the text was read from the copy in R2,
- * because that copy is the only one the server can see. A local-only document
- * is absent from these results, and the screen says so rather than leaving the
- * reader to wonder why their book is missing.
- */
-export const searchInside = query({
-  args: {
-    term: v.string(),
-    documentId: v.optional(v.id('documents')),
-  },
-  returns: v.array(Processing.searchHitValidator),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    return await Processing.searchInside(ctx, user, args.term, args.documentId);
-  },
-});
-
-/**
- * A page of a document's extracted text, for the device to mirror.
- *
- * The one query in this file that hands the client document *content* rather
- * than metadata, and it exists so the reader can search inside a book with no
- * connection — the copy in the account is the only place the text is, and a
- * phone in aeroplane mode cannot reach it.
- *
- * Paginated because a 600-page book is far past a function's 16 MiB return
- * limit. The device pulls a document once and then never asks again; see
- * `src/features/library/local/text-index.ts`.
- */
-export const pagesOf = query({
-  args: {
-    documentId: v.id('documents'),
-    /** Exclusive. The device pages by asking for what comes after the last. */
-    after: v.number(),
-  },
-  returns: v.object({
-    pages: v.array(v.object({ page: v.number(), text: v.string() })),
-    isDone: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    // Access on the document rather than on the page rows: it is the thing
-    // being asked about, and a caller probing ids gets `FORBIDDEN` before a
-    // single page is read.
-    //
-    // `requireReadable`, so a recipient can mirror the text of a document
-    // shared with them and search inside it offline like any other. The pages
-    // stay the owner's rows; what the recipient gets is a copy in their own
-    // FTS index, which is what every synced document already does.
-    await requireReadable(ctx, user, args.documentId);
-
-    const pages = await ctx.db
-      .query('documentPages')
-      .withIndex('by_document_and_page', (q) =>
-        q.eq('documentId', args.documentId).gt('page', args.after),
-      )
-      .take(PAGE_MIRROR_BATCH);
-
-    return {
-      pages: pages.map((row) => ({ page: row.page, text: row.text })),
-      // Short of a full batch means the end. One fewer round trip than a count.
-      isDone: pages.length < PAGE_MIRROR_BATCH,
-    };
   },
 });
 
@@ -651,8 +567,21 @@ export const uploadUrl = mutation({
     // The component fails on a key that already exists, so a re-sync clears the
     // old object first. Without this, syncing a document twice is an error the
     // reader cannot act on.
+    //
+    // Only ever this document's *own* key, and only while nothing else points
+    // at it. Both conditions became load-bearing when identical PDFs started
+    // sharing one object: a document that collapsed onto somebody else's upload
+    // carries *their* key, and deleting it here would empty a library this
+    // reader cannot see.
     const existing = args.what === 'cover' ? doc.coverStorageKey : doc.storageKey;
-    if (existing !== undefined) {
+    if (existing === key) {
+      if (await Blobs.sharedKey(ctx, key)) {
+        // Reachable only by re-uploading a document that is *already* synced —
+        // sharing means R2 confirmed this object's digest and a blob row holds
+        // it. So there is nothing to upload, and overwriting the bytes other
+        // accounts read is the one outcome worth refusing outright.
+        throw new ConvexError({ code: 'ALREADY_SYNCED' });
+      }
       await r2.deleteObject(ctx, existing).catch(() => undefined);
     }
 
@@ -688,6 +617,48 @@ export const downloadUrl = mutation({
       return null;
     }
     return await r2.getUrl(key, { expiresIn: DOWNLOAD_URL_SECONDS });
+  },
+});
+
+/**
+ * A signed URL for a document's extracted text, valid for five minutes.
+ *
+ * The one function here that hands a client document *content* rather than
+ * metadata, and it exists so the reader can search inside a book with no
+ * connection: the device mirrors this object into its own FTS5 index
+ * (`src/features/library/local/text-index.ts`) and then never asks again.
+ *
+ * It replaced a paginated query over a table of one row per page. That table
+ * stored every byte of text twice — once as a row and once inside a search
+ * index metered separately and priced higher — and shipped a whole book down
+ * out of the database's bandwidth allowance every time a device mirrored it.
+ * One immutable object in a bucket with no egress charge is the same text,
+ * fetched once, for a twentieth of the bill.
+ *
+ * A mutation for both of `downloadUrl`'s reasons: a cached reactive query
+ * result outliving its signature is a failure with no visible cause, and a
+ * query cannot be rate-limited.
+ *
+ * `requireReadable`, not `requireDocument`, so a recipient of a share can
+ * mirror the text and search inside it offline like any other document. Access
+ * is bound to the document row, never to the object — two accounts sharing one
+ * text object gives neither a path to the other's library.
+ */
+export const textUrl = mutation({
+  args: { documentId: v.id('documents') },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'textUrl');
+    const { doc } = await requireReadable(ctx, user, args.documentId);
+
+    if (doc.textStorageKey === undefined) {
+      // Not extracted, a scan, or extracted before the text moved to R2 and
+      // not yet migrated. All three are "nothing to mirror", and the caller
+      // treats them the same — it tries again when `textStatus` next changes.
+      return null;
+    }
+    return await r2.getUrl(doc.textStorageKey, { expiresIn: DOWNLOAD_URL_SECONDS });
   },
 });
 
@@ -794,6 +765,22 @@ export const sweepOrphanedObjects = internalMutation({
  * the scan it replaces.
  */
 async function isReferenced(ctx: MutationCtx, key: string): Promise<boolean> {
+  // **Shared content is asked about first, before anything looks at owners.**
+  //
+  // An object holding bytes several documents point at still sits under
+  // whichever owner uploaded it first, so the key names a document that may be
+  // long deleted — which is exactly what the checks below read as an orphan.
+  // Asking the blob first is what stops the first uploader's delete from
+  // emptying every other library that shares the file.
+  //
+  // Two point lookups, in keeping with everything this function is about: a
+  // blob names a PDF and a text object, and both are keys somebody minted under
+  // their own prefix. `refCount > 0` rather than mere existence, because a
+  // released blob is precisely what the sweep is here to collect.
+  if (await Blobs.referencedKey(ctx, key)) {
+    return true;
+  }
+
   const parts = Library.keyParts(key);
   if (parts === null) {
     // Not a shape this backend mints. Left alone rather than deleted: an object
@@ -830,7 +817,7 @@ async function isReferenced(ctx: MutationCtx, key: string): Promise<boolean> {
   }
   // The row has to name *this* key, not merely exist. A document that was
   // unsynced still has its id in the key of the object it used to own.
-  return doc.storageKey === key || doc.coverStorageKey === key;
+  return doc.storageKey === key || doc.coverStorageKey === key || doc.textStorageKey === key;
 }
 
 /** Deletes the row, its memberships and its blobs. The local file is the client's. */

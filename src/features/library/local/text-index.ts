@@ -8,12 +8,12 @@ const SCOPE = 'local-search';
 /**
  * The device's own copy of the text inside its documents.
  *
- * This is the *second* index, and it answers a question the Convex one cannot:
- * what does this document say, with no connection. Convex's search index is
- * reactive, cross-device and always current; this one is on the phone and works
- * in aeroplane mode. Neither replaces the other — the search screen reads this
- * one first, because it is the one that is always there, and widens to Convex
- * when the backend is answering.
+ * **This is now the only index.** There used to be a second, in Convex: a row
+ * per page of every synced document, plus a search index over it. It answered
+ * the same question this one does, only with a connection, and it cost the
+ * deployment two copies of every book — a row and a search entry, metered
+ * separately and priced higher. What extraction produces now is one object per
+ * document in R2, which this table is filled from, once, per device.
  *
  * **It is a mirror, not a second extractor**, and that is not a shortcut —
  * `react-native-pdf` has no text API at all, so the device physically cannot
@@ -40,20 +40,28 @@ type Row = { documentId: string; page: number; snippet: string };
 export { localSearchAvailable };
 
 /**
- * Replaces a document's mirrored text.
+ * Replaces a document's mirrored text. Answers whether it is now here.
  *
  * Replace rather than append, so a re-mirror after a reprocess cannot leave two
  * copies of a page in the index — FTS5 has no upsert, and a duplicate row is a
  * duplicate hit.
+ *
+ * **The boolean is the point of the signature.** This used to return `void` and
+ * swallow both its guard and its errors, so a caller had no way to tell a mirror
+ * that landed from one that never ran — and the caller marked the document
+ * mirrored either way. On a build where the local index is unavailable that set
+ * was rebuilt from an empty table at every launch, so every launch re-downloaded
+ * the text of the entire library. A caller that cannot see a failure will
+ * eventually pay for it in somebody's data allowance.
  */
 export async function mirrorPages(
   profileId: string,
   documentId: string,
   pages: { page: number; text: string }[],
-): Promise<void> {
+): Promise<boolean> {
   const db = await database(profileId);
   if (db === null || !localSearchAvailable() || !SAFE_ID.test(documentId)) {
-    return;
+    return false;
   }
 
   try {
@@ -71,8 +79,10 @@ export async function mirrorPages(
         ]);
       }
     });
+    return true;
   } catch (error) {
     log.debug(SCOPE, 'could not mirror a document', error);
+    return false;
   }
 }
 
@@ -98,8 +108,8 @@ export async function mirroredIds(profileId: string): Promise<Set<string>> {
  *
  * `snippet()` is FTS5's own excerpt function, so the highlighting is done by the
  * thing that found the match rather than by a second search over the text in
- * JavaScript. The markers are the same shape the Convex path produces, so the
- * screen renders both without knowing which answered.
+ * JavaScript. The markers are the shape the screen renders, and the reason it
+ * needs no second shape any more.
  */
 export async function searchLocally(
   profileId: string,

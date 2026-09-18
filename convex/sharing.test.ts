@@ -201,7 +201,7 @@ describe('a stranger', () => {
 
     await expect(stranger.query(api.sharing.accessList, { documentId })).rejects.toThrow();
     await expect(stranger.query(api.library.outline, { documentId })).rejects.toThrow();
-    await expect(stranger.query(api.library.pagesOf, { documentId, after: 0 })).rejects.toThrow();
+    await expect(stranger.mutation(api.library.textUrl, { documentId })).rejects.toThrow();
     await expect(
       stranger.mutation(api.sharing.shareDownloadUrl, { documentId, what: 'document' }),
     ).rejects.toThrow();
@@ -916,11 +916,10 @@ describe('a recipient with full access', () => {
     // A table of contents and the page text: without the first a shared
     // document is navigable only by scrubbing, and without the second it
     // cannot be searched offline like every other document in the library.
+    // `null` rather than a URL because nothing has extracted this one — what
+    // is being asserted is that the door opens, not what is behind it.
     await expect(friend.query(api.library.outline, { documentId })).resolves.toEqual([]);
-    await expect(friend.query(api.library.pagesOf, { documentId, after: 0 })).resolves.toEqual({
-      pages: [],
-      isDone: true,
-    });
+    await expect(friend.mutation(api.library.textUrl, { documentId })).resolves.toBeNull();
   });
 });
 

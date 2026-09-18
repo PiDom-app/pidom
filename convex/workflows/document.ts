@@ -10,7 +10,10 @@ import {
   internalQuery,
   type MutationCtx,
 } from '../_generated/server';
+import * as Blobs from '../model/blobs';
 import * as Processing from '../model/processing';
+import * as Usage from '../model/usage';
+import { textKey } from '../model/library';
 import { EXTRACT_BYTE_MAX, PAGE_DELETE_BUDGET } from '../model/limits';
 import { r2 } from '../r2';
 
@@ -89,19 +92,25 @@ export const extractDocument = workflow.define({
       return { written: 0, hasText: false };
     }
 
-    // Clearing the previous run's pages, a bounded batch at a time. Re-extracting
-    // a book has to empty the table first or every page ends up in it twice, and
-    // deleting a page reads its text — so one mutation cannot do a long book.
-    // The loop is bounded so a workflow can never spin: `EXTRACT_PAGE_MAX` over
-    // `PAGE_DELETE_BUDGET` is five, and eight leaves room.
-    for (let pass = 0; pass < 8; pass += 1) {
-      const removed = await step.runMutation(
-        internal.workflows.document.clearPages,
-        { documentId: args.documentId },
-        { name: `clear ${pass}` },
-      );
-      if (removed < PAGE_DELETE_BUDGET) {
-        break;
+    // Clearing the previous run's pages, a bounded batch at a time. **Legacy,
+    // and skipped for everything extracted since page text moved to R2** — a
+    // fresh run overwrites one object, so there is nothing to clear and
+    // `target` says so after one index read. What is left is a re-extraction of
+    // a document whose rows predate the change: re-running without emptying the
+    // table leaves every page in it twice, and deleting a page reads its text,
+    // so one mutation cannot do a long book. The loop is bounded so a workflow
+    // can never spin: `EXTRACT_PAGE_MAX` over `PAGE_DELETE_BUDGET` is five, and
+    // eight leaves room.
+    if (target.hasLegacyPages) {
+      for (let pass = 0; pass < 8; pass += 1) {
+        const removed = await step.runMutation(
+          internal.workflows.document.clearPages,
+          { documentId: args.documentId },
+          { name: `clear ${pass}` },
+        );
+        if (removed < PAGE_DELETE_BUDGET) {
+          break;
+        }
       }
     }
 
@@ -110,6 +119,7 @@ export const extractDocument = workflow.define({
       {
         documentId: args.documentId,
         storageKey: target.storageKey,
+        textStorageKey: target.textStorageKey,
         byteSize: target.byteSize,
       },
       { name: 'extract' },
@@ -120,6 +130,8 @@ export const extractDocument = workflow.define({
       outcome: result.hasText ? 'ready' : 'none',
       written: result.written,
       totalPages: result.totalPages,
+      ...(result.textBytes === null ? {} : { textStorageKey: target.textStorageKey }),
+      ...(result.textBytes === null ? {} : { textBytes: result.textBytes }),
       ...(result.title === null ? {} : { title: result.title }),
       ...(result.author === null ? {} : { author: result.author }),
     });
@@ -150,7 +162,11 @@ export const target = internalQuery({
     v.object({
       kind: v.literal('ok'),
       storageKey: v.string(),
+      /** Where the text goes. Minted here, from ids no caller can bend. */
+      textStorageKey: v.string(),
       byteSize: v.number(),
+      /** Whether this document predates the move and still has rows to clear. */
+      hasLegacyPages: v.boolean(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -161,7 +177,20 @@ export const target = internalQuery({
     if (doc.byteSize > EXTRACT_BYTE_MAX) {
       return { kind: 'too-large' as const };
     }
-    return { kind: 'ok' as const, storageKey: doc.storageKey, byteSize: doc.byteSize };
+    // One row, to answer one question: is there anything in the old table for
+    // this document. Asked here rather than by running eight delete mutations
+    // that each find nothing, which is what every extraction did before.
+    const legacy = await ctx.db
+      .query('documentPages')
+      .withIndex('by_document_and_page', (q) => q.eq('documentId', doc._id))
+      .first();
+    return {
+      kind: 'ok' as const,
+      storageKey: doc.storageKey,
+      textStorageKey: textKey(doc.ownerId, doc._id),
+      byteSize: doc.byteSize,
+      hasLegacyPages: legacy !== null,
+    };
   },
 });
 
@@ -174,30 +203,35 @@ export const clearPages = internalMutation({
 });
 
 /**
- * Writes one batch of pages and moves the job's counter.
+ * Moves the job's counter, and nothing else.
  *
- * Called from inside the extraction action rather than returned through a step,
- * because the workflow component caps a run's total step arguments and returns
- * at 1 MB and a 600-page book's text is far past it. This is the constraint the
- * whole pipeline is shaped around.
+ * This is what is left of `storePages`. That mutation carried fifty pages of
+ * text with it — the counter came along for free because a write was happening
+ * anyway — and a 600-page book was twelve of them, each one inserting fifty
+ * rows into a table that was also indexing every word. The text is one R2
+ * object now, written once at the end of the parse, so the only thing still
+ * worth reporting mid-run is where the parse has got to.
+ *
+ * Two numbers, every `EXTRACT_PROGRESS_EVERY` pages, so the Details sheet can
+ * still say "218 of 499" rather than spinning. Called from inside the action
+ * rather than as a step, the same way `storePages` was: a workflow step is a
+ * journal entry, and a progress bar is not worth durably recording.
  */
-export const storePages = internalMutation({
+export const progress = internalMutation({
   args: {
     documentId: v.id('documents'),
-    pages: v.array(v.object({ page: v.number(), text: v.string() })),
     /** Pages *read* so far, which is what "218 of 499" means to a reader. */
     pagesDone: v.number(),
     pagesTotal: v.number(),
   },
-  returns: v.number(),
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const written = await Processing.writePages(ctx, args.documentId, args.pages);
     await Processing.updateJob(ctx, args.documentId, {
       status: 'running',
       pagesDone: args.pagesDone,
       pagesTotal: args.pagesTotal,
     });
-    return written;
+    return null;
   },
 });
 
@@ -207,6 +241,11 @@ export const storePages = internalMutation({
  * The title and author from the PDF's own metadata fill *gaps* rather than
  * overwrite: the reader typed a title at import, or accepted the filename, and
  * an exporter's idea of the title is not worth replacing a person's with.
+ *
+ * It also writes the result back onto the shared blob, when this document is
+ * pointing at one. That is what makes the next account to import the same PDF
+ * searchable the moment it lands, with no second run of pdf.js over pages
+ * somebody has already parsed.
  */
 export const finalize = internalMutation({
   args: {
@@ -214,6 +253,9 @@ export const finalize = internalMutation({
     outcome: v.union(v.literal('ready'), v.literal('none'), v.literal('failed')),
     written: v.number(),
     totalPages: v.optional(v.number()),
+    /** Set only when the action actually stored an object. */
+    textStorageKey: v.optional(v.string()),
+    textBytes: v.optional(v.number()),
     title: v.optional(v.string()),
     author: v.optional(v.string()),
     error: v.optional(v.string()),
@@ -225,8 +267,13 @@ export const finalize = internalMutation({
       return null;
     }
 
-    await ctx.db.patch('documents', doc._id, {
+    const patch = {
       textStatus: args.outcome,
+      // A run that produced no object clears the pointer rather than leaving
+      // the last one: a scan and a failure are both "there is no text here",
+      // and a stale key is a fetch that 404s on a device for no visible reason.
+      textStorageKey: args.textStorageKey,
+      textBytes: args.textBytes,
       // Only when nothing counted the pages before — the device probe is the
       // authority, because it counted them in the viewer that renders them.
       ...(doc.pageCount === undefined && args.totalPages !== undefined
@@ -235,7 +282,21 @@ export const finalize = internalMutation({
       // `author` only when the row has none. The reader's title always wins.
       ...(doc.author === undefined && args.author !== undefined ? { author: args.author } : {}),
       updatedAt: Date.now(),
-    });
+    };
+
+    // `scanCount` moves when `textStatus` becomes or stops being `'none'`, and
+    // this is the only writer that can make that happen.
+    await Usage.changed(ctx, doc, patch);
+    await ctx.db.patch('documents', doc._id, patch);
+
+    if (doc.blobId !== undefined) {
+      await Blobs.setText(ctx, doc.blobId, {
+        ...(args.textStorageKey === undefined ? {} : { textStorageKey: args.textStorageKey }),
+        ...(args.textBytes === undefined ? {} : { textBytes: args.textBytes }),
+        ...(args.totalPages === undefined ? {} : { pageCount: args.totalPages }),
+        textStatus: args.outcome,
+      });
+    }
 
     await Processing.updateJob(ctx, args.documentId, {
       status: args.outcome === 'failed' ? 'failed' : 'done',
@@ -281,10 +342,13 @@ export const onExtractionComplete = internalMutation({
 
     const doc = await ctx.db.get('documents', args.context.documentId);
     if (doc !== null) {
-      await ctx.db.patch('documents', doc._id, {
-        textStatus: args.result.kind === 'canceled' ? undefined : 'failed',
+      const patch = {
+        textStatus: args.result.kind === 'canceled' ? undefined : ('failed' as const),
         updatedAt: Date.now(),
-      });
+      };
+      // A document that was a scan and is now a failure stops counting as one.
+      await Usage.changed(ctx, doc, patch);
+      await ctx.db.patch('documents', doc._id, patch);
     }
 
     await Processing.updateJob(ctx, args.context.documentId, {

@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 
+import { internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { PaginationOptions, PaginationResult } from 'convex/server';
 
@@ -7,9 +8,11 @@ import { r2 } from '../r2';
 
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import * as Annotations from './annotations';
+import * as Blobs from './blobs';
 import * as Sharing from './sharing';
 import { assertOwner } from './auth';
 import * as Processing from './processing';
+import * as Usage from './usage';
 import { clientClock, documentByLocalId, isLocalId, isStale, localIdField } from './sync';
 import { queueExtraction } from '../workflows/document';
 import {
@@ -21,6 +24,7 @@ import {
   COVER_BYTE_MAX,
   MIME_TYPE_MAX,
   PAGE_DELETE_BUDGET,
+  PAGE_DRAIN_PASSES,
   PAGE_COUNT_MAX,
   RAIL_LIMIT,
   SEARCH_LIMIT,
@@ -372,7 +376,40 @@ export async function importDocument(
       ? undefined
       : Math.round(clamp(input.pageCount, 1, PAGE_COUNT_MAX));
 
-  return await ctx.db.insert('documents', {
+  const fingerprint =
+    input.fingerprint === undefined ? undefined : cleanFingerprint(input.fingerprint);
+
+  /**
+   * The same file, already in this reader's own account.
+   *
+   * `by_owner_and_fingerprint` has been declared since fingerprints existed and
+   * nothing has ever queried it. This is what it was for: the reader who
+   * imported a textbook on their phone, reinstalled, and imported it again from
+   * the same downloads folder now gets the cloud copy they already paid for
+   * rather than a second upload and a second full run of pdf.js.
+   *
+   * **Scoped to `ownerId` in the index, which is the whole of its safety.** A
+   * fingerprint covers 64 KB from each end of a file and is trivially forged;
+   * what it can reach is bounded by whose rows it is allowed to match, and here
+   * that is the caller's own. Telling readers about their own library leaks
+   * nothing. Sharing across accounts is a different mechanism entirely — it is
+   * keyed on a digest R2 computed, and it never answers a question a client
+   * asked. See `model/blobs.ts`.
+   */
+  const twin =
+    fingerprint === undefined
+      ? null
+      : await ctx.db
+          .query('documents')
+          .withIndex('by_owner_and_fingerprint', (q) =>
+            q.eq('ownerId', owner._id).eq('fingerprint', fingerprint),
+          )
+          .filter((q) => q.neq(q.field('storageKey'), undefined))
+          .first();
+
+  const shared = twin === null ? {} : await adoptContentOf(ctx, twin);
+
+  const documentId = await ctx.db.insert('documents', {
     ownerId: owner._id,
     title,
     // Spread rather than assigned: Convex reads an explicit `undefined` in a
@@ -382,9 +419,7 @@ export async function importDocument(
     ...(originalFileName === undefined ? {} : { originalFileName }),
     ...(mimeType === undefined ? {} : { mimeType }),
     ...(pageCount === undefined ? {} : { pageCount }),
-    ...(input.fingerprint === undefined
-      ? {}
-      : { fingerprint: cleanFingerprint(input.fingerprint) }),
+    ...(fingerprint === undefined ? {} : { fingerprint }),
     ...localIdField(input.localId),
     ...clientClock(input.clientUpdatedAt),
     byteSize: Math.round(input.byteSize),
@@ -399,7 +434,101 @@ export async function importDocument(
     isFavorite: false,
     createdAt: now,
     updatedAt: now,
+    // Last, so the cloud copy the twin already has cannot be overwritten by a
+    // default above it. Empty when there was no twin, which is the ordinary
+    // case and the one every document took before this existed.
+    ...shared,
   });
+
+  await Usage.added(ctx, {
+    ownerId: owner._id,
+    byteSize: Math.round(input.byteSize),
+    storageKey: shared.storageKey,
+    textStatus: shared.textStatus,
+  });
+  return documentId;
+}
+
+/**
+ * The cloud copy of a document this account already holds, ready to be shared.
+ *
+ * Nothing is uploaded and nothing is parsed. The new row points at the same
+ * object, the same text object and the same blob as the one it matched, and the
+ * blob's count goes up by one — so deleting either of them leaves the other
+ * working, and deleting both releases the object exactly once.
+ */
+async function adoptContentOf(
+  ctx: MutationCtx,
+  twin: Doc<'documents'>,
+): Promise<Partial<Doc<'documents'>>> {
+  if (twin.storageKey === undefined) {
+    return {};
+  }
+
+  const blobId = twin.blobId ?? (await promoteToBlob(ctx, twin));
+  if (blobId !== undefined) {
+    await Blobs.retain(ctx, blobId);
+  }
+
+  return {
+    storageKey: twin.storageKey,
+    ...(twin.coverStorageKey === undefined ? {} : { coverStorageKey: twin.coverStorageKey }),
+    ...(twin.contentHash === undefined ? {} : { contentHash: twin.contentHash }),
+    ...(twin.textStorageKey === undefined ? {} : { textStorageKey: twin.textStorageKey }),
+    ...(twin.textBytes === undefined ? {} : { textBytes: twin.textBytes }),
+    ...(twin.textStatus === undefined ? {} : { textStatus: twin.textStatus }),
+    ...(blobId === undefined ? {} : { blobId }),
+    uploadedAt: Date.now(),
+  };
+}
+
+/**
+ * Starts counting a document that owns its bytes outright, with itself as the
+ * first reference.
+ *
+ * Every document uploaded before content sharing existed is in that state, and
+ * so is every one R2 gave no digest for. The moment a second document wants the
+ * same object, something has to be counting — two rows sharing a key with
+ * nothing tracking the sharing is the one arrangement that loses somebody's
+ * library when the other one is deleted.
+ *
+ * Returns `undefined` when there is no digest to key on, which leaves the
+ * document exactly as it was: its own object, deleted with it.
+ */
+async function promoteToBlob(
+  ctx: MutationCtx,
+  doc: Doc<'documents'>,
+): Promise<Id<'contentBlobs'> | undefined> {
+  if (doc.storageKey === undefined || doc.contentHash === undefined) {
+    return undefined;
+  }
+
+  const existing = await Blobs.byHash(ctx, doc.contentHash);
+  if (existing !== null) {
+    await Blobs.retain(ctx, existing._id);
+    await ctx.db.patch('documents', doc._id, { blobId: existing._id });
+    return existing._id;
+  }
+
+  // `create` opens at one, which is this document.
+  const blobId = await Blobs.create(ctx, {
+    contentHash: doc.contentHash,
+    storageKey: doc.storageKey,
+    byteSize: doc.byteSize,
+    ...(doc.pageCount === undefined ? {} : { pageCount: doc.pageCount }),
+  });
+  await ctx.db.patch('documents', doc._id, { blobId });
+
+  // Whatever this document has already been through, so the next account to
+  // arrive at the same bytes inherits it rather than re-parsing them.
+  if (doc.textStatus !== undefined) {
+    await Blobs.setText(ctx, blobId, {
+      ...(doc.textStorageKey === undefined ? {} : { textStorageKey: doc.textStorageKey }),
+      ...(doc.textBytes === undefined ? {} : { textBytes: doc.textBytes }),
+      textStatus: doc.textStatus,
+    });
+  }
+  return blobId;
 }
 
 /**
@@ -836,6 +965,37 @@ export function coverKey(ownerId: Id<'users'>, documentId: Id<'documents'>): str
 }
 
 /**
+ * Where a document's extracted text sits.
+ *
+ * The third key shape, and the one that replaced a table. `.json` rather than
+ * `.json.gz`: the payload compresses to about a quarter of its size, but every
+ * available way of writing it compressed puts the object somewhere the sweep
+ * cannot see it — `r2.store` takes no content-encoding, and going round it to
+ * the raw S3 client writes an object the component's metadata table has never
+ * heard of. An object nothing can enumerate is an object nothing can collect,
+ * which is a worse bill than an uncompressed one. Ten gigabytes free still
+ * holds something like eight thousand books.
+ */
+export function textKey(ownerId: Id<'users'>, documentId: Id<'documents'>): string {
+  return `${ownerId}/${documentId}.text.json`;
+}
+
+/**
+ * The prefix for content shared between accounts.
+ *
+ * Deliberately not `<ownerId>/…`: a shared object has no one owner, and giving
+ * it a name that says otherwise would make the sweep's owner check meaningless.
+ * `keyParts` returns `null` for these, which is the safe default — the sweep
+ * asks `contentBlobs` about them by key instead.
+ */
+export const BLOB_PREFIX = 'blobs/';
+
+/** Whether a key names shared content rather than one document's own object. */
+export function isBlobKey(key: string): boolean {
+  return key.startsWith(BLOB_PREFIX);
+}
+
+/**
  * The document id a key claims to belong to, or `null`.
  *
  * A hint and never an answer. Both key shapes are `<ownerId>/<documentId>` plus
@@ -853,7 +1013,17 @@ export function keyParts(key: string): { ownerId: string; documentId: string } |
   }
   const ownerId = key.slice(0, slash);
   const rest = key.slice(slash + 1);
-  const suffix = rest.endsWith('.cover.jpg') ? '.cover.jpg' : rest.endsWith('.pdf') ? '.pdf' : null;
+  // `.text.json` is tested first on purpose. It has no overlap with the other
+  // two today, but the chain is an ordered list of endings and the habit of
+  // putting the longest first is what stops the next suffix from being eaten by
+  // a shorter one that happens to be its tail.
+  const suffix = rest.endsWith('.text.json')
+    ? '.text.json'
+    : rest.endsWith('.cover.jpg')
+      ? '.cover.jpg'
+      : rest.endsWith('.pdf')
+        ? '.pdf'
+        : null;
   if (suffix === null) {
     return null;
   }
@@ -931,11 +1101,78 @@ export async function attachUpload(
 
   const pageCount =
     input.pageCount === undefined
-      ? doc.pageCount
+      ? undefined
       : Math.round(clamp(input.pageCount, 1, PAGE_COUNT_MAX));
 
-  await ctx.db.patch('documents', doc._id, {
-    storageKey: input.storageKey,
+  /**
+   * Whether anyone has already stored these exact bytes.
+   *
+   * Asked **after** the upload, never before it, and asked on a digest R2
+   * computed rather than anything the caller said. That ordering is the whole
+   * of the privacy argument: there is no request in this system that answers
+   * "does someone have this file", because by the time the question is asked
+   * the client has already done everything it was going to do. R2 charges
+   * nothing for ingress or egress, so the duplicate upload that buys that
+   * silence costs money nowhere.
+   *
+   * On a hit the document points at the object that is already there and the
+   * one just uploaded is dropped; the count goes up, and — the expensive part —
+   * a text object somebody has already extracted is inherited whole, so pdf.js
+   * never runs over those pages a second time.
+   */
+  const twin = pdf.sha256 === undefined ? null : await Blobs.byHash(ctx, pdf.sha256);
+
+  // Whatever this document was pointing at before is let go first. A reader
+  // replacing a synced file arrives here with a row that already has a blob on
+  // it, and counting the new reference without releasing the old one would
+  // leave the previous content pinned in the bucket for good.
+  if (doc.blobId !== undefined && doc.blobId !== twin?._id) {
+    await Blobs.release(ctx, doc.blobId);
+  }
+
+  let storageKey = input.storageKey;
+  let blobId: Id<'contentBlobs'> | undefined;
+  let inherited: Partial<Doc<'documents'>> = {};
+  let needsExtraction = true;
+
+  if (twin !== null) {
+    const { patch: fromBlob, needsExtraction: again } = Blobs.inherit(twin);
+    // Not retained when the document was already this blob's reference — a
+    // re-upload of bytes it already had must not count itself twice.
+    if (doc.blobId !== twin._id) {
+      await Blobs.retain(ctx, twin._id);
+    }
+    storageKey = twin.storageKey;
+    blobId = twin._id;
+    inherited = fromBlob;
+    needsExtraction = again;
+
+    // The copy this caller just uploaded, now that nothing points at it. Best
+    // effort: if it fails the nightly sweep collects it, because a key of the
+    // shape `<owner>/<doc>.pdf` whose document no longer names it is exactly
+    // what that sweep is looking for.
+    if (input.storageKey !== storageKey) {
+      await r2.deleteObject(ctx, input.storageKey).catch(() => undefined);
+    }
+  } else if (pdf.sha256 !== undefined) {
+    // Nobody has these bytes yet, so this upload becomes the one everybody
+    // else will point at. The object stays exactly where the client put it —
+    // copying it to a canonical name would mean an S3 call from inside a
+    // mutation, and what an object is called matters far less than how many
+    // documents need it.
+    blobId = await Blobs.create(ctx, {
+      contentHash: pdf.sha256,
+      storageKey: input.storageKey,
+      byteSize: pdf.size ?? doc.byteSize,
+      ...(pageCount === undefined ? {} : { pageCount }),
+    });
+  }
+
+  const patch = {
+    // What the blob already knows, first — so the device's own page count wins
+    // over it below, the same way it wins over the extractor's in `finalize`.
+    ...inherited,
+    storageKey,
     ...(coverStorageKey === undefined ? {} : { coverStorageKey }),
     uploadedAt: Date.now(),
     // R2's own digest of the object it holds. Taking one from the client would
@@ -944,13 +1181,23 @@ export async function attachUpload(
     ...(pageCount === undefined ? {} : { pageCount }),
     // The stored size is now a measured fact rather than what the picker said.
     ...(pdf.size === undefined ? {} : { byteSize: pdf.size }),
+    ...(blobId === undefined ? {} : { blobId }),
     updatedAt: Date.now(),
-  });
+  };
+
+  // Before the patch, so the counters see the row as it was. This is the
+  // transition from local-only to synced, which moves two of the four numbers.
+  await Usage.changed(ctx, doc, patch);
+  await ctx.db.patch('documents', doc._id, patch);
 
   // The first moment the server can see this file, so it is the moment its text
-  // becomes extractable. Never awaited for its result and never able to fail
-  // the upload — see `queueExtraction`.
-  await queueExtraction(ctx, doc._id, owner._id);
+  // becomes extractable — unless somebody has already extracted these exact
+  // bytes, in which case the answer was inherited above and a second run of
+  // pdf.js would spend a Node action's compute to reach it again. Never awaited
+  // for its result and never able to fail the upload — see `queueExtraction`.
+  if (needsExtraction) {
+    await queueExtraction(ctx, doc._id, owner._id);
+  }
 }
 
 /** Deletes objects that were rejected, so a refusal does not become storage. */
@@ -976,36 +1223,92 @@ export async function detachUpload(
 ): Promise<void> {
   const doc = await requireDocument(ctx, owner, documentId);
 
-  if (doc.storageKey !== undefined) {
-    await r2.deleteObject(ctx, doc.storageKey);
-  }
-  if (doc.coverStorageKey !== undefined) {
-    await r2.deleteObject(ctx, doc.coverStorageKey);
-  }
-
-  // The extracted text goes with the copy it was read from. Keeping it would
-  // leave the reader's document content searchable in an account they just
-  // asked to stop holding it — and it would be answering for a file nothing
-  // could re-derive it from. Bounded, so a very long book is finished by the
-  // nightly prune rather than blowing this mutation's read budget — deleting a
-  // page reads its text first, and a page holds up to `PAGE_TEXT_MAX`.
-  //
-  // Hitting the budget means there is more, and the queue is how the nightly
-  // job learns that. Nothing else can tell it: an orphaned page is
-  // indistinguishable from a live one without the document row to check
-  // against, and by then that row may be gone.
-  if ((await Processing.deletePages(ctx, doc._id, PAGE_DELETE_BUDGET)) === PAGE_DELETE_BUDGET) {
-    await Processing.queuePagePrune(ctx, doc._id);
-  }
+  await releaseContent(ctx, doc);
   await Processing.deleteJob(ctx, doc._id);
+  // Whatever page rows this document has left from before its text became an
+  // object. Almost always none, and drained in seconds rather than over nights
+  // when there are some — see `dropPageText`.
+  await dropPageText(ctx, doc._id);
 
-  await ctx.db.patch('documents', doc._id, {
+  const patch = {
     storageKey: undefined,
     coverStorageKey: undefined,
     uploadedAt: undefined,
     contentHash: undefined,
     textStatus: undefined,
+    textStorageKey: undefined,
+    textBytes: undefined,
+    blobId: undefined,
     updatedAt: Date.now(),
+  };
+  // Synced to local-only: two of the four numbers move, in opposite directions.
+  await Usage.changed(ctx, doc, patch);
+  await ctx.db.patch('documents', doc._id, patch);
+}
+
+/**
+ * Lets go of everything a document's cloud copy consists of.
+ *
+ * The one rule that matters: **an object is deleted only when nothing else
+ * needs it.** A document pointing at shared content releases its reference and
+ * leaves the bytes alone — the nightly pass deletes them once the count reaches
+ * zero, which is also why the delete does not happen here. An R2 call that
+ * failed inside this transaction would roll back a delete the reader has
+ * already watched succeed, and a reader whose document came back is a reader
+ * who no longer trusts the button.
+ *
+ * A document that owns its bytes outright — everything uploaded before sharing
+ * existed, and anything R2 gave no digest for — deletes them directly, exactly
+ * as it always did.
+ */
+async function releaseContent(ctx: MutationCtx, doc: Doc<'documents'>): Promise<void> {
+  if (doc.blobId !== undefined) {
+    await Blobs.release(ctx, doc.blobId);
+  } else {
+    if (doc.storageKey !== undefined) {
+      await r2.deleteObject(ctx, doc.storageKey);
+    }
+    // The extracted text goes with the copy it was read from. Keeping it would
+    // leave the reader's document content in an account that has just asked to
+    // stop holding it, answering for a file nothing could re-derive it from.
+    if (doc.textStorageKey !== undefined) {
+      await r2.deleteObject(ctx, doc.textStorageKey).catch(() => undefined);
+    }
+  }
+
+  // The cover is this document's own either way. It is a rendering of a page
+  // rather than the page, it is a few hundred kilobytes, and sharing one would
+  // buy almost nothing for a second thing to count.
+  if (doc.coverStorageKey !== undefined) {
+    await r2.deleteObject(ctx, doc.coverStorageKey).catch(() => undefined);
+  }
+}
+
+/**
+ * Clears a document's legacy page rows, and keeps clearing them.
+ *
+ * **This is what "deleting a PDF removes all of its pages" means now.** A
+ * document extracted since page text became an R2 object has no rows at all, so
+ * the first pass finds nothing and this costs one bounded index read. What is
+ * left is everything extracted before, and deleting a shelf of long books used
+ * to leave their text in the account for *days* — 400 pages inline and the rest
+ * to a queue that drained four documents a night.
+ *
+ * So the rest is chained rather than queued: up to `PAGE_DRAIN_PASSES` scheduled
+ * follow-ups, a second apart, which is 4,800 pages and past the page ceiling
+ * twice over. The queue row is still written, because a chain that is
+ * interrupted — a deploy, a failure inside a pass — has to be finishable by
+ * something, and by then there is no document row left to recognise the
+ * leftovers by.
+ */
+async function dropPageText(ctx: MutationCtx, documentId: Id<'documents'>): Promise<void> {
+  if ((await Processing.deletePages(ctx, documentId, PAGE_DELETE_BUDGET)) < PAGE_DELETE_BUDGET) {
+    return;
+  }
+  await Processing.queuePagePrune(ctx, documentId);
+  await ctx.scheduler.runAfter(1_000, internal.maintenance.drainDocumentPages, {
+    documentId,
+    passesLeft: PAGE_DRAIN_PASSES,
   });
 }
 
@@ -1061,22 +1364,17 @@ export async function removeDocument(
   // in a moment this one will not — a revoked row would sit in each recipient's
   // inbox forever naming nothing.
   await Sharing.removeForDocument(ctx, doc._id);
-  // Bounded like the one in `detachUpload`, and queued for the same reason.
-  // This is the case where the queue earns its keep: in a moment there will be
-  // no document row at all, so anything left behind could never be recognised
-  // as belonging to a document that used to exist.
-  if ((await Processing.deletePages(ctx, doc._id, PAGE_DELETE_BUDGET)) === PAGE_DELETE_BUDGET) {
-    await Processing.queuePagePrune(ctx, doc._id);
-  }
+  // Bounded and chained, and this is the case where the queue earns its keep:
+  // in a moment there will be no document row at all, so anything left behind
+  // could never be recognised as belonging to a document that used to exist.
+  await dropPageText(ctx, doc._id);
 
-  // The objects go with the row. A deleted document that keeps its storage is
-  // billed storage nothing points at and nobody can find.
-  if (doc.storageKey !== undefined) {
-    await r2.deleteObject(ctx, doc.storageKey);
-  }
-  if (doc.coverStorageKey !== undefined) {
-    await r2.deleteObject(ctx, doc.coverStorageKey);
-  }
+  // The objects go with the row, unless somebody else is using them. A deleted
+  // document that keeps its storage is billed storage nothing points at and
+  // nobody can find; a delete that takes shared bytes with it is somebody
+  // else's library gone.
+  await releaseContent(ctx, doc);
 
+  await Usage.removed(ctx, doc);
   await ctx.db.delete('documents', doc._id);
 }
