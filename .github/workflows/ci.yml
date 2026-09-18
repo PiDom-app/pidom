@@ -96,16 +96,21 @@ jobs:
       - name: Download and checksum APK
         id: apk
         run: |
-          BUILD_ID="$(node -e 'const build=require(process.argv[1]); process.stdout.write((Array.isArray(build) ? build[0] : build).id)' "$RUNNER_TEMP/eas-build.json")"
-          VERSION_CODE="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; const versionCode=result.androidVersionCode ?? result.versionCode ?? result.appBuildVersion; if (versionCode == null) process.exit(1); process.stdout.write(String(versionCode))' "$RUNNER_TEMP/eas-build.json")"
-          APK_URL="$(node -e 'const build=require(process.argv[1]); const result=Array.isArray(build) ? build[0] : build; const url=result.artifacts?.applicationArchiveUrl ?? result.artifacts?.buildUrl; if (!url) process.exit(1); process.stdout.write(url)' "$RUNNER_TEMP/eas-build.json")"
+          # Reads the build id, version code and APK URL out of the EAS result,
+          # and — unlike the `require()` one-liners this replaced — says exactly
+          # what is wrong with the file when it cannot, instead of a bare stack
+          # trace that scrolls off the top of the log above `exit code 1`.
+          # It writes `build_id`/`version_code`/`apk_url` to $GITHUB_OUTPUT for
+          # the release step, and prints the same lines here so this step can
+          # use two of them without re-reading a file GitHub owns.
+          node scripts/eas-artifact.mjs "$RUNNER_TEMP/eas-build.json" > "$RUNNER_TEMP/eas-outputs.txt"
+          VERSION_CODE="$(sed -n 's/^version_code=//p' "$RUNNER_TEMP/eas-outputs.txt")"
+          APK_URL="$(sed -n 's/^apk_url=//p' "$RUNNER_TEMP/eas-outputs.txt")"
           mkdir -p release
           RELEASE_APK="release/Pidom-${VERSION_CODE}.apk"
           curl --fail --location --retry 3 --retry-all-errors --output "$RELEASE_APK" "$APK_URL"
           test -s "$RELEASE_APK"
           sha256sum "$RELEASE_APK" > "${RELEASE_APK}.sha256"
-          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "apk=$RELEASE_APK" >> "$GITHUB_OUTPUT"
 
       - name: Create public GitHub Release
