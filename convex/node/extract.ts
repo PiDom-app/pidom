@@ -118,10 +118,7 @@ export const extractText = internalAction({
     // runs inside one timeout. unpdf's serverless build parses on the event
     // loop with no worker to kill, so a PDF that sends pdf.js spinning cannot
     // be interrupted — only outlived.
-    return await race(
-      parse(ctx, args.documentId, args.textStorageKey, bytes),
-      EXTRACT_TIMEOUT_MS,
-    );
+    return await race(parse(ctx, args.documentId, args.textStorageKey, bytes), EXTRACT_TIMEOUT_MS);
   },
 });
 

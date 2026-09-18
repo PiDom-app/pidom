@@ -9,3 +9,17 @@ convex/_generated/
 *.svg
 *.png
 *.lock
+
+# Linked git worktrees checked out inside the repo. A worktree is a second copy
+# of this tree, so without these `prettier --check .` walks the whole project
+# twice — and reports the *other* checkout's generated Convex client, which the
+# `convex/_generated/` line above cannot match because it is anchored to the
+# root. That made `npm run format:check` fail locally no matter what was
+# written, which is how formatting slips got as far as CI: a check that always
+# fails is a check nobody runs.
+.kilo/
+.worktrees/
+
+# Editor state.
+.idea/
+.vscode/

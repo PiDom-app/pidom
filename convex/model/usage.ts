@@ -39,10 +39,7 @@ export type Usage = {
  * insert rather than reading the row back to hand it over — and so the compiler
  * says something when a fifth field starts mattering.
  */
-export type Counted = Pick<
-  Doc<'documents'>,
-  'ownerId' | 'byteSize' | 'storageKey' | 'textStatus'
->;
+export type Counted = Pick<Doc<'documents'>, 'ownerId' | 'byteSize' | 'storageKey' | 'textStatus'>;
 
 const ZERO: Usage = { syncedCount: 0, syncedBytes: 0, localOnlyCount: 0, scanCount: 0 };
 

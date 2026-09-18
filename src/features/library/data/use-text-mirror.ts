@@ -95,9 +95,7 @@ export function useTextMirror(documents: readonly LibraryDocument[]): void {
       return '';
     }
     return documents
-      .filter(
-        (doc) => doc.textStatus === 'ready' && doc.remoteId !== null && !mirrored.has(doc.id),
-      )
+      .filter((doc) => doc.textStatus === 'ready' && doc.remoteId !== null && !mirrored.has(doc.id))
       .map((doc) => `${doc.id}:${doc.remoteId ?? ''}:${doc.fileState === 'available' ? '1' : '0'}`)
       .join(',');
   }, [documents, mirrored]);

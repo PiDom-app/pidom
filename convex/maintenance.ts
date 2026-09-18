@@ -344,9 +344,7 @@ export const migratePagesToR2 = internalAction({
 /** Documents whose text is still in the database. Bounded, oldest first. */
 export const pendingMigration = internalQuery({
   args: {},
-  returns: v.array(
-    v.object({ documentId: v.id('documents'), textStorageKey: v.string() }),
-  ),
+  returns: v.array(v.object({ documentId: v.id('documents'), textStorageKey: v.string() })),
   handler: async (ctx) => {
     // Off `by_queued`-style ordering there is nothing to index on — "ready and
     // no text key" is not a shape worth an index for a migration that runs a
@@ -356,10 +354,7 @@ export const pendingMigration = internalQuery({
       .query('documents')
       .withIndex('by_owner')
       .filter((q) =>
-        q.and(
-          q.eq(q.field('textStatus'), 'ready'),
-          q.eq(q.field('textStorageKey'), undefined),
-        ),
+        q.and(q.eq(q.field('textStatus'), 'ready'), q.eq(q.field('textStorageKey'), undefined)),
       )
       .take(MIGRATE_DOCUMENTS);
 
