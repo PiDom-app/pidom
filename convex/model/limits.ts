@@ -331,6 +331,34 @@ export const WORKFLOW_CLEANUP_LIMIT = 50;
 export const JOB_STALE_MS = 60 * 60 * 1000;
 
 /**
+ * `sharingSettings` rows the reading-activity backfill patches per batch.
+ *
+ * A one-time correction, not a nightly pass: it walks the table once, a page at
+ * a time, rescheduling itself until the cursor is exhausted. The table has one
+ * row per account that has ever changed a setting, so this converges in a
+ * handful of batches — a hundred a page keeps each transaction small.
+ */
+export const READING_ACTIVITY_BACKFILL = 100;
+
+/**
+ * When `showReadingActivity` stopped being a switch wired to nothing.
+ *
+ * Commit `d122e21` flipped its default `false` → `true` and, in the same
+ * change, made `presence.heartbeat` actually enforce it. Any `sharingSettings`
+ * row written before that carried the old `false` default, and a reader who
+ * never made a real decision about presence was left invisible in every
+ * document room. This is the cutoff the backfill trusts: a row last touched
+ * before it, still holding `false`, is stale rather than chosen and is reset;
+ * a row touched at or after it is a deliberate opt-out and is left alone.
+ *
+ * The commit landed 2026-09-08 11:44:53 +0300 (08:44:53 UTC); the value below
+ * is the top of that hour in UTC, chosen to sit just before the production
+ * deploy that followed the push. Confirm against the actual prod deploy time
+ * before running the backfill against production.
+ */
+export const READING_ACTIVITY_FLIP_MS = Date.UTC(2026, 8, 8, 8, 0, 0);
+
+/**
  * Extractions the nightly re-drive restarts in one run.
  *
  * Each one starts a workflow, and the workflow's pool runs four at a time — so
