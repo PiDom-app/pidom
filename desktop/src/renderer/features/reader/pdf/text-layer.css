@@ -13,8 +13,10 @@
   opacity: 1;
   line-height: 1;
   text-align: initial;
+  text-size-adjust: none;
   forced-color-adjust: none;
   transform-origin: 0 0;
+  caret-color: CanvasText;
   z-index: 2;
 }
 
@@ -25,6 +27,13 @@
   cursor: text;
   transform-origin: 0 0;
   color: transparent;
+}
+
+/* Marked-content spans are structural, not glyphs; they must collapse to zero
+ * height or they push the real spans off their glyphs. Straight from PDF.js. */
+.pdf-text-layer span.markedContent {
+  top: 0;
+  height: 0;
 }
 
 .pdf-text-layer ::selection {

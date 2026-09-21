@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { renderPageToCanvas, renderTextLayer, type PDFDocumentProxy } from '../pdf/engine';
 import { cn } from '@/lib/utils';
+// Positions the selectable text layer over the canvas and makes its glyphs
+// transparent. Without it the spans fall into normal flow below the page as
+// visible text, and their height throws off the continuous-mode virtualizer.
+import '../pdf/text-layer.css';
 
 /**
  * One rendered page: a canvas the engine paints, with a selectable text layer
