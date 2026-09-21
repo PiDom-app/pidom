@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Menubar } from 'radix-ui';
+import { useRouterState } from '@tanstack/react-router';
 import { Minus, Square, Copy, X } from 'lucide-react';
 import { PidomMark } from '../brand/pidom-mark';
 import { useSession } from '../../providers/session-provider';
@@ -16,22 +17,55 @@ const isMac = window.pidom?.platform?.os === 'darwin';
  * and window controls opt back out with `no-app-drag`. On macOS the native
  * traffic lights occupy the left inset (we pad for them); on Windows/Linux we
  * render our own minimize / maximize / close cluster on the right.
+ *
+ * In the reader it gets out of the way: the bar is hidden the moment a document
+ * opens so the page owns the whole window, and slides back down when the pointer
+ * reaches the top edge (or a menu is open) so window controls and the drag region
+ * stay reachable. Everywhere else it is always present.
  */
 export function TitleBar() {
+  const onReader = useRouterState({
+    select: (s) => s.location.pathname.startsWith('/reader/'),
+  });
+  const [hovering, setHovering] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // On the reader the bar rests hidden and reveals on top-edge hover or an open
+  // menu; anywhere else it is simply always shown.
+  const revealed = !onReader || hovering || menuOpen;
+
   return (
-    <header className="app-drag absolute inset-x-0 top-0 z-50 flex h-9 shrink-0 items-center pr-2 select-none">
-      {/* Left inset: brand, with room for the macOS traffic lights. */}
-      <div className={cn('flex items-center gap-2', isMac ? 'pl-20' : 'pl-3')}>
-        <PidomMark size={16} className="text-primary" />
-        <span className="text-2xs font-semibold tracking-wide text-fg-muted uppercase">Pidom</span>
-      </div>
+    <>
+      {/* A slim sensor at the very top edge, only in the reader, that brings the
+          hidden bar back when the pointer arrives. */}
+      {onReader && (
+        <div className="absolute inset-x-0 top-0 z-40 h-2" onMouseEnter={() => setHovering(true)} />
+      )}
+      <header
+        onMouseLeave={() => setHovering(false)}
+        className={cn(
+          'app-drag absolute inset-x-0 top-0 z-50 flex h-9 shrink-0 items-center pr-2 select-none transition-[transform,opacity] duration-200',
+          onReader && 'bg-background/80 backdrop-blur-sm',
+          revealed
+            ? 'translate-y-0 opacity-100'
+            : 'pointer-events-none -translate-y-full opacity-0',
+        )}
+      >
+        {/* Left inset: brand, with room for the macOS traffic lights. */}
+        <div className={cn('flex items-center gap-2', isMac ? 'pl-20' : 'pl-3')}>
+          <PidomMark size={16} className="text-primary" />
+          <span className="text-2xs font-semibold tracking-wide text-fg-muted uppercase">
+            Pidom
+          </span>
+        </div>
 
-      <AppMenubar />
+        <AppMenubar onOpenChange={setMenuOpen} />
 
-      <div className="flex-1" />
+        <div className="flex-1" />
 
-      {!isMac && <WindowControls />}
-    </header>
+        {!isMac && <WindowControls />}
+      </header>
+    </>
   );
 }
 
@@ -44,7 +78,7 @@ const contentClass =
 const itemClass =
   'flex cursor-default items-center justify-between gap-6 rounded-md px-2 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:text-fg-disabled';
 
-function AppMenubar() {
+function AppMenubar({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const { status, signOut } = useSession();
   const { mode, setMode } = useTheme();
   const bridge = window.pidom;
@@ -57,7 +91,10 @@ function AppMenubar() {
   ];
 
   return (
-    <Menubar.Root className="app-drag flex items-center pl-2">
+    <Menubar.Root
+      className="app-drag flex items-center pl-2"
+      onValueChange={(value) => onOpenChange?.(value !== '')}
+    >
       <Menubar.Menu>
         <Menubar.Trigger className={triggerClass}>File</Menubar.Trigger>
         <Menubar.Portal>

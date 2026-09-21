@@ -6,6 +6,7 @@ import { THUMBNAIL_PAGE_MAX } from '@convex-model/limits';
 import type { PDFDocumentProxy } from '../pdf/engine';
 import type { OutlineEntry } from '../data/use-outline';
 import type { Bookmark as BookmarkEntry } from '../data/use-bookmarks';
+import { useSidebarWidth } from '../data/use-sidebar-width';
 import { ThumbnailStrip } from './thumbnail-strip';
 
 /**
@@ -32,11 +33,16 @@ export function ReaderSidebar({
   bookmarks: BookmarkEntry[];
   onJump: (page: number) => void;
 }) {
+  const { width, onResizeStart, resizing } = useSidebarWidth();
+
   const tabClass =
     'flex-1 rounded-md px-2 py-1.5 text-xs font-medium text-fg-muted outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus data-[state=active]:bg-hover data-[state=active]:text-foreground';
 
   return (
-    <aside className={cn('flex w-64 shrink-0 flex-col bg-surface', edgeRight)}>
+    <aside
+      className={cn('relative flex shrink-0 flex-col bg-surface', edgeRight)}
+      style={{ width }}
+    >
       <Tabs.Root defaultValue="contents" className="flex min-h-0 flex-1 flex-col">
         <Tabs.List className="flex gap-1 p-2" aria-label="Document navigator">
           <Tabs.Trigger value="contents" className={tabClass}>
@@ -71,6 +77,24 @@ export function ReaderSidebar({
           <BookmarksPanel bookmarks={bookmarks} currentPage={currentPage} onJump={onJump} />
         </Tabs.Content>
       </Tabs.Root>
+
+      {/* Drag the right edge to resize. A wide invisible hit area over a thin
+          visible line, so the divider is easy to grab; it lights on hover and
+          while dragging. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        onPointerDown={onResizeStart}
+        className="group absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize"
+      >
+        <span
+          className={cn(
+            'absolute inset-y-0 left-1 w-px transition-colors group-hover:bg-border-strong',
+            resizing ? 'bg-primary' : 'bg-transparent',
+          )}
+        />
+      </div>
     </aside>
   );
 }
