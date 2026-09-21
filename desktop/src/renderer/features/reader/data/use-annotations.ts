@@ -12,6 +12,20 @@ export interface Passage {
 }
 
 /**
+ * An id the device files a create under, in the one shape the account accepts.
+ *
+ * The backend guards `clientOpId` with `/^[a-z0-9]{16,64}$/` — thirty-two hex
+ * characters, the shape mobile's `mintId` produces — because it is written to an
+ * index and a client should not be able to put an arbitrary string there. A raw
+ * `crypto.randomUUID()` carries dashes and fails that check, so every keep threw
+ * "That note id is not one Pidom writes." Stripping them matches the mobile
+ * outbox exactly (`src/features/library/local/repository/ids.ts`).
+ */
+function mintOpId(): string {
+  return crypto.randomUUID().replace(/-/g, '');
+}
+
+/**
  * The passages kept out of this document, and the two writes the reader makes
  * against them.
  *
@@ -48,7 +62,7 @@ export function useAnnotations(documentId: Id<'documents'>): {
         documentId,
         currentPage: page,
         text: trimmed,
-        clientOpId: crypto.randomUUID(),
+        clientOpId: mintOpId(),
         clientUpdatedAt: Date.now(),
       })
         .then(() => toast.success('Highlight kept'))
