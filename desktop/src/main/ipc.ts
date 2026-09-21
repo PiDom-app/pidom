@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } f
 import { IPC, type EditAction, type ReaderOpenRequest, type ZoomAction } from '../shared/ipc';
 import { SessionManager } from './auth/oauth';
 import { userVersion } from './db';
-import { closeDocument, openDocument } from './reader';
+import { closeDocument, fetchText, openDocument } from './reader';
 
 interface IpcOptions {
   getWindow: () => BrowserWindow | null;
@@ -194,5 +194,9 @@ export function registerIpc(session: SessionManager, opts: IpcOptions): void {
   ipcMain.handle(
     IPC.readerCloseDocument,
     guard((_event, handle: string) => closeDocument(handle)),
+  );
+  ipcMain.handle(
+    IPC.readerFetchText,
+    guard((_event, signedUrl: string) => fetchText(signedUrl)),
   );
 }

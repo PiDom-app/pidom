@@ -72,8 +72,10 @@ export function useFindInDocument(documentId: Id<'documents'>, active: boolean):
           setAvailability('unavailable');
           return;
         }
-        const response = await fetch(url);
-        const data = (await response.json()) as StoredText;
+        // Main fetches the R2 object — the renderer's CSP does not list R2, so a
+        // direct fetch here is blocked. Same boundary as opening the PDF.
+        const raw = await window.pidom.reader.fetchText(url);
+        const data = JSON.parse(raw) as StoredText;
         if (cancelled) return;
         if (data.v !== FORMAT_VERSION || !Array.isArray(data.pages)) {
           setAvailability('unavailable');
@@ -92,20 +94,21 @@ export function useFindInDocument(documentId: Id<'documents'>, active: boolean):
 
   const hits = useMemo<FindHit[]>(() => {
     const needle = term.trim().toLowerCase();
-    if (needle.length < 2 || !pages.current) return [];
+    // `availability` is a dependency on purpose: the text arrives after the bar
+    // is already open, and without it a term typed before the fetch resolved
+    // would keep its empty result set even once `pages.current` is populated.
+    if (needle.length < 2 || availability !== 'ready' || !pages.current) return [];
     const found: FindHit[] = [];
     for (const { p, t } of pages.current) {
-      const haystack = t.toLowerCase();
-      let from = haystack.indexOf(needle);
       // One hit per page keeps the step-through about pages, not occurrences —
       // the reader jumps to the page and reads, rather than to a character.
+      const from = t.toLowerCase().indexOf(needle);
       if (from !== -1) {
         found.push({ page: p, snippet: snippetAround(t, from, needle.length) });
       }
-      from = -1;
     }
     return found;
-  }, [term]);
+  }, [term, availability]);
 
   // Reset the cursor to the first match whenever the result set changes.
   useEffect(() => {

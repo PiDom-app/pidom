@@ -33,6 +33,9 @@ export const IPC = {
   // the renderer can render from; release it when the document closes.
   readerOpenDocument: 'reader:openDocument',
   readerCloseDocument: 'reader:closeDocument',
+  // Fetch a document's extracted-text object (find in document). R2 is not in
+  // the renderer CSP, so main fetches the signed URL and returns the JSON text.
+  readerFetchText: 'reader:fetchText',
 } as const;
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -120,6 +123,12 @@ export interface PidomBridge {
     openDocument(request: ReaderOpenRequest): Promise<ReaderDocumentHandle>;
     /** Drops the cached copy. Safe to call twice, or on an unknown handle. */
     closeDocument(handle: string): Promise<void>;
+    /**
+     * Fetches the signed URL to a document's extracted-text object and returns
+     * its JSON text. The renderer parses it; main only moves the bytes, since
+     * the R2 host is outside the renderer's connect-src.
+     */
+    fetchText(signedUrl: string): Promise<string>;
   };
   platform: {
     os: NodeJS.Platform;

@@ -54,6 +54,7 @@ const bridge: PidomBridge = {
     openDocument: (request: ReaderOpenRequest) =>
       ipcRenderer.invoke(IPC.readerOpenDocument, request),
     closeDocument: (handle: string) => ipcRenderer.invoke(IPC.readerCloseDocument, handle),
+    fetchText: (signedUrl: string) => ipcRenderer.invoke(IPC.readerFetchText, signedUrl),
   },
   platform: {
     os: process.platform,

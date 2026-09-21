@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { join, normalize, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { CLOUD_BYTE_MAX } from '@convex-model/limits';
+import { CLOUD_BYTE_MAX, TEXT_BYTE_MAX } from '@convex-model/limits';
 import type { ReaderDocumentHandle, ReaderOpenRequest } from '../shared/ipc';
 
 /**
@@ -263,6 +263,57 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
   open.set(handle, { path, bytes: total, openedAt: Date.now() });
 
   return { handle, url: `${DOC_SCHEME}://${handle}/document.pdf`, bytes: total };
+}
+
+/**
+ * Fetches a document's extracted-text object for the find bar.
+ *
+ * Same reason the PDF goes through main: the text object is an R2 signed URL, and
+ * the renderer's CSP deliberately does not list R2 — only main reaches it. The
+ * renderer mints the URL through Convex (ownership already checked) and hands it
+ * here; main fetches it over Chromium's stack and returns the JSON text. https
+ * only and bounded to `TEXT_BYTE_MAX`, the same ceiling the extractor wrote under,
+ * so a redirected or oversized body cannot balloon memory.
+ */
+export async function fetchText(signedUrl: string): Promise<string> {
+  let url: URL;
+  try {
+    url = new URL(signedUrl);
+  } catch {
+    throw new Error('fetchText rejected: malformed URL');
+  }
+  if (url.protocol !== 'https:') throw new Error('fetchText rejected: non-https URL');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await net.fetch(url.toString(), {
+      signal: controller.signal,
+      credentials: 'omit',
+      redirect: 'follow',
+    });
+    if (!response.ok) {
+      throw new Error(`fetchText failed: the server answered ${response.status}`);
+    }
+    const advertised = Number(response.headers.get('content-length'));
+    if (Number.isFinite(advertised) && advertised > TEXT_BYTE_MAX) {
+      throw new Error('fetchText rejected: text object exceeds the size ceiling');
+    }
+    if (!response.body) throw new Error('fetchText failed: empty response');
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for await (const chunk of streamOf(response.body)) {
+      total += chunk.byteLength;
+      if (total > TEXT_BYTE_MAX) {
+        throw new Error('fetchText rejected: text object exceeds the size ceiling');
+      }
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Node's async iteration over a web `ReadableStream`, as `Buffer` chunks. */
