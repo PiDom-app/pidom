@@ -38,6 +38,8 @@ export type PageDirection = 'ltr' | 'rtl';
 export type ToolbarBehavior = 'always' | 'auto-hide' | 'manual';
 export type SidebarBehavior = 'open' | 'collapsed' | 'last-used';
 export type PageNavigation = 'continuous' | 'snap';
+/** A comfort wash laid over the page, independent of the document background. */
+export type ReaderTint = 'none' | 'warm' | 'dim';
 
 export interface ReaderPreferences {
   defaultViewMode: ReaderViewMode;
@@ -74,6 +76,14 @@ export interface DesktopSettings {
   shortcuts: ShortcutMap;
   /** A local cache of the account's reader defaults; the source of truth is Convex. */
   reader: ReaderPreferences;
+  /**
+   * Per-device reader options, deliberately not synced — the same split the
+   * mobile app makes ("everything else stays on this phone"). A comfort wash over
+   * the page and whether the display is kept awake are about this screen, not the
+   * document, so they never leave the machine.
+   */
+  readerTint: ReaderTint;
+  keepAwake: boolean;
 }
 
 const STORAGE_KEY = 'pidom.desktop.settings';
@@ -87,6 +97,8 @@ const DEFAULTS: DesktopSettings = {
   libraryView: 'grid',
   shortcuts: DEFAULT_SHORTCUTS,
   reader: READER_DEFAULTS,
+  readerTint: 'none',
+  keepAwake: false,
 };
 
 function load(): DesktopSettings {
@@ -141,6 +153,8 @@ export const desktopSettings = {
   setScaling: (scaling: Scaling) => patch({ scaling }),
   setReduceMotion: (reduceMotion: boolean) => patch({ reduceMotion }),
   setLibraryView: (libraryView: 'grid' | 'list') => patch({ libraryView }),
+  setReaderTint: (readerTint: ReaderTint) => patch({ readerTint }),
+  setKeepAwake: (keepAwake: boolean) => patch({ keepAwake }),
   setShortcut: (id: ShortcutId, chord: string) =>
     patch({ shortcuts: { ...state.shortcuts, [id]: chord } }),
   resetShortcuts: () => patch({ shortcuts: DEFAULT_SHORTCUTS }),

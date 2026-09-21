@@ -29,6 +29,9 @@ export const IPC = {
   // Open a vetted external URL in the system browser.
   shellOpenExternal: 'shell:openExternal',
 
+  // Keep the display awake while reading (a per-device reader setting).
+  powerSetKeepAwake: 'power:setKeepAwake',
+
   // Reader: fetch a signed URL to a verified local copy and hand back a handle
   // the renderer can render from; release it when the document closes.
   readerOpenDocument: 'reader:openDocument',
@@ -113,6 +116,10 @@ export interface PidomBridge {
   shell: {
     /** Opens an https URL in the system browser; anything else is rejected. */
     openExternal(url: string): Promise<void>;
+  };
+  power: {
+    /** Prevents (or releases) display sleep while a document is open. */
+    setKeepAwake(on: boolean): Promise<void>;
   };
   reader: {
     /**

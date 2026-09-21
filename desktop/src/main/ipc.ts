@@ -1,4 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  powerSaveBlocker,
+  shell,
+  type IpcMainInvokeEvent,
+} from 'electron';
 import { IPC, type EditAction, type ReaderOpenRequest, type ZoomAction } from '../shared/ipc';
 import { SessionManager } from './auth/oauth';
 import { userVersion } from './db';
@@ -198,5 +206,24 @@ export function registerIpc(session: SessionManager, opts: IpcOptions): void {
   ipcMain.handle(
     IPC.readerFetchText,
     guard((_event, signedUrl: string) => fetchText(signedUrl)),
+  );
+
+  // ─── Keep the display awake while reading ────────────────────────────────────
+  // One blocker id, started when a reader turns the setting on and stopped when
+  // it turns off or the reader closes. Kept here rather than in the renderer
+  // because only the main process can hold a power assertion.
+  let keepAwakeId: number | null = null;
+  ipcMain.handle(
+    IPC.powerSetKeepAwake,
+    guard((_event, on: boolean) => {
+      if (on) {
+        if (keepAwakeId === null || !powerSaveBlocker.isStarted(keepAwakeId)) {
+          keepAwakeId = powerSaveBlocker.start('prevent-display-sleep');
+        }
+      } else if (keepAwakeId !== null) {
+        if (powerSaveBlocker.isStarted(keepAwakeId)) powerSaveBlocker.stop(keepAwakeId);
+        keepAwakeId = null;
+      }
+    }),
   );
 }

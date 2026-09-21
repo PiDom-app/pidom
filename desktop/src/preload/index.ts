@@ -50,6 +50,9 @@ const bridge: PidomBridge = {
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(IPC.shellOpenExternal, url),
   },
+  power: {
+    setKeepAwake: (on: boolean) => ipcRenderer.invoke(IPC.powerSetKeepAwake, on),
+  },
   reader: {
     openDocument: (request: ReaderOpenRequest) =>
       ipcRenderer.invoke(IPC.readerOpenDocument, request),

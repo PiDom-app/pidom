@@ -6,6 +6,7 @@ import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { usePdfDocument } from '../data/use-pdf-document';
 import { useReaderPreferences } from '../data/use-reader-preferences';
+import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
 import { useReaderView, type Fit } from '../data/use-reader-view';
 import { useReaderSession } from '../data/use-reader-session';
 import { useBookmarks } from '../data/use-bookmarks';
@@ -41,7 +42,17 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const meta = useQuery(api.library.document, { documentId });
   const pdf = usePdfDocument(documentId);
   const { prefs } = useReaderPreferences();
+  const { readerTint, keepAwake } = useDesktopSettings();
   const view = useReaderView(prefs);
+
+  // Keep the display awake only while a document is open and the setting is on;
+  // release it on close or when the reader turns it off. Main holds the actual
+  // assertion (see main/ipc.ts).
+  useEffect(() => {
+    if (!keepAwake) return;
+    void window.pidom?.power?.setKeepAwake(true);
+    return () => void window.pidom?.power?.setKeepAwake(false);
+  }, [keepAwake]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(prefs.sidebarBehavior === 'open');
@@ -190,6 +201,18 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
           background={prefs.documentBackground}
           handleRef={canvasHandle}
         />
+        {/* A comfort wash over the page — warm for less blue light, dim for a
+            darker surround — laid above the canvas but below the controls, and
+            click-through so it never intercepts selection. Device-local. */}
+        {readerTint !== 'none' && (
+          <div
+            aria-hidden
+            className={cn(
+              'pointer-events-none absolute inset-0 z-20',
+              readerTint === 'warm' ? 'bg-warn/15' : 'bg-overlay/30',
+            )}
+          />
+        )}
         <SelectionMenu
           containerRef={surfaceRef}
           onHighlight={(text) => annotations.keep(currentPage, text)}
