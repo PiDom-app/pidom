@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { Toaster } from 'sonner';
 import { AppProviders } from './providers/app-providers';
+import { ErrorBoundary } from './components/error-boundary';
 import { initAppearance } from './features/settings/use-desktop-settings';
 import { routeTree } from './routeTree.gen';
 import './design/global.css';
@@ -27,9 +28,11 @@ if (!container) throw new Error('#root not found');
 
 createRoot(container).render(
   <React.StrictMode>
-    <AppProviders>
-      <RouterProvider router={router} />
-      <Toaster position="bottom-right" theme="system" richColors />
-    </AppProviders>
+    <ErrorBoundary>
+      <AppProviders>
+        <RouterProvider router={router} />
+        <Toaster position="bottom-right" theme="system" richColors />
+      </AppProviders>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

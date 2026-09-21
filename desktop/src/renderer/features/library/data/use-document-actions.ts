@@ -14,6 +14,7 @@ export function useDocumentActions() {
   const rename = useMutation(api.library.rename);
   const remove = useMutation(api.library.remove);
   const addToCollection = useMutation(api.collections.addDocument);
+  const recordProgress = useMutation(api.library.recordProgress);
 
   const toggleFavorite = useCallback(
     async (documentId: Id<'documents'>, isFavorite: boolean) => {
@@ -63,5 +64,28 @@ export function useDocumentActions() {
     [addToCollection],
   );
 
-  return { toggleFavorite, renameDocument, removeDocument, addDocumentToCollection };
+  /**
+   * Marks a document finished or back to unread. `recordProgress` owns both:
+   * finishing moves the position to the last page, reopening drops it to the
+   * first, matching the mobile reader's "Mark as finished / unread".
+   */
+  const setFinished = useCallback(
+    async (documentId: Id<'documents'>, isFinished: boolean, pageCount: number) => {
+      try {
+        await recordProgress({
+          documentId,
+          currentPage: isFinished ? Math.max(1, pageCount) : 1,
+          pageCount: pageCount || undefined,
+          isFinished,
+          clientUpdatedAt: Date.now(),
+        });
+        toast.success(isFinished ? 'Marked as finished' : 'Marked as unread');
+      } catch {
+        toast.error("Couldn't update this document");
+      }
+    },
+    [recordProgress],
+  );
+
+  return { toggleFavorite, renameDocument, removeDocument, addDocumentToCollection, setFinished };
 }

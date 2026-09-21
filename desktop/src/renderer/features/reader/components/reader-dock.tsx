@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Columns2,
   Minus,
-  MoreHorizontal,
   PanelLeft,
   Plus,
   ScrollText,
@@ -120,6 +119,7 @@ export function ReaderDock({
   onZoomOut,
   onToggleBookmark,
   onToggleFind,
+  moreMenu,
 }: {
   currentPage: number;
   pageCount: number;
@@ -139,6 +139,8 @@ export function ReaderDock({
   onZoomOut: () => void;
   onToggleBookmark: () => void;
   onToggleFind: () => void;
+  /** The overflow menu, composed by the screen so the dock stays presentational. */
+  moreMenu?: ReactNode;
 }) {
   return (
     <Toolbar.Root
@@ -228,9 +230,7 @@ export function ReaderDock({
         >
           {isBookmarked ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
         </IconButton>
-        <IconButton label="More">
-          <MoreHorizontal className="size-4" />
-        </IconButton>
+        {moreMenu}
       </div>
     </Toolbar.Root>
   );

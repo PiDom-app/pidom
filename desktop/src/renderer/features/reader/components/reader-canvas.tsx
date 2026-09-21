@@ -96,14 +96,37 @@ export function ReaderCanvas({
     if (view.mode === 'continuous') virtualizer.measure();
   }, [box.pageHeight, view.mode, virtualizer]);
 
-  // Report the page that leads the viewport so the toolbar indicator and the
-  // progress writer track the scroll.
+  // Report the page that leads the viewport, driven by actual scrolling rather
+  // than by every render. The old version read `getVirtualItems()[0]` inside an
+  // effect that re-ran on each render; a toolbar jump re-rendered before the
+  // programmatic scroll had moved, so the stale lead (page 1, or an overscan row
+  // above the viewport) reported straight back and snapped the page to 1. Here
+  // the lead is the first item whose bottom is past the scroll offset — the true
+  // topmost page — recomputed on scroll in a rAF so it converges to a jump's
+  // target instead of fighting it.
   useEffect(() => {
     if (view.mode !== 'continuous') return;
-    const items = virtualizer.getVirtualItems();
-    const lead = items[0];
-    if (lead) onVisiblePage(lead.index + 1);
-  }, [view.mode, virtualizer, onVisiblePage, virtualizer.getVirtualItems()]);
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let frame = 0;
+    const report = () => {
+      frame = 0;
+      const offset = virtualizer.scrollOffset ?? el.scrollTop;
+      const items = virtualizer.getVirtualItems();
+      const lead = items.find((item) => item.start + item.size > offset) ?? items[0];
+      if (lead) onVisiblePage(lead.index + 1);
+    };
+    const onScroll = () => {
+      if (frame === 0) frame = requestAnimationFrame(report);
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
+  }, [view.mode, virtualizer, onVisiblePage]);
 
   // Document presentation, deliberately independent of the app's light/dark
   // theme — a reader often wants a dark surround and a white page.

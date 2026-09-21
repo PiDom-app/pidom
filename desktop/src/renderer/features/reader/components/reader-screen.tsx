@@ -14,6 +14,7 @@ import { useOutline } from '../data/use-outline';
 import { useFindInDocument } from '../data/use-find-in-document';
 import { useReaderShortcuts } from '../data/use-reader-shortcuts';
 import { ReaderDock } from './reader-dock';
+import { ReaderMoreMenu } from './reader-more-menu';
 import { ReaderSidebar } from './reader-sidebar';
 import { useDockVisibility } from '../data/use-dock-visibility';
 import { ReaderCanvas, type ReaderCanvasHandle } from './reader-canvas';
@@ -227,6 +228,22 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
               onZoomOut={zoomOut}
               onToggleBookmark={toggleBookmark}
               onToggleFind={() => setFindOpen((open) => !open)}
+              moreMenu={
+                meta && (
+                  <ReaderMoreMenu
+                    documentId={documentId}
+                    meta={{
+                      title: meta.title,
+                      author: meta.author,
+                      pageCount: meta.pageCount,
+                      byteSize: meta.byteSize,
+                      isFavorite: meta.isFavorite,
+                      isFinished: meta.isFinished,
+                    }}
+                    onShowContents={() => setSidebarOpen(true)}
+                  />
+                )
+              }
             />
           </div>
 

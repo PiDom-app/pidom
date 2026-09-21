@@ -2,7 +2,18 @@ import { useState, type ReactNode } from 'react';
 import { AlertDialog, ContextMenu, DropdownMenu } from 'radix-ui';
 import { useQuery } from 'convex/react';
 import { useNavigate } from '@tanstack/react-router';
-import { BookOpen, FolderPlus, MoreHorizontal, Pencil, Star, StarOff, Trash2 } from 'lucide-react';
+import {
+  BookOpen,
+  BookOpenCheck,
+  FolderPlus,
+  Info,
+  MoreHorizontal,
+  Pencil,
+  RotateCcw,
+  Star,
+  StarOff,
+  Trash2,
+} from 'lucide-react';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { cn } from '@/lib/utils';
@@ -10,6 +21,22 @@ import { buttonGhostClass, menuItemClass, menuSeparatorClass, surfaceClass } fro
 import { useDocumentActions } from '../data/use-document-actions';
 import { RenameDialog } from './rename-dialog';
 import type { LibraryCollection, LibraryDocument } from '../data/types';
+
+/**
+ * Open a dialog from a menu item on the next tick, not inside `onSelect`. Radix
+ * locks body `pointer-events` while a menu is open and releases it as the menu
+ * closes; a dialog opened in the same tick can catch that mid-release and leave
+ * the window unclickable. One frame's delay lets the menu finish closing first.
+ */
+const deferOpen = (open: () => void) => setTimeout(open, 0);
+
+/** Bytes as a short human string for the details panel. */
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '—';
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 /**
  * Rename + remove confirmations, mounted once and shared by both the three-dot
@@ -22,12 +49,16 @@ function DocumentDialogs({
   setRenaming,
   removing,
   setRemoving,
+  details,
+  setDetails,
 }: {
   document: LibraryDocument;
   renaming: boolean;
   setRenaming: (open: boolean) => void;
   removing: boolean;
   setRemoving: (open: boolean) => void;
+  details: boolean;
+  setDetails: (open: boolean) => void;
 }) {
   const { renameDocument, removeDocument } = useDocumentActions();
   return (
@@ -38,6 +69,41 @@ function DocumentDialogs({
         onOpenChange={setRenaming}
         onRename={(title) => void renameDocument(document.id, title)}
       />
+      <AlertDialog.Root open={details} onOpenChange={setDetails}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="animate-fade-in fixed inset-0 z-50 bg-overlay/50" />
+          <AlertDialog.Content className="animate-slide-up fixed top-1/2 left-1/2 z-50 w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-elevated p-5 shadow-lg outline-none">
+            <AlertDialog.Title className="text-sm font-semibold text-foreground">
+              Details
+            </AlertDialog.Title>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-6">
+                <dt className="shrink-0 text-fg-muted">Title</dt>
+                <dd className="min-w-0 truncate text-right text-foreground">{document.title}</dd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <dt className="shrink-0 text-fg-muted">Author</dt>
+                <dd className="min-w-0 truncate text-right text-foreground">
+                  {document.author ?? '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <dt className="shrink-0 text-fg-muted">Pages</dt>
+                <dd className="text-right text-foreground">
+                  {document.pageCount != null ? document.pageCount : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <dt className="shrink-0 text-fg-muted">Size</dt>
+                <dd className="text-right text-foreground">{formatBytes(document.byteSize)}</dd>
+              </div>
+            </dl>
+            <div className="mt-4 flex justify-end">
+              <AlertDialog.Cancel className={buttonGhostClass}>Close</AlertDialog.Cancel>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
       <AlertDialog.Root open={removing} onOpenChange={setRemoving}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="animate-fade-in fixed inset-0 z-50 bg-overlay/50" />
@@ -95,7 +161,8 @@ export function DocumentActions({
 }) {
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const { toggleFavorite } = useDocumentActions();
+  const [details, setDetails] = useState(false);
+  const { toggleFavorite, setFinished } = useDocumentActions();
   const { collections, add } = useMenuCollections(document);
   const navigate = useNavigate();
   const open = () =>
@@ -126,6 +193,19 @@ export function DocumentActions({
               {document.isFavorite ? <StarOff className="size-4" /> : <Star className="size-4" />}
               {document.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={menuItemClass}
+              onSelect={() =>
+                void setFinished(document.id, !document.isFinished, document.pageCount ?? 0)
+              }
+            >
+              {document.isFinished ? (
+                <RotateCcw className="size-4" />
+              ) : (
+                <BookOpenCheck className="size-4" />
+              )}
+              {document.isFinished ? 'Mark as unread' : 'Mark as finished'}
+            </DropdownMenu.Item>
             <DropdownMenu.Sub>
               <DropdownMenu.SubTrigger className={menuItemClass}>
                 <FolderPlus className="size-4" />
@@ -145,14 +225,24 @@ export function DocumentActions({
                 </DropdownMenu.SubContent>
               </DropdownMenu.Portal>
             </DropdownMenu.Sub>
-            <DropdownMenu.Item className={menuItemClass} onSelect={() => setRenaming(true)}>
+            <DropdownMenu.Item
+              className={menuItemClass}
+              onSelect={() => deferOpen(() => setRenaming(true))}
+            >
               <Pencil className="size-4" />
               Rename
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={menuItemClass}
+              onSelect={() => deferOpen(() => setDetails(true))}
+            >
+              <Info className="size-4" />
+              Details
             </DropdownMenu.Item>
             <DropdownMenu.Separator className={menuSeparatorClass} />
             <DropdownMenu.Item
               className={cn(menuItemClass, 'text-destructive data-[highlighted]:bg-danger-tint')}
-              onSelect={() => setRemoving(true)}
+              onSelect={() => deferOpen(() => setRemoving(true))}
             >
               <Trash2 className="size-4" />
               Remove from library
@@ -167,6 +257,8 @@ export function DocumentActions({
         setRenaming={setRenaming}
         removing={removing}
         setRemoving={setRemoving}
+        details={details}
+        setDetails={setDetails}
       />
     </>
   );
@@ -182,7 +274,8 @@ export function DocumentContextMenu({
 }) {
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const { toggleFavorite } = useDocumentActions();
+  const [details, setDetails] = useState(false);
+  const { toggleFavorite, setFinished } = useDocumentActions();
   const { collections, add } = useMenuCollections(document);
   const navigate = useNavigate();
   const open = () =>
@@ -205,6 +298,19 @@ export function DocumentContextMenu({
               {document.isFavorite ? <StarOff className="size-4" /> : <Star className="size-4" />}
               {document.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             </ContextMenu.Item>
+            <ContextMenu.Item
+              className={menuItemClass}
+              onSelect={() =>
+                void setFinished(document.id, !document.isFinished, document.pageCount ?? 0)
+              }
+            >
+              {document.isFinished ? (
+                <RotateCcw className="size-4" />
+              ) : (
+                <BookOpenCheck className="size-4" />
+              )}
+              {document.isFinished ? 'Mark as unread' : 'Mark as finished'}
+            </ContextMenu.Item>
             <ContextMenu.Sub>
               <ContextMenu.SubTrigger className={menuItemClass}>
                 <FolderPlus className="size-4" />
@@ -224,14 +330,24 @@ export function DocumentContextMenu({
                 </ContextMenu.SubContent>
               </ContextMenu.Portal>
             </ContextMenu.Sub>
-            <ContextMenu.Item className={menuItemClass} onSelect={() => setRenaming(true)}>
+            <ContextMenu.Item
+              className={menuItemClass}
+              onSelect={() => deferOpen(() => setRenaming(true))}
+            >
               <Pencil className="size-4" />
               Rename
+            </ContextMenu.Item>
+            <ContextMenu.Item
+              className={menuItemClass}
+              onSelect={() => deferOpen(() => setDetails(true))}
+            >
+              <Info className="size-4" />
+              Details
             </ContextMenu.Item>
             <ContextMenu.Separator className={menuSeparatorClass} />
             <ContextMenu.Item
               className={cn(menuItemClass, 'text-destructive data-[highlighted]:bg-danger-tint')}
-              onSelect={() => setRemoving(true)}
+              onSelect={() => deferOpen(() => setRemoving(true))}
             >
               <Trash2 className="size-4" />
               Remove from library
@@ -246,6 +362,8 @@ export function DocumentContextMenu({
         setRenaming={setRenaming}
         removing={removing}
         setRemoving={setRemoving}
+        details={details}
+        setDetails={setDetails}
       />
     </>
   );

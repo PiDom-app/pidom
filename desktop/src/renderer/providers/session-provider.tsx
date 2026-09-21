@@ -26,9 +26,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading', profile: null });
 
   useEffect(() => {
+    // The preload defines `window.pidom`; if it failed to load, the bridge is
+    // absent. Degrade to signed-out rather than throwing "reading 'auth'" from
+    // an undefined bridge, which would take the whole renderer down.
+    const auth = window.pidom?.auth;
+    if (!auth) {
+      setState({ status: 'signed-out', profile: null });
+      return;
+    }
     let active = true;
-    void window.pidom.auth.status().then((s) => active && setState(s));
-    const unsubscribe = window.pidom.auth.onChange(setState);
+    void auth.status().then((s) => active && setState(s));
+    const unsubscribe = auth.onChange(setState);
     return () => {
       active = false;
       unsubscribe();
@@ -36,24 +44,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async () => {
+    const auth = window.pidom?.auth;
+    if (!auth) throw new Error('The app bridge is unavailable. Restart Pidom and try again.');
     setState((prev) => ({ ...prev, status: 'loading' }));
     try {
-      setState(await window.pidom.auth.signIn());
+      setState(await auth.signIn());
     } catch (error) {
       // A cancelled or failed sign-in rejects in the main process without
       // changing its state; re-read it so the UI leaves `loading` instead of
       // hanging on the spinner, then rethrow so the caller can surface it.
-      setState(await window.pidom.auth.status());
+      setState(await auth.status());
       throw error;
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    setState(await window.pidom.auth.signOut());
+    const auth = window.pidom?.auth;
+    if (!auth) return setState({ status: 'signed-out', profile: null });
+    setState(await auth.signOut());
   }, []);
 
   const fetchIdToken = useCallback(
-    (opts: { forceRefresh: boolean }) => window.pidom.auth.getIdToken(opts),
+    (opts: { forceRefresh: boolean }) =>
+      window.pidom?.auth?.getIdToken(opts) ?? Promise.resolve(null),
     [],
   );
 
