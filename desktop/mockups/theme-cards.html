@@ -55,11 +55,9 @@
         gap: 12px;
       }
       .card {
-        position: relative;
         display: flex;
         flex-direction: column;
         gap: 8px;
-        aspect-ratio: 4/3;
         border: 1px solid rgb(var(--border));
         border-radius: 6px;
         padding: 8px;
@@ -69,13 +67,10 @@
         border-color: rgb(var(--primary));
       }
       .card .prevwrap {
-        position: relative;
-        flex: 1;
-        min-height: 0;
-      }
-      .card .prevwrap > * {
-        position: absolute;
-        inset: 0;
+        aspect-ratio: 4/3;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 6px;
       }
       .card .lbl {
         display: flex;

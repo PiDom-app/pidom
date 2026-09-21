@@ -89,32 +89,31 @@ function ThemeCard({
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        'group relative flex aspect-[4/3] flex-col gap-2 rounded-md border p-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus',
+        'group flex flex-col gap-2 rounded-md border p-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus',
         selected ? 'border-primary' : 'border-border hover:border-border-strong',
       )}
     >
-      {/* Anchor the preview to the card box. A percentage/`h-full` chain through
-          the aspect-ratio button collapses to the mock's small intrinsic height,
-          which is what made the preview look shrunken inside the card; `absolute
-          inset-0` fills the box regardless of content height. */}
-      <div className="relative min-h-0 flex-1">
-        <div className="absolute inset-0">
-          {mode === 'system' ? (
-            <div
-              className="flex h-full w-full overflow-hidden rounded-md"
-              style={{ boxShadow: `inset 0 0 0 1px ${PALETTE.dark.edge}` }}
-            >
-              <div className="w-1/2 overflow-hidden">
-                <MiniPreview scheme="light" framed={false} />
-              </div>
-              <div className="w-1/2 overflow-hidden">
-                <MiniPreview scheme="dark" framed={false} />
-              </div>
+      {/* The aspect-ratio lives on the preview itself, so its height is definite
+          (from its own width) and the mock's `h-full` fills it. Putting the ratio
+          on the button instead let the grid stretch the row to the mock's small
+          intrinsic height — the previews looked shrunken, then vanished when the
+          mock was taken out of flow. */}
+      <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
+        {mode === 'system' ? (
+          <div
+            className="flex h-full w-full overflow-hidden rounded-md"
+            style={{ boxShadow: `inset 0 0 0 1px ${PALETTE.dark.edge}` }}
+          >
+            <div className="w-1/2 overflow-hidden">
+              <MiniPreview scheme="light" framed={false} />
             </div>
-          ) : (
-            <MiniPreview scheme={mode} />
-          )}
-        </div>
+            <div className="w-1/2 overflow-hidden">
+              <MiniPreview scheme="dark" framed={false} />
+            </div>
+          </div>
+        ) : (
+          <MiniPreview scheme={mode} />
+        )}
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">{label}</span>
