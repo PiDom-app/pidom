@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Content Security Policy for the renderer. `connect-src` allows the Convex
+      deployment over https + wss plus `pidom-doc:`, the scheme main serves a
+      verified local PDF back over; the loopback OAuth never touches the
+      renderer, and R2 is absent because main fetches the signed URL, not us.
+      `worker-src` covers the bundled PDF.js worker. No inline scripts except the
+      pre-paint theme setter below, which is same-origin app code injected at
+      build.
+
+      This tag only applies in development. The packaged app serves the policy as
+      an HTTP header from src/main/index.ts, which Electron treats as
+      authoritative — keep the two in sync.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' pidom-doc: https://*.convex.cloud wss://*.convex.cloud https://*.convex.site; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; worker-src 'self' blob:; font-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pidom</title>
+    <script>
+      // Pre-paint theme setter — avoids a flash of the wrong theme on launch.
+      // Mirrors the mobile app's src/components/ui/gluestack-ui-provider/script.ts.
+      (function () {
+        try {
+          var stored = localStorage.getItem('pidom.theme') || 'system';
+          var isSystem = stored === 'system';
+          var theme = isSystem
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : stored;
+          var el = document.documentElement;
+          el.classList.remove(theme === 'light' ? 'dark' : 'light');
+          el.classList.add(theme);
+          el.style.colorScheme = theme;
+        } catch (e) {
+          /* no-op */
+        }
+      })();
+    </script>
+  </head>
+  <body class="bg-background text-foreground font-sans">
+    <div id="root"></div>
+    <script type="module" src="/src/renderer/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Theme cards — mini preview</title>
+    <style>
+      :root.light {
+        --background: 255 255 255;
+        --surface: 250 250 249;
+        --foreground: 23 22 21;
+        --fg-muted: 110 108 104;
+        --border: 226 224 220;
+        --border-strong: 198 195 190;
+        --hairline: 236 234 230;
+        --primary: 106 89 232;
+        --focus: 106 89 232;
+      }
+      :root.dark {
+        --background: 0 0 0;
+        --surface: 13 13 13;
+        --foreground: 232 230 227;
+        --fg-muted: 143 141 136;
+        --border: 38 37 35;
+        --border-strong: 61 59 56;
+        --hairline: 28 27 26;
+        --primary: 106 89 232;
+        --focus: 122 106 240;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: rgb(var(--background));
+        color: rgb(var(--foreground));
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding: 40px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 24px 0 4px;
+      }
+      p.note {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+        margin-bottom: 12px;
+      }
+      .panel {
+        max-width: 560px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        aspect-ratio: 4/3;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        padding: 8px;
+        cursor: pointer;
+      }
+      .card.sel {
+        border-color: rgb(var(--primary));
+      }
+      .card .prevwrap {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+      }
+      .card .prevwrap > * {
+        position: absolute;
+        inset: 0;
+      }
+      .card .lbl {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .card .lbl .ck {
+        width: 15px;
+        height: 15px;
+        color: rgb(var(--primary));
+      }
+
+      /* ══ mini preview = a little Pidom window ══ */
+      .mini {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 6px;
+      }
+      .mini.flat {
+        border-radius: 0;
+      }
+      .mini .rail {
+        width: 38%;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 8px 7px;
+      }
+      .mini .brand {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 2px;
+      }
+      .mini .brand .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 9999px;
+        background: rgb(var(--primary));
+        flex: 0 0 auto;
+      }
+      .mini .brand .bar {
+        height: 4px;
+        flex: 1;
+        border-radius: 9999px;
+      }
+      .mini .nav {
+        height: 4px;
+        border-radius: 9999px;
+      }
+      .mini .nav.act {
+        position: relative;
+      }
+      .mini .nav.act::before {
+        content: '';
+        position: absolute;
+        inset: -3px -6px;
+        border-radius: 4px;
+      }
+      .mini .content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 8px;
+      }
+      .mini .head {
+        height: 6px;
+        width: 52%;
+        border-radius: 9999px;
+      }
+      .mini .tiles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        flex: 1;
+        min-height: 0;
+      }
+      .mini .tile {
+        border-radius: 3px;
+      }
+      svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .toggle {
+        position: fixed;
+        top: 14px;
+        right: 16px;
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: rgb(var(--foreground));
+      }
+    </style>
+  </head>
+  <body>
+    <button
+      class="toggle"
+      onclick="
+        document.documentElement.classList.toggle('dark');
+        document.documentElement.classList.toggle('light');
+      "
+    >
+      Toggle light / dark
+    </button>
+    <div class="panel">
+      <h1>Theme cards — app-window mini preview</h1>
+      <p class="note">
+        Each preview reads as a tiny Pidom window: nav rail with the accent brand dot and an active
+        row, a content header, and a document-tile grid. Framed so it stays legible on any card
+        background.
+      </p>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <script>
+      // palette mirrors global.css, with contrast-picked line/tile/text tones.
+      const P = {
+        light: {
+          bg: '#ffffff',
+          rail: '#f0efec',
+          content: '#fafaf9',
+          line: '#d6d3ce',
+          text: '#b9b6b1',
+          tile: '#eceae6',
+          tileEdge: '#dedbd6',
+          act: '#e6e4e0',
+          edge: '#e2e0dc',
+        },
+        dark: {
+          bg: '#000000',
+          rail: '#0d0d0d',
+          content: '#141414',
+          line: '#2e2d2b',
+          text: '#46443f',
+          tile: '#1c1c1c',
+          tileEdge: '#2a2927',
+          act: '#1f1f1f',
+          edge: '#2a2927',
+        },
+      };
+      function mini(scheme, framed = true) {
+        const p = P[scheme];
+        return `<div class="mini ${framed ? '' : 'flat'}" style="background:${p.bg};${framed ? `box-shadow:inset 0 0 0 1px ${p.edge}` : ''}">
+          <div class="rail" style="background:${p.rail}">
+            <div class="brand"><span class="dot"></span><span class="bar" style="background:${p.text}"></span></div>
+            <div class="nav act" style="background:transparent"><span style="position:absolute;inset:-3px -6px;border-radius:4px;background:${p.act}"></span></div>
+            <div class="nav" style="background:${p.line}"></div>
+            <div class="nav" style="background:${p.line}"></div>
+            <div class="nav" style="background:${p.line}"></div>
+          </div>
+          <div class="content" style="background:${p.content}">
+            <div class="head" style="background:${p.text}"></div>
+            <div class="tiles">
+              <div class="tile" style="background:${p.tile};box-shadow:inset 0 0 0 1px ${p.tileEdge}"></div>
+              <div class="tile" style="background:${p.tile};box-shadow:inset 0 0 0 1px ${p.tileEdge}"></div>
+              <div class="tile" style="background:${p.tile};box-shadow:inset 0 0 0 1px ${p.tileEdge}"></div>
+              <div class="tile" style="background:${p.tile};box-shadow:inset 0 0 0 1px ${p.tileEdge}"></div>
+            </div>
+          </div>
+        </div>`;
+      }
+      const check = '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
+      const cards = [
+        { mode: 'light', label: 'Light', sel: false, inner: mini('light') },
+        { mode: 'dark', label: 'Dark', sel: true, inner: mini('dark') },
+        {
+          mode: 'system',
+          label: 'System',
+          sel: false,
+          inner: `<div class="mini" style="box-shadow:inset 0 0 0 1px ${P.dark.edge}">
+             <div style="width:50%;overflow:hidden">${mini('light', false)}</div>
+             <div style="width:50%;overflow:hidden">${mini('dark', false)}</div>
+           </div>`,
+        },
+      ];
+      document.getElementById('grid').innerHTML = cards
+        .map(
+          (c) =>
+            `<div class="card ${c.sel ? 'sel' : ''}">
+           <div class="prevwrap">${c.inner}</div>
+           <div class="lbl"><span>${c.label}</span>${c.sel ? `<span class="ck">${check}</span>` : ''}</div>
+         </div>`,
+        )
+        .join('');
+    </script>
+  </body>
+</html>

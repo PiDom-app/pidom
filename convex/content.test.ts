@@ -740,6 +740,41 @@ describe('usage', () => {
   });
 });
 
+/* ── one document's metadata ────────────────────────────────────────── */
+
+describe('document', () => {
+  test('gives the owner the title, page count, and saved position', async () => {
+    const t = harness();
+    const alice = await signedIn(t, ALICE);
+    const documentId = await uploaded(t, alice, ALICE, { seed: 'doc12' });
+
+    // The desktop reader holds no local copy, so this query is where it learns
+    // where to lay out and where to resume before the first page renders.
+    await t.run(async (ctx) => {
+      await ctx.db.patch('documents', documentId, { pageCount: 240, currentPage: 42 });
+    });
+
+    const meta = await alice.query(api.library.document, { documentId });
+    expect(meta).toMatchObject({
+      title: 'Thinking, Fast and Slow',
+      pageCount: 240,
+      currentPage: 42,
+    });
+  });
+
+  test('is refused to somebody the document was never shared with', async () => {
+    const t = harness();
+    const alice = await signedIn(t, ALICE);
+    const bob = await signedIn(t, BOB);
+    const documentId = await uploaded(t, alice, ALICE, { seed: 'doc13' });
+
+    // Owner scoping runs through `requireDocument`, the same guard the rest of
+    // the file uses, so another account's document is indistinguishable from a
+    // missing one — both throw rather than leaking that the id exists.
+    await expect(bob.query(api.library.document, { documentId })).rejects.toThrow();
+  });
+});
+
 /* ── the text object ────────────────────────────────────────────────── */
 
 describe('textUrl', () => {
