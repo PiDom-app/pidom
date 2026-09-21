@@ -11,6 +11,7 @@ import { IPC, type EditAction, type ReaderOpenRequest, type ZoomAction } from '.
 import { SessionManager } from './auth/oauth';
 import { userVersion } from './db';
 import { closeDocument, fetchText, openDocument } from './reader';
+import type { StorageService } from './storage/service';
 
 interface IpcOptions {
   getWindow: () => BrowserWindow | null;
@@ -28,7 +29,11 @@ interface IpcOptions {
  * verifies the sender frame's origin — defence in depth, per Electron's
  * security guidance: a message from any other frame is dropped.
  */
-export function registerIpc(session: SessionManager, opts: IpcOptions): void {
+export function registerIpc(
+  session: SessionManager,
+  storage: StorageService,
+  opts: IpcOptions,
+): void {
   // Compare the sender's ORIGIN, not a URL prefix. Electron's guidance is
   // explicit that a `startsWith` check is defeated by lookalikes such as
   // `app://bundle.attacker.example`; parsing to an origin and matching exactly
@@ -71,6 +76,12 @@ export function registerIpc(session: SessionManager, opts: IpcOptions): void {
   // Push auth changes to the renderer so React state tracks the main process.
   session.onChange((state) => {
     opts.getWindow()?.webContents.send(IPC.authChanged, state);
+  });
+
+  // Push local-storage changes (a download advancing, a file removed) so the
+  // Downloads screen and Storage settings track the main process live.
+  storage.onChange((status) => {
+    opts.getWindow()?.webContents.send(IPC.storageChanged, status);
   });
 
   ipcMain.handle(
@@ -206,6 +217,46 @@ export function registerIpc(session: SessionManager, opts: IpcOptions): void {
   ipcMain.handle(
     IPC.readerFetchText,
     guard((_event, signedUrl: string) => fetchText(signedUrl)),
+  );
+
+  // ─── Local document storage ──────────────────────────────────────────────────
+  // Domain-level operations only; the renderer names a document by its Convex id
+  // and never a path. Node-only work (fetch, hash, filesystem) runs in the
+  // service. Each handler is behind `guard()` like every other.
+  ipcMain.handle(
+    IPC.storageDownload,
+    guard((_event, documentId: string) => storage.download(documentId)),
+  );
+  ipcMain.handle(
+    IPC.storageRemove,
+    guard((_event, documentId: string) => storage.remove(documentId)),
+  );
+  ipcMain.handle(
+    IPC.storageStatus,
+    guard((_event, documentId: string) => storage.status(documentId)),
+  );
+  ipcMain.handle(
+    IPC.storageList,
+    guard(() => storage.list()),
+  );
+  ipcMain.handle(
+    IPC.storageUsage,
+    guard(() => storage.usage()),
+  );
+  ipcMain.handle(
+    IPC.storageClearCache,
+    guard(() => storage.clearCache()),
+  );
+  ipcMain.handle(
+    IPC.storageVerify,
+    guard((_event, documentId: string) => storage.verify(documentId)),
+  );
+  ipcMain.handle(
+    IPC.storageReveal,
+    guard(async () => {
+      const root = await storage.libraryRoot();
+      shell.showItemInFolder(root);
+    }),
   );
 
   // ─── Keep the display awake while reading ────────────────────────────────────

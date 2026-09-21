@@ -3,6 +3,7 @@ import {
   IPC,
   type AuthState,
   type EditAction,
+  type LocalDocumentStatus,
   type PidomBridge,
   type ReaderOpenRequest,
   type ZoomAction,
@@ -58,6 +59,21 @@ const bridge: PidomBridge = {
       ipcRenderer.invoke(IPC.readerOpenDocument, request),
     closeDocument: (handle: string) => ipcRenderer.invoke(IPC.readerCloseDocument, handle),
     fetchText: (signedUrl: string) => ipcRenderer.invoke(IPC.readerFetchText, signedUrl),
+  },
+  storage: {
+    download: (documentId: string) => ipcRenderer.invoke(IPC.storageDownload, documentId),
+    remove: (documentId: string) => ipcRenderer.invoke(IPC.storageRemove, documentId),
+    status: (documentId: string) => ipcRenderer.invoke(IPC.storageStatus, documentId),
+    list: () => ipcRenderer.invoke(IPC.storageList),
+    usage: () => ipcRenderer.invoke(IPC.storageUsage),
+    clearCache: () => ipcRenderer.invoke(IPC.storageClearCache),
+    verify: (documentId: string) => ipcRenderer.invoke(IPC.storageVerify, documentId),
+    reveal: () => ipcRenderer.invoke(IPC.storageReveal),
+    onChange: (listener: (status: LocalDocumentStatus) => void) => {
+      const handler = (_event: unknown, status: LocalDocumentStatus) => listener(status);
+      ipcRenderer.on(IPC.storageChanged, handler);
+      return () => ipcRenderer.removeListener(IPC.storageChanged, handler);
+    },
   },
   platform: {
     os: process.platform,

@@ -1,7 +1,7 @@
 import { app, net, protocol } from 'electron';
 import { createHash, randomBytes } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, stat } from 'node:fs/promises';
 import { once } from 'node:events';
 import { join, normalize, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -28,6 +28,18 @@ const DOC_SCHEME = 'pidom-doc';
 
 /** Registered alongside the app scheme, before `app.whenReady`. */
 export const READER_SCHEME = DOC_SCHEME;
+
+/**
+ * Resolves a document id to an already-verified persistent local copy, when the
+ * storage service holds one. Set once at startup (see `setLocalResolver`), kept
+ * out of this module's imports so the reader has no hard dependency on storage.
+ */
+let resolveLocalPath: ((documentId: string) => string | null) | null = null;
+
+/** Wire the persistent-storage lookup the reader consults before the network. */
+export function setLocalResolver(resolver: (documentId: string) => string | null): void {
+  resolveLocalPath = resolver;
+}
 
 /**
  * Standard so each handle parses as its own origin, secure so the renderer may
@@ -62,6 +74,10 @@ interface OpenDocument {
   path: string;
   bytes: number;
   openedAt: number;
+  /** True when `path` is a persistent local copy the storage service owns.
+   *  Closing or evicting the handle drops the map entry but must NOT delete the
+   *  file — that copy outlives the reader session. */
+  persistent?: boolean;
 }
 
 /** Handle → verified copy. The renderer only ever holds the key. */
@@ -130,7 +146,9 @@ export async function closeDocument(handle: string): Promise<void> {
   const entry = open.get(handle);
   if (!entry) return;
   open.delete(handle);
-  await rm(entry.path, { force: true });
+  // A persistent copy belongs to the storage service and outlives this session;
+  // only a temporary streamed copy is the reader's to delete.
+  if (!entry.persistent) await rm(entry.path, { force: true });
 }
 
 /** Drops the oldest copies until the cap is respected again. */
@@ -166,6 +184,29 @@ function isPlausibleId(value: unknown): value is string {
 export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDocumentHandle> {
   if (!request || !isPlausibleId(request.documentId)) {
     throw new Error('openDocument rejected: bad document id');
+  }
+
+  // A persistent local copy opens with no network at all: the storage service
+  // already fetched, verified the `%PDF-` magic, and hashed these bytes when it
+  // downloaded them, so this serves them straight back over the same handle the
+  // streaming path uses. The renderer cannot tell the two apart, and reading
+  // works offline. Only falls through to the fetch below when nothing is saved.
+  const localPath = resolveLocalPath?.(request.documentId) ?? null;
+  if (localPath) {
+    try {
+      const info = await stat(localPath);
+      await evictToCap();
+      const handle = randomBytes(16).toString('hex');
+      open.set(handle, {
+        path: localPath,
+        bytes: info.size,
+        openedAt: Date.now(),
+        persistent: true,
+      });
+      return { handle, url: `${DOC_SCHEME}://${handle}/document.pdf`, bytes: info.size };
+    } catch {
+      // The record said available but the file is gone; fall through and fetch.
+    }
   }
 
   let url: URL;

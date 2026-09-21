@@ -39,6 +39,19 @@ export const IPC = {
   // Fetch a document's extracted-text object (find in document). R2 is not in
   // the renderer CSP, so main fetches the signed URL and returns the JSON text.
   readerFetchText: 'reader:fetchText',
+
+  // Local document storage: download a cloud document to a verified, persistent
+  // local copy and manage what is held on this computer. Node-only work (fetch,
+  // hash, filesystem) runs in main; the renderer addresses documents by id.
+  storageDownload: 'storage:download',
+  storageRemove: 'storage:remove',
+  storageStatus: 'storage:status',
+  storageList: 'storage:list',
+  storageUsage: 'storage:usage',
+  storageClearCache: 'storage:clearCache',
+  storageVerify: 'storage:verify',
+  storageReveal: 'storage:reveal',
+  storageChanged: 'storage:changed', // main → renderer push
 } as const;
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -81,6 +94,46 @@ export interface ReaderDocumentHandle {
   handle: string;
   url: string;
   bytes: number;
+}
+
+/** The availability of a document's physical copy on this computer. Mirrors the
+ *  mobile app's file states so both clients describe the library the same way. */
+export type LocalFileState =
+  | 'queued'
+  | 'downloading'
+  | 'verifying'
+  | 'available'
+  | 'paused'
+  | 'failed'
+  | 'outdated'
+  | 'missing'
+  | 'none'; // no local copy and none wanted
+
+/** One document's local status, as the renderer sees it — never a path. */
+export interface LocalDocumentStatus {
+  documentId: string;
+  state: LocalFileState;
+  /** Bytes on disk when present. */
+  bytes: number | null;
+  /** In-flight download progress, when downloading. */
+  receivedBytes: number | null;
+  totalBytes: number | null;
+  /** A short reason code when `state` is `failed`. */
+  error: string | null;
+}
+
+/** What this computer is holding locally, for the Storage settings surface. */
+export interface StorageUsage {
+  /** Documents with an `available` local copy. */
+  documentCount: number;
+  /** Bytes under the managed `documents/` directory. */
+  documentBytes: number;
+  /** Bytes under the regenerable `cache/` directory. */
+  cacheBytes: number;
+  /** Free space on the volume holding the library, or null if unknown. */
+  freeBytes: number | null;
+  /** The managed library root, shown read-only this phase. */
+  libraryPath: string | null;
 }
 
 /** The surface exposed on `window.pidom` by the preload bridge. */
@@ -136,6 +189,26 @@ export interface PidomBridge {
      * the R2 host is outside the renderer's connect-src.
      */
     fetchText(signedUrl: string): Promise<string>;
+  };
+  storage: {
+    /** Fetches, verifies, and persists a cloud document's PDF on this computer. */
+    download(documentId: string): Promise<LocalDocumentStatus>;
+    /** Deletes the local copy. The account keeps the document. */
+    remove(documentId: string): Promise<LocalDocumentStatus>;
+    /** One document's local status. */
+    status(documentId: string): Promise<LocalDocumentStatus>;
+    /** Every document with a local record on this computer. */
+    list(): Promise<LocalDocumentStatus[]>;
+    /** Local usage totals for the Storage settings surface. */
+    usage(): Promise<StorageUsage>;
+    /** Deletes only the regenerable cache; documents are untouched. */
+    clearCache(): Promise<StorageUsage>;
+    /** Re-hashes a local copy, marking it outdated/missing if it no longer matches. */
+    verify(documentId: string): Promise<LocalDocumentStatus>;
+    /** Reveals the library directory in the OS file manager. */
+    reveal(): Promise<void>;
+    /** Subscribe to local-status changes; returns an unsubscribe function. */
+    onChange(listener: (status: LocalDocumentStatus) => void): () => void;
   };
   platform: {
     os: NodeJS.Platform;

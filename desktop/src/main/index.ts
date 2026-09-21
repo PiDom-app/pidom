@@ -10,7 +10,9 @@ import {
   READER_SCHEME,
   READER_SCHEME_PRIVILEGES,
   registerReaderProtocol,
+  setLocalResolver,
 } from './reader';
+import { StorageService } from './storage/service';
 
 // Electron Forge's Vite plugin injects these for the renderer entry.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -34,6 +36,7 @@ if (started) app.quit();
 
 let mainWindow: BrowserWindow | null = null;
 const authSession = new SessionManager();
+const storage = new StorageService(authSession);
 
 /** The renderer build directory Forge's Vite plugin emits next to main.js. */
 const rendererDir = join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
@@ -111,6 +114,12 @@ app.whenReady().then(() => {
   // reproducible from the server, so start every run with an empty cache.
   void clearReaderCache();
 
+  // The reader opens a persistent local copy with no network when the storage
+  // service holds one. Only the `documents/` library persists; its in-flight
+  // `tmp/` is cleared here the same way the reader cache is.
+  setLocalResolver((documentId) => storage.availablePath(documentId));
+  void storage.clearTmp();
+
   // Deny every renderer permission request by default — a reader app needs none.
   electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
 
@@ -152,7 +161,7 @@ app.whenReady().then(() => {
   // never draws it; on macOS it appears in the system menu bar as expected.
   buildAppMenu({ isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL), createWindow });
 
-  registerIpc(authSession, {
+  registerIpc(authSession, storage, {
     getWindow: () => mainWindow,
     createWindow: () => {
       mainWindow = createWindow();
@@ -186,7 +195,9 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Verified copies do not outlive the run that fetched them.
+// Temporary streamed copies do not outlive the run that fetched them; nor do
+// in-flight `.part` downloads. The persistent `documents/` library stays.
 app.on('will-quit', () => {
   void clearReaderCache();
+  void storage.clearTmp();
 });
