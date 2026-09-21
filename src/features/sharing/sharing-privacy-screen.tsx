@@ -135,8 +135,8 @@ export function SharingPrivacyScreen() {
             onChange={(showOnlineStatus) => void update({ showOnlineStatus })}
           />
           <Toggle
-            label="Show which page I am on"
-            note="Off. Nobody sees where you are in a document."
+            label="Show when I'm in a shared document"
+            note="A dot beside your name to the people it is shared with, while you have it open. Never which page."
             value={sharing.showReadingActivity}
             onChange={(showReadingActivity) => void update({ showReadingActivity })}
           />

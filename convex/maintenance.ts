@@ -14,6 +14,8 @@ import {
   PAGE_DELETE_BUDGET,
   PAGE_DRAIN_PASSES,
   PRUNE_DOCUMENTS,
+  READING_ACTIVITY_BACKFILL,
+  READING_ACTIVITY_FLIP_MS,
   SHARE_EXPIRY_SWEEP,
   USAGE_RECOUNT_ACCOUNTS,
   WORKFLOW_CLEANUP_LIMIT,
@@ -575,5 +577,78 @@ export const cleanupWorkflows = internalMutation({
       }
     }
     return cleaned;
+  },
+});
+
+/**
+ * Resets a `showReadingActivity` that was never chosen back to its default.
+ *
+ * A one-time correction rather than a nightly pass, so it is not queued from
+ * `nightly` — run it once by hand with `npx convex run` after deploy.
+ *
+ * The bug it repairs: `showReadingActivity` shipped defaulting to `false` while
+ * it governed nothing, then commit `d122e21` flipped the default to `true` and
+ * in the same change made `presence.heartbeat` enforce it. But a default lives
+ * in code, and `patchSharing` writes the whole default set into a row the first
+ * time any setting changes — so every account that had touched a sharing
+ * setting before that commit has `false` baked into its row, and
+ * `stripMeta` keeps a stored `false` because it only fills in what is
+ * `undefined`. Those readers are invisible in every document room despite never
+ * deciding to be. See `convex/model/settings.ts` and `convex/presence.ts`.
+ *
+ * **The cutoff is what makes this safe.** A row last written before
+ * `READING_ACTIVITY_FLIP_MS` and still holding `false` was set by the old
+ * default, not by a person — the toggle did nothing then. A row written at or
+ * after it holding `false` is somebody who turned presence off on purpose, and
+ * this must not touch it. `updatedAt` is the field `patchSharing` moves on
+ * every write, so it is the honest "last decided" clock.
+ *
+ * Self-limiting the way the other batch jobs are: one bounded page, patch the
+ * stale rows in it, and reschedule a second later with the cursor until the
+ * table is exhausted. Idempotent — a second run patches nothing, because the
+ * rows it fixed now read `true`.
+ */
+export const backfillReadingActivity = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('sharingSettings')
+      .paginate({ cursor: args.cursor, numItems: READING_ACTIVITY_BACKFILL });
+
+    for (const row of page.page) {
+      if (row.showReadingActivity === false && row.updatedAt < READING_ACTIVITY_FLIP_MS) {
+        await ctx.db.patch('sharingSettings', row._id, { showReadingActivity: true });
+      }
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(1_000, internal.maintenance.backfillReadingActivity, {
+        cursor: page.continueCursor,
+      });
+    }
+    return null;
+  },
+});
+
+/**
+ * How many rows the backfill above would touch, without touching them.
+ *
+ * The dry run: read it before scheduling `backfillReadingActivity` so the blast
+ * radius is a number somebody has seen rather than a hope. Same predicate as the
+ * patch — `false` and last written before the flip — so the count is exactly the
+ * set that will change.
+ */
+export const staleReadingActivityCount = internalQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let stale = 0;
+    for await (const row of ctx.db.query('sharingSettings')) {
+      if (row.showReadingActivity === false && row.updatedAt < READING_ACTIVITY_FLIP_MS) {
+        stale += 1;
+      }
+    }
+    return stale;
   },
 });
