@@ -57,6 +57,14 @@ const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
 /** How long the fetch of a signed URL may take before it is abandoned. */
 const FETCH_TIMEOUT_MS = 120_000;
 
+/** Smallest gap between two progress writes during a download. The byte loop
+ *  runs once per network chunk — hundreds to thousands of times for a large
+ *  PDF — and each write is a synchronous SQLite write plus a status read plus
+ *  an IPC push to every renderer. Coalescing to this cadence turns that storm
+ *  into a handful of updates; the terminal state always flushes the true final
+ *  byte count regardless. */
+const PROGRESS_INTERVAL_MS = 200;
+
 /** Notified after any state change, so IPC can push it to the renderer. */
 type ChangeListener = (status: LocalDocumentStatus) => void;
 
@@ -120,13 +128,20 @@ export class StorageService {
   /** Reads this account's chosen custom base directory, or null for the default.
    *  Non-secret (a plain local path), so it lives in SQLite, not `safeStorage`. */
   private readCustomBase(subject: string): string | null {
-    const db = getDb();
-    const row = db
-      .select()
-      .from(localSettings)
-      .where(eq(localSettings.id, this.settingId(subject, LIBRARY_BASE_KEY)))
-      .get();
-    return row?.value ?? null;
+    try {
+      const db = getDb();
+      const row = db
+        .select()
+        .from(localSettings)
+        .where(eq(localSettings.id, this.settingId(subject, LIBRARY_BASE_KEY)))
+        .get();
+      return row?.value ?? null;
+    } catch {
+      // A read failure (e.g. an older database missing this table before its
+      // migration runs) must never brick the library — fall back to the default
+      // base rather than throwing out of `ensurePaths` and hanging the caller.
+      return null;
+    }
   }
 
   private writeCustomBase(subject: string, base: string | null): void {
@@ -340,6 +355,7 @@ export class StorageService {
       const sink = createWriteStream(partPath, { mode: 0o600 });
       const head = Buffer.alloc(PDF_MAGIC.byteLength);
       let headLength = 0;
+      let lastProgressAt = 0;
 
       try {
         for await (const chunk of streamOf(response.body)) {
@@ -362,7 +378,12 @@ export class StorageService {
 
           hash.update(chunk);
           if (!sink.write(chunk)) await once(sink, 'drain');
-          setJob({ state: 'running', receivedBytes: total, totalBytes });
+          // Coalesced: the true final count is flushed by the 'done' state below.
+          const nowMs = Date.now();
+          if (nowMs - lastProgressAt >= PROGRESS_INTERVAL_MS) {
+            lastProgressAt = nowMs;
+            setJob({ state: 'running', receivedBytes: total, totalBytes });
+          }
         }
 
         if (headLength < head.byteLength) throw new Error('not a PDF');

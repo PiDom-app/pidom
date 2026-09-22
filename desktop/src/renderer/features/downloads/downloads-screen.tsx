@@ -149,10 +149,23 @@ function DownloadRows({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
+    // Every row is a fixed 56px (cover h-10 + py-2), so a fixed size is exact.
+    // We deliberately do NOT use `measureElement` here: these rows load cover
+    // images asynchronously, and a per-row ResizeObserver would turn each of the
+    // cover mints into a full-list remeasure — a storm that froze the window.
     estimateSize: () => 56,
-    overscan: 12,
+    getItemKey: (index) => rows[index].id,
+    // A small overscan keeps scrolling smooth without minting covers for a long
+    // tail of off-screen rows: each cover is a `library.downloadUrl` mutation, so
+    // a large overscan turns one navigation into a burst against a single account
+    // rate-limit bucket. Only truly-visible rows mint (see `enabled` below).
+    overscan: 4,
   });
 
+  // The visible band, excluding overscan: `range` is the pre-overscan window, so
+  // covers mint for what the reader can actually see and the overscan rows stay
+  // as lettered placeholders until scrolled into view.
+  const range = virtualizer.range;
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) onNearEnd();
@@ -164,15 +177,15 @@ function DownloadRows({
         {virtualizer.getVirtualItems().map((item) => {
           const doc = rows[item.index];
           const local = statuses.get(doc.id);
+          const visible =
+            range !== null && item.index >= range.startIndex && item.index <= range.endIndex;
           return (
             <div
               key={doc.id}
-              data-index={item.index}
-              ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 flex w-full items-center gap-4 py-2 pr-1 pl-2 shadow-[inset_0_-1px_0_rgb(var(--hairline))]"
+              className="absolute top-0 left-0 flex h-14 w-full items-center gap-4 py-2 pr-1 pl-2 shadow-[inset_0_-1px_0_rgb(var(--hairline))]"
               style={{ transform: `translateY(${item.start}px)` }}
             >
-              <DocumentCover document={doc} className="h-10 w-8 shrink-0" />
+              <DocumentCover document={doc} enabled={visible} className="h-10 w-8 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{doc.title}</p>
                 <p className="truncate text-xs text-fg-muted">{doc.author ?? '—'}</p>

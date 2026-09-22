@@ -208,31 +208,65 @@
         font-size: 14px;
       }
 
-      /* ── animation preview cards ─────────────────────────────────────── */
-      .anim-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-      }
-      .anim-card {
-        border: 1px solid rgb(var(--border));
-        border-radius: 6px;
-        padding: 16px 14px;
+      /* ── animation picker — flat rows, cardless (matches the shipped build) ── */
+      .anim-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 16px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
         cursor: pointer;
       }
-      .anim-card.active {
+      .anim-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      .radio-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        border: 1px solid rgb(var(--border-strong));
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .anim-row.active .radio-dot {
         border-color: rgb(var(--primary));
-        background: rgb(var(--primary-tint));
+      }
+      .anim-row.active .radio-dot > i {
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: rgb(var(--primary));
       }
       .anim-name {
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 2px;
+        font-size: 14px;
+        font-weight: 500;
       }
       .anim-hint {
-        font-size: 11px;
-        color: rgb(var(--fg-subtle));
-        margin-bottom: 14px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .anim-preview {
+        flex-shrink: 0;
+      }
+      .anim-preview.linear {
+        width: 160px;
+      }
+      /* Previews sit still and play only while the row is pointed at, so the list
+         is calm at rest — the app gates the same motion on group-hover. */
+      .anim-row .a-comet > i::after,
+      .anim-row .a-ring,
+      .anim-row .a-stripes > i {
+        animation-play-state: paused;
+      }
+      .anim-row:hover .a-comet > i::after,
+      .anim-row:hover .a-ring,
+      .anim-row:hover .a-stripes > i {
+        animation-play-state: running;
       }
 
       /* Style 1 — Bar (determinate, minimal): the shipped progress line */
@@ -483,27 +517,52 @@
     <div class="panel">
       <div class="section-title">Download animation</div>
       <div class="section-desc">
-        How an in-progress download looks in the Downloads list. Respects Reduce motion.
+        How an in-progress download looks in the Downloads list. Point at a style to see it move.
+        Respects Reduce motion.
       </div>
-      <div class="anim-grid">
-        <div class="anim-card active">
-          <div class="anim-name">Bar</div>
-          <div class="anim-hint">Minimal · default</div>
+      <div class="anim-row active">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Bar</div>
+            <div class="anim-hint">Minimal · default</div>
+          </div>
+        </div>
+        <div class="anim-preview linear">
           <div class="a-bar"><i></i></div>
         </div>
-        <div class="anim-card">
-          <div class="anim-name">Comet</div>
-          <div class="anim-hint">Light sweep</div>
+      </div>
+      <div class="anim-row">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Comet</div>
+            <div class="anim-hint">Light sweep</div>
+          </div>
+        </div>
+        <div class="anim-preview linear">
           <div class="a-comet"><i></i></div>
         </div>
-        <div class="anim-card">
-          <div class="anim-name">Ring</div>
-          <div class="anim-hint">Circular</div>
-          <div class="a-ring"></div>
+      </div>
+      <div class="anim-row">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Ring</div>
+            <div class="anim-hint">Circular</div>
+          </div>
         </div>
-        <div class="anim-card">
-          <div class="anim-name">Stripes</div>
-          <div class="anim-hint">Barber-pole</div>
+        <div class="anim-preview"><div class="a-ring"></div></div>
+      </div>
+      <div class="anim-row">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Stripes</div>
+            <div class="anim-hint">Barber-pole</div>
+          </div>
+        </div>
+        <div class="anim-preview linear">
           <div class="a-stripes"><i></i></div>
         </div>
       </div>

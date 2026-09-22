@@ -28,11 +28,20 @@ export function useDownloads(): Downloads {
   useEffect(() => {
     let cancelled = false;
 
-    void window.pidom.storage.list().then((rows) => {
-      if (cancelled) return;
-      setStatuses(new Map(rows.map((row) => [row.documentId, row])));
-      setLoading(false);
-    });
+    window.pidom.storage
+      .list()
+      .then((rows) => {
+        if (cancelled) return;
+        setStatuses(new Map(rows.map((row) => [row.documentId, row])));
+        setLoading(false);
+      })
+      .catch((error) => {
+        // A rejected seed must never leave the screen stuck on its shimmer.
+        // Clear loading and surface the reason rather than hanging.
+        if (cancelled) return;
+        console.error('storage.list failed', error);
+        setLoading(false);
+      });
 
     // Each push is one document's new status. A `none` state (its record was
     // removed) drops the entry rather than lingering as a stale row.

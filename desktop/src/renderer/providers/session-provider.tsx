@@ -22,8 +22,31 @@ interface SessionContextValue extends AuthState {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+/** Whether two auth states carry the same identity and status. A background
+ *  token refresh re-emits an identical `signed-in` state; treating that as a
+ *  change would replace the context value and re-render every consumer (and, at
+ *  the `_app` gate, risk churning the whole workspace) for no actual change. */
+function sameAuth(a: AuthState, b: AuthState): boolean {
+  if (a.status !== b.status) return false;
+  const pa = a.profile;
+  const pb = b.profile;
+  if (pa === pb) return true;
+  if (!pa || !pb) return false;
+  return (
+    pa.subject === pb.subject &&
+    pa.email === pb.email &&
+    pa.name === pb.name &&
+    pa.picture === pb.picture
+  );
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading', profile: null });
+
+  // Only advance state on a genuine change, so identical re-emits are no-ops.
+  const applyState = useCallback((next: AuthState) => {
+    setState((prev) => (sameAuth(prev, next) ? prev : next));
+  }, []);
 
   useEffect(() => {
     // The preload defines `window.pidom`; if it failed to load, the bridge is
@@ -35,13 +58,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     let active = true;
-    void auth.status().then((s) => active && setState(s));
-    const unsubscribe = auth.onChange(setState);
+    void auth.status().then((s) => active && applyState(s));
+    const unsubscribe = auth.onChange(applyState);
     return () => {
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [applyState]);
 
   const signIn = useCallback(async () => {
     const auth = window.pidom?.auth;

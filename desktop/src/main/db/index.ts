@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schema from './schema';
 
@@ -20,8 +21,27 @@ import * as schema from './schema';
 let db: BetterSQLite3Database<typeof schema> | null = null;
 let raw: Database.Database | null = null;
 
-/** Bumped when the DDL below changes. A newer app re-runs migrateUp from here. */
-const SCHEMA_VERSION = 1;
+/** Bumped when the DDL below changes. A newer app re-runs migrateUp from here.
+ *  v2 added `local_settings`; a Phase-1 database stamped at v1 must re-run
+ *  migrateUp (IF NOT EXISTS no-ops the existing tables) or that table is missing
+ *  and every `local_settings` read throws. */
+const SCHEMA_VERSION = 2;
+
+/**
+ * A synchronous diagnostic line, straight to stderr.
+ *
+ * Not `console.log`: main's stdout is block-buffered under a pipe (electron-forge
+ * captures it), so if the synchronous open ever blocks the event loop the last
+ * buffered lines never flush and the trace lies about where it stopped. stderr is
+ * unbuffered on a pipe, so each step is committed before the next call can hang.
+ */
+function dbg(message: string): void {
+  try {
+    process.stderr.write(`[db] ${message}\n`);
+  } catch {
+    /* a closed stderr is not worth crashing a database open over */
+  }
+}
 
 /**
  * Creates every table and index if absent. Each statement is `IF NOT EXISTS`, so
@@ -75,23 +95,92 @@ function migrateUp(database: Database.Database): void {
   `);
 }
 
+/**
+ * Opens the connection, applies pragmas, and brings the schema to the current
+ * version. Throws on any failure so the caller can recover. `timeout` bounds
+ * lock waits (a lingering process holding the file throws SQLITE_BUSY rather
+ * than hanging the main event loop). The journal mode is set *after* the timeout.
+ *
+ * `useWal` lets the recovery path fall back to the rollback journal. WAL keeps a
+ * memory-mapped `-shm` file whose POSIX locking can hang on a few network/overlay
+ * home-directory filesystems, and for a rebuildable cache a slower DELETE-journal
+ * database that opens beats a WAL open that wedges the synchronous main thread.
+ */
+function open(file: string, useWal: boolean): Database.Database {
+  dbg(`opening (${useWal ? 'wal' : 'delete'}) ${file}`);
+  const connection = new Database(file, { timeout: 5000 });
+  dbg('connection created');
+  // Set the busy timeout before anything that can contend for a lock, so a
+  // lingering holder bounces off SQLITE_BUSY at 5s instead of blocking forever.
+  connection.pragma('busy_timeout = 5000');
+  connection.pragma(`journal_mode = ${useWal ? 'WAL' : 'DELETE'}`);
+  connection.pragma('foreign_keys = ON');
+  dbg('pragmas set');
+
+  const current = connection.pragma('user_version', { simple: true });
+  const version = typeof current === 'number' ? current : 0;
+  if (version < SCHEMA_VERSION) {
+    dbg(`migrating ${version} -> ${SCHEMA_VERSION}`);
+    migrateUp(connection);
+    // pragma value cannot be parameterised; SCHEMA_VERSION is a trusted literal.
+    connection.pragma(`user_version = ${SCHEMA_VERSION}`);
+  }
+  dbg('open ok');
+  return connection;
+}
+
+/** Deletes the cache database and its WAL/SHM sidecars. Safe: Convex owns the
+ *  data and the PDFs re-download, so a corrupt or locked cache is rebuilt, not
+ *  repaired. Deleting the inode also frees the file from a lingering process's
+ *  lock — the next `open` creates a fresh, unlocked file. */
+function wipe(file: string): void {
+  for (const suffix of ['', '-wal', '-shm', '-journal']) {
+    try {
+      rmSync(file + suffix, { force: true });
+    } catch {
+      /* best effort — a missing sidecar is the desired end state */
+    }
+  }
+}
+
 export function getDb(): BetterSQLite3Database<typeof schema> {
   if (db) return db;
   const file = join(app.getPath('userData'), 'pidom-cache.db');
-  raw = new Database(file);
-  raw.pragma('journal_mode = WAL');
-  raw.pragma('foreign_keys = ON');
 
-  const current = raw.pragma('user_version', { simple: true });
-  const version = typeof current === 'number' ? current : 0;
-  if (version < SCHEMA_VERSION) {
-    migrateUp(raw);
-    // pragma value cannot be parameterised; SCHEMA_VERSION is a trusted literal.
-    raw.pragma(`user_version = ${SCHEMA_VERSION}`);
+  // A recovery ladder, each rung more conservative than the last, because the
+  // main thread cannot survive a wedged open: (1) WAL, the normal path; (2) wipe
+  // the possibly-corrupt/locked file and retry WAL; (3) wipe and open without WAL,
+  // in case the `-shm` mmap locking is what hangs on this filesystem. The cache is
+  // regenerable, so wiping costs nothing but the re-download it already assumes.
+  try {
+    raw = open(file, true);
+  } catch (firstError) {
+    dbg(`open failed, rebuilding: ${String(firstError)}`);
+    closeQuietly();
+    wipe(file);
+    try {
+      raw = open(file, true);
+    } catch (secondError) {
+      dbg(`wal open failed, falling back to delete journal: ${String(secondError)}`);
+      closeQuietly();
+      wipe(file);
+      raw = open(file, false);
+    }
   }
 
   db = drizzle(raw, { schema });
+  dbg('ready');
   return db;
+}
+
+/** Closes the raw handle without throwing, so a failed open can be retried. */
+function closeQuietly(): void {
+  try {
+    raw?.close();
+  } catch {
+    /* ignore — a half-open handle is being discarded anyway */
+  }
+  raw = null;
 }
 
 /** Trivial round-trip used to prove the native connection rebuilt and opened. */

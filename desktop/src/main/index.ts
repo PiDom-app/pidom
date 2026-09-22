@@ -34,6 +34,14 @@ protocol.registerSchemesAsPrivileged([
 // Squirrel (Windows) shortcut lifecycle; quits early during install/uninstall.
 if (started) app.quit();
 
+// One instance only. The local SQLite cache is opened synchronously on the main
+// thread; a second instance holding the WAL lock would make the first process's
+// `new Database()` block the whole event loop — the app appears to freeze. Refuse
+// the second launch and focus the window that already owns the cache instead.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+}
+
 let mainWindow: BrowserWindow | null = null;
 const authSession = new SessionManager();
 const storage = new StorageService(authSession);
@@ -92,6 +100,17 @@ function createWindow(): BrowserWindow {
     // without a manual toggle. Never in a packaged build.
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) win.webContents.openDevTools({ mode: 'right' });
   });
+
+  // Surface renderer crashes and hangs in the terminal. These are event-driven
+  // and near-free, unlike forwarding every console message (which crossed the
+  // process boundary on every log and amplified any render churn).
+  win.on('unresponsive', () =>
+    console.error('[main] ⚠ window UNRESPONSIVE — the renderer main thread is blocked'),
+  );
+  win.on('responsive', () => console.log('[main] window responsive again'));
+  win.webContents.on('render-process-gone', (_event, details) =>
+    console.error('[main] ⚠ render-process-gone', details),
+  );
 
   // Keep the renderer's window-control state in sync with the real window.
   const pushMaximized = () => win.webContents.send('window:maximizeChanged', win.isMaximized());
@@ -193,6 +212,14 @@ app.on('web-contents-created', (_event, contents) => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// A second launch was refused by the single-instance lock; bring the running
+// window forward so the click that tried to open a new instance still lands.
+app.on('second-instance', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
 });
 
 // Temporary streamed copies do not outlive the run that fetched them; nor do

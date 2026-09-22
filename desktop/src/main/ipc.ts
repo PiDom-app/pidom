@@ -7,7 +7,13 @@ import {
   shell,
   type IpcMainInvokeEvent,
 } from 'electron';
-import { IPC, type EditAction, type ReaderOpenRequest, type ZoomAction } from '../shared/ipc';
+import {
+  IPC,
+  type EditAction,
+  type LocalDocumentStatus,
+  type ReaderOpenRequest,
+  type ZoomAction,
+} from '../shared/ipc';
 import { SessionManager } from './auth/oauth';
 import { userVersion } from './db';
 import { closeDocument, fetchText, openDocument } from './reader';
@@ -79,9 +85,24 @@ export function registerIpc(
   });
 
   // Push local-storage changes (a download advancing, a file removed) so the
-  // Downloads screen and Storage settings track the main process live.
+  // Downloads screen and Storage settings track the main process live. Coalesced
+  // on a short trailing timer, keyed by document, so a burst of rapid updates
+  // (or any future high-frequency emitter) collapses to one send per document
+  // instead of flooding the renderer. Each status is a full snapshot, so keeping
+  // only the latest per document loses nothing.
+  const pendingStorage = new Map<string, LocalDocumentStatus>();
+  let storageFlush: ReturnType<typeof setTimeout> | null = null;
+  const flushStorage = () => {
+    storageFlush = null;
+    const win = opts.getWindow();
+    const batch = [...pendingStorage.values()];
+    pendingStorage.clear();
+    if (!win) return;
+    for (const status of batch) win.webContents.send(IPC.storageChanged, status);
+  };
   storage.onChange((status) => {
-    opts.getWindow()?.webContents.send(IPC.storageChanged, status);
+    pendingStorage.set(status.documentId, status);
+    if (!storageFlush) storageFlush = setTimeout(flushStorage, 150);
   });
 
   // Push library-migration progress so the Move dialog can show live steps.

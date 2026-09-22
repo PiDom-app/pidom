@@ -62,7 +62,11 @@ function OnThisDeviceSection() {
 
   useEffect(() => {
     let cancelled = false;
-    const refresh = () => void window.pidom.storage.usage().then((u) => !cancelled && setLocal(u));
+    const refresh = () =>
+      void window.pidom.storage
+        .usage()
+        .then((u) => !cancelled && setLocal(u))
+        .catch((error) => console.error('storage.usage failed', error));
     refresh();
     // A download finishing or a copy removed changes the totals; follow the same
     // push channel the Downloads screen does so the numbers stay live.
