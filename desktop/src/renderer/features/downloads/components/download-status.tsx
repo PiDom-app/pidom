@@ -1,9 +1,10 @@
 import { Download } from 'lucide-react';
-import { ProgressLine } from '@/features/library/components/progress-line';
 import { formatBytes } from '@/lib/format';
 import { buttonGhostClass } from '@/lib/ui';
 import { cn } from '@/lib/utils';
+import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
 import type { LocalDocumentStatus, LocalFileState } from '../../../../shared/ipc';
+import { DownloadProgress } from './download-progress';
 
 /** A short reader-facing reason for a failed download, from the main-process code. */
 const FAILURE_REASON: Record<string, string> = {
@@ -48,18 +49,32 @@ export function DownloadStatus({
   onDownload: () => void;
 }) {
   const state: LocalFileState = status?.state ?? 'none';
+  const { downloadAnimation } = useDesktopSettings();
 
   if (state === 'downloading') {
     const received = status?.receivedBytes ?? 0;
     const total = status?.totalBytes ?? null;
     const fraction = total && total > 0 ? received / total : 0;
+    const meta = (
+      <span className="text-xs tabular-nums text-fg-muted">
+        Downloading · {formatBytes(received)}
+        {total ? ` of ${formatBytes(total)}` : ''}
+      </span>
+    );
+    // The ring reads as a compact circular gauge beside the label; the linear
+    // styles stack above it, matching the sign-off mockup.
+    if (downloadAnimation === 'ring') {
+      return (
+        <div className="flex w-full max-w-56 items-center gap-3">
+          <DownloadProgress style="ring" progress={fraction} />
+          {meta}
+        </div>
+      );
+    }
     return (
       <div className="flex w-full max-w-56 flex-col gap-1">
-        <ProgressLine progress={fraction} />
-        <span className="text-xs tabular-nums text-fg-muted">
-          Downloading · {formatBytes(received)}
-          {total ? ` of ${formatBytes(total)}` : ''}
-        </span>
+        <DownloadProgress style={downloadAnimation} progress={fraction} />
+        {meta}
       </div>
     );
   }

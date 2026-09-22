@@ -51,7 +51,13 @@ export const IPC = {
   storageClearCache: 'storage:clearCache',
   storageVerify: 'storage:verify',
   storageReveal: 'storage:reveal',
+  storageCopyPath: 'storage:copyPath',
+  // Library location: pick a folder with the OS dialog, then migrate the whole
+  // document tree to it (validate → copy → verify → switch → clean up).
+  storageChooseFolder: 'storage:chooseFolder',
+  storageMoveLibrary: 'storage:moveLibrary',
   storageChanged: 'storage:changed', // main → renderer push
+  storageMigrationChanged: 'storage:migrationChanged', // main → renderer push
 } as const;
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -122,6 +128,42 @@ export interface LocalDocumentStatus {
   error: string | null;
 }
 
+/** The phases of a library-location migration, reported as it runs. `copying`
+ *  and `verifying` carry progress; the rest are transitions. */
+export type MigrationPhase =
+  | 'idle'
+  | 'validating'
+  | 'copying'
+  | 'verifying'
+  | 'switching'
+  | 'cleaning'
+  | 'done'
+  | 'failed';
+
+/** Live migration progress pushed to the renderer while a move runs. */
+export interface MigrationStatus {
+  phase: MigrationPhase;
+  /** Documents copied/verified so far and in total, when the phase carries them. */
+  done: number;
+  total: number;
+  /** Bytes copied so far, for a byte-level readout. */
+  copiedBytes: number;
+  totalBytes: number;
+  /** The destination root being moved to, for display. */
+  destination: string | null;
+  /** A short non-sensitive reason code when `phase` is `failed`. */
+  error: string | null;
+}
+
+/** The outcome of a completed (or rejected) migration request. */
+export interface MigrationResult {
+  ok: boolean;
+  /** The active library root after the request — new on success, unchanged on failure. */
+  libraryPath: string | null;
+  /** A short reason code when `ok` is false. */
+  error: string | null;
+}
+
 /** What this computer is holding locally, for the Storage settings surface. */
 export interface StorageUsage {
   /** Documents with an `available` local copy. */
@@ -132,8 +174,10 @@ export interface StorageUsage {
   cacheBytes: number;
   /** Free space on the volume holding the library, or null if unknown. */
   freeBytes: number | null;
-  /** The managed library root, shown read-only this phase. */
+  /** The active managed library root on this computer. */
   libraryPath: string | null;
+  /** True when the library sits at a custom, user-chosen root (not the default). */
+  isCustomLocation: boolean;
 }
 
 /** The surface exposed on `window.pidom` by the preload bridge. */
@@ -207,8 +251,21 @@ export interface PidomBridge {
     verify(documentId: string): Promise<LocalDocumentStatus>;
     /** Reveals the library directory in the OS file manager. */
     reveal(): Promise<void>;
+    /** Copies the library path to the clipboard (done in main; the renderer has none). */
+    copyPath(): Promise<void>;
+    /** Opens the OS folder picker; returns the chosen absolute path, or null if cancelled. */
+    chooseFolder(): Promise<string | null>;
+    /**
+     * Migrates the whole document library to `destination`: validates it, copies
+     * and verifies every file there, switches the active root, then removes the
+     * old copies. Reading stays available throughout. Progress arrives on
+     * `onMigration`; this resolves with the final outcome.
+     */
+    moveLibrary(destination: string): Promise<MigrationResult>;
     /** Subscribe to local-status changes; returns an unsubscribe function. */
     onChange(listener: (status: LocalDocumentStatus) => void): () => void;
+    /** Subscribe to migration progress; returns an unsubscribe function. */
+    onMigration(listener: (status: MigrationStatus) => void): () => void;
   };
   platform: {
     os: NodeJS.Platform;

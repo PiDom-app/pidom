@@ -104,3 +104,19 @@ export const downloadJobs = sqliteTable(
 );
 
 export type DownloadJobRow = typeof downloadJobs.$inferSelect;
+
+/**
+ * A tiny per-account key/value store for main-process settings that are about
+ * *this machine* rather than the account — chiefly the chosen library root when
+ * the reader moves it off the default location. Not secrets (those go through
+ * `safeStorage`), just local paths and flags. Keyed by `accountKey`+`key` so two
+ * accounts on one computer never read each other's location.
+ */
+export const localSettings = sqliteTable('local_settings', {
+  /** `${accountKey}:${key}` — the account-scoped setting name. */
+  id: text('id').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: integer('updated_at').notNull().default(0),
+});
+
+export type LocalSettingRow = typeof localSettings.$inferSelect;

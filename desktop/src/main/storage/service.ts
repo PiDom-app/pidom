@@ -1,25 +1,39 @@
-import { net } from 'electron';
+import { BrowserWindow, clipboard, dialog, net } from 'electron';
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readdir, rename, rm, stat, statfs } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, rename, rm, stat, statfs } from 'node:fs/promises';
 import { once } from 'node:events';
 import { join } from 'node:path';
 import PQueue from 'p-queue';
 import { eq } from 'drizzle-orm';
 
 import { CLOUD_BYTE_MAX } from '@convex-model/limits';
-import type { LocalDocumentStatus, LocalFileState, StorageUsage } from '../../shared/ipc';
+import type {
+  LocalDocumentStatus,
+  LocalFileState,
+  MigrationResult,
+  MigrationStatus,
+  StorageUsage,
+} from '../../shared/ipc';
 import { getDb } from '../db';
 import {
   downloadJobs,
   localFiles,
+  localSettings,
   type DownloadJobState,
   type LocalFileRow,
   type LocalFileState as DbFileState,
 } from '../db/schema';
 import type { SessionManager } from '../auth/oauth';
 import { StorageConvex } from './convex-client';
-import { documentPath, ensureLibraryPaths, isSafeDocumentId, type LibraryPaths } from './paths';
+import {
+  accountKey,
+  documentPath,
+  ensureLibraryPaths,
+  isSafeDocumentId,
+  validateDestinationBase,
+  type LibraryPaths,
+} from './paths';
 
 /**
  * The local document manager.
@@ -46,14 +60,27 @@ const FETCH_TIMEOUT_MS = 120_000;
 /** Notified after any state change, so IPC can push it to the renderer. */
 type ChangeListener = (status: LocalDocumentStatus) => void;
 
+/** Notified as a library migration advances, so IPC can push progress out. */
+type MigrationListener = (status: MigrationStatus) => void;
+
+/** The per-account setting key holding a chosen custom base directory. Absent
+ *  means the library lives at the default userData base. */
+const LIBRARY_BASE_KEY = 'libraryBase';
+
 export class StorageService {
   private readonly session: SessionManager;
   private readonly convex: StorageConvex;
   private readonly listeners = new Set<ChangeListener>();
+  private readonly migrationListeners = new Set<MigrationListener>();
   /** One queue per document id: conflicting operations on a file serialize. */
   private readonly queues = new Map<string, PQueue>();
   private paths: LibraryPaths | null = null;
   private subject: string | null = null;
+  /** The custom base for the resolved `paths`, or null when at the default. */
+  private customBase: string | null = null;
+  /** True while a library move runs. File operations refuse to start meanwhile
+   *  so nothing writes into a tree that is being copied out from under it. */
+  private migrating = false;
 
   constructor(session: SessionManager) {
     this.session = session;
@@ -65,19 +92,67 @@ export class StorageService {
     return () => this.listeners.delete(listener);
   }
 
+  onMigration(listener: MigrationListener): () => void {
+    this.migrationListeners.add(listener);
+    return () => this.migrationListeners.delete(listener);
+  }
+
   private emit(status: LocalDocumentStatus): void {
     for (const listener of this.listeners) listener(status);
   }
 
-  /** Resolves the managed library tree for the signed-in account, creating it
-   *  once. The account key comes from the verified token's subject. */
-  private async ensurePaths(): Promise<LibraryPaths> {
+  private emitMigration(status: MigrationStatus): void {
+    for (const listener of this.migrationListeners) listener(status);
+  }
+
+  /** The signed-in account's verified subject, or throws. */
+  private requireSubject(): string {
     const subject = this.session.getState().profile?.subject ?? null;
     if (!subject) throw new Error('Not signed in.');
-    // A different account gets a different tree; re-resolve on a subject change.
-    if (this.paths && this.subject === subject) return this.paths;
-    this.paths = await ensureLibraryPaths(subject);
+    return subject;
+  }
+
+  /** The account-scoped id for a local setting row. */
+  private settingId(subject: string, key: string): string {
+    return `${accountKey(subject)}:${key}`;
+  }
+
+  /** Reads this account's chosen custom base directory, or null for the default.
+   *  Non-secret (a plain local path), so it lives in SQLite, not `safeStorage`. */
+  private readCustomBase(subject: string): string | null {
+    const db = getDb();
+    const row = db
+      .select()
+      .from(localSettings)
+      .where(eq(localSettings.id, this.settingId(subject, LIBRARY_BASE_KEY)))
+      .get();
+    return row?.value ?? null;
+  }
+
+  private writeCustomBase(subject: string, base: string | null): void {
+    const db = getDb();
+    const id = this.settingId(subject, LIBRARY_BASE_KEY);
+    if (base === null) {
+      db.delete(localSettings).where(eq(localSettings.id, id)).run();
+      return;
+    }
+    db.insert(localSettings)
+      .values({ id, value: base, updatedAt: Date.now() })
+      .onConflictDoUpdate({ target: localSettings.id, set: { value: base, updatedAt: Date.now() } })
+      .run();
+  }
+
+  /** Resolves the managed library tree for the signed-in account, creating it
+   *  once. Honours a chosen custom base; the account key comes from the verified
+   *  token's subject, so a different account never lands in the same tree. */
+  private async ensurePaths(): Promise<LibraryPaths> {
+    const subject = this.requireSubject();
+    const base = this.readCustomBase(subject);
+    // Re-resolve on a subject change or after a migration moved the base.
+    if (this.paths && this.subject === subject && this.customBase === base) return this.paths;
+    this.paths = await ensureLibraryPaths(subject, base ?? undefined);
     this.subject = subject;
+    this.customBase = base;
     return this.paths;
   }
 
@@ -87,12 +162,17 @@ export class StorageService {
     const subject = this.session.getState().profile?.subject ?? null;
     if (!subject) return;
     try {
-      const paths = await ensureLibraryPaths(subject);
+      const paths = await this.ensurePaths();
       await rm(paths.tmp, { recursive: true, force: true });
       await mkdir(paths.tmp, { recursive: true, mode: 0o700 });
     } catch {
       /* best effort — a missing tmp dir is the desired end state anyway */
     }
+  }
+
+  /** Refuses a file operation while a library move is in flight. */
+  private assertNotMigrating(): void {
+    if (this.migrating) throw new Error('storage busy: library move in progress');
   }
 
   private queueFor(documentId: string): PQueue {
@@ -157,6 +237,7 @@ export class StorageService {
    *  `available` copy is returned as-is without re-fetching. */
   async download(documentId: string): Promise<LocalDocumentStatus> {
     if (!isSafeDocumentId(documentId)) throw new Error('storage rejected: bad document id');
+    this.assertNotMigrating();
     return this.queueFor(documentId).add(() =>
       this.runDownload(documentId),
     ) as Promise<LocalDocumentStatus>;
@@ -317,6 +398,7 @@ export class StorageService {
   /** Deletes the local copy and its records. The account keeps the document. */
   async remove(documentId: string): Promise<LocalDocumentStatus> {
     if (!isSafeDocumentId(documentId)) throw new Error('storage rejected: bad document id');
+    this.assertNotMigrating();
     return this.queueFor(documentId).add(async () => {
       const db = getDb();
       const row = db.select().from(localFiles).where(eq(localFiles.documentId, documentId)).get();
@@ -333,6 +415,7 @@ export class StorageService {
    *  if the bytes no longer match what was recorded. */
   async verify(documentId: string): Promise<LocalDocumentStatus> {
     if (!isSafeDocumentId(documentId)) throw new Error('storage rejected: bad document id');
+    this.assertNotMigrating();
     return this.queueFor(documentId).add(async () => {
       const db = getDb();
       const row = db.select().from(localFiles).where(eq(localFiles.documentId, documentId)).get();
@@ -383,11 +466,13 @@ export class StorageService {
       cacheBytes,
       freeBytes,
       libraryPath: paths.root,
+      isCustomLocation: this.customBase !== null,
     };
   }
 
   /** Deletes only the regenerable `cache/` tree. Documents are never touched. */
   async clearCache(): Promise<StorageUsage> {
+    this.assertNotMigrating();
     const paths = await this.ensurePaths();
     await rm(paths.cache, { recursive: true, force: true });
     await mkdir(paths.cache, { recursive: true, mode: 0o700 });
@@ -398,6 +483,159 @@ export class StorageService {
   async libraryRoot(): Promise<string> {
     const paths = await this.ensurePaths();
     return paths.documents;
+  }
+
+  /** Copies the active library root to the clipboard. The renderer is sandboxed
+   *  and has no clipboard access to a path it is never told, so main does it. */
+  async copyPath(): Promise<void> {
+    const paths = await this.ensurePaths();
+    clipboard.writeText(paths.root);
+  }
+
+  /** Opens the OS folder picker and returns the chosen absolute path, or null if
+   *  the reader cancelled. This only asks the OS for a path — the value is still
+   *  validated in `moveLibrary` before anything is written. */
+  async chooseFolder(): Promise<string | null> {
+    const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+    const result = parent
+      ? await dialog.showOpenDialog(parent, {
+          title: 'Choose a folder for your Pidom library',
+          properties: ['openDirectory', 'createDirectory'],
+        })
+      : await dialog.showOpenDialog({
+          title: 'Choose a folder for your Pidom library',
+          properties: ['openDirectory', 'createDirectory'],
+        });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  }
+
+  /**
+   * Moves the whole document library to a new base directory.
+   *
+   * The move is atomic in effect: every file is copied and re-hashed at the
+   * destination first, and the active root only switches once all of them match.
+   * On any failure the old library stays the source of truth and the partial
+   * copy is removed, so the reader never loses a document to a failed move.
+   * Progress is pushed on `onMigration`; this resolves with the final outcome.
+   */
+  async moveLibrary(destination: string): Promise<MigrationResult> {
+    if (this.migrating) return { ok: false, libraryPath: null, error: 'busy' };
+    this.migrating = true;
+    let totalBytes = 0;
+    let copiedBytes = 0;
+    let switched = false;
+    let target: LibraryPaths | null = null;
+    const report = (
+      phase: MigrationStatus['phase'],
+      done: number,
+      total: number,
+      error: string | null = null,
+    ) => this.emitMigration({ phase, done, total, copiedBytes, totalBytes, destination, error });
+
+    try {
+      const subject = this.requireSubject();
+      const source = await this.ensurePaths();
+
+      report('validating', 0, 0);
+      const base = await validateDestinationBase(destination, source.root);
+      target = await ensureLibraryPaths(subject, base);
+
+      const db = getDb();
+      const rows = db
+        .select()
+        .from(localFiles)
+        .all()
+        .filter((row): row is LocalFileRow & { path: string } => Boolean(row.path));
+
+      // Only files that actually exist can be copied; a `missing`/`failed` row
+      // has nothing on disk to move and is repathed (still absent) at the switch.
+      const present: Array<{ documentId: string; from: string; to: string; bytes: number }> = [];
+      for (const row of rows) {
+        const info = await stat(row.path).catch(() => null);
+        if (!info?.isFile()) continue;
+        present.push({
+          documentId: row.documentId,
+          from: row.path,
+          to: documentPath(target, row.documentId),
+          bytes: info.size,
+        });
+        totalBytes += info.size;
+      }
+
+      // Refuse if the destination volume cannot hold the library, before copying.
+      const free = await freeSpace(target.root);
+      if (free !== null && free < totalBytes) throw new Error('not enough space');
+
+      report('copying', 0, present.length);
+      for (let i = 0; i < present.length; i += 1) {
+        const item = present[i];
+        // Stage into the destination's own tmp so the rename into `documents/` is
+        // a same-volume atomic move, never a cross-device half-write.
+        const staged = join(target.tmp, `${item.documentId}-${Date.now()}.part`);
+        await copyFile(item.from, staged);
+        await rename(staged, item.to);
+        copiedBytes += item.bytes;
+        report('copying', i + 1, present.length);
+      }
+
+      report('verifying', 0, present.length);
+      for (let i = 0; i < present.length; i += 1) {
+        const item = present[i];
+        const row = rows.find((r) => r.documentId === item.documentId);
+        const digest = await hashFile(item.to);
+        if (row?.hash && digest !== row.hash) throw new Error('verify mismatch');
+        report('verifying', i + 1, present.length);
+      }
+
+      // Switch the active root: persist the new base, repath every row in one
+      // transaction, then re-resolve paths so subsequent reads use the new tree.
+      report('switching', present.length, present.length);
+      const copied = new Set(present.map((p) => p.documentId));
+      const targetPaths = target;
+      db.transaction((tx) => {
+        this.writeCustomBase(subject, base);
+        for (const row of rows) {
+          if (copied.has(row.documentId)) {
+            tx.update(localFiles)
+              .set({ path: documentPath(targetPaths, row.documentId), updatedAt: Date.now() })
+              .where(eq(localFiles.documentId, row.documentId))
+              .run();
+          } else {
+            // Its bytes were never here to move; mark it plainly missing.
+            tx.update(localFiles)
+              .set({ path: null, state: 'missing', updatedAt: Date.now() })
+              .where(eq(localFiles.documentId, row.documentId))
+              .run();
+          }
+        }
+      });
+      switched = true;
+      // Force ensurePaths to pick up the new base on its next call.
+      this.paths = null;
+      this.subject = null;
+      const moved = await this.ensurePaths();
+
+      // Remove the old tree. A failure here is cosmetic — the library already
+      // lives at, and is served from, the new root.
+      report('cleaning', present.length, present.length);
+      await rm(source.root, { recursive: true, force: true }).catch(() => {});
+
+      report('done', present.length, present.length);
+      for (const item of present) this.emit(this.status(item.documentId));
+      return { ok: true, libraryPath: moved.root, error: null };
+    } catch (error) {
+      const code = migrationErrorCode(error);
+      report('failed', 0, 0, code);
+      // Best-effort removal of the partial destination copy — but only if the
+      // switch never happened. Once switched, `target` IS the live library.
+      if (!switched && target) {
+        await rm(target.root, { recursive: true, force: true }).catch(() => {});
+      }
+      return { ok: false, libraryPath: null, error: code };
+    } finally {
+      this.migrating = false;
+    }
   }
 }
 
@@ -465,4 +703,21 @@ function errorCode(error: unknown): string {
   if (message.startsWith('server ')) return 'server-error';
   if (error instanceof Error && error.name === 'AbortError') return 'timeout';
   return 'download-failed';
+}
+
+/** A short, non-sensitive code for a migration failure. Maps the guard errors
+ *  from `validateDestinationBase` and the copy/verify steps to stable codes the
+ *  renderer turns into a message — a raw path or error string never leaves. */
+function migrationErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('not an absolute path')) return 'bad-path';
+  if (message.includes('does not exist')) return 'missing-folder';
+  if (message.includes('not a directory')) return 'not-a-directory';
+  if (message.includes('inside app data')) return 'inside-app-data';
+  if (message.includes('inside a Pidom library')) return 'inside-library';
+  if (message.includes('same as current')) return 'same-location';
+  if (message.includes('not enough space')) return 'no-space';
+  if (message.includes('verify mismatch')) return 'verify-failed';
+  if (message.includes('Not signed in')) return 'signed-out';
+  return 'move-failed';
 }

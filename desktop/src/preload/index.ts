@@ -4,6 +4,7 @@ import {
   type AuthState,
   type EditAction,
   type LocalDocumentStatus,
+  type MigrationStatus,
   type PidomBridge,
   type ReaderOpenRequest,
   type ZoomAction,
@@ -69,10 +70,18 @@ const bridge: PidomBridge = {
     clearCache: () => ipcRenderer.invoke(IPC.storageClearCache),
     verify: (documentId: string) => ipcRenderer.invoke(IPC.storageVerify, documentId),
     reveal: () => ipcRenderer.invoke(IPC.storageReveal),
+    copyPath: () => ipcRenderer.invoke(IPC.storageCopyPath),
+    chooseFolder: () => ipcRenderer.invoke(IPC.storageChooseFolder),
+    moveLibrary: (destination: string) => ipcRenderer.invoke(IPC.storageMoveLibrary, destination),
     onChange: (listener: (status: LocalDocumentStatus) => void) => {
       const handler = (_event: unknown, status: LocalDocumentStatus) => listener(status);
       ipcRenderer.on(IPC.storageChanged, handler);
       return () => ipcRenderer.removeListener(IPC.storageChanged, handler);
+    },
+    onMigration: (listener: (status: MigrationStatus) => void) => {
+      const handler = (_event: unknown, status: MigrationStatus) => listener(status);
+      ipcRenderer.on(IPC.storageMigrationChanged, handler);
+      return () => ipcRenderer.removeListener(IPC.storageMigrationChanged, handler);
     },
   },
   platform: {

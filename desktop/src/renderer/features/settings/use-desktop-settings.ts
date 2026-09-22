@@ -41,6 +41,10 @@ export type PageNavigation = 'continuous' | 'snap';
 /** A comfort wash laid over the page, independent of the document background. */
 export type ReaderTint = 'none' | 'warm' | 'dim';
 
+/** How an in-progress download reads in the Downloads list. Every style is
+ *  determinate; `bar` is the minimal default. Reduce-motion flattens them all. */
+export type DownloadAnimation = 'bar' | 'comet' | 'ring' | 'stripes';
+
 export interface ReaderPreferences {
   defaultViewMode: ReaderViewMode;
   pageScaling: PageScaling;
@@ -84,6 +88,8 @@ export interface DesktopSettings {
    */
   readerTint: ReaderTint;
   keepAwake: boolean;
+  /** Which download animation the Downloads list uses. Per-device, like the rest. */
+  downloadAnimation: DownloadAnimation;
 }
 
 const STORAGE_KEY = 'pidom.desktop.settings';
@@ -99,6 +105,7 @@ const DEFAULTS: DesktopSettings = {
   reader: READER_DEFAULTS,
   readerTint: 'none',
   keepAwake: false,
+  downloadAnimation: 'bar',
 };
 
 function load(): DesktopSettings {
@@ -155,6 +162,7 @@ export const desktopSettings = {
   setLibraryView: (libraryView: 'grid' | 'list') => patch({ libraryView }),
   setReaderTint: (readerTint: ReaderTint) => patch({ readerTint }),
   setKeepAwake: (keepAwake: boolean) => patch({ keepAwake }),
+  setDownloadAnimation: (downloadAnimation: DownloadAnimation) => patch({ downloadAnimation }),
   setShortcut: (id: ShortcutId, chord: string) =>
     patch({ shortcuts: { ...state.shortcuts, [id]: chord } }),
   resetShortcuts: () => patch({ shortcuts: DEFAULT_SHORTCUTS }),

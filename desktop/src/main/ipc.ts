@@ -84,6 +84,11 @@ export function registerIpc(
     opts.getWindow()?.webContents.send(IPC.storageChanged, status);
   });
 
+  // Push library-migration progress so the Move dialog can show live steps.
+  storage.onMigration((status) => {
+    opts.getWindow()?.webContents.send(IPC.storageMigrationChanged, status);
+  });
+
   ipcMain.handle(
     IPC.authSignIn,
     guard(() => session.signIn()),
@@ -257,6 +262,18 @@ export function registerIpc(
       const root = await storage.libraryRoot();
       shell.showItemInFolder(root);
     }),
+  );
+  ipcMain.handle(
+    IPC.storageCopyPath,
+    guard(() => storage.copyPath()),
+  );
+  ipcMain.handle(
+    IPC.storageChooseFolder,
+    guard(() => storage.chooseFolder()),
+  );
+  ipcMain.handle(
+    IPC.storageMoveLibrary,
+    guard((_event, destination: string) => storage.moveLibrary(destination)),
   );
 
   // ─── Keep the display awake while reading ────────────────────────────────────

@@ -66,6 +66,12 @@ function migrateUp(database: Database.Database): void {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS download_jobs_by_state ON download_jobs (state);
+
+    CREATE TABLE IF NOT EXISTS local_settings (
+      id TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
   `);
 }
 
