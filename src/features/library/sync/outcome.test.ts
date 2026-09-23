@@ -78,6 +78,16 @@ describe('the codes this backend throws', () => {
     expect(classify(forbidden, 'update', 0).kind).toBe('done');
   });
 
+  test('FORBIDDEN on a share create is surfaced, not dropped', () => {
+    const forbidden = new ConvexError({ code: 'FORBIDDEN' });
+    // A refused direct share means the recipient is not accepting it or the
+    // sender lost permission — the sender must be told, unlike an orphaned note.
+    expect(classify(forbidden, 'create', 0, 'share').kind).toBe('failed');
+    // A non-share create with no parent still drops silently.
+    expect(classify(forbidden, 'create', 0, 'annotation').kind).toBe('dropped');
+    expect(classify(forbidden, 'create', 0).kind).toBe('dropped');
+  });
+
   test('a lapsed token waits without spending an attempt', () => {
     for (const code of ['UNAUTHENTICATED', 'NO_PROFILE'] as const) {
       const outcome = classify(new ConvexError({ code }), 'update', 3);

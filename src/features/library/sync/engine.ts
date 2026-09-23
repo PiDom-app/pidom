@@ -117,7 +117,7 @@ export async function drain(sender: Sender, profileId: string): Promise<DrainRes
         result.deferred += 1;
         continue;
       }
-      outcome = classify(error, operation.op, operation.attempts);
+      outcome = classify(error, operation.op, operation.attempts, operation.entity);
     }
 
     if (outcome.kind === 'retry') {

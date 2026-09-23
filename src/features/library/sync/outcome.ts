@@ -31,7 +31,7 @@
  * queue that is behaving exactly as intended.
  */
 import { codeOf, isMalformedRequest, retryAfterOf } from '../data/errors';
-import type { QueueOp } from '../local/repository/queue';
+import type { QueueEntity, QueueOp } from '../local/repository/queue';
 
 export type Outcome =
   /** Done. Leave the queue. */
@@ -74,7 +74,12 @@ export function backoffFor(attempts: number): number {
 /** How many times an operation is retried before it is put in front of a person. */
 export const MAX_ATTEMPTS = 8;
 
-export function classify(error: unknown, op: QueueOp, attempts: number): Outcome {
+export function classify(
+  error: unknown,
+  op: QueueOp,
+  attempts: number,
+  entity?: QueueEntity,
+): Outcome {
   const code = codeOf(error);
 
   if (isMalformedRequest(error)) {
@@ -105,10 +110,26 @@ export function classify(error: unknown, op: QueueOp, attempts: number): Outcome
     // is about the parent: the document this note or bookmark hangs off was
     // deleted somewhere else. The local row goes with it.
     //
+    // A share is the exception. A refused share create is not a vanished
+    // parent — it is the account on the other end declining, either because
+    // the recipient is not accepting shares (their "who can share with me"
+    // setting) or because this account no longer has the right to share the
+    // document. Dropping it silently would tell the sender it went through
+    // when it did not; this must be surfaced instead.
+    if (op === 'create') {
+      if (entity === 'share') {
+        return {
+          kind: 'failed',
+          reason:
+            'This could not be shared. The person may not be accepting shares, or you no longer have permission to share it.',
+        };
+      }
+      return { kind: 'dropped' };
+    }
     // On an update or a remove it means the row itself is not there, which is
     // what the operation wanted in the second case and cannot be helped in the
     // first.
-    return op === 'create' ? { kind: 'dropped' } : { kind: 'done' };
+    return { kind: 'done' };
   }
 
   if (code === 'INVALID') {
