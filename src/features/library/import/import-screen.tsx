@@ -1,11 +1,20 @@
 import { Paths } from 'expo-file-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CloudUpload, Copy, FileX, HardDrive, Info, Lock, Smartphone } from 'lucide-react-native';
+import {
+  CloudUpload,
+  Copy,
+  FilePlus2,
+  FileX,
+  HardDrive,
+  Info,
+  Lock,
+  Smartphone,
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef } from 'react';
 
 import { Screen } from '@/components/layout/screen';
 import { Box } from '@/components/ui/box';
-import { Button, ButtonSpinner, ButtonText } from '@/components/ui/button';
+import { Button, ButtonIcon, ButtonSpinner, ButtonText } from '@/components/ui/button';
 import { Center } from '@/components/ui/center';
 import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
@@ -70,11 +79,12 @@ export function ImportScreen() {
   /**
    * Where the file comes from.
    *
-   * With no parameters the picker opens as soon as the screen does — a screen
-   * whose only content is a button that opens the picker is a screen with
-   * nothing on it. With an `incoming` path another app has already chosen one,
-   * and opening the picker over it would ask the reader to choose a file they
-   * have just finished choosing.
+   * With no parameters the reader is shown a screen with a button, and the
+   * picker opens only when they ask for it — jumping straight to the system
+   * file browser over a screen they never saw reads as the app losing its
+   * place. With an `incoming` path another app has already chosen a file, so it
+   * is adopted at once: opening the picker over it would ask the reader to
+   * choose a file they have just finished choosing.
    */
   const { incoming, incomingName } = useLocalSearchParams<{
     incoming?: string;
@@ -87,12 +97,10 @@ export function ImportScreen() {
       return;
     }
     openedRef.current = true;
-    if (incoming === undefined) {
-      void picking();
-    } else {
+    if (incoming !== undefined) {
       adopt(incoming, incomingName ?? null);
     }
-  }, [picking, adopt, incoming, incomingName]);
+  }, [adopt, incoming, incomingName]);
 
   /**
    * Leaving this screen, however it ends.
@@ -138,6 +146,16 @@ export function ImportScreen() {
         onChoose={() => void picking()}
         onCancel={leave}
       />
+    );
+  }
+
+  // A reader who tapped "Import PDF" lands here, not in the system file
+  // browser. The picker opens only when they choose it, never over a screen
+  // they have not seen. A file handed over by another app skips this:
+  // `incoming` means the choosing is already done.
+  if (incoming === undefined && (stage === 'idle' || stage === 'picking')) {
+    return (
+      <ChooseFile picking={stage === 'picking'} onChoose={() => void picking()} onCancel={leave} />
     );
   }
 
@@ -284,6 +302,50 @@ function metaFor(picked: { byteSize: number; pageCount: number | null; outline: 
   }
   const contents = picked.outline.length === 0 ? '' : ` · ${picked.outline.length} in contents`;
   return `PDF · ${formatBytes(picked.byteSize)} · ${picked.pageCount} pages${contents}`;
+}
+
+/**
+ * The import screen before a file has been chosen.
+ *
+ * The picker is opened from here rather than on mount, so tapping "Import PDF"
+ * lands on a screen the reader recognises instead of throwing them straight
+ * into the system file browser. `picking` is true while the sheet is open, so
+ * a second tap cannot raise a second one.
+ */
+function ChooseFile({
+  picking,
+  onChoose,
+  onCancel,
+}: {
+  picking: boolean;
+  onChoose: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Screen edges={['top', 'bottom']}>
+      <VStack className="flex-1">
+        <ImportHeader onCancel={onCancel} disabled={picking} />
+
+        <Center className="flex-1 px-10">
+          <Icon as={FilePlus2} size="xl" className="text-fg-subtle" />
+          <Heading size="lg" className="mt-5 text-center text-foreground">
+            Import a PDF
+          </Heading>
+          <Text size="sm" className="mt-2 text-center text-fg-muted">
+            Choose a PDF from this device. It stays here — readable with no connection — and you can
+            add a title before it lands in your library.
+          </Text>
+        </Center>
+
+        <Box className="px-4 pb-6">
+          <Button size="lg" className="h-12" onPress={onChoose} isDisabled={picking}>
+            {picking ? <ButtonSpinner /> : <ButtonIcon as={FilePlus2} />}
+            <ButtonText>{picking ? 'Opening files…' : 'Choose a file'}</ButtonText>
+          </Button>
+        </Box>
+      </VStack>
+    </Screen>
+  );
 }
 
 /**

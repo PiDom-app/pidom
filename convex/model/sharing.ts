@@ -214,7 +214,7 @@ export type CreateInput = {
 async function withinGroup(
   ctx: MutationCtx,
   groupId: Id<'groups'>,
-  input: CreateInput,
+  input: { role: 'viewer' | 'annotator'; canDownload: boolean; canReshare: boolean },
 ): Promise<{ role: 'viewer' | 'annotator'; canDownload: boolean; canReshare: boolean }> {
   const group = await ctx.db.get('groups', groupId);
   if (group === null) {
@@ -507,10 +507,12 @@ export async function respond(
 /**
  * Changing what somebody may do.
  *
- * Clamped against the granter's own ceiling exactly as a create is, so a
- * resharer cannot widen later what they could not grant at the time. The
- * recipient is told, because a permission quietly narrowing is a feature that
- * stops working for no visible reason.
+ * Clamped against every ceiling a create is: the granter's own grant, the
+ * group's defaults for a group share, and the owner's account-wide switches.
+ * Editing an existing share must not be a way to record a permission the read
+ * and download paths then refuse, or to widen later what could not be granted
+ * at the time. The recipient is told, because a permission quietly narrowing is
+ * a feature that stops working for no visible reason.
  */
 /**
  * An expiry the caller supplied, bounded, or `undefined`.
@@ -551,7 +553,18 @@ export async function changePermission(
 ): Promise<void> {
   const share = await requireAdministrable(ctx, user, shareId);
   const ceiling = await requireResharable(ctx, user, share.documentId);
-  const granted = clampToCeiling(next, ceiling);
+
+  // The same three narrowings `create` applies, in the same order: the group's
+  // ceiling for a group share, then the resharer's own grant, then the owner's
+  // account-wide switches. Editing a share is otherwise a hole straight through
+  // all three — a row could say `canDownload` while `requireDownloadable`
+  // refuses it, or grant `annotator` in a group pinned to `viewer`.
+  const requested = { role: next.role, canDownload: next.canDownload, canReshare: next.canReshare };
+  const capped =
+    share.subject === 'group' && share.groupId !== undefined
+      ? await withinGroup(ctx, share.groupId, requested)
+      : requested;
+  const granted = clampToCeiling(capped, await accountCeiling(ctx, share.ownerId, ceiling));
 
   const expiry =
     next.expiresAt === undefined
@@ -560,6 +573,12 @@ export async function changePermission(
         ? undefined
         : cleanExpiry(next.expiresAt);
   const clearing = next.expiresAt === null && share.expiresAt !== undefined;
+
+  // An account that insists every share ends cannot have its end date taken off
+  // by an edit any more than `create` will let one be made without one.
+  if (clearing && (await sharingOf(ctx, share.ownerId)).requireExpiry === true) {
+    invalid('Your settings require every share to have an end date.');
+  }
 
   if (
     granted.role === share.role &&

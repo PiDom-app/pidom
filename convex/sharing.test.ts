@@ -535,6 +535,33 @@ describe('resharing', () => {
     // Never, for anybody who is not the owner: a reshare cannot itself be reshared.
     expect(share?.canReshare).toBe(false);
   });
+
+  test('stops when the owner turns resharing off account-wide, live', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    await signedIn(t, STRANGER);
+    const documentId = await aSyncedDocument(t, owner);
+    // Granted the right to pass it on while resharing was allowed.
+    await sharedWith(t, owner, friend, documentId, { canReshare: true });
+
+    // The owner then turns resharing off for their account. The recipient's
+    // existing grant must stop working on the next use, the same way
+    // `allowDownloads` stops an existing download — not merely be clamped off
+    // the shares made afterwards.
+    await owner.mutation(api.settings.updateSharing, { allowReshares: false });
+
+    await expect(
+      friend.mutation(api.sharing.createShare, {
+        documentId,
+        subject: 'user',
+        recipientUserId: await userIdOf(t, STRANGER),
+        role: 'viewer',
+        canDownload: false,
+        canReshare: false,
+      }),
+    ).rejects.toThrow();
+  });
 });
 
 /* ── discovery ──────────────────────────────────────────────────────── */
@@ -1707,5 +1734,123 @@ describe('revoking a group share', () => {
     expect((await inboxEntry(friend, (share) => share.document?.id === documentId))?.status).toBe(
       'revoked',
     );
+  });
+});
+
+describe('editing a share respects every ceiling create does', () => {
+  test('clamps download to the account switch, not just at create', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+    // Shared while downloads are allowed, so the grant is honest to begin with.
+    const shareId = await sharedWith(t, owner, friend, documentId, { canDownload: true });
+
+    // The owner turns downloads off account-wide, then edits the share trying
+    // to hand one back. The edit must clamp exactly as a create would.
+    await owner.mutation(api.settings.updateSharing, { allowDownloads: false });
+    await owner.mutation(api.sharing.changePermission, {
+      shareId,
+      role: 'viewer',
+      canDownload: true,
+      canReshare: false,
+    });
+
+    const row = await t.run(async (ctx) => await ctx.db.get('documentShares', shareId));
+    expect(row?.canDownload).toBe(false);
+    await expect(
+      friend.mutation(api.sharing.shareDownloadUrl, { documentId, what: 'document' }),
+    ).rejects.toThrow();
+  });
+
+  test('clamps reshare to the account switch on edit', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+    const shareId = await sharedWith(t, owner, friend, documentId, { canReshare: true });
+
+    await owner.mutation(api.settings.updateSharing, { allowReshares: false });
+    await owner.mutation(api.sharing.changePermission, {
+      shareId,
+      role: 'viewer',
+      canDownload: false,
+      canReshare: true,
+    });
+
+    const row = await t.run(async (ctx) => await ctx.db.get('documentShares', shareId));
+    expect(row?.canReshare).toBe(false);
+  });
+
+  test('clamps role, download and reshare to the group ceiling on edit', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+
+    const groupId = await owner.mutation(api.groups.create, { name: 'Reading group' });
+    await owner.mutation(api.groups.addMember, { groupId, userId: await userIdOf(t, FRIEND) });
+    // A group that never lets a document dropped into it be annotated, copied,
+    // or passed on.
+    await owner.mutation(api.groups.updateSettings, {
+      groupId,
+      defaultRole: 'viewer',
+      defaultCanDownload: false,
+      defaultCanReshare: false,
+    });
+
+    const shareId = await owner.mutation(api.sharing.createShare, {
+      documentId,
+      subject: 'group',
+      groupId,
+      role: 'viewer',
+      canDownload: false,
+      canReshare: false,
+    });
+
+    // Editing asks for everything the group forbids. The group ceiling has to
+    // apply on the edit, not only at the create.
+    await owner.mutation(api.sharing.changePermission, {
+      shareId,
+      role: 'annotator',
+      canDownload: true,
+      canReshare: true,
+    });
+
+    const row = await t.run(async (ctx) => await ctx.db.get('documentShares', shareId));
+    expect(row?.role).toBe('viewer');
+    expect(row?.canDownload).toBe(false);
+    expect(row?.canReshare).toBe(false);
+  });
+
+  test('cannot clear an end date when the account requires one', async () => {
+    const t = harness();
+    const owner = await signedIn(t, OWNER);
+    const friend = await signedIn(t, FRIEND);
+    const documentId = await aSyncedDocument(t, owner);
+
+    const recipientUserId = await userIdOf(t, FRIEND);
+    const shareId = await owner.mutation(api.sharing.createShare, {
+      documentId,
+      subject: 'user',
+      recipientUserId,
+      role: 'viewer',
+      canDownload: false,
+      canReshare: false,
+      expiresAt: Date.now() + 7 * 86_400_000,
+    });
+    await friend.mutation(api.sharing.respondToShare, { shareId, answer: 'accept' });
+
+    await owner.mutation(api.settings.updateSharing, { requireExpiry: true });
+
+    await expect(
+      owner.mutation(api.sharing.changePermission, {
+        shareId,
+        role: 'viewer',
+        canDownload: false,
+        canReshare: false,
+        expiresAt: null,
+      }),
+    ).rejects.toThrow();
   });
 });
