@@ -263,6 +263,22 @@ export async function requireResharable(
   if (!reachable.access.canReshare) {
     refuse();
   }
+
+  /**
+   * And the owner's account-wide switch, live, exactly as `requireDownloadable`
+   * checks `allowDownloads`.
+   *
+   * `accountCeiling` clamps the *new* grant at create time, but that alone
+   * would make `allowReshares` a default with a grander name: a recipient
+   * handed `canReshare` before the owner turned resharing off would go on
+   * passing the document around for ever. Asked here, turning it off narrows the
+   * reshare rights that already exist — which is what somebody means when they
+   * turn it off. It is the owner's setting, not the caller's.
+   */
+  if ((await sharingOf(ctx, reachable.doc.ownerId)).allowReshares === false) {
+    refuse();
+  }
+
   await refuseIfExpired(ctx, reachable.access.share);
   return {
     role: reachable.access.role,
