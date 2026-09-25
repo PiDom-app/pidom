@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
-// Main process. Node built-ins and native modules (better-sqlite3, fast-glob,
-// file-type, the OAuth loopback) run here — never in the renderer.
+// Main process. Node built-ins (node:sqlite, fast-glob, file-type, the OAuth
+// loopback) run here — never in the renderer.
 //
 // `envPrefix` widens what Vite loads from `.env*` into `import.meta.env` for the
 // main bundle only: `GOOGLE_*` desktop OAuth values live here, out of the
@@ -22,12 +22,12 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      // Keep the native addon external so its prebuilt binary is resolved at
-      // runtime rather than bundled.
-      external: ['better-sqlite3'],
+      // Keep `node:sqlite` external so the built-in is required from Electron's
+      // own Node at runtime rather than pulled into the bundle.
+      external: ['node:sqlite'],
       // Both process entries are named index.ts; pin a distinct output so they
       // do not collide in .vite/build. The `.cjs` extension is load-bearing:
-      // this bundle is CommonJS (Node built-ins + the external native addon are
+      // this bundle is CommonJS (Node built-ins, including node:sqlite, are
       // `require`d), but package.json sets "type": "module", so a `.js` file
       // would be loaded as ESM and `require` would be undefined. `.cjs` forces
       // Node/Electron to load it as CommonJS.

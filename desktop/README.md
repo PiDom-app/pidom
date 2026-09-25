@@ -6,7 +6,7 @@ deployment and account**, reuses the **same theme tokens**, and follows the
 
 Built with **Electron Forge + Vite + React + TypeScript**, Radix UI, TanStack
 (Router / Query / Table / Virtual), Convex, and a main-process SQLite cache
-(better-sqlite3 + Drizzle).
+(Node's built-in `node:sqlite` + Drizzle — no native addon to compile).
 
 > Scaffold status: this is the foundation — dependencies, theme, providers,
 > security skeleton, and real desktop Google OAuth. No product features yet.
@@ -17,7 +17,6 @@ Built with **Electron Forge + Vite + React + TypeScript**, Radix UI, TanStack
 ```bash
 cd desktop
 npm install
-npm run rebuild        # rebuild better-sqlite3 against Electron's ABI
 cp .env.example .env.local   # then fill it in
 npm start
 ```
@@ -52,7 +51,6 @@ npx convex env set GOOGLE_DESKTOP_CLIENT_ID <id>.apps.googleusercontent.com
 | --------------------- | --------------------------------------------------------- |
 | `npm start`           | Launch the app in dev (Vite + Electron, HMR).             |
 | `npm run make`        | Build distributables via Electron Forge.                  |
-| `npm run rebuild`     | Rebuild native modules (better-sqlite3) for Electron.     |
 | `npm run routes`      | Regenerate the TanStack Router tree.                      |
 | `npm run db:generate` | Generate Drizzle migrations from `src/main/db/schema.ts`. |
 | `npm run tokens`      | Fail if a colour utility names an undefined theme token.  |
@@ -61,7 +59,7 @@ npx convex env set GOOGLE_DESKTOP_CLIENT_ID <id>.apps.googleusercontent.com
 
 ## Process split
 
-- **Main** (`src/main`) — Node + native: `better-sqlite3`/Drizzle cache, the
+- **Main** (`src/main`) — Node + built-ins: `node:sqlite`/Drizzle cache, the
   Google OAuth loopback + token store, `fast-glob`/`file-type`/`mime-types`, fs.
 - **Preload** (`src/preload`) — the only bridge; exposes a small `window.pidom`
   surface over `contextBridge`.

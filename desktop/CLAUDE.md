@@ -77,7 +77,7 @@ Same Convex Google-OIDC model (`../docs/security.md`). Do not weaken it.
 - **Process split is the sandbox boundary.** The renderer runs with
   `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, and reaches
   the main process only through the small `window.pidom` bridge (`src/preload`).
-  Node-only work — `better-sqlite3`/`drizzle`, `fast-glob`, `file-type`,
+  Node-only work — `node:sqlite`/`drizzle`, `fast-glob`, `file-type`,
   `mime-types`, `fs`, the OAuth loopback — runs in **main**. `pdfjs-dist` renders
   in the renderer.
 - **Treat a document as untrusted input** (validate the `%PDF-` magic, bound page

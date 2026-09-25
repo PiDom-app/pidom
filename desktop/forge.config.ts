@@ -4,22 +4,18 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
-import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    // better-sqlite3 ships a prebuilt .node; asar must unpack native modules so
-    // they can be dlopen'd at runtime (paired with AutoUnpackNativesPlugin).
+    // No native addons remain (the cache uses the built-in node:sqlite), so asar
+    // needs no unpacked binaries — the whole app ships inside the archive.
     asar: true,
   },
   rebuildConfig: {},
   makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
   plugins: [
-    // Rebuilds better-sqlite3 (and any other native dep) against Electron's ABI
-    // and unpacks it from the asar archive so it can be loaded.
-    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       // Three separate Vite builds. `entry`/`config` pair the source with its
       // config; the renderer is named so BrowserWindow can resolve it.

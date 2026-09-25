@@ -1,14 +1,21 @@
 import { app } from 'electron';
-import Database from 'better-sqlite3';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
+import { drizzle } from 'drizzle-orm/node-sqlite';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import * as schema from './schema';
 
 /**
- * The local cache database. Opened once in the main process — better-sqlite3 is
- * a native, synchronous, Node-only module and MUST NOT be imported into the
- * sandboxed renderer. The renderer reaches it only through IPC.
+ * The local cache database. Opened once in the main process — `node:sqlite` is a
+ * Node-only built-in and MUST NOT be imported into the sandboxed renderer. The
+ * renderer reaches it only through IPC.
+ *
+ * We use Node's built-in `node:sqlite` (`DatabaseSync`) rather than a native
+ * addon: it needs no C++ toolchain, no `electron-rebuild`, and no asar unpacking,
+ * so `npm install` never shells out to `node-gyp`. It is bundled with the Node
+ * that Electron ships (unflagged since Node 22.13) and emits a one-time
+ * `ExperimentalWarning` on first use, which is expected and harmless. The drizzle
+ * query layer is driver-agnostic, so every query in the storage service is
+ * unchanged by the swap.
  *
  * The schema is applied here with idempotent DDL gated on `user_version`, rather
  * than by shipping drizzle-kit's SQL files and resolving them at runtime: a
@@ -18,8 +25,19 @@ import * as schema from './schema';
  * source of truth for every query. `drizzle-kit generate` still records the SQL
  * under ./drizzle for review; nothing reads it at runtime.
  */
-let db: BetterSQLite3Database<typeof schema> | null = null;
-let raw: Database.Database | null = null;
+
+/** The drizzle handle over a `node:sqlite` connection. Inferred from the factory
+ *  below so it needs no driver-specific type import. Queries name their tables
+ *  directly (the storage service imports them from ./schema), so no `schema`
+ *  option is passed here — drizzle v1 reserves that key for the relational query
+ *  builder, which this cache does not use. */
+function connect(connection: DatabaseSync) {
+  return drizzle({ client: connection });
+}
+type CacheDb = ReturnType<typeof connect>;
+
+let db: CacheDb | null = null;
+let raw: DatabaseSync | null = null;
 
 /** Bumped when the DDL below changes. A newer app re-runs migrateUp from here.
  *  v2 added `local_settings`; a Phase-1 database stamped at v1 must re-run
@@ -48,7 +66,7 @@ function dbg(message: string): void {
  * running it against a database already at the current version is a no-op — the
  * `user_version` gate below skips it anyway, this is the belt to that braces.
  */
-function migrateUp(database: Database.Database): void {
+function migrateUp(database: DatabaseSync): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS documents_cache (
       id TEXT PRIMARY KEY NOT NULL,
@@ -95,35 +113,45 @@ function migrateUp(database: Database.Database): void {
   `);
 }
 
+/** Reads an integer PRAGMA (e.g. `user_version`). `node:sqlite` returns PRAGMA
+ *  results as a row keyed by the pragma name, so read that column back. */
+function readPragmaInt(connection: DatabaseSync, name: string): number {
+  const row = connection.prepare(`PRAGMA ${name}`).get() as Record<string, unknown> | undefined;
+  const value = row?.[name];
+  return typeof value === 'number' ? value : Number(value ?? 0) || 0;
+}
+
 /**
  * Opens the connection, applies pragmas, and brings the schema to the current
- * version. Throws on any failure so the caller can recover. `timeout` bounds
- * lock waits (a lingering process holding the file throws SQLITE_BUSY rather
- * than hanging the main event loop). The journal mode is set *after* the timeout.
+ * version. Throws on any failure so the caller can recover. `busy_timeout` bounds
+ * lock waits (a lingering process holding the file throws SQLITE_BUSY rather than
+ * hanging the main event loop). It is set via PRAGMA rather than the constructor
+ * `timeout` option so it works on every Node that ships `node:sqlite` unflagged,
+ * and *before* anything that can contend for a lock. The journal mode follows.
  *
  * `useWal` lets the recovery path fall back to the rollback journal. WAL keeps a
  * memory-mapped `-shm` file whose POSIX locking can hang on a few network/overlay
  * home-directory filesystems, and for a rebuildable cache a slower DELETE-journal
  * database that opens beats a WAL open that wedges the synchronous main thread.
  */
-function open(file: string, useWal: boolean): Database.Database {
+function open(file: string, useWal: boolean): DatabaseSync {
   dbg(`opening (${useWal ? 'wal' : 'delete'}) ${file}`);
-  const connection = new Database(file, { timeout: 5000 });
+  // enableForeignKeyConstraints defaults to true; kept explicit for parity.
+  const connection = new DatabaseSync(file, { enableForeignKeyConstraints: true });
   dbg('connection created');
   // Set the busy timeout before anything that can contend for a lock, so a
   // lingering holder bounces off SQLITE_BUSY at 5s instead of blocking forever.
-  connection.pragma('busy_timeout = 5000');
-  connection.pragma(`journal_mode = ${useWal ? 'WAL' : 'DELETE'}`);
-  connection.pragma('foreign_keys = ON');
+  connection.exec('PRAGMA busy_timeout = 5000');
+  connection.exec(`PRAGMA journal_mode = ${useWal ? 'WAL' : 'DELETE'}`);
+  connection.exec('PRAGMA foreign_keys = ON');
   dbg('pragmas set');
 
-  const current = connection.pragma('user_version', { simple: true });
-  const version = typeof current === 'number' ? current : 0;
+  const version = readPragmaInt(connection, 'user_version');
   if (version < SCHEMA_VERSION) {
     dbg(`migrating ${version} -> ${SCHEMA_VERSION}`);
     migrateUp(connection);
     // pragma value cannot be parameterised; SCHEMA_VERSION is a trusted literal.
-    connection.pragma(`user_version = ${SCHEMA_VERSION}`);
+    connection.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
   dbg('open ok');
   return connection;
@@ -143,7 +171,7 @@ function wipe(file: string): void {
   }
 }
 
-export function getDb(): BetterSQLite3Database<typeof schema> {
+export function getDb(): CacheDb {
   if (db) return db;
   const file = join(app.getPath('userData'), 'pidom-cache.db');
 
@@ -168,7 +196,7 @@ export function getDb(): BetterSQLite3Database<typeof schema> {
     }
   }
 
-  db = drizzle(raw, { schema });
+  db = connect(raw);
   dbg('ready');
   return db;
 }
@@ -183,9 +211,8 @@ function closeQuietly(): void {
   raw = null;
 }
 
-/** Trivial round-trip used to prove the native connection rebuilt and opened. */
+/** Trivial round-trip used to prove the connection rebuilt and opened. */
 export function userVersion(): number {
   if (!raw) getDb();
-  const row = raw!.pragma('user_version', { simple: true });
-  return typeof row === 'number' ? row : 0;
+  return readPragmaInt(raw!, 'user_version');
 }
