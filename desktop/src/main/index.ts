@@ -13,6 +13,8 @@ import {
   setLocalResolver,
 } from './reader';
 import { StorageService } from './storage/service';
+import { ImportService } from './storage/import-service';
+import { handleSquirrelAssociation } from './squirrel-events';
 
 // Electron Forge's Vite plugin injects these for the renderer entry.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -34,17 +36,55 @@ protocol.registerSchemesAsPrivileged([
 // Squirrel (Windows) shortcut lifecycle; quits early during install/uninstall.
 if (started) app.quit();
 
+// Windows install/uninstall also maintains our `.pdf` "Open With" association.
+// Run it even when `started` already fired — an install needs both the shortcut
+// electron-squirrel-startup writes and this registry entry. Like `started`, a
+// handled event means the process is quitting itself, so it must not boot.
+const squirrelHandledAssociation = handleSquirrelAssociation();
+
 // One instance only. The local SQLite cache is opened synchronously on the main
 // thread; a second instance holding the WAL lock would make the first process's
 // `new Database()` block the whole event loop — the app appears to freeze. Refuse
 // the second launch and focus the window that already owns the cache instead.
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
-}
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) app.quit();
+
+// `app.quit()` only *schedules* the quit; synchronous module code below keeps
+// running, and top-level `return` is not available here. So gate the boot: a
+// Squirrel setup launch or a refused second instance must not go on to open a
+// window mid-teardown.
+const shouldBoot = !started && !squirrelHandledAssociation && gotSingleInstanceLock;
 
 let mainWindow: BrowserWindow | null = null;
 const authSession = new SessionManager();
 const storage = new StorageService(authSession);
+const importService = new ImportService(authSession, storage);
+
+/**
+ * The first `.pdf` path in a launch argv, or null. Windows hands a
+ * double-clicked / "Open With" / Open Recent file to the app this way; Squirrel's
+ * own `--squirrel-*` flags and other switches never match. Only the extension is
+ * checked here — the import pipeline canonicalizes and verifies the bytes.
+ */
+function pdfPathFromArgv(argv: string[]): string | null {
+  for (const arg of argv.slice(1)) {
+    if (arg.startsWith('-')) continue;
+    if (arg.toLowerCase().endsWith('.pdf')) return arg;
+  }
+  return null;
+}
+
+/**
+ * Stages a file the OS launched us with through the full import pipeline (so it
+ * is validated, deduped, and made available offline), then lets the renderer
+ * open it by id. Records it in the OS "Recent" list on the attempt.
+ */
+function openExternalPdf(sourcePath: string): void {
+  app.addRecentDocument(sourcePath);
+  void importService.openExternalFile(sourcePath).catch((error) => {
+    console.error('[main] failed to open external file', error);
+  });
+}
 
 /** The renderer build directory Forge's Vite plugin emits next to main.js. */
 const rendererDir = join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
@@ -126,76 +166,110 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-app.whenReady().then(() => {
-  protocol.handle(APP_SCHEME, handleAppProtocol);
-  registerReaderProtocol();
-  // A previous run that crashed left its verified copies behind. They are
-  // reproducible from the server, so start every run with an empty cache.
-  void clearReaderCache();
+if (shouldBoot)
+  app.whenReady().then(() => {
+    protocol.handle(APP_SCHEME, handleAppProtocol);
+    // The reader serves verified PDF bytes back to the renderer, so its CORS
+    // header is scoped to the one origin that renderer runs at — `app://bundle`
+    // packaged, the Vite dev server in development (the same origins the IPC guard
+    // and will-navigate allowlist) — never a wildcard.
+    const rendererOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
+      ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin
+      : APP_ORIGIN;
+    registerReaderProtocol(rendererOrigin);
+    // A previous run that crashed left its verified copies behind. They are
+    // reproducible from the server, so start every run with an empty cache.
+    void clearReaderCache();
 
-  // The reader opens a persistent local copy with no network when the storage
-  // service holds one. Only the `documents/` library persists; its in-flight
-  // `tmp/` is cleared here the same way the reader cache is.
-  setLocalResolver((documentId) => storage.availablePath(documentId));
-  void storage.clearTmp();
+    // The reader opens a persistent local copy with no network when the storage
+    // service holds one. Only the `documents/` library persists; its in-flight
+    // `tmp/` is cleared here the same way the reader cache is.
+    setLocalResolver((documentId) => storage.availablePath(documentId));
+    void storage.clearTmp();
 
-  // Deny every renderer permission request by default — a reader app needs none.
-  electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    // Deny every renderer permission request by default — a reader app needs none.
+    electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    // Match that on the synchronous permission *check* path (some device/media
+    // APIs consult this instead of the async request). Deny by default, with the
+    // one exception the app actually uses: clipboard writes, which back the
+    // reader's "copy selection" and the error screen's copy button — both driven
+    // by an explicit user click. Scoping to `clipboard*` preserves that today and
+    // still closes every other permission.
+    electronSession.defaultSession.setPermissionCheckHandler((_wc, permission) =>
+      permission.startsWith('clipboard'),
+    );
 
-  // Serve the Content-Security-Policy as an HTTP response header, which Electron
-  // treats as authoritative over the <meta> fallback in index.html. Only in the
-  // packaged app: the dev server needs eval + a websocket for HMR that this
-  // policy forbids, and there the <meta> tag applies instead.
-  if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    const CSP =
-      "default-src 'self'; " +
-      // `pidom-doc:` is main serving a verified local PDF back to the engine.
-      // R2 is absent on purpose: main fetches the signed URL, so the renderer
-      // never connects to it and the policy has no reason to allow it.
-      `connect-src 'self' ${READER_SCHEME}: https://*.convex.cloud wss://*.convex.cloud https://*.convex.site; ` +
-      // blob: covers the images PDF.js decodes out of a page before painting.
-      "img-src 'self' data: blob: https:; " +
-      "style-src 'self' 'unsafe-inline'; " +
-      // 'unsafe-inline' covers the pre-paint theme script in index.html, which
-      // is same-origin app code injected at build, not remote content.
-      "script-src 'self' 'unsafe-inline'; " +
-      // The PDF.js worker is a bundled same-origin asset, never a CDN; blob: is
-      // the fallback path the library takes when it cannot load that URL.
-      "worker-src 'self' blob:; " +
-      // Fonts embedded in a PDF are installed from a blob by the engine.
-      "font-src 'self' data: blob:; " +
-      "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';";
-    electronSession.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [CSP],
-        },
+    // Serve the Content-Security-Policy as an HTTP response header, which Electron
+    // treats as authoritative over the <meta> fallback in index.html. Only in the
+    // packaged app: the dev server needs eval + a websocket for HMR that this
+    // policy forbids, and there the <meta> tag applies instead.
+    if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      const CSP =
+        "default-src 'self'; " +
+        // `pidom-doc:` is main serving a verified local PDF back to the engine.
+        // R2 is absent on purpose: main fetches the signed URL, so the renderer
+        // never connects to it and the policy has no reason to allow it.
+        `connect-src 'self' ${READER_SCHEME}: https://*.convex.cloud wss://*.convex.cloud https://*.convex.site; ` +
+        // blob: covers the images PDF.js decodes out of a page before painting.
+        "img-src 'self' data: blob: https:; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        // 'unsafe-inline' covers the pre-paint theme script in index.html, which
+        // is same-origin app code injected at build, not remote content.
+        "script-src 'self' 'unsafe-inline'; " +
+        // The PDF.js worker is a bundled same-origin asset, never a CDN; blob: is
+        // the fallback path the library takes when it cannot load that URL.
+        "worker-src 'self' blob:; " +
+        // Fonts embedded in a PDF are installed from a blob by the engine.
+        "font-src 'self' data: blob:; " +
+        "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';";
+      electronSession.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            'Content-Security-Policy': [CSP],
+          },
+        });
       });
+    }
+
+    // A role-based application menu, set only so its accelerators (copy/paste,
+    // quit, zoom, reload in dev) fire. On Windows/Linux the frameless window
+    // never draws it; on macOS it appears in the system menu bar as expected.
+    buildAppMenu({ isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL), createWindow });
+
+    registerIpc(authSession, storage, importService, {
+      getWindow: () => mainWindow,
+      createWindow: () => {
+        mainWindow = createWindow();
+      },
+      trustedOrigins: [APP_ORIGIN],
+      devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
+      isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL),
     });
-  }
 
-  // A role-based application menu, set only so its accelerators (copy/paste,
-  // quit, zoom, reload in dev) fire. On Windows/Linux the frameless window
-  // never draws it; on macOS it appears in the system menu bar as expected.
-  buildAppMenu({ isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL), createWindow });
+    mainWindow = createWindow();
 
-  registerIpc(authSession, storage, {
-    getWindow: () => mainWindow,
-    createWindow: () => {
-      mainWindow = createWindow();
-    },
-    trustedOrigins: [APP_ORIGIN],
-    devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
-    isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL),
+    // Silently restore a remembered session from the stored refresh token. This is
+    // what lets a signed-in reader close and reopen the app without signing in
+    // again; it emits signed-in/signed-out over `session.onChange` (wired above in
+    // registerIpc) once the refresh completes. Non-blocking — the window loads
+    // meanwhile and shows its `loading` state until this resolves.
+    void authSession.restore();
+
+    // Resume any import left mid-flight by a previous run (staged-but-not-uploaded).
+    // No-op until auth returns; `ImportService` also drains on the next sign-in.
+    void importService.drain();
+
+    // Launched with a file (Windows double-click / "Open With" / Open Recent):
+    // stage it and open it once the window is ready. On macOS the same intent
+    // arrives through `open-file` instead (wired below).
+    const launchPdf = pdfPathFromArgv(process.argv);
+    if (launchPdf) openExternalPdf(launchPdf);
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
+    });
   });
-
-  mainWindow = createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
-  });
-});
 
 // Block navigation away from the app and new-window popups: OAuth opens in the
 // system browser, never in-app. Only the dev server and our own app origin may
@@ -215,11 +289,23 @@ app.on('window-all-closed', () => {
 });
 
 // A second launch was refused by the single-instance lock; bring the running
-// window forward so the click that tried to open a new instance still lands.
-app.on('second-instance', () => {
-  if (!mainWindow) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.focus();
+// window forward so the click that tried to open a new instance still lands. If
+// that launch carried a `.pdf` (double-click / "Open With" on the running app),
+// stage and open it here — the second process's argv is handed to us.
+app.on('second-instance', (_event, argv) => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+  const pdf = pdfPathFromArgv(argv);
+  if (pdf) openExternalPdf(pdf);
+});
+
+// macOS delivers "Open With" / double-click as an event rather than an argv
+// entry, before and after the app is ready. Stage and open the same way.
+app.on('open-file', (event, path) => {
+  event.preventDefault();
+  if (path.toLowerCase().endsWith('.pdf')) openExternalPdf(path);
 });
 
 // Temporary streamed copies do not outlive the run that fetched them; nor do

@@ -45,7 +45,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // Only advance state on a genuine change, so identical re-emits are no-ops.
   const applyState = useCallback((next: AuthState) => {
-    setState((prev) => (sameAuth(prev, next) ? prev : next));
+    setState((prev) => {
+      // A resolved session must never regress to the boot `loading` state. The
+      // initial `auth.status()` pull and the `onChange` push race once the main
+      // process restores asynchronously, and the pull can resolve with a stale
+      // `loading` after the push already delivered signed-in/-out. The only
+      // `loading` the main process emits is that boot case; `signIn()` sets
+      // `loading` through its own local setState, never through applyState.
+      if (next.status === 'loading' && prev.status !== 'loading') return prev;
+      return sameAuth(prev, next) ? prev : next;
+    });
   }, []);
 
   useEffect(() => {

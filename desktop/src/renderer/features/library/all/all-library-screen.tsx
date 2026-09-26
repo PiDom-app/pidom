@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { useDesktopSettings, desktopSettings } from '@/features/settings/use-desktop-settings';
+import { ImportMenu } from '@/features/import/components/import-menu';
+import { ImportDropZone } from '@/features/import/components/import-drop-zone';
 import { useAllLibrary } from '../data/use-all-library';
 import { EmptyLibrary } from '../components/empty-library';
 import { LibraryGrid } from './library-grid';
 import { LibraryTable } from './library-table';
 import { LibraryToolbar, type LibraryFilter } from './library-toolbar';
-import type { LibraryDocument } from '../data/types';
+import type { LibraryEntry } from '@/features/import/data/pseudo-document';
 
-function matches(document: LibraryDocument, filter: LibraryFilter, query: string): boolean {
+function matches(document: LibraryEntry, filter: LibraryFilter, query: string): boolean {
   if (filter === 'favorites' && !document.isFavorite) return false;
   if (filter === 'finished' && !document.isFinished) return false;
   if (filter === 'cloud' && !document.isSynced) return false;
@@ -55,44 +57,47 @@ export function AllLibraryScreen({
   const firstLoad = status === 'LoadingFirstPage';
 
   return (
-    <div className="flex h-full flex-col px-8 py-8">
-      <PageHeader title={title} subtitle={subtitle}>
-        {status !== 'LoadingFirstPage' && (
-          <span className="text-xs text-fg-subtle">
-            {status === 'Exhausted' ? `${documents.length} in library` : 'Loading…'}
-          </span>
-        )}
-      </PageHeader>
+    <ImportDropZone>
+      <div className="flex h-full flex-col px-8 py-8">
+        <PageHeader title={title} subtitle={subtitle}>
+          {status !== 'LoadingFirstPage' && (
+            <span className="text-xs text-fg-subtle">
+              {status === 'Exhausted' ? `${documents.length} in library` : 'Loading…'}
+            </span>
+          )}
+          <ImportMenu />
+        </PageHeader>
 
-      <LibraryToolbar
-        view={view}
-        onViewChange={desktopSettings.setLibraryView}
-        filter={effectiveFilter}
-        onFilterChange={lockedFilter ? undefined : setFilter}
-        query={query}
-        onQueryChange={setQuery}
-        count={filtered.length}
-      />
+        <LibraryToolbar
+          view={view}
+          onViewChange={desktopSettings.setLibraryView}
+          filter={effectiveFilter}
+          onFilterChange={lockedFilter ? undefined : setFilter}
+          query={query}
+          onQueryChange={setQuery}
+          count={filtered.length}
+        />
 
-      <div className="min-h-0 flex-1">
-        {firstLoad ? (
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="aspect-[3/4] rounded-md bg-sunken" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          query || effectiveFilter !== 'all' ? (
-            <p className="py-16 text-center text-sm text-fg-muted">No documents match.</p>
+        <div className="min-h-0 flex-1">
+          {firstLoad ? (
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="aspect-[3/4] rounded-md bg-sunken" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            query || effectiveFilter !== 'all' ? (
+              <p className="py-16 text-center text-sm text-fg-muted">No documents match.</p>
+            ) : (
+              <EmptyLibrary />
+            )
+          ) : view === 'grid' ? (
+            <LibraryGrid documents={filtered} onNearEnd={onNearEnd} />
           ) : (
-            <EmptyLibrary />
-          )
-        ) : view === 'grid' ? (
-          <LibraryGrid documents={filtered} onNearEnd={onNearEnd} />
-        ) : (
-          <LibraryTable documents={filtered} globalFilter="" onNearEnd={onNearEnd} />
-        )}
+            <LibraryTable documents={filtered} globalFilter="" onNearEnd={onNearEnd} />
+          )}
+        </div>
       </div>
-    </div>
+    </ImportDropZone>
   );
 }

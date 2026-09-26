@@ -1,7 +1,9 @@
 import { app } from 'electron';
-import { createHash } from 'node:crypto';
-import { mkdir, realpath, stat } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, open as openFile, readdir, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, normalize, resolve, sep } from 'node:path';
+
+import { CLOUD_BYTE_MAX } from '@convex-model/limits';
 
 /**
  * Where offline documents live on this computer, and the rules that keep a
@@ -141,4 +143,140 @@ export function documentPath(paths: LibraryPaths, documentId: string): string {
     throw new Error('storage rejected: path escapes the library root');
   }
   return path;
+}
+
+/** Every PDF begins with this. A renamed `.txt` fails here, whatever its name. */
+const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
+
+/** The 64 KB edge window the mobile fingerprint hashes at each end of the file. */
+const FINGERPRINT_EDGE = 64 * 1024;
+
+/** How far a folder import descends, and how many PDFs it will queue at once.
+ *  Bounds keep a pathological tree (deep symlink loops, a home directory full of
+ *  files) from turning one click into an unbounded walk on the main thread. */
+const MAX_SCAN_DEPTH = 8;
+const MAX_SCAN_FILES = 1000;
+
+/**
+ * A device-minted document id for a local-first import: 32 lowercase hex chars,
+ * exactly the mobile app's `mintId`. It names the staged `<localId>.pdf` and is
+ * the idempotency key on `importDocument`, so it must pass `isSafeDocumentId`
+ * (it does — hex is a subset of `[A-Za-z0-9]`).
+ */
+export function mintLocalId(): string {
+  return randomUUID().replace(/-/g, '');
+}
+
+export interface ValidatedSource {
+  /** The canonical, symlink-resolved absolute path of the picked file. */
+  canonical: string;
+  /** Its size in bytes, already bounded against `CLOUD_BYTE_MAX`. */
+  size: number;
+}
+
+/**
+ * Validates a path the reader picked, dropped, or launched us with — all
+ * untrusted input to main. The bytes decide what a file is, never its extension:
+ * the path must resolve (symlinks followed) to a regular file within the cloud
+ * size ceiling whose first bytes are the `%PDF-` magic. Returns the canonical
+ * path and size; throws a short-coded error otherwise.
+ */
+export async function validateSourceFile(pickedPath: string): Promise<ValidatedSource> {
+  if (typeof pickedPath !== 'string' || pickedPath.length === 0 || !isAbsolute(pickedPath)) {
+    throw new Error('import rejected: not an absolute path');
+  }
+
+  let canonical: string;
+  try {
+    canonical = await realpath(pickedPath);
+  } catch {
+    throw new Error('import rejected: file does not exist');
+  }
+
+  const info = await stat(canonical).catch(() => null);
+  if (!info || !info.isFile()) throw new Error('import rejected: not a regular file');
+  if (info.size <= 0) throw new Error('import rejected: empty file');
+  if (info.size > CLOUD_BYTE_MAX) throw new Error('import rejected: file exceeds the size ceiling');
+
+  const head = Buffer.alloc(PDF_MAGIC.byteLength);
+  const handle = await openFile(canonical, 'r');
+  try {
+    const { bytesRead } = await handle.read(head, 0, head.byteLength, 0);
+    if (bytesRead < head.byteLength || !head.equals(PDF_MAGIC)) {
+      throw new Error('import rejected: not a PDF');
+    }
+  } finally {
+    await handle.close();
+  }
+
+  return { canonical, size: info.size };
+}
+
+/**
+ * The mobile importer's fingerprint: `<size>-<sha256(head | "|size|" | tail)>`,
+ * over the first and last 64 KB of the file. Two byte-identical PDFs produce the
+ * same string wherever they were imported, which is what lets the server collapse
+ * a re-import onto the document the account already holds. Reads only the edges,
+ * so it is cheap even for a large file.
+ */
+export async function fingerprintOfFile(path: string, size: number): Promise<string> {
+  const hash = createHash('sha256');
+  const handle = await openFile(path, 'r');
+  try {
+    const headLen = Math.min(FINGERPRINT_EDGE, size);
+    const head = Buffer.alloc(headLen);
+    await handle.read(head, 0, headLen, 0);
+    hash.update(head);
+    hash.update(`|${size}|`);
+    if (size > FINGERPRINT_EDGE) {
+      const tailLen = Math.min(FINGERPRINT_EDGE, size);
+      const tail = Buffer.alloc(tailLen);
+      await handle.read(tail, 0, tailLen, size - tailLen);
+      hash.update(tail);
+    }
+  } finally {
+    await handle.close();
+  }
+  return `${size}-${hash.digest('hex')}`;
+}
+
+/**
+ * A bounded, depth-first walk collecting `.pdf` files under a picked folder. The
+ * folder itself is untrusted, so the walk resolves and canonicalises the root,
+ * refuses to follow directory symlinks (a loop would never terminate), and caps
+ * both depth and count. Extension is advisory here — every returned path is still
+ * put through `validateSourceFile` before anything is staged.
+ */
+export async function scanPdfs(folder: string): Promise<string[]> {
+  if (typeof folder !== 'string' || folder.length === 0 || !isAbsolute(folder)) {
+    throw new Error('import rejected: not an absolute path');
+  }
+  let root: string;
+  try {
+    root = await realpath(folder);
+  } catch {
+    throw new Error('import rejected: folder does not exist');
+  }
+  const info = await stat(root).catch(() => null);
+  if (!info || !info.isDirectory()) throw new Error('import rejected: not a directory');
+
+  const found: string[] = [];
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > MAX_SCAN_DEPTH || found.length >= MAX_SCAN_FILES) return;
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (found.length >= MAX_SCAN_FILES) return;
+      // Never traverse a symlink — neither a directory loop nor a link that
+      // points back out of the chosen folder.
+      if (entry.isSymbolicLink()) continue;
+      const child = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(child, depth + 1);
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.pdf')) {
+        found.push(child);
+      }
+    }
+  };
+  await walk(root, 0);
+  return found;
 }

@@ -1,8 +1,9 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
   IPC,
   type AuthState,
   type EditAction,
+  type ImportJobStatus,
   type LocalDocumentStatus,
   type MigrationStatus,
   type PidomBridge,
@@ -82,6 +83,38 @@ const bridge: PidomBridge = {
       const handler = (_event: unknown, status: MigrationStatus) => listener(status);
       ipcRenderer.on(IPC.storageMigrationChanged, handler);
       return () => ipcRenderer.removeListener(IPC.storageMigrationChanged, handler);
+    },
+  },
+  import: {
+    pickFiles: () => ipcRenderer.invoke(IPC.importPickFiles),
+    pickFolder: () => ipcRenderer.invoke(IPC.importPickFolder),
+    // The one place a filesystem path is derived in the renderer process, and it
+    // never leaves preload: `webUtils.getPathForFile` maps each dropped `File` to
+    // its real path here, and only the resolved paths are invoked to main. The
+    // renderer that handed us the `File` objects never receives a path back.
+    addDropped: (files: File[]) => {
+      const paths: string[] = [];
+      for (const file of files) {
+        const path = webUtils.getPathForFile(file);
+        if (path) paths.push(path);
+      }
+      return ipcRenderer.invoke(IPC.importAddPaths, paths);
+    },
+    list: () => ipcRenderer.invoke(IPC.importList),
+    cancel: (localId: string) => ipcRenderer.invoke(IPC.importCancel, localId),
+    retry: (localId: string) => ipcRenderer.invoke(IPC.importRetry, localId),
+    retryAll: () => ipcRenderer.invoke(IPC.importRetryAll),
+    getAssociation: () => ipcRenderer.invoke(IPC.importGetAssociation),
+    setAssociation: (on: boolean) => ipcRenderer.invoke(IPC.importSetAssociation, on),
+    onChange: (listener: (jobs: ImportJobStatus[]) => void) => {
+      const handler = (_event: unknown, jobs: ImportJobStatus[]) => listener(jobs);
+      ipcRenderer.on(IPC.importChanged, handler);
+      return () => ipcRenderer.removeListener(IPC.importChanged, handler);
+    },
+    onOpenExternalDocument: (listener: (documentId: string) => void) => {
+      const handler = (_event: unknown, documentId: string) => listener(documentId);
+      ipcRenderer.on(IPC.importOpenExternalFile, handler);
+      return () => ipcRenderer.removeListener(IPC.importOpenExternalFile, handler);
     },
   },
   platform: {

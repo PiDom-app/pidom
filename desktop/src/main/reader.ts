@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 import { CLOUD_BYTE_MAX, TEXT_BYTE_MAX } from '@convex-model/limits';
 import type { ReaderDocumentHandle, ReaderOpenRequest } from '../shared/ipc';
+import { isSafeDocumentId } from './storage/paths';
 
 /**
  * The one privileged thing the reader needs: turn a signed URL into bytes the
@@ -40,6 +41,14 @@ let resolveLocalPath: ((documentId: string) => string | null) | null = null;
 export function setLocalResolver(resolver: (documentId: string) => string | null): void {
   resolveLocalPath = resolver;
 }
+
+/**
+ * The single origin the renderer runs at (`app://bundle` packaged, the Vite dev
+ * server in development). Set by `registerReaderProtocol` and used as the scoped
+ * `access-control-allow-origin` when serving document bytes, so the reader never
+ * answers a wildcard. Falls back to the packaged origin if never set.
+ */
+let rendererOrigin = 'app://bundle';
 
 /**
  * Standard so each handle parses as its own origin, secure so the renderer may
@@ -123,14 +132,17 @@ function handleDocumentProtocol(request: Request): Promise<Response> {
           // The copy is temporary and already local; a second cache layer would
           // only keep bytes alive past the `closeDocument` that deleted them.
           'cache-control': 'no-store',
-          // The renderer is a different origin (`app://bundle`) from the handle.
-          'access-control-allow-origin': '*',
+          // The renderer is a different origin (`app://bundle`, or the dev
+          // server) from the handle, so it needs an explicit allow-origin —
+          // scoped to that one renderer origin, never a wildcard.
+          'access-control-allow-origin': rendererOrigin,
         },
       }),
   );
 }
 
-export function registerReaderProtocol(): void {
+export function registerReaderProtocol(origin: string): void {
+  rendererOrigin = origin;
   protocol.handle(DOC_SCHEME, handleDocumentProtocol);
 }
 
@@ -168,21 +180,16 @@ async function evictToCap(): Promise<void> {
 }
 
 /**
- * Convex ids are opaque, but they are not arbitrary: bounding the shape here
- * means a renderer cannot smuggle a path fragment or a control character into
- * anything downstream that decides to log or name a file with one.
+ * Convex ids are opaque, but they are not arbitrary. Bounding the shape means a
+ * renderer cannot smuggle a path fragment or a control character into anything
+ * downstream that decides to log or name a file with one. This is exactly the
+ * `isSafeDocumentId` guard the storage tree names files with (`[A-Za-z0-9]`, ≤64),
+ * shared so the reader and the on-disk library never disagree on what an id is —
+ * a looser rule here could accept an id the storage layer then rejects.
  */
-function isPlausibleId(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    value.length > 0 &&
-    value.length <= 64 &&
-    /^[A-Za-z0-9_-]+$/.test(value)
-  );
-}
 
 export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDocumentHandle> {
-  if (!request || !isPlausibleId(request.documentId)) {
+  if (!request || !isSafeDocumentId(request.documentId)) {
     throw new Error('openDocument rejected: bad document id');
   }
 

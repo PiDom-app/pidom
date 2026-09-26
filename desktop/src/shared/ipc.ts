@@ -58,6 +58,22 @@ export const IPC = {
   storageMoveLibrary: 'storage:moveLibrary',
   storageChanged: 'storage:changed', // main → renderer push
   storageMigrationChanged: 'storage:migrationChanged', // main → renderer push
+
+  // Desktop-initiated import: add PDFs from THIS computer (file picker, folder
+  // scan, drag-drop, "Open With"). Main does every fs/network step; the renderer
+  // never sends or receives a filesystem path — drop paths are resolved in
+  // preload via `webUtils` and invoked straight to main.
+  importPickFiles: 'import:pickFiles',
+  importPickFolder: 'import:pickFolder',
+  importAddPaths: 'import:addPaths', // preload → main (resolved drop paths)
+  importList: 'import:list',
+  importCancel: 'import:cancel',
+  importRetry: 'import:retry',
+  importRetryAll: 'import:retryAll',
+  importOpenExternalFile: 'import:openExternalFile', // main → renderer (launch/assoc)
+  importGetAssociation: 'import:getAssociation',
+  importSetAssociation: 'import:setAssociation',
+  importChanged: 'import:changed', // main → renderer push
 } as const;
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -180,6 +196,41 @@ export interface StorageUsage {
   isCustomLocation: boolean;
 }
 
+/**
+ * The lifecycle of a desktop-initiated import, mirrored from the main-process DB
+ * enum. `staged` and later states all mean the document is on disk and readable
+ * offline; the network states (`registering`→`uploaded`) run when auth returns.
+ */
+export type ImportJobState =
+  | 'staging'
+  | 'staged'
+  | 'registering'
+  | 'registered'
+  | 'uploading'
+  | 'uploaded'
+  | 'done'
+  | 'failed'
+  | 'duplicate';
+
+/**
+ * One import job as the renderer sees it — never a filesystem path. Local-only
+ * jobs (no `documentId` yet) surface in the library grid as pseudo-documents
+ * keyed by `localId`; once reconciled they carry a `documentId` and the real
+ * document arrives through `snapshot`.
+ */
+export interface ImportJobStatus {
+  localId: string;
+  title: string;
+  state: ImportJobState;
+  byteSize: number;
+  /** R2 upload progress in bytes while `uploading`, else null. */
+  receivedBytes: number | null;
+  /** The Convex id once registered; null before. */
+  documentId: string | null;
+  /** A short non-sensitive reason code when `state` is `failed`. */
+  error: string | null;
+}
+
 /** The surface exposed on `window.pidom` by the preload bridge. */
 export interface PidomBridge {
   auth: {
@@ -266,6 +317,37 @@ export interface PidomBridge {
     onChange(listener: (status: LocalDocumentStatus) => void): () => void;
     /** Subscribe to migration progress; returns an unsubscribe function. */
     onMigration(listener: (status: MigrationStatus) => void): () => void;
+  };
+  import: {
+    /** Opens the OS file picker (PDF filter, multi-select), stages the chosen
+     *  files, and returns how many were queued. No path crosses back. */
+    pickFiles(): Promise<number>;
+    /** Opens the OS folder picker, scans it for PDFs (bounded), stages them, and
+     *  returns how many were queued. */
+    pickFolder(): Promise<number>;
+    /** Stages files dropped from the OS. The renderer passes the dropped `File`
+     *  objects; preload resolves each to a path via `webUtils` and forwards only
+     *  the paths to main — the renderer never receives them. Returns the count. */
+    addDropped(files: File[]): Promise<number>;
+    /** Every import job on this computer, for the grid merge and activity readout. */
+    list(): Promise<ImportJobStatus[]>;
+    /** Cancels an import: removes its job, staged file, and local record. */
+    cancel(localId: string): Promise<void>;
+    /** Retries a failed import from where it stopped. */
+    retry(localId: string): Promise<void>;
+    /** Retries every failed import. Returns how many were re-queued. */
+    retryAll(): Promise<number>;
+    /** Whether the Pidom "Open With" handler is registered for `.pdf` (Windows). */
+    getAssociation(): Promise<boolean>;
+    /** Registers or removes the Pidom "Open With" handler for `.pdf` (Windows).
+     *  Cannot seize the default handler — that stays the user's choice. */
+    setAssociation(on: boolean): Promise<boolean>;
+    /** Subscribe to import-job changes; returns an unsubscribe function. */
+    onChange(listener: (jobs: ImportJobStatus[]) => void): () => void;
+    /** Fired when the app is launched or focused with a file to open (double-click
+     *  / "Open With" / Open Recent). Carries the just-imported document id so the
+     *  renderer can navigate to the reader; returns an unsubscribe function. */
+    onOpenExternalDocument(listener: (documentId: string) => void): () => void;
   };
   platform: {
     os: NodeJS.Platform;

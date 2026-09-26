@@ -51,4 +51,81 @@ export class StorageConvex {
       what: 'document',
     });
   }
+
+  /**
+   * Registers a desktop-imported file on the account and returns its Convex id.
+   *
+   * Idempotent on `localId` (the device-minted id we staged under): a resumed or
+   * retried import re-calls this with the same key and gets the same document
+   * back rather than a duplicate. The server also collapses a byte-identical file
+   * onto an existing document via `fingerprint`, so a re-import never mints a
+   * second row. No user id is passed — ownership comes from the verified token.
+   */
+  async importDocument(input: {
+    title: string;
+    byteSize: number;
+    localId: string;
+    fingerprint?: string;
+    originalFileName?: string;
+    author?: string;
+    mimeType?: string;
+    pageCount?: number;
+    clientUpdatedAt?: number;
+  }): Promise<string> {
+    const client = await this.client();
+    const id = await client.mutation(api.library.importDocument, {
+      title: input.title,
+      byteSize: input.byteSize,
+      localId: input.localId,
+      ...(input.fingerprint ? { fingerprint: input.fingerprint } : {}),
+      ...(input.originalFileName ? { originalFileName: input.originalFileName } : {}),
+      ...(input.author ? { author: input.author } : {}),
+      ...(input.mimeType ? { mimeType: input.mimeType } : {}),
+      ...(typeof input.pageCount === 'number' ? { pageCount: input.pageCount } : {}),
+      ...(typeof input.clientUpdatedAt === 'number'
+        ? { clientUpdatedAt: input.clientUpdatedAt }
+        : {}),
+    });
+    return id as string;
+  }
+
+  /** A one-shot signed R2 PUT target for a document's PDF or cover: `{ key, url }`.
+   *  Owner-checked server-side by `library.uploadUrl`. `what` mirrors the server's
+   *  own noun so the desktop uploader can put a cover on the same terms mobile does. */
+  async uploadUrl(
+    documentId: string,
+    what: 'document' | 'cover' = 'document',
+  ): Promise<{ key: string; url: string }> {
+    const client = await this.client();
+    return client.mutation(api.library.uploadUrl, {
+      documentId: documentId as Id<'documents'>,
+      what,
+    });
+  }
+
+  /** Records the uploaded R2 object's size/type/digest server-side. Must run
+   *  after the PUT and before `attachUpload`, which reads that metadata back —
+   *  the same ordering the mobile uploader relies on. */
+  async syncMetadata(key: string): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.r2.syncMetadata, { key });
+  }
+
+  /** Attaches an uploaded PDF (and, when one was uploaded, its cover) to a
+   *  document, moving it out of the pending state so it flows through `snapshot`
+   *  like any synced doc. A cover is decoration: the server drops a bad one and
+   *  keeps the PDF. Owner-checked. */
+  async attachUpload(
+    documentId: string,
+    storageKey: string,
+    opts?: { coverStorageKey?: string; pageCount?: number },
+  ): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.library.attachUpload, {
+      documentId: documentId as Id<'documents'>,
+      storageKey,
+      ...(opts?.coverStorageKey ? { coverStorageKey: opts.coverStorageKey } : {}),
+      ...(typeof opts?.pageCount === 'number' ? { pageCount: opts.pageCount } : {}),
+    });
+  }
 }

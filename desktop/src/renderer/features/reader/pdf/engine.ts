@@ -57,6 +57,66 @@ export function pageSizeOf(page: PDFPageProxy): PageSize {
   return { width: viewport.width, height: viewport.height };
 }
 
+/** One flattened table-of-contents entry, in the shape the account stores: a
+ *  title, the 1-based page it jumps to, and its nesting depth (0 = top level).
+ *  The server re-bounds all three and clamps the page against the real page
+ *  count, so this is deliberately best-effort — a malformed bookmark is dropped,
+ *  never trusted. */
+export interface OutlineEntry {
+  title: string;
+  page: number;
+  depth: number;
+}
+
+/** PDF.js hands back a nested bookmark tree; only the fields the flattener needs. */
+type OutlineNode = { title?: string; dest?: string | unknown[] | null; items?: OutlineNode[] };
+
+/** Resolves one bookmark destination to its 1-based page number, or null when it
+ *  cannot be resolved (a named destination that is missing, an external link, a
+ *  malformed dest array). PDF.js addresses pages by an opaque ref, so this is a
+ *  per-entry async lookup that is allowed to fail without sinking the rest. */
+async function pageNumberOf(
+  doc: PDFDocumentProxy,
+  dest: string | unknown[] | null | undefined,
+): Promise<number | null> {
+  if (dest == null) return null;
+  const explicit = typeof dest === 'string' ? await doc.getDestination(dest) : dest;
+  if (!Array.isArray(explicit) || explicit.length === 0) return null;
+  const ref = explicit[0];
+  if (!ref || typeof ref !== 'object') return null;
+  const index = await doc.getPageIndex(ref as Parameters<PDFDocumentProxy['getPageIndex']>[0]);
+  return index + 1;
+}
+
+/**
+ * Flattens a PDF's bookmark tree into page-numbered entries, depth-first.
+ *
+ * The running `depth` preserves the nesting the contents sheet shows; a
+ * whitespace-only title is a label-less bookmark and is skipped, and an entry
+ * whose destination will not resolve is dropped rather than pointed at page one.
+ * Returns an empty array when the document declares no outline. The caller sends
+ * whatever comes back to `setProcessed`, which bounds the count, depth, and every
+ * title on the server — the file is untrusted input, so the trust lives there.
+ */
+export async function readOutline(doc: PDFDocumentProxy): Promise<OutlineEntry[]> {
+  const root = (await doc.getOutline().catch(() => null)) as OutlineNode[] | null;
+  if (!root || root.length === 0) return [];
+
+  const entries: OutlineEntry[] = [];
+  const walk = async (nodes: OutlineNode[], depth: number): Promise<void> => {
+    for (const node of nodes) {
+      const title = typeof node.title === 'string' ? node.title.trim() : '';
+      if (title) {
+        const page = await pageNumberOf(doc, node.dest).catch(() => null);
+        if (page !== null) entries.push({ title, page, depth });
+      }
+      if (Array.isArray(node.items) && node.items.length > 0) await walk(node.items, depth + 1);
+    }
+  };
+  await walk(root, 0);
+  return entries;
+}
+
 /**
  * Paints one page onto a canvas at the given CSS scale, sharp on any display.
  *

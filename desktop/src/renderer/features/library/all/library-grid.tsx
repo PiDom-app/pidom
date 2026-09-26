@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DocumentTile } from '../components/document-tile';
 import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
-import type { LibraryDocument } from '../data/types';
+import type { LibraryEntry } from '@/features/import/data/pseudo-document';
 
 /**
  * The cover-first grid. Optimised for browsing rather than managing: each
@@ -33,7 +33,7 @@ export function LibraryGrid({
   documents,
   onNearEnd,
 }: {
-  documents: LibraryDocument[];
+  documents: LibraryEntry[];
   onNearEnd: () => void;
 }) {
   const { density } = useDesktopSettings();
@@ -62,7 +62,7 @@ export function LibraryGrid({
   const rowHeight = tileWidth > 0 ? Math.round((tileWidth * 4) / 3) + 62 + gap : 300;
 
   const rows = useMemo(() => {
-    const chunked: LibraryDocument[][] = [];
+    const chunked: LibraryEntry[][] = [];
     for (let i = 0; i < documents.length; i += columns) {
       chunked.push(documents.slice(i, i + columns));
     }

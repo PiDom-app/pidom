@@ -66,11 +66,27 @@ export class SessionManager {
   private listeners = new Set<(state: AuthState) => void>();
 
   constructor() {
-    // Even a remembered account (one with a stored refresh token) starts
-    // signed-out until the first token fetch renews it — mirroring the mobile
-    // rule that a remembered account reports as not-authenticated until it
-    // actually holds a token.
-    this.status = 'signed-out';
+    // A remembered account (one with a stored refresh token) starts in `loading`
+    // so the UI shows its connecting state while `restore()` silently renews the
+    // ID token, instead of flashing the sign-in screen. With no stored token
+    // there is nothing to restore, so start signed-out. `restore()` resolves the
+    // `loading` case to signed-in or signed-out once the refresh completes.
+    this.status = loadRefreshToken() ? 'loading' : 'signed-out';
+  }
+
+  /** Silent restore at startup — renew the ID token from the stored refresh
+   *  token with no user interaction. Emits signed-in on success; signed-out when
+   *  there is no token or Google rejects the refresh. A transient network error
+   *  leaves the stored token intact (only signOut clears it), so the account is
+   *  recoverable on the next online launch. */
+  async restore(): Promise<void> {
+    if (!loadRefreshToken()) {
+      this.applySignedOut();
+      return;
+    }
+    // getIdToken applies tokens and emits signed-in on success, or falls back to
+    // applySignedOut (emitting signed-out) on any failure. No extra work here.
+    await this.getIdToken(false);
   }
 
   onChange(listener: (state: AuthState) => void): () => void {

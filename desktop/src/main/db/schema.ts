@@ -34,6 +34,35 @@ export type LocalFileState =
 export type DownloadJobState = 'queued' | 'running' | 'paused' | 'failed' | 'done';
 
 /**
+ * The lifecycle of a desktop-initiated import. One row per file the reader adds
+ * from this computer (file picker, folder scan, drag-drop, "Open With").
+ *
+ * The pipeline mirrors the mobile importer, but every step is durable here so a
+ * killed run resumes: the file is staged and readable OFFLINE the moment it is
+ * `staged`; the network steps (`registering`→`uploaded`) run when auth returns.
+ *
+ *   - staging     — bytes being copied + hashed into the library
+ *   - staged      — on disk, verified, readable offline; not yet on the account
+ *   - registering — calling `importDocument` to mint the Convex id
+ *   - registered  — has a Convex id; the local copy re-keyed to it
+ *   - uploading    — PUTting bytes to R2
+ *   - uploaded    — bytes attached to the account document
+ *   - done        — fully synced; the doc now flows through `snapshot`
+ *   - failed      — last attempt errored (short code in `error`); retryable
+ *   - duplicate   — collapsed onto a document this account already holds
+ */
+export type ImportJobState =
+  | 'staging'
+  | 'staged'
+  | 'registering'
+  | 'registered'
+  | 'uploading'
+  | 'uploaded'
+  | 'done'
+  | 'failed'
+  | 'duplicate';
+
+/**
  * The offline metadata mirror — a subset of the cloud `documents` row, enough to
  * render the library with no connection. Filled from `library.snapshot` /
  * `library.document`, both owner-checked.
@@ -104,6 +133,43 @@ export const downloadJobs = sqliteTable(
 );
 
 export type DownloadJobRow = typeof downloadJobs.$inferSelect;
+
+/**
+ * One desktop-initiated import. Keyed by the device-minted `localId` so a killed
+ * run resumes against the same row and the staged `<localId>.pdf` it names — the
+ * exact idempotency the mobile importer relies on. `documentId` is null until the
+ * `importDocument` call mints the Convex id; the physical copy lives in
+ * `local_files` (keyed by `localId`, then re-keyed to `documentId` at reconcile).
+ *
+ * `fingerprint` mirrors the mobile edge/size fingerprint for the server's dedup;
+ * `contentHash` is the full sha256 kept for our own exact-duplicate check before
+ * we ever re-stage the same bytes. `error` is a short non-sensitive code.
+ */
+export const importJobs = sqliteTable(
+  'import_jobs',
+  {
+    /** Device-minted 32-hex id; names the staged file and survives resume. */
+    localId: text('local_id').primaryKey(),
+    /** Sanitized picked filename, for presentation only. */
+    title: text('title').notNull(),
+    originalName: text('original_name'),
+    byteSize: integer('byte_size').notNull(),
+    /** Mobile `<size>-<sha256(head|"|size|"|tail)>` fingerprint, for server dedup. */
+    fingerprint: text('fingerprint'),
+    /** Full sha256 of the bytes on disk, for local exact-duplicate detection. */
+    contentHash: text('content_hash'),
+    pageCount: integer('page_count'),
+    state: text('state').$type<ImportJobState>().notNull().default('staging'),
+    /** Convex id once registered; null before. */
+    documentId: text('document_id'),
+    error: text('error'),
+    attempts: integer('attempts').notNull().default(0),
+    updatedAt: integer('updated_at').notNull().default(0),
+  },
+  (t) => ({ byState: index('import_jobs_by_state').on(t.state) }),
+);
+
+export type ImportJobRow = typeof importJobs.$inferSelect;
 
 /**
  * A tiny per-account key/value store for main-process settings that are about

@@ -42,8 +42,9 @@ let raw: DatabaseSync | null = null;
 /** Bumped when the DDL below changes. A newer app re-runs migrateUp from here.
  *  v2 added `local_settings`; a Phase-1 database stamped at v1 must re-run
  *  migrateUp (IF NOT EXISTS no-ops the existing tables) or that table is missing
- *  and every `local_settings` read throws. */
-const SCHEMA_VERSION = 2;
+ *  and every `local_settings` read throws. v3 added `import_jobs` for the
+ *  desktop-initiated import pipeline. */
+const SCHEMA_VERSION = 3;
 
 /**
  * A synchronous diagnostic line, straight to stderr.
@@ -110,6 +111,22 @@ function migrateUp(database: DatabaseSync): void {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS import_jobs (
+      local_id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      original_name TEXT,
+      byte_size INTEGER NOT NULL,
+      fingerprint TEXT,
+      content_hash TEXT,
+      page_count INTEGER,
+      state TEXT NOT NULL DEFAULT 'staging',
+      document_id TEXT,
+      error TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS import_jobs_by_state ON import_jobs (state);
   `);
 }
 

@@ -105,6 +105,27 @@ export class StorageService {
     return () => this.migrationListeners.delete(listener);
   }
 
+  /** Resolves the managed library tree for the signed-in account, creating it
+   *  once. Exposed for the import service, which stages into the same tree and
+   *  must land on the exact paths a later download/migration expects. */
+  resolvePaths(): Promise<LibraryPaths> {
+    return this.ensurePaths();
+  }
+
+  /** Pushes a document's current local status on `onChange`. The import service
+   *  calls this after a reconcile so the reader and downloads surface see the
+   *  newly-`available` copy under its Convex id. */
+  emitStatus(documentId: string): void {
+    if (!isSafeDocumentId(documentId)) return;
+    this.emit(this.status(documentId));
+  }
+
+  /** Throws if a library move is in flight, so the import service refuses to
+   *  stage into a tree being copied out from under it. */
+  throwIfBusy(): void {
+    this.assertNotMigrating();
+  }
+
   private emit(status: LocalDocumentStatus): void {
     for (const listener of this.listeners) listener(status);
   }
@@ -675,7 +696,7 @@ async function* streamOf(body: ReadableStream<Uint8Array>): AsyncGenerator<Buffe
 }
 
 /** sha256 of a file on disk, streamed so a large file is not buffered whole. */
-async function hashFile(path: string): Promise<string> {
+export async function hashFile(path: string): Promise<string> {
   const hash = createHash('sha256');
   const stream = createReadStream(path);
   for await (const chunk of stream) hash.update(chunk as Buffer);

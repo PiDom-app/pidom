@@ -6,6 +6,7 @@ import { AppearanceSection } from './appearance-section';
 import { AccentSection } from './accent-section';
 import { ReaderSection } from './reader-section';
 import { StorageSection } from './storage-section';
+import { ImportSection } from './import-section';
 import { AccountSection } from './account-section';
 import { ProfileSection } from './profile-section';
 import { ShortcutsSection } from './shortcuts-section';
@@ -16,6 +17,7 @@ type SectionId =
   | 'accent'
   | 'reader'
   | 'storage'
+  | 'import'
   | 'account'
   | 'profile'
   | 'shortcuts'
@@ -26,6 +28,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'accent', label: 'Accent color' },
   { id: 'reader', label: 'Reader' },
   { id: 'storage', label: 'Library & storage' },
+  { id: 'import', label: 'Import' },
   { id: 'account', label: 'Account & sync' },
   { id: 'profile', label: 'Profile' },
   { id: 'shortcuts', label: 'Keyboard shortcuts' },
@@ -81,6 +84,7 @@ export function SettingsScreen() {
               {active === 'accent' && <AccentSection />}
               {active === 'reader' && <ReaderSection />}
               {active === 'storage' && <StorageSection />}
+              {active === 'import' && <ImportSection />}
               {active === 'account' && <AccountSection />}
               {active === 'profile' && <ProfileSection />}
               {active === 'shortcuts' && <ShortcutsSection />}

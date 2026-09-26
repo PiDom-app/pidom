@@ -49,28 +49,48 @@ export function usePdfDocument(documentId: Id<'documents'>): PdfDocumentState {
     setState({ status: 'loading', doc: null, pageCount: 0, firstPageSize: null, error: null });
 
     void (async () => {
+      // Minting a signed URL can fail for two benign reasons: a local-only
+      // import carries a device-minted id Convex does not know yet, and offline
+      // the mutation cannot run at all. Neither is fatal — main serves a staged
+      // local copy straight from the id — so treat a failed mint as "no URL"
+      // and let `openDocument` fall back to the local copy.
+      let signedUrl: string | null = null;
       try {
-        const signedUrl = await convex.mutation(api.library.downloadUrl, {
+        signedUrl = await convex.mutation(api.library.downloadUrl, {
           documentId,
           what: 'document',
         });
-        if (cancelled) return;
-        if (!signedUrl) {
-          setState({
-            status: 'error',
-            doc: null,
-            pageCount: 0,
-            firstPageSize: null,
-            error: NOT_SYNCED,
-          });
-          return;
-        }
+      } catch {
+        signedUrl = null;
+      }
+      if (cancelled) return;
 
-        const opened = await window.pidom.reader.openDocument({ documentId, signedUrl });
+      let url: string;
+      try {
+        const opened = await window.pidom.reader.openDocument({
+          documentId,
+          signedUrl: signedUrl ?? '',
+        });
         handle = opened.handle;
+        url = opened.url;
+      } catch {
         if (cancelled) return;
+        // Main could neither find a local copy nor fetch one. With no URL to
+        // begin with, there is genuinely nothing stored to open; with a URL
+        // that failed, the open itself is at fault.
+        setState({
+          status: 'error',
+          doc: null,
+          pageCount: 0,
+          firstPageSize: null,
+          error: signedUrl ? OPEN_FAILED : NOT_SYNCED,
+        });
+        return;
+      }
+      if (cancelled) return;
 
-        const task = openPdf(opened.url);
+      try {
+        const task = openPdf(url);
         destroyTask = task.destroy;
         doc = await task.promise;
         if (cancelled) return;

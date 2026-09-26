@@ -3,8 +3,11 @@ import { Menubar } from 'radix-ui';
 import { useRouterState } from '@tanstack/react-router';
 import { Minus, Square, Copy, X } from 'lucide-react';
 import { PidomMark } from '../brand/pidom-mark';
+import { TitlebarSearch } from './titlebar-search';
+import { ImportQueue } from '../../features/import/components/import-queue';
 import { useSession } from '../../providers/session-provider';
 import { useTheme, type ThemeMode } from '../../providers/theme-provider';
+import { useImports } from '../../features/import/data/use-imports';
 import { cn } from '../../lib/utils';
 
 const isDev = import.meta.env.DEV;
@@ -24,9 +27,12 @@ const isMac = window.pidom?.platform?.os === 'darwin';
  * stay reachable. Everywhere else it is always present.
  */
 export function TitleBar() {
-  const onReader = useRouterState({
-    select: (s) => s.location.pathname.startsWith('/reader/'),
-  });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const onReader = pathname.startsWith('/reader/');
+  // Global search lives centred in the title bar on the workspace routes, where
+  // the command palette is mounted. Not on the sign-in screen (`/`) or in the
+  // reader, where the bar deliberately stays out of the way.
+  const showSearch = !onReader && pathname !== '/';
   const [hovering, setHovering] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -61,7 +67,19 @@ export function TitleBar() {
 
         <AppMenubar onOpenChange={setMenuOpen} />
 
-        <div className="flex-1" />
+        <div className="flex min-w-0 flex-1 justify-center px-3">
+          {showSearch && (
+            <div className="w-full max-w-md">
+              <TitlebarSearch />
+            </div>
+          )}
+        </div>
+
+        {showSearch && (
+          <div className="flex items-center pr-1">
+            <ImportQueue />
+          </div>
+        )}
 
         {!isMac && <WindowControls />}
       </header>
@@ -81,6 +99,7 @@ const itemClass =
 function AppMenubar({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const { status, signOut } = useSession();
   const { mode, setMode } = useTheme();
+  const { pickFiles, pickFolder } = useImports();
   const bridge = window.pidom;
   const signedIn = status === 'signed-in';
 
@@ -103,6 +122,14 @@ function AppMenubar({ onOpenChange }: { onOpenChange?: (open: boolean) => void }
               New Window
               <Shortcut keys="Ctrl+Shift+N" />
             </Menubar.Item>
+            <Menubar.Separator className="my-1 h-px bg-hairline" />
+            <Menubar.Item className={itemClass} onSelect={() => void pickFiles()}>
+              Import Files…
+            </Menubar.Item>
+            <Menubar.Item className={itemClass} onSelect={() => void pickFolder()}>
+              Import Folder…
+            </Menubar.Item>
+            <Menubar.Separator className="my-1 h-px bg-hairline" />
             <Menubar.Item
               className={itemClass}
               disabled={!signedIn}

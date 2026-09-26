@@ -12,10 +12,11 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Cloud, HardDrive } from 'lucide-react';
 import { DocumentActions } from '../components/document-actions';
 import { ProgressLine } from '../components/progress-line';
+import { ImportStatusDot, uploadFraction } from '@/features/import/components/import-context-menu';
 import { formatBytes, formatProgress, formatRelative } from '@/lib/format';
 import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
 import { cn } from '@/lib/utils';
-import type { LibraryDocument } from '../data/types';
+import type { LibraryEntry } from '@/features/import/data/pseudo-document';
 
 /** Fixed column widths, shared by the header and body so a flex row (needed for
  * virtualization) still aligns like a table. `title` takes the remaining space. */
@@ -52,7 +53,7 @@ export function LibraryTable({
   globalFilter,
   onNearEnd,
 }: {
-  documents: LibraryDocument[];
+  documents: LibraryEntry[];
   globalFilter: string;
   onNearEnd: () => void;
 }) {
@@ -61,7 +62,7 @@ export function LibraryTable({
   const rowHeight = density === 'compact' ? 40 : 48;
   const cellPad = density === 'compact' ? 'py-1.5' : 'py-2';
 
-  const columns = useMemo<ColumnDef<LibraryDocument>[]>(
+  const columns = useMemo<ColumnDef<LibraryEntry>[]>(
     () => [
       {
         accessorKey: 'title',
@@ -69,6 +70,7 @@ export function LibraryTable({
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-medium text-foreground">{row.original.title}</span>
+            {row.original.importJob && <ImportStatusDot job={row.original.importJob} />}
           </div>
         ),
       },
@@ -119,7 +121,17 @@ export function LibraryTable({
         accessorFn: (row) => (row.isSynced ? 1 : 0),
         header: 'Where',
         cell: ({ row }) =>
-          row.original.isSynced ? (
+          row.original.importJob ? (
+            (() => {
+              const fraction = uploadFraction(row.original.importJob);
+              return (
+                <span className="inline-flex items-center gap-1.5 text-fg-subtle">
+                  <HardDrive className="size-3.5" />
+                  {fraction !== null ? `Uploading ${formatProgress(fraction)}` : 'Importing…'}
+                </span>
+              );
+            })()
+          ) : row.original.isSynced ? (
             <span className="inline-flex items-center gap-1.5 text-fg-muted">
               <Cloud className="size-3.5" /> Cloud
             </span>
@@ -140,7 +152,8 @@ export function LibraryTable({
         id: 'actions',
         header: '',
         enableSorting: false,
-        cell: ({ row }) => <DocumentActions document={row.original} />,
+        cell: ({ row }) =>
+          row.original.importJob ? null : <DocumentActions document={row.original} />,
       },
     ],
     [],
