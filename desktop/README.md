@@ -87,10 +87,20 @@ CI (`.github/workflows/ci.yml`) mirrors the mobile app:
   and a SHA-256 checksum. It does **not** deploy Convex — the mobile release job
   already does that on the same push.
 
-Builds ship **unsigned** for now (SmartScreen shows "unknown publisher"; the
-checksum is the integrity guarantee). Authenticode signing via the SignPath
-Foundation is prepared and gated off — see [`SIGNING.md`](./SIGNING.md). Cut a new
-version by bumping `version` in `package.json`; the next merge releases under it.
+Builds ship **unsigned** by default (SmartScreen shows "unknown publisher"; the
+SHA-256 checksum is the integrity guarantee). Two signing paths are prepared and
+gated **off** in CI — enable one when you have a certificate:
+
+- **SignPath Foundation** — free Authenticode signing for OSS (`SIGNPATH_ENABLED`).
+- **signtool + PFX** — any certificate (Certum Open Source, a commercial CA, or a
+  self-signed PFX for internal fleets) supplied as a base64 secret
+  (`WINDOWS_SIGN_ENABLED`).
+
+Signing establishes publisher identity and lets SmartScreen reputation build; it
+is not an instant "no warning" switch (EV no longer bypasses SmartScreen as of
+2026). See [`SIGNING.md`](./SIGNING.md) for the ranked options, exact `signtool`
+commands, and the Certum application steps. Cut a new version by bumping
+`version` in `package.json`; the next merge releases under it.
 
 ## Process split
 

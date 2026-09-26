@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          # No step pushes via git — releases use `gh` with GITHUB_TOKEN — so
+          # don't leave the checkout token in .git/config for build subprocesses.
+          persist-credentials: false
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -68,6 +72,10 @@ jobs:
       CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          # No step pushes via git — releases use `gh` with GITHUB_TOKEN — so
+          # don't leave the checkout token in .git/config for build subprocesses.
+          persist-credentials: false
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -236,6 +244,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          # No step pushes via git — releases use `gh` with GITHUB_TOKEN — so
+          # don't leave the checkout token in .git/config for build subprocesses.
+          persist-credentials: false
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -299,6 +311,10 @@ jobs:
       GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          # No step pushes via git — releases use `gh` with GITHUB_TOKEN — so
+          # don't leave the checkout token in .git/config for build subprocesses.
+          persist-credentials: false
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -340,12 +356,12 @@ jobs:
           github-artifact-id: ${{ github.run_id }}
           wait-for-completion: true
 
-      - name: Stage and checksum installer
+      - name: Stage installer
         id: installer
         run: |
           # Resolve the Setup.exe by glob rather than hardcoding the winstaller
-          # filename, copy it to a stable release name, and checksum it. Git Bash
-          # on windows-latest ships sha256sum.
+          # filename, and copy it to a stable release name. Checksumming is a
+          # separate step *after* signing, so the .sha256 covers the signed bytes.
           DESKTOP_VERSION="$(node -p "require('./package.json').version")"
           SETUP_EXE="$(find out/make/squirrel.windows -name '*.exe' | head -n 1)"
           test -n "$SETUP_EXE"
@@ -353,9 +369,53 @@ jobs:
           RELEASE_EXE="release/Pidom-Setup-${DESKTOP_VERSION}.exe"
           cp "$SETUP_EXE" "$RELEASE_EXE"
           test -s "$RELEASE_EXE"
-          sha256sum "$RELEASE_EXE" > "${RELEASE_EXE}.sha256"
           echo "version=$DESKTOP_VERSION" >> "$GITHUB_OUTPUT"
           echo "exe=$RELEASE_EXE" >> "$GITHUB_OUTPUT"
+
+      # Sign the staged installer with signtool and a PFX from secrets. This is
+      # the certificate-agnostic path — it works with a Certum Open Source cert, a
+      # commercial CA cert, or a self-signed PFX for an internal fleet (see
+      # desktop/SIGNING.md for the trade-offs and how to produce each). It is a
+      # standalone alternative to the SignPath step above: enable one, not both.
+      # Gated off until WINDOWS_SIGN_ENABLED=true and the cert secrets are set,
+      # and it runs before the checksum so the .sha256 covers the signed file.
+      - name: Sign installer (signtool + PFX)
+        if: vars.WINDOWS_SIGN_ENABLED == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          TIMESTAMP_URL: ${{ vars.WINDOWS_SIGN_TIMESTAMP_URL }}
+          SIGN_TARGET: ${{ steps.installer.outputs.exe }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_PFX_BASE64)) {
+            throw 'WINDOWS_SIGN_ENABLED is true but the WINDOWS_CERT_PFX_BASE64 secret is empty.'
+          }
+          $timestamp = if ([string]::IsNullOrWhiteSpace($env:TIMESTAMP_URL)) { 'http://timestamp.sectigo.com' } else { $env:TIMESTAMP_URL }
+          # Newest signtool.exe from the Windows SDK preinstalled on the runner.
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK on this runner.' }
+          # Decode the PFX to RUNNER_TEMP (outside the workspace) and always remove it.
+          $pfx = Join-Path $env:RUNNER_TEMP 'code-sign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX_BASE64))
+          try {
+            & $signtool sign /fd SHA256 /td SHA256 /tr $timestamp /f $pfx /p $env:WINDOWS_CERT_PASSWORD "$env:SIGN_TARGET"
+            if ($LASTEXITCODE -ne 0) { throw "signtool sign failed with exit code $LASTEXITCODE" }
+            & $signtool verify /pa /v "$env:SIGN_TARGET"
+            if ($LASTEXITCODE -ne 0) { throw "signtool verify failed with exit code $LASTEXITCODE" }
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Checksum installer
+        env:
+          EXE: ${{ steps.installer.outputs.exe }}
+        run: |
+          # SHA-256 over the final (signed, when enabled) installer bytes. Git
+          # Bash on windows-latest ships sha256sum.
+          sha256sum "$EXE" > "${EXE}.sha256"
 
       - name: Create public GitHub Release
         env:
