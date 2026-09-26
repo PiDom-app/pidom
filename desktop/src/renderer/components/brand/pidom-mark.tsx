@@ -1,0 +1,22 @@
+/**
+ * The Pidom mark — the same glyph as the mobile app's
+ * `src/components/brand/pidom-mark.tsx`, ported to a plain web `<svg>`.
+ *
+ * It fills with `currentColor`, so it re-themes with the `.dark` / `.light`
+ * class toggle when wrapped in a `text-*` token utility (e.g. `text-foreground`).
+ */
+export function PidomMark({ size = 48, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+    >
+      <path d="M 30 4 C 14.561 4 2 16.561 2 32 C 2 47.439 14.561 60 30 60 L 33 60 C 48.439 60 61 47.439 61 32 C 61 26.600951 59.460842 21.556431 56.802734 17.275391 L 62.039062 12.039062 L 59.210938 9.2109375 L 54.423828 13.998047 C 49.283425 7.890176 41.589024 4 33 4 L 30 4 z M 33 8 C 40.486401 8 47.18112 11.446946 51.585938 16.835938 L 33.375 35.046875 L 21.664062 23.335938 L 18.835938 26.164062 L 33.375 40.703125 L 53.882812 20.195312 C 55.862819 23.683904 57 27.710097 57 32 C 57 45.234 46.233 56 33 56 C 19.767 56 9 45.234 9 32 C 9 18.766 19.767 8 33 8 z" />
+    </svg>
+  );
+}

@@ -152,6 +152,27 @@ export const usage = query({
 });
 
 /**
+ * One document's metadata, for a client that opens it by id and holds no copy
+ * of its own.
+ *
+ * The mobile reader reads this from its local SQLite — the file and its title
+ * are already on the phone. The desktop reader streams: it navigates to a
+ * document id with nothing in hand, and needs the title to show, the page count
+ * to lay out, and the saved position to restore before the first page renders.
+ * `requireDocument` scopes it to the owner exactly as the rest of this file
+ * does, so a missing document and someone else's both answer `FORBIDDEN`.
+ */
+export const document = query({
+  args: { documentId: v.id('documents') },
+  returns: Library.publicDocumentValidator,
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const doc = await Library.requireDocument(ctx, user, args.documentId);
+    return Library.toPublicDocument(doc);
+  },
+});
+
+/**
  * A document's table of contents, flattened. Empty when it has none.
  *
  * Read by `sync/engine.ts` during a reconcile, not by a screen. The outline is

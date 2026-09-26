@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# Electron Forge / Vite build output
+.vite/
+out/
+
+# local env — never committed
+.env*.local
+
+# TanStack Router generated tree (regenerated on start)
+src/renderer/routeTree.gen.ts
+
+# drizzle generated migrations metadata cache
+.drizzle/
+
+# native rebuild artifacts
+*.node.tmp
+
+# logs
+npm-debug.*
+*.log
+
+# macOS
+.DS_Store

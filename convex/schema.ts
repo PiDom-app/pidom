@@ -37,6 +37,80 @@ export const notificationSettingsFields = {
   updatedAt: v.number(),
 };
 
+/**
+ * The columns of `readerPreferences`. Exported for the reason above — the wire
+ * validator for `reader.mine` is built from this object, not a second copy.
+ *
+ * These are the account-level, device-independent reading choices: how a
+ * document opens and behaves, the same on every client. What is deliberately
+ * *not* here is anything meaningful only to one screen — the last zoom
+ * percentage, the sidebar's pixel width, which page a given phone is on. Those
+ * stay in the device's own local storage, for the same reason `documents`
+ * keeps `readingMode` but not scroll offset: a value that means nothing on a
+ * screen of a different size is not a value to synchronise.
+ *
+ * A row exists only once the reader changes something; until then the defaults
+ * in `convex/model/reader.ts` answer, exactly as `notificationSettings` and
+ * `sharingSettings` work.
+ */
+export const readerPreferencesFields = {
+  userId: v.id('users'),
+
+  /**
+   * How a document opens, before this reader touches the layout control.
+   *
+   * The same three literals as `documents.readingMode`, and that overlap is the
+   * point: the per-document mode is what a reader last chose *for one book*, and
+   * this is what a book with no choice of its own opens as. A document's own
+   * `readingMode` still wins when it has one — this fills the gap the schema
+   * comment on `readingMode` describes as "whatever suits this screen", with a
+   * decision the reader made once rather than a guess made per device.
+   */
+  defaultViewMode: v.union(v.literal('continuous'), v.literal('single'), v.literal('spread')),
+
+  /** How a page is sized to the surface. `last-used` restores the last manual scale. */
+  pageScaling: v.union(
+    v.literal('auto'),
+    v.literal('fit-width'),
+    v.literal('fit-page'),
+    v.literal('last-used'),
+  ),
+
+  /** The gap between pages in continuous mode. */
+  pageSpacing: v.union(v.literal('compact'), v.literal('normal'), v.literal('relaxed')),
+
+  /**
+   * The surface behind the page, which is not the same as the app theme.
+   *
+   * A dark application shell does not mean the document should be inverted — a
+   * PDF is a scanned or authored page and darkening it is a reading preference,
+   * not a consequence of the window's colour. `neutral` sits the page on the
+   * reader's usual surface; `dark` presents it against a darker one. Kept
+   * separate from Appearance on purpose.
+   */
+  documentBackground: v.union(v.literal('neutral'), v.literal('dark')),
+
+  /** Reading order, for documents that run right-to-left. */
+  pageDirection: v.union(v.literal('ltr'), v.literal('rtl')),
+
+  /** Whether the reader chrome stays, fades while reading, or only shows on request. */
+  toolbarBehavior: v.union(v.literal('always'), v.literal('auto-hide'), v.literal('manual')),
+
+  /** Whether the navigation panel opens, starts collapsed, or remembers its last state. */
+  sidebarBehavior: v.union(v.literal('open'), v.literal('collapsed'), v.literal('last-used')),
+
+  /** Whether opening a document returns to the synced reading position. */
+  restorePosition: v.boolean(),
+
+  /** Whether the wheel scrolls continuously or snaps a page at a time. */
+  pageNavigation: v.union(v.literal('continuous'), v.literal('snap')),
+
+  updatedAt: v.number(),
+
+  /** See `documents.clientUpdatedAt`. Guards a change against a stale one. */
+  clientUpdatedAt: v.optional(v.number()),
+};
+
 /** The columns of `sharingSettings`. Exported for the reason above. */
 export const sharingSettingsFields = {
   userId: v.id('users'),
@@ -1318,6 +1392,20 @@ export default defineSchema({
    * enforces reads as covered when it is not.
    */
   sharingSettings: defineTable(sharingSettingsFields).index('by_user', ['userId']),
+
+  /**
+   * How this account likes to read, on any client that has a reader.
+   *
+   * The desktop reader is the first client to write these; the mobile app keeps
+   * its reader preferences on the device today and can adopt this row later
+   * without a migration — an absent row reads as the defaults either way. Same
+   * absent-row-means-defaults rule as `notificationSettings` and
+   * `sharingSettings`, and the defaults live in `convex/model/reader.ts`.
+   *
+   * Owner-scoped like everything else, and reachable only through the verified
+   * JWT: `reader.mine` and `reader.update` never take a user id.
+   */
+  readerPreferences: defineTable(readerPreferencesFields).index('by_user', ['userId']),
 
   /**
    * One attempt to push one event to one device.
