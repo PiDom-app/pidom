@@ -13,6 +13,7 @@
     "publish": "electron-forge publish",
     "routes": "tsr generate",
     "db:generate": "drizzle-kit generate",
+    "icons": "node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit",
     "tokens": "node scripts/check-tokens.mjs",
     "quality": "npm run tokens && npm run typecheck"
@@ -67,6 +68,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "drizzle-kit": "^1.0.0-rc.4",
     "electron": "^44.0.0",
+    "jimp": "^1.6.0",
+    "png-to-ico": "^2.1.8",
     "tailwindcss": "^4.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",

@@ -12,9 +12,25 @@ const config: ForgeConfig = {
     // No native addons remain (the cache uses the built-in node:sqlite), so asar
     // needs no unpacked binaries — the whole app ships inside the archive.
     asar: true,
+    // The app/.exe icon (the Pidom mark, same glyph as the mobile launcher icon).
+    // Extensionless on purpose: electron-packager appends .ico on Windows and
+    // .png on Linux. Regenerate with `npm run icons`.
+    icon: 'icons/icon',
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  makers: [
+    new MakerSquirrel({
+      // Installer/Setup.exe icon, the Start-menu/desktop shortcut icon, and the
+      // icon shown while the Squirrel installer runs.
+      setupIcon: 'icons/icon.ico',
+      // The Add/Remove Programs ("Apps & features") icon. Squirrel requires a
+      // URL here, not a local path; it points at the committed icon on main.
+      iconUrl: 'https://raw.githubusercontent.com/PiDom-app/pidom/main/desktop/icons/icon.ico',
+    }),
+    new MakerZIP({}, ['darwin']),
+    new MakerRpm({}),
+    new MakerDeb({}),
+  ],
   plugins: [
     new VitePlugin({
       // Three separate Vite builds. `entry`/`config` pair the source with its

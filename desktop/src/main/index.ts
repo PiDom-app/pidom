@@ -116,6 +116,10 @@ function createWindow(): BrowserWindow {
     minHeight: 480,
     backgroundColor: '#000000',
     show: false,
+    // The Pidom mark, copied next to the main bundle by vite.main.config.ts's
+    // app-icon plugin. Drives the dev window and the Linux/Windows taskbar icon;
+    // the packaged Windows .exe carries its own icon from packagerConfig.
+    icon: join(__dirname, 'icon.png'),
     // A single custom title bar across platforms: on macOS the traffic lights
     // stay (inset into our bar); on Windows/Linux the frame is gone and the
     // renderer draws its own controls.

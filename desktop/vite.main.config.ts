@@ -1,5 +1,22 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'node:path';
+import { cp } from 'node:fs/promises';
+
+// Copy the app icon next to the built main bundle so the main process can set it
+// as the BrowserWindow icon at runtime (`join(__dirname, 'icon.png')`). On
+// packaged Windows the window/taskbar icon comes from the .exe itself, but this
+// covers the dev run and the Linux makers. Regenerate the source with
+// `npm run icons`.
+function appIcon(): Plugin {
+  return {
+    name: 'app-icon',
+    apply: () => true,
+    async writeBundle(options) {
+      const outDir = options.dir ?? resolve(process.cwd(), '.vite/build');
+      await cp(resolve(process.cwd(), 'icons/icon.png'), resolve(outDir, 'icon.png'));
+    },
+  };
+}
 
 // Main process. Node built-ins (node:sqlite, fast-glob, file-type, the OAuth
 // loopback) run here — never in the renderer.
@@ -13,6 +30,7 @@ import { resolve } from 'node:path';
 // __dirname would point at the wrong place.
 export default defineConfig({
   envPrefix: ['VITE_', 'GOOGLE_'],
+  plugins: [appIcon()],
   resolve: {
     // Reach the shared Convex deployment's generated API without duplicating it.
     alias: {

@@ -221,3 +221,214 @@ jobs:
           test -z "$(git status --porcelain)"
           eas update --channel production --environment production --non-interactive \
             --message "GitHub ${GITHUB_SHA}"
+
+  # ---------------------------------------------------------------------------
+  # Desktop companion (desktop/). Its own npm project (not a workspace), its own
+  # lockfile, and no eslint/prettier/tests — the quality gate is the token guard
+  # plus typecheck. `desktop/src/renderer/routeTree.gen.ts` is gitignored
+  # (regenerated on start), so `npm run routes` must run before typecheck/build
+  # or both fail on the missing route tree. `--legacy-peer-deps` matches how the
+  # lockfile was resolved (@electron/fuses 2.x vs the forge fuses plugin's ^1.0.0
+  # peer range).
+  # ---------------------------------------------------------------------------
+  desktop-quality:
+    name: desktop quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate route tree
+        run: npm run routes
+
+      - name: Every colour resolves to a token
+        run: npm run tokens
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  desktop-release:
+    name: Desktop release (Windows)
+    needs: desktop-quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: write
+    # Distinct from the mobile `production-release` group so the two release jobs
+    # run in parallel on the same push and never cancel one another.
+    concurrency:
+      group: desktop-release
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    env:
+      # Baked into the build. All four are non-confidential public identifiers
+      # (see desktop/.env.example) — VITE_* into the renderer, GOOGLE_* into the
+      # main bundle only. PKCE secures the OAuth exchange; no secret ships.
+      VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
+      VITE_CONVEX_SITE_URL: ${{ vars.VITE_CONVEX_SITE_URL }}
+      GOOGLE_DESKTOP_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
+      GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Validate build configuration
+        run: |
+          # Fail fast (like the mobile job's credential check) if the shared
+          # Convex deployment URL is missing — a build without it would ship a
+          # binary that cannot reach the backend.
+          test -n "$VITE_CONVEX_URL"
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate route tree
+        run: npm run routes
+
+      - name: Build Windows installer
+        run: npm run make
+
+      - name: Sign installer (SignPath)
+        # Disabled until the SignPath Foundation setup in desktop/SIGNING.md is
+        # complete: make the repo public, get Foundation approval, install the
+        # SignPath GitHub App, then set the repo variable SIGNPATH_ENABLED=true
+        # and the SIGNPATH_* secrets/vars. Before enabling, pin the action below
+        # to a full commit SHA (see SIGNING.md) — until then this step is skipped
+        # and releases ship unsigned.
+        if: vars.SIGNPATH_ENABLED == 'true'
+        uses: SignPath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: exe
+          github-artifact-id: ${{ github.run_id }}
+          wait-for-completion: true
+
+      - name: Stage and checksum installer
+        id: installer
+        run: |
+          # Resolve the Setup.exe by glob rather than hardcoding the winstaller
+          # filename, copy it to a stable release name, and checksum it. Git Bash
+          # on windows-latest ships sha256sum.
+          DESKTOP_VERSION="$(node -p "require('./package.json').version")"
+          SETUP_EXE="$(find out/make/squirrel.windows -name '*.exe' | head -n 1)"
+          test -n "$SETUP_EXE"
+          mkdir -p release
+          RELEASE_EXE="release/Pidom-Setup-${DESKTOP_VERSION}.exe"
+          cp "$SETUP_EXE" "$RELEASE_EXE"
+          test -s "$RELEASE_EXE"
+          sha256sum "$RELEASE_EXE" > "${RELEASE_EXE}.sha256"
+          echo "version=$DESKTOP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "exe=$RELEASE_EXE" >> "$GITHUB_OUTPUT"
+
+      - name: Create public GitHub Release
+        env:
+          DESKTOP_VERSION: ${{ steps.installer.outputs.version }}
+          EXE: ${{ steps.installer.outputs.exe }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The installer version is static until package.json is bumped, so the
+          # tag is namespaced and made unique per run with the run number —
+          # mirroring the mobile `-android.<code>` shape while staying
+          # collision-free across every-merge builds.
+          TAG="v${DESKTOP_VERSION}-desktop.${GITHUB_RUN_NUMBER}"
+          PREVIOUS_TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          GENERATED_NOTES="$RUNNER_TEMP/desktop-generated-notes.json"
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f previous_tag_name="$PREVIOUS_TAG" > "$GENERATED_NOTES"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f target_commitish="$GITHUB_SHA" > "$GENERATED_NOTES"
+          fi
+
+          RELEASE_NOTES="$RUNNER_TEMP/desktop-release-notes.md"
+          DESKTOP_VERSION="$DESKTOP_VERSION" \
+            TAG="$TAG" \
+            EXE="$EXE" \
+            GENERATED_NOTES="$GENERATED_NOTES" \
+            RELEASE_NOTES="$RELEASE_NOTES" \
+            node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const generated = JSON.parse(fs.readFileSync(process.env.GENERATED_NOTES, 'utf8'));
+          const generatedBody = String(generated.body || '').trim();
+          const exeName = path.basename(process.env.EXE);
+          const checksumName = `${exeName}.sha256`;
+
+          const notes = `## Release
+
+          Pidom Desktop ${process.env.DESKTOP_VERSION} for Windows (x64).
+
+          - Installer: \`${exeName}\`
+          - SHA-256 checksum: \`${checksumName}\`
+          - Commit: \`${process.env.GITHUB_SHA}\`
+
+          ## Install and Verify
+
+          Download \`${exeName}\` and \`${checksumName}\` from this release, then verify the installer before running it:
+
+          \`\`\`sh
+          sha256sum -c ${checksumName}
+          \`\`\`
+
+          A matching checksum means the installer is byte-for-byte the file produced and attached by this release workflow.
+
+          This build is **not code-signed** yet, so Windows SmartScreen shows an "unknown publisher" warning. After verifying the checksum, choose **More info → Run anyway** to install. Authenticode signing via SignPath Foundation is prepared and will remove this warning once enabled (see \`desktop/SIGNING.md\`).
+
+          ## What's Changed
+
+          ${generatedBody || 'No GitHub changelog entries were generated for this release.'}
+
+          ## Security and Integrity
+
+          - This installer is currently **unsigned**; verify the SHA-256 checksum above before running it.
+          - The desktop app shares the same Convex deployment, account, and Google-OIDC security model as the mobile app.
+          - Only non-confidential public identifiers (the Convex URL and the desktop OAuth client id/secret) are baked into the binary; PKCE secures the OAuth exchange and no confidential secret is committed or shipped.
+          - The renderer runs sandboxed (contextIsolation on, nodeIntegration off) and reaches the main process only through the preload bridge; Electron Fuses harden the packaged app (OnlyLoadAppFromAsar, asar integrity, RunAsNode off).
+          - Release assets include a SHA-256 checksum for independent download verification.
+
+          Release tag: https://github.com/${process.env.GITHUB_REPOSITORY}/releases/tag/${process.env.TAG}
+          `;
+
+          fs.writeFileSync(
+            process.env.RELEASE_NOTES,
+            notes
+              .split('\n')
+              .map((line) => line.replace(/^ {10}/, ''))
+              .join('\n')
+              .trimStart(),
+          );
+          NODE
+
+          gh release create "$TAG" "$EXE" "${EXE}.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "Pidom Desktop ${DESKTOP_VERSION}" \
+            --notes-file "$RELEASE_NOTES"
