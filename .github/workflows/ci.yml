@@ -234,9 +234,6 @@ jobs:
   desktop-quality:
     name: desktop quality
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: desktop
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
@@ -244,18 +241,35 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
 
-      - name: Install
+      - name: Install desktop dependencies
+        working-directory: desktop
         run: npm ci --legacy-peer-deps
 
+      # The desktop typecheck resolves the shared Convex API: `@convex/api` →
+      # ../convex/_generated, whose generated `api.d.ts` imports every backend
+      # module, which in turn import the backend's own dependencies
+      # (@convex-dev/*, unpdf, …). Those are declared in the ROOT project, not in
+      # desktop/, so without them `tsc` would see `api` as `any` and every
+      # renderer callback would fail noImplicitAny. Install the root deps too —
+      # desktop's tsconfig pins `types: ["node","vite/client"]`, so no React
+      # Native / Expo ambient types leak into the desktop compile.
+      - name: Install shared backend type dependencies (root)
+        run: npm ci
+
       - name: Generate route tree
+        working-directory: desktop
         run: npm run routes
 
       - name: Every colour resolves to a token
+        working-directory: desktop
         run: npm run tokens
 
       - name: Typecheck
+        working-directory: desktop
         run: npm run typecheck
 
   desktop-release:
