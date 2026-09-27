@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PidomMark } from '@/components/brand/pidom-mark';
-import { Screen } from '@/components/layout/screen';
+import { Box } from '@/components/ui/box';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -10,6 +11,7 @@ import { useAppToast } from '@/components/feedback/use-app-toast';
 
 import { useSession } from '../session-provider';
 import type { GoogleFailureReason } from '../google-client';
+import { AuthHero } from './auth-hero';
 import { GoogleSignInButton } from './google-sign-in-button';
 
 /**
@@ -45,14 +47,17 @@ function messageFor(reason: GoogleFailureReason): { title: string; description: 
 /**
  * One continuous surface, no card.
  *
- * The mark and the name sit in the upper-middle where the eye lands, the
- * explanation is one line, and the only control is at the bottom within thumb
- * reach. There is nothing else to look at, which is the point: this screen has
- * exactly one thing a reader can do.
+ * A full-bleed photograph starts at the very top edge, under the status bar,
+ * and dissolves into the canvas — the app's calm reading world, shown rather
+ * than described. Below the fade the name, one line of explanation, and the
+ * only control sit within thumb reach. There is nothing else to look at, which
+ * is the point: this screen has exactly one thing a reader can do. The image is
+ * decoration only (see `auth-hero.tsx`); it never gates the button.
  */
 export function SignInScreen() {
   const { signIn, lastFailure } = useSession();
   const showToast = useAppToast();
+  const insets = useSafeAreaInsets();
 
   // Only report a failure once. `lastFailure` persists until the next attempt
   // so the screen can render against it, and without this guard a re-render
@@ -76,24 +81,29 @@ export function SignInScreen() {
   }, [lastFailure, showToast]);
 
   return (
-    <Screen edges={['top', 'bottom']}>
-      <VStack className="flex-1 justify-between px-4 pb-8 pt-4">
-        {/* The identity block, optically centred rather than mathematically —
-            the button below carries weight the eye compensates for. */}
-        <VStack className="flex-1 items-center justify-center" space="xl">
-          <PidomMark size={104} />
+    <Box className="flex-1 bg-background">
+      {/* Light icons read over the photo; the bar stays translucent so the
+          image reaches the physical top edge. */}
+      <StatusBar style="light" />
+      <AuthHero />
 
-          <VStack className="items-center" space="sm">
-            <Heading size="2xl" className="text-foreground">
-              Pidom
-            </Heading>
-            <Text size="md" className="max-w-72 text-center text-muted-foreground">
-              Your PDFs, your highlights, and where you left off — on every device.
-            </Text>
-          </VStack>
+      {/* The content is pinned to the bottom, over solid canvas below the fade,
+          and clears the home indicator via the bottom inset. */}
+      <VStack
+        className="absolute inset-x-0 bottom-0 items-center px-6"
+        style={{ paddingBottom: insets.bottom + 24 }}
+        space="lg"
+      >
+        <VStack className="items-center" space="xs">
+          <Heading size="2xl" className="text-foreground">
+            Pidom
+          </Heading>
+          <Text size="md" className="max-w-72 text-center text-muted-foreground">
+            Your PDFs, your highlights, and where you left off — on every device.
+          </Text>
         </VStack>
 
-        <VStack space="md">
+        <VStack className="w-full" space="md">
           <GoogleSignInButton onPress={signIn} />
           <Text size="xs" className="px-2 text-center text-fg-subtle">
             By Signing in, you agree to our{' '}
@@ -114,6 +124,6 @@ export function SignInScreen() {
           </Text>
         </VStack>
       </VStack>
-    </Screen>
+    </Box>
   );
 }
