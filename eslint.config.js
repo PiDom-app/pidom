@@ -5,7 +5,10 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    // `desktop/` is a separate npm project (Electron Forge + Vite, its own
+    // lockfile and CI job). It has no eslint config here; the mobile lint must
+    // not walk into it. Its quality gate is `desktop-quality` in CI.
+    ignores: ['dist/*', 'desktop/**'],
   },
   {
     rules: {

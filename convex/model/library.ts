@@ -27,8 +27,6 @@ import {
   PAGE_DRAIN_PASSES,
   PAGE_COUNT_MAX,
   RAIL_LIMIT,
-  SEARCH_LIMIT,
-  SEARCH_TERM_MAX,
   TITLE_MAX,
   clamp,
   cleanOptionalText,
@@ -743,7 +741,7 @@ export async function allBookmarks(
 
 /* ── bookmarks ──────────────────────────────────────────────────────── */
 
-/** The wire shape, beside the function that produces it, as everywhere else. */
+/** The wire shape a document's bookmarks are returned in. */
 export const bookmarkValidator = v.object({
   id: v.id('documentBookmarks'),
   page: v.number(),
@@ -757,17 +755,6 @@ export type PublicBookmark = {
   label: string | null;
   createdAt: number;
 };
-
-function toPublicBookmark(row: Doc<'documentBookmarks'>): PublicBookmark {
-  return {
-    id: row._id,
-    page: row.page,
-    label: row.label ?? null,
-    createdAt: row.createdAt,
-    // `ownerId` and `documentId` are deliberately absent: the caller asked for
-    // one document's bookmarks and already knows both.
-  };
-}
 
 /**
  * Marks a page, or does nothing if it is already marked.

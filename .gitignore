@@ -59,3 +59,7 @@ skills-lock.json
 
 # Generated design payload. Rebuild with `node .design/build.mjs`.
 .design/pidom-library.html
+
+
+#zcode folder
+.zcode/

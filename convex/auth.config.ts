@@ -33,11 +33,28 @@ if (!applicationID) {
   );
 }
 
+/**
+ * The desktop companion (`../desktop`) signs in through a Google *Desktop app*
+ * OAuth client rather than the mobile web client, so its ID token carries a
+ * different `aud`. Registering that client id as a second provider widens the
+ * accepted audience to include it — the audience is still pinned, so a token
+ * minted for any other application is still rejected.
+ *
+ * It is optional: a deployment that does not serve the desktop app simply leaves
+ * `GOOGLE_DESKTOP_CLIENT_ID` unset and only the mobile audience is accepted.
+ * Set it with:
+ *   npx convex env set GOOGLE_DESKTOP_CLIENT_ID <id>.apps.googleusercontent.com
+ */
+const desktopApplicationID = process.env.GOOGLE_DESKTOP_CLIENT_ID;
+
 export default {
   providers: [
     {
       domain: 'https://accounts.google.com',
       applicationID,
     },
+    ...(desktopApplicationID
+      ? [{ domain: 'https://accounts.google.com', applicationID: desktopApplicationID }]
+      : []),
   ],
 } satisfies AuthConfig;

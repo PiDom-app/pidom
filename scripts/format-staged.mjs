@@ -44,7 +44,7 @@ if (staged.length === 0) {
 // Not installed yet — a hook that fires between `git clone` and `npm install`,
 // or on a machine with a pruned tree. Blocking a commit over a missing
 // dev dependency would be a worse failure than the one this prevents.
-const prettier = join(root, 'node_modules', '.bin', 'prettier');
+const prettier = join(root, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
 if (!existsSync(prettier)) {
   process.exit(0);
 }
@@ -65,7 +65,12 @@ const partial = staged.filter((path) => dirty.has(path));
 function run(args, files) {
   // `--ignore-unknown` so a commit touching an image or a lockfile is not an
   // error; `.prettierignore` still applies on top of it.
-  return execFileSync(prettier, [...args, '--ignore-unknown', ...files], {
+  //
+  // Invoked via `process.execPath` against prettier's JS entry point rather
+  // than the `node_modules/.bin` shim: the shim is a Unix shell script that
+  // Windows cannot spawn, and the `.cmd` variant needs `shell: true`. Running
+  // the `.cjs` directly with node is portable and needs no shell.
+  return execFileSync(process.execPath, [prettier, ...args, '--ignore-unknown', ...files], {
     cwd: root,
     stdio: ['ignore', 'ignore', 'inherit'],
   });
