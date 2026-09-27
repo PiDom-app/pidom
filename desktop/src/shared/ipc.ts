@@ -22,6 +22,7 @@ export const IPC = {
   // Title-bar menu commands.
   menuEditAction: 'menu:editAction',
   menuReload: 'menu:reload',
+  menuToggleDevTools: 'menu:toggleDevTools',
   menuZoom: 'menu:zoom',
   menuNewWindow: 'menu:newWindow',
   menuAbout: 'menu:about',
@@ -316,6 +317,9 @@ export interface PidomBridge {
   menu: {
     editAction(action: EditAction): Promise<void>;
     reload(): Promise<void>;
+    /** Opens/closes Chromium DevTools. Available in packaged builds too, so
+     *  renderer issues can be inspected from the title bar. */
+    toggleDevTools(): Promise<void>;
     zoom(action: ZoomAction): Promise<void>;
     newWindow(): Promise<void>;
     about(): Promise<void>;

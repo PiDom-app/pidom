@@ -48,6 +48,7 @@ const bridge: PidomBridge = {
   menu: {
     editAction: (action: EditAction) => ipcRenderer.invoke(IPC.menuEditAction, action),
     reload: () => ipcRenderer.invoke(IPC.menuReload),
+    toggleDevTools: () => ipcRenderer.invoke(IPC.menuToggleDevTools),
     zoom: (action: ZoomAction) => ipcRenderer.invoke(IPC.menuZoom, action),
     newWindow: () => ipcRenderer.invoke(IPC.menuNewWindow),
     about: () => ipcRenderer.invoke(IPC.menuAbout),
