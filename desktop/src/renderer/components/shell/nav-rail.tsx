@@ -10,9 +10,6 @@ import {
   Star,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PidomMark } from '@/components/brand/pidom-mark';
-import { useSession } from '@/providers/session-provider';
-import { useConvexAuth } from 'convex/react';
 import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
 import { cn } from '@/lib/utils';
 import { AccountControl } from './account-control';
@@ -54,23 +51,17 @@ const groupLabelClass =
 
 /**
  * The permanent left navigation. It belongs to the structural background of the
- * shell — not another floating card — with the product mark and connection
- * state at the top, the primary destinations grouped through the middle, and
- * Settings plus the account control pinned to the bottom. Icons read at 24px so
- * a glance finds them; each destination carries a tooltip for the same reason.
+ * shell — not another floating card — with the primary destinations grouped
+ * through the middle and Settings plus the account control pinned to the bottom.
+ * Icons read at 24px so a glance finds them; each destination carries a tooltip
+ * for the same reason.
  */
 export function NavRail() {
   const { density } = useDesktopSettings();
   const itemPad = density === 'compact' ? 'py-1.5' : 'py-2';
   return (
     <nav className="flex h-full w-64 shrink-0 flex-col px-3 pt-9 pb-3">
-      <div className="flex items-center gap-2.5 px-2 pt-2 pb-1">
-        <PidomMark size={22} className="text-primary" />
-        <span className="text-lg font-semibold tracking-tight text-foreground">Pidom</span>
-      </div>
-      <ConnectionIndicator />
-
-      <div className="mt-2 flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col">
         {GROUPS.map((group) => (
           <div key={group.label}>
             <p className={groupLabelClass}>{group.label}</p>
@@ -123,22 +114,5 @@ function NavLink({
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
-  );
-}
-
-/** A compact line under the brand showing the desktop is connected to Convex. */
-function ConnectionIndicator() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const { status } = useSession();
-
-  const connected = isAuthenticated && status === 'signed-in';
-  const label = isLoading ? 'Connecting…' : connected ? 'Connected' : 'Offline';
-  const dotClass = isLoading ? 'bg-warn' : connected ? 'bg-ok' : 'bg-fg-disabled';
-
-  return (
-    <div className="flex items-center gap-2 px-2 text-2xs text-fg-subtle">
-      <span className={cn('size-1.5 rounded-full', dotClass)} />
-      {label}
-    </div>
   );
 }
