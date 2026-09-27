@@ -51,7 +51,7 @@ export function TitleBar() {
       <header
         onMouseLeave={() => setHovering(false)}
         className={cn(
-          'app-drag absolute inset-x-0 top-0 z-50 flex h-9 shrink-0 items-center pr-2 select-none transition-[transform,opacity] duration-200',
+          'app-drag absolute inset-x-0 top-0 z-50 flex h-9 shrink-0 items-center select-none transition-[transform,opacity] duration-200',
           onReader && 'bg-background/80 backdrop-blur-sm',
           revealed
             ? 'translate-y-0 opacity-100'
@@ -194,14 +194,19 @@ function AppMenubar({ onOpenChange }: { onOpenChange?: (open: boolean) => void }
         <Menubar.Portal>
           <Menubar.Content className={contentClass} align="start" sideOffset={4}>
             {isDev && (
-              <>
-                <Menubar.Item className={itemClass} onSelect={() => void bridge.menu.reload()}>
-                  Reload
-                  <Shortcut keys="Ctrl+R" />
-                </Menubar.Item>
-                <Menubar.Separator className="my-1 h-px bg-hairline" />
-              </>
+              <Menubar.Item className={itemClass} onSelect={() => void bridge.menu.reload()}>
+                Reload
+                <Shortcut keys="Ctrl+R" />
+              </Menubar.Item>
             )}
+            <Menubar.Item
+              className={itemClass}
+              onSelect={() => void bridge.menu.toggleDevTools()}
+            >
+              Toggle DevTools
+              <Shortcut keys="F12" />
+            </Menubar.Item>
+            <Menubar.Separator className="my-1 h-px bg-hairline" />
             <Menubar.Sub>
               <Menubar.SubTrigger className={itemClass}>Theme</Menubar.SubTrigger>
               <Menubar.Portal>
@@ -282,7 +287,7 @@ function WindowControls() {
   // The bar is a transparent overlay, so the controls can sit over the image
   // panel; a faint blurred backdrop keeps the glyphs legible over any artwork.
   return (
-    <div className="flex items-stretch overflow-hidden rounded-md bg-background/50 backdrop-blur-sm">
+    <div className="flex items-stretch overflow-hidden bg-background/50 backdrop-blur-sm">
       <button
         aria-label="Minimize"
         className={buttonClass}

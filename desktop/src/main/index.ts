@@ -158,6 +158,15 @@ function createWindow(): BrowserWindow {
     console.error('[main] ⚠ render-process-gone', details),
   );
 
+  // A failed renderer load is a common blank-window cause in packaged builds
+  // (bad asset path, protocol handler rejection). Surface it instead of showing
+  // an empty window with no explanation. `-3` is ERR_ABORTED, which fires
+  // harmlessly on normal in-app navigations, so it is ignored.
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    if (errorCode === -3) return;
+    console.error('[main] ⚠ did-fail-load', { errorCode, errorDescription, validatedURL });
+  });
+
   // Keep the renderer's window-control state in sync with the real window.
   const pushMaximized = () => win.webContents.send('window:maximizeChanged', win.isMaximized());
   win.on('maximize', pushMaximized);
@@ -166,7 +175,12 @@ function createWindow(): BrowserWindow {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    void win.loadURL(`${APP_ORIGIN}/index.html`);
+    // Load the origin root, not `/index.html`, so the SPA router's initial
+    // pathname is `/` (which matches the index route). Loading `/index.html`
+    // gives the router a pathname no route matches, leaving a blank window with
+    // only the title bar painted. The app-protocol handler serves index.html
+    // for this extensionless path.
+    void win.loadURL(`${APP_ORIGIN}/`);
   }
 
   return win;

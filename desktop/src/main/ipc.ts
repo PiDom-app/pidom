@@ -290,6 +290,14 @@ export function registerIpc(
       if (opts.isDev) event.sender.reload();
     }),
   );
+  // DevTools toggle is intentionally available in the packaged app too: a blank
+  // window is almost always an uncaught renderer error, and this is how a user
+  // can open the console to see it. Triggered only by an explicit title-bar/menu
+  // action, never automatically in production.
+  ipcMain.handle(
+    IPC.menuToggleDevTools,
+    guard((event) => event.sender.toggleDevTools()),
+  );
   handleWith(IPC.menuZoom, Schemas.zoomAction, (event, action: ZoomAction) => {
     const wc = event.sender;
     if (action === 'reset') wc.setZoomLevel(0);
