@@ -1,10 +1,11 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { ChevronRight, FilePlus2 } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl } from 'react-native';
 
 import { Screen } from '@/components/layout/screen';
+import { useAppToast } from '@/components/feedback/use-app-toast';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
@@ -12,12 +13,14 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { useProfile } from '@/features/auth/use-profile';
 import { useSession } from '@/features/auth/session-provider';
+import { useShareEvents } from '@/features/sharing/data/use-sharing';
 import { themeColors } from '@/design/tokens';
 import { useResolvedTheme } from '@/providers/theme-provider';
 
 import type { LibraryCollection, LibraryDocument } from '../data/types';
 import type { HomeSection } from '../data/use-home';
 import { useHome } from '../data/use-home';
+import { useCollectionActions } from '../data/use-collection-actions';
 import { useLibraryActions } from '../data/use-library-actions';
 import { useLibraryStatus } from '../data/use-library-status';
 import { usePendingProbe } from '../data/use-pending-probe';
@@ -30,9 +33,11 @@ import { COVER_WIDTH } from './document-cover';
 import { DocumentProbe, type ProbeResult } from './document-probe';
 import { DocumentTile, tileHeight } from './document-tile';
 import { EmptyLibrary } from './empty-library';
+import { LibraryFab } from './library-fab';
 import { LibraryHeader } from './library-header';
 import { LibraryUnavailable, OfflineState, SyncNotice } from './library-notice';
 import { LibrarySkeleton } from './library-skeleton';
+import { NameDialog } from './name-dialog';
 import { SectionRail } from './section-rail';
 import { SharedTile } from './shared-tile';
 import { isOpenable } from '../data/types';
@@ -72,6 +77,14 @@ export function LibraryScreen() {
     refresh,
   } = useHome();
   const { fetchDocument, recordProbe } = useLibraryActions();
+  const { create: createCollection } = useCollectionActions();
+  const { unread } = useShareEvents();
+  const showToast = useAppToast();
+
+  // The one modal this screen owns: naming a new collection from the FAB. It is
+  // local-first — `create` enqueues and resolves against this device — so it
+  // works with no connection, like everything else the "+" offers.
+  const [naming, setNaming] = useState(false);
 
   /**
    * A document whose probe never finished, if there is one.
@@ -184,7 +197,9 @@ export function LibraryScreen() {
       name={name}
       email={email}
       photoUrl={photoUrl}
+      unreadActivity={unread}
       onOpenAccount={() => router.push('/account')}
+      onOpenActivity={() => router.push('/activity')}
       onOpenSearch={() => router.push({ pathname: '/library', params: { focus: 'search' } })}
     />
   );
@@ -238,6 +253,7 @@ export function LibraryScreen() {
     <Screen>
       <FlashList
         style={FILL}
+        contentContainerStyle={LIST_PADDING}
         data={sections}
         keyExtractor={(section) => section.id}
         renderItem={({ item }) => renderSection(item)}
@@ -254,12 +270,7 @@ export function LibraryScreen() {
             ) : null}
           </>
         }
-        ListFooterComponent={
-          <ViewAllFooter
-            onViewAll={() => router.push('/library')}
-            onImport={() => router.push('/import')}
-          />
-        }
+        ListFooterComponent={<ViewAllFooter onViewAll={() => router.push('/library')} />}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -272,6 +283,31 @@ export function LibraryScreen() {
             progressBackgroundColor={themeColors[theme].background}
           />
         }
+      />
+
+      {/* The one way to add to the library, floating over the list. Its "New
+          collection" action opens the dialog below. */}
+      <LibraryFab onImport={() => router.push('/import')} onNewCollection={() => setNaming(true)} />
+
+      <NameDialog
+        isOpen={naming}
+        title="New collection"
+        label="Name"
+        placeholder="Backend, Fiction, Contracts…"
+        onClose={() => setNaming(false)}
+        onSubmit={async (value) => {
+          const id = await createCollection(value);
+          if (id === null) {
+            showToast({
+              id: 'new-collection',
+              tone: 'error',
+              title: "Couldn't create the collection",
+              description: 'Something went wrong on this device. Try again.',
+            });
+            return false;
+          }
+          return true;
+        }}
       />
 
       <DocumentActions document={acting} onClose={() => setActing(null)} />
@@ -294,8 +330,12 @@ export function LibraryScreen() {
 // className: FlashList's own props take styles and are not interop'd.
 const FILL = { flex: 1 } as const;
 
-/** The way out of the home screen, and the way to add to it. */
-function ViewAllFooter({ onViewAll, onImport }: { onViewAll: () => void; onImport: () => void }) {
+// The FAB floats over the bottom-right corner; this clears the last footer row
+// out from under it when the list is scrolled to the end.
+const LIST_PADDING = { paddingBottom: 96 } as const;
+
+/** The way out of the home screen. */
+function ViewAllFooter({ onViewAll }: { onViewAll: () => void }) {
   return (
     <Box className="mt-6 border-t border-hairline">
       <Pressable
@@ -307,18 +347,6 @@ function ViewAllFooter({ onViewAll, onImport }: { onViewAll: () => void; onImpor
           View all library
         </Text>
         <Icon as={ChevronRight} size="sm" className="text-primary" />
-      </Pressable>
-
-      <Pressable
-        onPress={onImport}
-        accessibilityRole="button"
-        accessibilityLabel="Import PDF"
-        className="h-14 flex-row items-center justify-center gap-2 border-t border-hairline data-[active=true]:bg-hover"
-      >
-        <Icon as={FilePlus2} size="sm" className="text-fg-muted" />
-        <Text size="sm" className="text-fg-muted">
-          Import PDF
-        </Text>
       </Pressable>
 
       <HStack className="h-8" />
