@@ -76,13 +76,10 @@ export default defineConfig({
       '@convex-model': resolve(process.cwd(), '../convex/model'),
     },
   },
-<<<<<<< HEAD
   // The `@convex*` aliases pull `.ts` files from `../convex` into the bundle, so
   // esbuild walks up from there and finds the *mobile* root `../tsconfig.json`
   // (`extends: "expo/tsconfig.base"`). The desktop-only CI install has no expo,
   // so esbuild warns it can't find that base config. Cosmetic — `extends` only
   // affects type-checking, done separately by `tsc` — so silence that warning.
   esbuild: { logOverride: { 'tsconfig.json': 'silent' } },
-=======
->>>>>>> origin/main
 });
