@@ -38,6 +38,14 @@ export default defineConfig({
       '@convex-model': resolve(process.cwd(), '../convex/model'),
     },
   },
+  // The `@convex*` aliases pull `.ts` files from `../convex` into the bundle, so
+  // esbuild walks up from there and finds the *mobile* root `../tsconfig.json`,
+  // which `extends: "expo/tsconfig.base"`. The desktop-only CI install has no
+  // expo package, so esbuild warns it can't find that base config. It's cosmetic
+  // — `extends` only affects type-checking, which the desktop build does
+  // separately via `tsc` against its own tsconfig — so silence just that one
+  // warning rather than let it clutter every `npm run make`.
+  esbuild: { logOverride: { 'tsconfig.json': 'silent' } },
   build: {
     rollupOptions: {
       // Keep `node:sqlite` external so the built-in is required from Electron's
