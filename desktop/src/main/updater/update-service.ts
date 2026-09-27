@@ -166,9 +166,10 @@ export class UpdateService {
 
   /**
    * A single HTTPS GET to the feed via Electron `net` (honours system proxy,
-   * follows redirects). Resolves null when up to date (204) or when the feed
-   * advertises a version that is not actually newer; resolves the version +
-   * notes when a real update exists; rejects on a non-2xx/parse/network error.
+   * follows redirects). Resolves null when up to date (204), when there is no
+   * matching update to offer (404), or when the feed advertises a version that
+   * is not actually newer; resolves the version + notes when a real update
+   * exists; rejects only on a genuine failure (other non-2xx/parse/network error).
    */
   private probe(): Promise<{ version: string | null; notes: string | null } | null> {
     return new Promise((resolve, reject) => {
@@ -180,6 +181,13 @@ export class UpdateService {
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
         response.on('end', () => {
           if (status === 204) return resolve(null);
+          // A 404 is not a failure: the feed has no matching update to offer —
+          // no releases published yet, no asset matching this platform, or a
+          // brief GitHub rate-limit (update.electronjs.org collapses all of
+          // these to 404). Treat it exactly like a 204 "up to date" so the UI
+          // never shows "Couldn't check for updates" for the common, benign
+          // case of there simply being nothing newer to install.
+          if (status === 404) return resolve(null);
           if (status !== 200) return reject(new Error(`feed status ${status}`));
           try {
             const parsed = parseProbeResponse(JSON.parse(Buffer.concat(chunks).toString('utf8')));

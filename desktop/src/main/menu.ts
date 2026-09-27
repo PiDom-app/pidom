@@ -46,13 +46,12 @@ export function buildAppMenu(opts: {
     {
       label: 'View',
       submenu: [
-        ...(opts.isDev
-          ? [
-              { role: 'reload' as const },
-              { role: 'toggleDevTools' as const },
-              { type: 'separator' as const },
-            ]
-          : []),
+        // Reload stays a dev-only affordance, but DevTools is available in the
+        // packaged app too so renderer issues (e.g. a blank window) can be
+        // inspected. This also wires the F12 / Cmd+Opt+I accelerator.
+        ...(opts.isDev ? [{ role: 'reload' as const }] : []),
+        { role: 'toggleDevTools' as const },
+        { type: 'separator' as const },
         { role: 'resetZoom' as const },
         { role: 'zoomIn' as const },
         { role: 'zoomOut' as const },
