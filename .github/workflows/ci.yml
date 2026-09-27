@@ -320,7 +320,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
 
       - name: Validate build configuration
         run: |
@@ -331,6 +333,17 @@ jobs:
 
       - name: Install
         run: npm ci --legacy-peer-deps
+
+      # `npm run make` bundles the shared Convex model into the main process
+      # (`@convex-model/limits` → ../convex/model/limits.ts), and that file
+      # imports `convex/values`. Node/Rollup resolves that specifier relative to
+      # the file's own location under ../convex, so it needs `convex` in the
+      # ROOT node_modules — desktop/node_modules is never consulted for a file
+      # that lives outside desktop/. Install the root deps too, mirroring the
+      # desktop-quality typecheck job which resolves the same shared API.
+      - name: Install shared backend dependencies (root)
+        working-directory: ${{ github.workspace }}
+        run: npm ci
 
       - name: Generate route tree
         run: npm run routes
