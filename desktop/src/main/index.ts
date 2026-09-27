@@ -14,6 +14,7 @@ import {
 } from './reader';
 import { StorageService } from './storage/service';
 import { ImportService } from './storage/import-service';
+import { UpdateService } from './updater/update-service';
 import { handleSquirrelAssociation } from './squirrel-events';
 
 // Electron Forge's Vite plugin injects these for the renderer entry.
@@ -59,6 +60,7 @@ let mainWindow: BrowserWindow | null = null;
 const authSession = new SessionManager();
 const storage = new StorageService(authSession);
 const importService = new ImportService(authSession, storage);
+const updateService = new UpdateService();
 
 /**
  * The first `.pdf` path in a launch argv, or null. Windows hands a
@@ -239,9 +241,13 @@ if (shouldBoot)
     // A role-based application menu, set only so its accelerators (copy/paste,
     // quit, zoom, reload in dev) fire. On Windows/Linux the frameless window
     // never draws it; on macOS it appears in the system menu bar as expected.
-    buildAppMenu({ isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL), createWindow });
+    buildAppMenu({
+      isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL),
+      createWindow,
+      checkForUpdates: () => void updateService.check(),
+    });
 
-    registerIpc(authSession, storage, importService, {
+    registerIpc(authSession, storage, importService, updateService, {
       getWindow: () => mainWindow,
       createWindow: () => {
         mainWindow = createWindow();
@@ -252,6 +258,10 @@ if (shouldBoot)
     });
 
     mainWindow = createWindow();
+
+    // Begin auto-update: wire the periodic auto-check and run the first probe.
+    // Inert unless this is a packaged Windows build; never blocks the window.
+    updateService.start();
 
     // Silently restore a remembered session from the stored refresh token. This is
     // what lets a signed-in reader close and reopen the app without signing in
@@ -317,4 +327,5 @@ app.on('open-file', (event, path) => {
 app.on('will-quit', () => {
   void clearReaderCache();
   void storage.clearTmp();
+  updateService.dispose();
 });

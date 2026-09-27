@@ -11,6 +11,7 @@ import { AccountSection } from './account-section';
 import { ProfileSection } from './profile-section';
 import { ShortcutsSection } from './shortcuts-section';
 import { PrivacySection } from './privacy-section';
+import { UpdatesSection } from '../../updates/components/updates-section';
 
 type SectionId =
   | 'appearance'
@@ -21,7 +22,8 @@ type SectionId =
   | 'account'
   | 'profile'
   | 'shortcuts'
-  | 'privacy';
+  | 'privacy'
+  | 'updates';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
@@ -33,6 +35,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'profile', label: 'Profile' },
   { id: 'shortcuts', label: 'Keyboard shortcuts' },
   { id: 'privacy', label: 'Privacy & security' },
+  { id: 'updates', label: 'Updates' },
 ];
 
 /**
@@ -89,6 +92,7 @@ export function SettingsScreen() {
               {active === 'profile' && <ProfileSection />}
               {active === 'shortcuts' && <ShortcutsSection />}
               {active === 'privacy' && <PrivacySection />}
+              {active === 'updates' && <UpdatesSection />}
             </div>
           </div>
         </div>

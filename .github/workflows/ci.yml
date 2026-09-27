@@ -335,6 +335,24 @@ jobs:
       - name: Generate route tree
         run: npm run routes
 
+      - name: Stamp build version
+        run: |
+          # update.electronjs.org (and Squirrel itself) only offer an update when
+          # the published version is strictly GREATER than the client's. The
+          # committed package.json version is a base (major.minor); the patch is
+          # the workflow run number, which increases monotonically across runs, so
+          # every release advertises a higher version than the last and installed
+          # clients actually update. Bump the committed major/minor in the PR that
+          # ships a feature release; the patch is always the run number here.
+          #
+          # Written only into the build tree — never committed back (the checkout
+          # is deliberately credential-less), so it stamps the artifacts without a
+          # release-time git push.
+          BASE="$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")"
+          BUILD_VERSION="${BASE}.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION="$BUILD_VERSION" node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.BUILD_VERSION;fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n');"
+          echo "Stamped desktop build version: $BUILD_VERSION"
+
       - name: Build Windows installer
         run: npm run make
 
@@ -371,6 +389,24 @@ jobs:
           test -s "$RELEASE_EXE"
           echo "version=$DESKTOP_VERSION" >> "$GITHUB_OUTPUT"
           echo "exe=$RELEASE_EXE" >> "$GITHUB_OUTPUT"
+
+          # Squirrel feed artifacts for update.electronjs.org: the RELEASES
+          # manifest and the .nupkg package(s) it references. The feed reads these
+          # from the latest non-prerelease release to answer clients' probes and to
+          # serve the actual bytes. Copy them under their EXACT emitted names —
+          # RELEASES points at each .nupkg by filename + SHA1, so renaming any of
+          # them breaks the manifest. (`-full.nupkg` on every build; a `-delta`
+          # only appears when a prior package is present in the make output.)
+          RELEASES_FILE="$(find out/make/squirrel.windows -name 'RELEASES' | head -n 1)"
+          test -n "$RELEASES_FILE"
+          cp "$RELEASES_FILE" release/RELEASES
+          NUPKG_COUNT=0
+          while IFS= read -r nupkg; do
+            cp "$nupkg" release/
+            NUPKG_COUNT=$((NUPKG_COUNT + 1))
+          done < <(find out/make/squirrel.windows -name '*.nupkg')
+          test "$NUPKG_COUNT" -gt 0
+          echo "Staged RELEASES + ${NUPKG_COUNT} nupkg(s) for the update feed."
 
       # Sign the staged installer with signtool and a PFX from secrets. This is
       # the certificate-agnostic path — it works with a Certum Open Source cert, a
@@ -423,10 +459,11 @@ jobs:
           EXE: ${{ steps.installer.outputs.exe }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # The installer version is static until package.json is bumped, so the
-          # tag is namespaced and made unique per run with the run number —
-          # mirroring the mobile `-android.<code>` shape while staying
-          # collision-free across every-merge builds.
+          # The version is stamped to <major>.<minor>.<run-number> at build time,
+          # so it is already unique per run; the tag keeps the namespaced,
+          # run-numbered shape (mirroring the mobile `-android.<code>` tags) so
+          # every build gets a collision-free tag and the feed can tell releases
+          # apart.
           TAG="v${DESKTOP_VERSION}-desktop.${GITHUB_RUN_NUMBER}"
           PREVIOUS_TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
           GENERATED_NOTES="$RUNNER_TEMP/desktop-generated-notes.json"
@@ -481,6 +518,15 @@ jobs:
 
           ${generatedBody || 'No GitHub changelog entries were generated for this release.'}
 
+          ## Automatic Updates
+
+          The installed Windows app keeps itself up to date from these GitHub releases — no manual reinstall needed.
+
+          - Pidom checks for new versions on launch and periodically while it runs, using Electron's free hosted feed (\`update.electronjs.org\`) for this public repository. No update server is operated and no telemetry is sent.
+          - When a newer release is found, the in-app indicator (and **Settings ▸ Updates**) offers to download and install it; the app applies the update on the next restart.
+          - Updates are delivered as Squirrel \`RELEASES\` + \`.nupkg\` assets on this release and fetched over HTTPS. Release notes shown in-app are rendered as plain text.
+          - You can turn automatic checking or downloading off, or hide the title-bar indicator, in **Settings ▸ Updates**. Because auto-update requires strictly increasing versions, only builds newer than the one installed are ever offered.
+
           ## Security and Integrity
 
           - This installer is currently **unsigned**; verify the SHA-256 checksum above before running it.
@@ -502,7 +548,11 @@ jobs:
           );
           NODE
 
-          gh release create "$TAG" "$EXE" "${EXE}.sha256" \
+          # Attach the installer + its checksum AND the Squirrel feed artifacts
+          # (RELEASES + the .nupkg package(s)). update.electronjs.org reads RELEASES
+          # and the .nupkg from the latest non-prerelease release to drive
+          # auto-update; without them installed clients could never update.
+          gh release create "$TAG" "$EXE" "${EXE}.sha256" release/RELEASES release/*.nupkg \
             --target "$GITHUB_SHA" \
             --title "Pidom Desktop ${DESKTOP_VERSION}" \
             --notes-file "$RELEASE_NOTES"

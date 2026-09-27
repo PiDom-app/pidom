@@ -90,6 +90,16 @@ export interface DesktopSettings {
   keepAwake: boolean;
   /** Which download animation the Downloads list uses. Per-device, like the rest. */
   downloadAnimation: DownloadAnimation;
+  /**
+   * Auto-update preferences. These are per-device like the rest, but they are
+   * also mirrored to the main process (`window.pidom.update.setPrefs`) whenever
+   * they change and once at startup, because main owns the actual updater loop —
+   * the toggles here only tell it how to behave. Windows-only in effect; on other
+   * platforms the updater reports `unsupported` and ignores them.
+   */
+  autoCheckUpdates: boolean;
+  autoDownloadUpdates: boolean;
+  quietUpdates: boolean;
 }
 
 const STORAGE_KEY = 'pidom.desktop.settings';
@@ -106,6 +116,9 @@ const DEFAULTS: DesktopSettings = {
   readerTint: 'none',
   keepAwake: false,
   downloadAnimation: 'bar',
+  autoCheckUpdates: true,
+  autoDownloadUpdates: true,
+  quietUpdates: false,
 };
 
 function load(): DesktopSettings {
@@ -141,6 +154,21 @@ function persist(): void {
   }
 }
 
+/** Push the current update preferences to the main process, which owns the
+ *  actual `autoUpdater` loop. Guarded and swallowed: the bridge is absent in a
+ *  degraded renderer, and the updater is inert off packaged-Windows anyway. */
+function pushUpdatePrefs(): void {
+  try {
+    void window.pidom?.update?.setPrefs({
+      autoCheck: state.autoCheckUpdates,
+      autoDownload: state.autoDownloadUpdates,
+      quiet: state.quietUpdates,
+    });
+  } catch {
+    /* no bridge (degraded renderer) — nothing to drive */
+  }
+}
+
 /** Replace one or more fields, persist, and apply any appearance side effects. */
 function patch(next: Partial<DesktopSettings>): void {
   state = { ...state, ...next };
@@ -149,6 +177,13 @@ function patch(next: Partial<DesktopSettings>): void {
   if (next.font !== undefined) applyFont(next.font);
   if (next.scaling !== undefined) applyScaling(next.scaling);
   if (next.reduceMotion !== undefined) applyReduceMotion(next.reduceMotion);
+  if (
+    next.autoCheckUpdates !== undefined ||
+    next.autoDownloadUpdates !== undefined ||
+    next.quietUpdates !== undefined
+  ) {
+    pushUpdatePrefs();
+  }
   emit();
 }
 
@@ -163,6 +198,9 @@ export const desktopSettings = {
   setReaderTint: (readerTint: ReaderTint) => patch({ readerTint }),
   setKeepAwake: (keepAwake: boolean) => patch({ keepAwake }),
   setDownloadAnimation: (downloadAnimation: DownloadAnimation) => patch({ downloadAnimation }),
+  setAutoCheckUpdates: (autoCheckUpdates: boolean) => patch({ autoCheckUpdates }),
+  setAutoDownloadUpdates: (autoDownloadUpdates: boolean) => patch({ autoDownloadUpdates }),
+  setQuietUpdates: (quietUpdates: boolean) => patch({ quietUpdates }),
   setShortcut: (id: ShortcutId, chord: string) =>
     patch({ shortcuts: { ...state.shortcuts, [id]: chord } }),
   resetShortcuts: () => patch({ shortcuts: DEFAULT_SHORTCUTS }),
@@ -183,6 +221,15 @@ export function initAppearance(): void {
   applyFont(state.font);
   applyScaling(state.scaling);
   applyReduceMotion(state.reduceMotion);
+}
+
+/**
+ * Push the persisted update preferences to main once at startup, so the updater
+ * loop honours a choice made in a previous session (main starts on its own
+ * defaults otherwise). Call after the bridge is available (see main.tsx).
+ */
+export function initUpdatePrefs(): void {
+  pushUpdatePrefs();
 }
 
 function subscribe(listener: () => void): () => void {

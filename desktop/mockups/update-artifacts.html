@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pidom — Auto-update feature mockups</title>
+    <style>
+      /* Tokens ported verbatim from desktop/src/renderer/design/global.css (dark). */
+      :root.dark {
+        --background: 0 0 0;
+        --surface: 13 13 13;
+        --elevated: 20 20 20;
+        --sunken: 8 8 8;
+        --hover: 26 26 26;
+        --hairline: 28 27 26;
+        --border: 38 37 35;
+        --border-strong: 61 59 56;
+        --foreground: 232 230 227;
+        --fg-muted: 143 141 136;
+        --fg-subtle: 110 108 104;
+        --fg-disabled: 78 77 74;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 122 106 240;
+        --primary-tint: 26 22 51;
+        --destructive: 235 87 87;
+        --danger-tint: 45 20 20;
+        --ok: 61 194 128;
+        --warn: 224 168 62;
+        --warn-tint: 43 33 12;
+        --overlay: 0 0 0;
+      }
+      :root.light {
+        --background: 255 255 255;
+        --surface: 250 250 249;
+        --elevated: 255 255 255;
+        --sunken: 244 243 241;
+        --hover: 240 239 236;
+        --hairline: 236 234 230;
+        --border: 226 224 220;
+        --border-strong: 198 195 190;
+        --foreground: 23 22 21;
+        --fg-muted: 110 108 104;
+        --fg-subtle: 143 141 136;
+        --fg-disabled: 176 174 169;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 92 76 214;
+        --primary-tint: 240 238 253;
+        --destructive: 208 40 44;
+        --danger-tint: 253 240 240;
+        --ok: 22 143 89;
+        --warn: 176 116 12;
+        --warn-tint: 253 246 232;
+        --overlay: 23 22 21;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        background: rgb(var(--background));
+        color: rgb(var(--foreground));
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      /* Review scaffold — not part of the app UI. */
+      .review-bar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 20px;
+        background: rgb(var(--surface));
+        box-shadow: inset 0 -1px 0 rgb(var(--border));
+      }
+      .review-bar h1 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .review-bar .muted {
+        color: rgb(var(--fg-muted));
+        font-weight: 400;
+      }
+      .toggle-btn {
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .caption {
+        max-width: 1100px;
+        margin: 40px auto 12px;
+        padding: 0 24px;
+      }
+      .caption .step {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgb(var(--primary));
+        letter-spacing: 0.02em;
+      }
+      .caption h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 6px 0 4px;
+      }
+      .caption p {
+        margin: 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+        max-width: 60ch;
+      }
+      .frame {
+        max-width: 1100px;
+        margin: 0 auto 8px;
+        padding: 0 24px;
+      }
+      .window {
+        position: relative;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        overflow: hidden;
+        background: rgb(var(--background));
+        height: 620px;
+        display: flex;
+        flex-direction: column;
+      }
+      .window.short {
+        height: 300px;
+      }
+
+      /* ── Title bar (custom, frameless — mirrors title-bar.tsx) ── */
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 40px;
+        padding: 0 12px;
+        background: rgb(var(--surface));
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .titlebar .brand {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgb(var(--foreground));
+      }
+      .titlebar .menu {
+        display: flex;
+        gap: 2px;
+      }
+      .titlebar .menu span {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      .titlebar .menu span.open {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .titlebar .search {
+        margin: 0 auto;
+        width: 320px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 5px 10px;
+        color: rgb(var(--fg-subtle));
+        font-size: 13px;
+      }
+      .titlebar .rightcluster {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .titlebar .wc {
+        display: flex;
+        gap: 6px;
+        margin-left: 8px;
+      }
+      .titlebar .wc i {
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        display: inline-block;
+        background: rgb(var(--border-strong));
+      }
+
+      /* ── The title-bar icon button (mirrors ImportQueue / UpdateIndicator) ── */
+      .iconbtn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 0;
+        background: transparent;
+        color: rgb(var(--fg-muted));
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .iconbtn:hover,
+      .iconbtn.open {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .iconbtn .ic {
+        width: 16px;
+        height: 16px;
+      }
+      .iconbtn.available .ic {
+        color: rgb(var(--primary));
+      }
+      .iconbtn.ready .ic {
+        color: rgb(var(--ok));
+      }
+      .iconbtn.error .ic {
+        color: rgb(var(--warn));
+      }
+      .iconbtn .spin {
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        border: 2px solid rgb(var(--border-strong));
+        border-top-color: rgb(var(--primary));
+        animation: sp 1s linear infinite;
+      }
+      @keyframes sp {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      /* A small "ready" dot badge overlaid on the icon. */
+      .iconbtn .dotbadge {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: rgb(var(--primary));
+        box-shadow: 0 0 0 2px rgb(var(--surface));
+      }
+
+      /* Row of indicator states for the showcase strip. */
+      .states {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 28px;
+        padding: 8px 0;
+      }
+      .state-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .state-cell .mini-bar {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+        width: 132px;
+        height: 40px;
+        padding: 0 10px;
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+      }
+      .state-cell .lbl {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+        text-align: center;
+      }
+      .state-cell .lbl b {
+        display: block;
+        color: rgb(var(--foreground));
+        font-weight: 600;
+      }
+
+      /* ── App body: nav rail + content ── */
+      .appbody {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .rail {
+        width: 208px;
+        background: rgb(var(--surface));
+        box-shadow: inset -1px 0 0 rgb(var(--border));
+        padding: 16px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .rail .navitem {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .rail .navitem.active {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+        font-weight: 500;
+      }
+      .rail .navitem .ic {
+        width: 16px;
+        height: 16px;
+        color: currentColor;
+      }
+      .rail .sectlabel {
+        font-size: 11px;
+        color: rgb(var(--fg-subtle));
+        padding: 12px 10px 4px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      .content {
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        padding: 32px;
+        position: relative;
+      }
+
+      /* ── Page header (page-header.tsx) ── */
+      .pagehead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+      .pagehead h1 {
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      .pagehead p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .headctrls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* Buttons (lib/ui.ts) */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 6px;
+        background: rgb(var(--primary));
+        color: rgb(var(--primary-foreground));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-primary:hover {
+        background: rgb(var(--primary-hover));
+      }
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-ghost:hover {
+        background: rgb(var(--hover));
+      }
+      .btn-primary .ic,
+      .btn-ghost .ic {
+        width: 16px;
+        height: 16px;
+      }
+      .btn-primary.sm,
+      .btn-ghost.sm {
+        padding: 6px 11px;
+        font-size: 13px;
+      }
+      .link {
+        color: rgb(var(--primary));
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .link:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Update Popover (mirrors ImportQueue popover) ── */
+      .upd-pop {
+        position: absolute;
+        z-index: 40;
+        width: 320px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+      }
+      .upd-pop .phead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 8px 10px;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+        margin-bottom: 8px;
+      }
+      .upd-pop .phead .ic {
+        width: 16px;
+        height: 16px;
+      }
+      .upd-pop .phead.available .ic {
+        color: rgb(var(--primary));
+      }
+      .upd-pop .phead.ready .ic {
+        color: rgb(var(--ok));
+      }
+      .upd-pop .phead.error .ic {
+        color: rgb(var(--warn));
+      }
+      .upd-pop .phead p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .upd-pop .pbody {
+        padding: 0 8px 4px;
+      }
+      .upd-pop .verline {
+        font-size: 13px;
+        color: rgb(var(--foreground));
+      }
+      .upd-pop .verline b {
+        font-weight: 600;
+      }
+      .upd-pop .sub {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .upd-pop .notes {
+        margin: 10px 0 0;
+        font-size: 12px;
+        line-height: 1.45;
+        color: rgb(var(--fg-muted));
+        max-height: 84px;
+        overflow: hidden;
+        white-space: pre-line;
+      }
+      .upd-pop .pactions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 8px 6px;
+        margin-top: 8px;
+        box-shadow: inset 0 1px 0 rgb(var(--hairline));
+      }
+      .upd-pop .pactions .link {
+        margin-left: auto;
+      }
+
+      /* Indeterminate download bar — reuses the app's dl-stripes texture idea. */
+      .indet {
+        margin-top: 10px;
+        height: 4px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+        position: relative;
+      }
+      .indet > i {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        border-radius: 9999px;
+        background: rgb(var(--primary));
+        animation: slide 1.3s ease-in-out infinite;
+      }
+      @keyframes slide {
+        0% {
+          left: -40%;
+        }
+        100% {
+          left: 100%;
+        }
+      }
+
+      /* Settings (settings-ui) */
+      .settings-wrap {
+        max-width: 720px;
+      }
+      .sect {
+        margin-bottom: 44px;
+      }
+      .sect > .head {
+        margin-bottom: 20px;
+      }
+      .sect > .head h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .sect > .head p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .setrow {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: center;
+        padding: 16px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .setrow.start {
+        align-items: flex-start;
+      }
+      .setrow .lbl {
+        min-width: 0;
+      }
+      .setrow .lbl p {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: rgb(var(--foreground));
+      }
+      .setrow .lbl small {
+        display: block;
+        margin-top: 2px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .setrow .ctrl {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .statusline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+      }
+      .statusline .ic {
+        width: 15px;
+        height: 15px;
+      }
+      .statusline.available .ic {
+        color: rgb(var(--primary));
+      }
+      .statusline.ready .ic {
+        color: rgb(var(--ok));
+      }
+      .statusline.error .ic {
+        color: rgb(var(--warn));
+      }
+      .statusline .spin {
+        width: 14px;
+        height: 14px;
+        border-radius: 9999px;
+        border: 2px solid rgb(var(--border-strong));
+        border-top-color: rgb(var(--primary));
+        animation: sp 1s linear infinite;
+      }
+      .sw {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        border-radius: 9999px;
+        background: rgb(var(--border-strong));
+      }
+      .sw.on {
+        background: rgb(var(--primary));
+      }
+      .sw i {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+        transition: transform 0.15s;
+      }
+      .sw.on i {
+        transform: translateX(16px);
+      }
+      .versionbox {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: rgb(var(--sunken));
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-top: 6px;
+        display: inline-block;
+      }
+      .note {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        border: 1px dashed rgb(var(--border));
+        border-radius: 6px;
+        padding: 14px 16px;
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+      }
+      .note .ic {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        margin-top: 1px;
+        color: rgb(var(--fg-subtle));
+      }
+      svg {
+        display: block;
+      }
+      .ic {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Icon sprite (lucide-style, matches lucide-react used in the app). -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+      </symbol>
+      <symbol id="library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m16 6 4 14M12 6v14M8 8v12M4 4v16" />
+      </symbol>
+      <symbol id="heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+      </symbol>
+      <symbol id="check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.8 10A10 10 0 1 1 17 3.3" /><path d="m9 11 3 3L22 4" />
+      </symbol>
+      <symbol id="cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6.5 19z" />
+      </symbol>
+      <symbol id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol id="chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol id="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
+      <symbol id="external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      </symbol>
+      <symbol id="refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" />
+      </symbol>
+      <symbol id="arrow-up-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" /><path d="m16 12-4-4-4 4" /><path d="M12 16V8" />
+      </symbol>
+      <symbol id="circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+      </symbol>
+      <symbol id="triangle-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" />
+      </symbol>
+      <symbol id="download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" />
+      </symbol>
+      <symbol id="rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+      </symbol>
+      <symbol id="info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+      </symbol>
+    </svg>
+
+    <div class="review-bar">
+      <h1>
+        Pidom Desktop — Auto-update feature
+        <span class="muted">· visual mockups for review (not app code)</span>
+      </h1>
+      <button
+        class="toggle-btn"
+        onclick="
+          var r = document.documentElement;
+          r.classList.toggle('dark');
+          r.classList.toggle('light');
+        "
+      >
+        Toggle light / dark
+      </button>
+    </div>
+    <!-- ══════════ 1. Title-bar indicator — every state ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 1 · Title bar</span>
+      <h2>The update indicator in each state</h2>
+      <p>
+        A compact icon button joins the right cluster beside the import queue. It stays hidden while
+        <b>idle</b> and on <b>unsupported</b> platforms (non-Windows / dev), so it appears only when
+        there is something to say. Clicking it opens the popover in Screens 2–3.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window short">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="rightcluster">
+            <button class="iconbtn open available" title="Update available">
+              <svg class="ic"><use href="#arrow-up-circle" /></svg>
+            </button>
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="content">
+          <div class="states">
+            <div class="state-cell">
+              <div class="mini-bar">
+                <span class="iconbtn"><span class="spin"></span></span>
+              </div>
+              <div class="lbl"><b>checking</b>spinner, muted</div>
+            </div>
+            <div class="state-cell">
+              <div class="mini-bar">
+                <span class="iconbtn available"><svg class="ic"><use href="#arrow-up-circle" /></svg></span>
+              </div>
+              <div class="lbl"><b>available</b>arrow-up, primary</div>
+            </div>
+            <div class="state-cell">
+              <div class="mini-bar">
+                <span class="iconbtn"><span class="spin"></span></span>
+              </div>
+              <div class="lbl"><b>downloading</b>spinner, muted</div>
+            </div>
+            <div class="state-cell">
+              <div class="mini-bar">
+                <span class="iconbtn ready"
+                  ><svg class="ic"><use href="#circle-check" /></svg><span class="dotbadge"></span
+                ></span>
+              </div>
+              <div class="lbl"><b>ready</b>check + primary dot</div>
+            </div>
+            <div class="state-cell">
+              <div class="mini-bar">
+                <span class="iconbtn error"><svg class="ic"><use href="#triangle-alert" /></svg></span>
+              </div>
+              <div class="lbl"><b>error</b>triangle, warn tone</div>
+            </div>
+            <div class="state-cell">
+              <div class="mini-bar"><span style="font-size: 12px; color: rgb(var(--fg-subtle))">—</span></div>
+              <div class="lbl"><b>idle / unsupported</b>hidden</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ══════════ 2. Update available — popover ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 2 · Update available</span>
+      <h2>The popover after a new version is detected</h2>
+      <p>
+        Detection is a lightweight HTTPS probe to <code>update.electronjs.org</code> — it learns the
+        version and release notes <b>without</b> downloading. The popover shows the new version, the
+        release notes as plain text, a <b>What's new</b> link (opens the GitHub release page in the
+        system browser), and a primary <b>Download update</b> action.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span class="open">Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="rightcluster">
+            <button class="iconbtn open available">
+              <svg class="ic"><use href="#arrow-up-circle" /></svg>
+            </button>
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem active"><svg class="ic"><use href="#library" /></svg> Library</div>
+            <div class="navitem"><svg class="ic"><use href="#heart" /></svg> Favorites</div>
+            <div class="navitem"><svg class="ic"><use href="#check-circle" /></svg> Finished</div>
+            <div class="navitem"><svg class="ic"><use href="#cloud" /></svg> Downloads</div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem"><svg class="ic"><use href="#settings" /></svg> Settings</div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Library</h1>
+                <p>Everything in your account, on every device.</p>
+              </div>
+            </div>
+            <!-- Popover anchored under the indicator (top-right). -->
+            <div class="upd-pop" style="position: absolute; top: -8px; right: 32px">
+              <div class="phead available">
+                <svg class="ic"><use href="#arrow-up-circle" /></svg>
+                <p>Update available</p>
+              </div>
+              <div class="pbody">
+                <p class="verline"><b>Pidom 1.2.0</b> is available</p>
+                <p class="sub">You're on 1.1.3 · found just now</p>
+                <p class="notes">• Faster library sync and cover loading
+• Fixes a reader crash on large PDFs
+• Storage settings now show free space</p>
+              </div>
+              <div class="pactions">
+                <button class="btn-primary sm">
+                  <svg class="ic"><use href="#download" /></svg> Download update
+                </button>
+                <a class="link">What's new</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ══════════ 3. Popover — downloading / ready / error ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 3 · Download &amp; apply</span>
+      <h2>The popover through the rest of the lifecycle</h2>
+      <p>
+        Squirrel.Windows downloads and stages in one step and emits no byte progress, so
+        <b>downloading</b> is an indeterminate bar — honest about what the platform reports. When the
+        package is staged the action becomes <b>Restart to update</b> (<code>quitAndInstall()</code>);
+        Squirrel also applies it on the next normal quit. Any probe or download failure lands in
+        <b>error</b> — surfaced, never fatal, with a <b>Try again</b>.
+      </p>
+    </div>
+    <div class="frame">
+      <div style="display: flex; flex-wrap: wrap; gap: 24px">
+        <!-- downloading -->
+        <div class="upd-pop" style="position: relative">
+          <div class="phead">
+            <span class="spin"></span>
+            <p>Downloading update…</p>
+          </div>
+          <div class="pbody">
+            <p class="verline"><b>Pidom 1.2.0</b></p>
+            <p class="sub">Downloading and preparing to install</p>
+            <div class="indet"><i></i></div>
+          </div>
+          <div class="pactions">
+            <span class="sub" style="margin: 0">This can take a moment</span>
+          </div>
+        </div>
+        <!-- ready -->
+        <div class="upd-pop" style="position: relative">
+          <div class="phead ready">
+            <svg class="ic"><use href="#circle-check" /></svg>
+            <p>Update ready</p>
+          </div>
+          <div class="pbody">
+            <p class="verline"><b>Pidom 1.2.0</b> is ready to install</p>
+            <p class="sub">Pidom will restart to finish updating</p>
+          </div>
+          <div class="pactions">
+            <button class="btn-primary sm">
+              <svg class="ic"><use href="#rotate-ccw" /></svg> Restart to update
+            </button>
+            <a class="link">What's new</a>
+          </div>
+        </div>
+        <!-- error -->
+        <div class="upd-pop" style="position: relative">
+          <div class="phead error">
+            <svg class="ic"><use href="#triangle-alert" /></svg>
+            <p>Update failed</p>
+          </div>
+          <div class="pbody">
+            <p class="verline">Couldn't reach the update service</p>
+            <p class="sub">Check your connection and try again</p>
+          </div>
+          <div class="pactions">
+            <button class="btn-ghost sm">
+              <svg class="ic"><use href="#refresh-cw" /></svg> Try again
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ══════════ 4. Settings ▸ Updates ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 4 · Settings ▸ Updates</span>
+      <h2>The full Updates section</h2>
+      <p>
+        Flat, cardless, content-first — rows sit directly in the page, separated by hairline dividers.
+        It carries the current version, a live status line with a contextual action, and three
+        per-device toggles that round-trip to the main process so it actually drives
+        <code>autoUpdater</code>.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="rightcluster">
+            <button class="iconbtn ready">
+              <svg class="ic"><use href="#circle-check" /></svg><span class="dotbadge"></span>
+            </button>
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem"><svg class="ic"><use href="#library" /></svg> Library</div>
+            <div class="navitem"><svg class="ic"><use href="#heart" /></svg> Favorites</div>
+            <div class="navitem"><svg class="ic"><use href="#check-circle" /></svg> Finished</div>
+            <div class="navitem"><svg class="ic"><use href="#cloud" /></svg> Downloads</div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem active"><svg class="ic"><use href="#settings" /></svg> Settings</div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Settings</h1>
+                <p>Preferences for Pidom on this computer.</p>
+              </div>
+            </div>
+            <div class="settings-wrap">
+              <div class="sect">
+                <div class="head">
+                  <h2>Updates</h2>
+                  <p>Pidom keeps itself up to date from the official GitHub releases.</p>
+                </div>
+
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Current version</p>
+                    <small>The build running on this computer.</small>
+                    <span class="versionbox">Pidom 1.1.3</span>
+                  </div>
+                </div>
+
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Status</p>
+                    <small>Checked automatically on launch and periodically.</small>
+                    <div class="statusline ready">
+                      <svg class="ic"><use href="#circle-check" /></svg>
+                      Pidom 1.2.0 is ready to install · checked 2 min ago
+                    </div>
+                  </div>
+                  <div class="ctrl">
+                    <button class="btn-primary sm">
+                      <svg class="ic"><use href="#rotate-ccw" /></svg> Restart to update
+                    </button>
+                  </div>
+                </div>
+
+                <div class="setrow">
+                  <div class="lbl">
+                    <p>Automatic updates</p>
+                    <small>Check for new versions on launch and while Pidom runs.</small>
+                  </div>
+                  <div class="ctrl"><span class="sw on"><i></i></span></div>
+                </div>
+
+                <div class="setrow">
+                  <div class="lbl">
+                    <p>Download updates automatically</p>
+                    <small>Fetch and stage the update in the background when one is found.</small>
+                  </div>
+                  <div class="ctrl"><span class="sw on"><i></i></span></div>
+                </div>
+
+                <div class="setrow">
+                  <div class="lbl">
+                    <p>Only show updates in Settings</p>
+                    <small>Hide the title-bar indicator and check here instead.</small>
+                  </div>
+                  <div class="ctrl"><span class="sw"><i></i></span></div>
+                </div>
+
+                <div class="setrow">
+                  <div class="lbl">
+                    <p>What's new</p>
+                    <small>Read the release notes for the latest version.</small>
+                  </div>
+                  <div class="ctrl">
+                    <a class="link" style="display: inline-flex; align-items: center; gap: 6px">
+                      Open release notes <svg class="ic" style="width: 14px; height: 14px"><use href="#external-link" /></svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ══════════ 5. Unsupported platform / dev ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 5 · Unsupported</span>
+      <h2>On macOS, Linux, and dev builds</h2>
+      <p>
+        Auto-update ships only for the packaged Windows build (the release job is Windows-only, and
+        Squirrel.Mac needs signing + notarization). Elsewhere the indicator stays hidden and the
+        Settings section shows a plain, muted note instead of live controls — the surface stays
+        inspectable without pretending to update.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window" style="height: 300px">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="rightcluster"></div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem"><svg class="ic"><use href="#library" /></svg> Library</div>
+            <div class="navitem"><svg class="ic"><use href="#cloud" /></svg> Downloads</div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem active"><svg class="ic"><use href="#settings" /></svg> Settings</div>
+          </div>
+          <div class="content">
+            <div class="settings-wrap">
+              <div class="sect">
+                <div class="head">
+                  <h2>Updates</h2>
+                  <p>Pidom keeps itself up to date from the official GitHub releases.</p>
+                </div>
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Current version</p>
+                    <span class="versionbox">Pidom 1.1.3</span>
+                  </div>
+                </div>
+                <div class="note" style="margin-top: 16px">
+                  <svg class="ic"><use href="#info" /></svg>
+                  Automatic updates are available in the packaged Windows app. On this platform, update
+                  Pidom by installing the latest release manually.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption" style="margin-top: 40px">
+      <p style="color: rgb(var(--fg-subtle))">
+        Mockup only — delete <code>desktop/mockups/update-artifacts.html</code> once the UI is
+        approved. Colors, radii, and dividers are the real semantic tokens; no product code here.
+      </p>
+    </div>
+  </body>
+</html>

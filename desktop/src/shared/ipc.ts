@@ -74,6 +74,17 @@ export const IPC = {
   importGetAssociation: 'import:getAssociation',
   importSetAssociation: 'import:setAssociation',
   importChanged: 'import:changed', // main → renderer push
+
+  // Auto-update (Windows, packaged only): a lightweight probe detects a new
+  // version without downloading; download + apply run through Electron's built-in
+  // Squirrel autoUpdater. `update:changed` pushes the full state on every phase move.
+  updateGetState: 'update:getState',
+  updateCheck: 'update:check',
+  updateDownload: 'update:download',
+  updateRestart: 'update:restart',
+  updateOpenNotes: 'update:openNotes',
+  updateSetPrefs: 'update:setPrefs',
+  updateChanged: 'update:changed', // main → renderer push
 } as const;
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -231,6 +242,54 @@ export interface ImportJobStatus {
   error: string | null;
 }
 
+/**
+ * The lifecycle of the auto-updater, as the renderer sees it.
+ * - `unsupported`: not a packaged Windows build — the feature is inert.
+ * - `idle`: up to date (or not yet checked).
+ * - `checking`: a detection probe is in flight.
+ * - `available`: a newer version was detected (via probe) but not downloaded.
+ * - `downloading`: Squirrel is fetching + staging the package (indeterminate).
+ * - `ready`: the update is staged; a restart applies it.
+ * - `error`: the last probe or download failed (surfaced, non-fatal).
+ */
+export type UpdatePhase =
+  | 'unsupported'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'error';
+
+/** The full auto-update state, pushed to the renderer on every phase change.
+ *  Carries only version strings, notes text, and timestamps — never a path. */
+export interface UpdateState {
+  phase: UpdatePhase;
+  /** The version running on this computer. */
+  currentVersion: string;
+  /** The detected newer version, when one is known. */
+  availableVersion: string | null;
+  /** The release notes text for `availableVersion`, rendered as plain text. */
+  notes: string | null;
+  /** The GitHub release page for `availableVersion` (https), for "What's new". */
+  notesUrl: string | null;
+  /** When the last detection completed, epoch ms. */
+  lastCheckedAt: number | null;
+  /** A short non-sensitive reason code when `phase` is `error`. */
+  error: string | null;
+}
+
+/** Per-device update preferences the renderer owns and pushes to main so it can
+ *  drive `autoUpdater` behavior. */
+export interface UpdatePrefs {
+  /** Detect new versions on launch and periodically. */
+  autoCheck: boolean;
+  /** Download + stage automatically when a version is detected. */
+  autoDownload: boolean;
+  /** Hide the title-bar indicator; surface updates only in Settings. */
+  quiet: boolean;
+}
+
 /** The surface exposed on `window.pidom` by the preload bridge. */
 export interface PidomBridge {
   auth: {
@@ -348,6 +407,22 @@ export interface PidomBridge {
      *  / "Open With" / Open Recent). Carries the just-imported document id so the
      *  renderer can navigate to the reader; returns an unsubscribe function. */
     onOpenExternalDocument(listener: (documentId: string) => void): () => void;
+  };
+  update: {
+    /** The current update state, for seeding the hook on mount. */
+    getState(): Promise<UpdateState>;
+    /** Runs a detection probe (no download). Moves to `available` or `idle`. */
+    check(): Promise<void>;
+    /** Downloads + stages the detected update (Squirrel). Moves to `ready`. */
+    download(): Promise<void>;
+    /** Quits and applies a staged update, relaunching into the new version. */
+    restart(): Promise<void>;
+    /** Opens the release page for the available version in the system browser. */
+    openNotes(): Promise<void>;
+    /** Pushes per-device preferences so main can drive `autoUpdater` behavior. */
+    setPrefs(prefs: UpdatePrefs): Promise<void>;
+    /** Subscribe to update-state changes; returns an unsubscribe function. */
+    onChange(listener: (state: UpdateState) => void): () => void;
   };
   platform: {
     os: NodeJS.Platform;

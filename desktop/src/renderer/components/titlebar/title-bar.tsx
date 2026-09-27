@@ -5,6 +5,7 @@ import { Minus, Square, Copy, X } from 'lucide-react';
 import { PidomMark } from '../brand/pidom-mark';
 import { TitlebarSearch } from './titlebar-search';
 import { ImportQueue } from '../../features/import/components/import-queue';
+import { UpdateIndicator } from '../../features/updates/components/update-indicator';
 import { useSession } from '../../providers/session-provider';
 import { useTheme, type ThemeMode } from '../../providers/theme-provider';
 import { useImports } from '../../features/import/data/use-imports';
@@ -77,6 +78,7 @@ export function TitleBar() {
 
         {showSearch && (
           <div className="flex items-center pr-1">
+            <UpdateIndicator />
             <ImportQueue />
           </div>
         )}

@@ -8,6 +8,8 @@ import {
   type MigrationStatus,
   type PidomBridge,
   type ReaderOpenRequest,
+  type UpdatePrefs,
+  type UpdateState,
   type ZoomAction,
 } from '../shared/ipc';
 
@@ -115,6 +117,19 @@ const bridge: PidomBridge = {
       const handler = (_event: unknown, documentId: string) => listener(documentId);
       ipcRenderer.on(IPC.importOpenExternalFile, handler);
       return () => ipcRenderer.removeListener(IPC.importOpenExternalFile, handler);
+    },
+  },
+  update: {
+    getState: () => ipcRenderer.invoke(IPC.updateGetState),
+    check: () => ipcRenderer.invoke(IPC.updateCheck),
+    download: () => ipcRenderer.invoke(IPC.updateDownload),
+    restart: () => ipcRenderer.invoke(IPC.updateRestart),
+    openNotes: () => ipcRenderer.invoke(IPC.updateOpenNotes),
+    setPrefs: (prefs: UpdatePrefs) => ipcRenderer.invoke(IPC.updateSetPrefs, prefs),
+    onChange: (listener: (state: UpdateState) => void) => {
+      const handler = (_event: unknown, state: UpdateState) => listener(state);
+      ipcRenderer.on(IPC.updateChanged, handler);
+      return () => ipcRenderer.removeListener(IPC.updateChanged, handler);
     },
   },
   platform: {

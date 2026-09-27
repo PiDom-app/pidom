@@ -13,6 +13,7 @@ import {
   type EditAction,
   type LocalDocumentStatus,
   type ReaderOpenRequest,
+  type UpdatePrefs,
   type ZoomAction,
 } from '../shared/ipc';
 import { SessionManager } from './auth/oauth';
@@ -20,6 +21,7 @@ import { userVersion } from './db';
 import { closeDocument, fetchText, openDocument } from './reader';
 import type { StorageService } from './storage/service';
 import type { ImportService } from './storage/import-service';
+import type { UpdateService } from './updater/update-service';
 
 interface IpcOptions {
   getWindow: () => BrowserWindow | null;
@@ -61,6 +63,11 @@ const Schemas = {
   // large, so the cap is generous but finite. Each path is bounded too.
   paths: z.array(PathSchema).min(1).max(10_000),
   association: z.boolean(),
+  updatePrefs: z.object({
+    autoCheck: z.boolean(),
+    autoDownload: z.boolean(),
+    quiet: z.boolean(),
+  }),
 } as const;
 
 /**
@@ -73,6 +80,7 @@ export function registerIpc(
   session: SessionManager,
   storage: StorageService,
   imports: ImportService,
+  updates: UpdateService,
   opts: IpcOptions,
 ): void {
   // Compare the sender's ORIGIN, not a URL prefix. Electron's guidance is
@@ -198,6 +206,19 @@ export function registerIpc(
   imports.onOpen((documentId) => {
     const target = BrowserWindow.getFocusedWindow() ?? opts.getWindow();
     target?.webContents.send(IPC.importOpenExternalFile, documentId);
+  });
+
+  // Push update-state changes (a probe finishing, a download staging, an error)
+  // so the title-bar indicator and Settings track main live. Coalesced on the
+  // same 150 ms trailing timer as storage/imports; each push is a full snapshot,
+  // so collapsing a burst to the latest loses nothing.
+  let updateFlush: ReturnType<typeof setTimeout> | null = null;
+  const flushUpdate = () => {
+    updateFlush = null;
+    broadcast(IPC.updateChanged, updates.getState());
+  };
+  updates.onChange(() => {
+    if (!updateFlush) updateFlush = setTimeout(flushUpdate, 150);
   });
 
   ipcMain.handle(
@@ -405,6 +426,34 @@ export function registerIpc(
   );
   handleWith(IPC.importSetAssociation, Schemas.association, (_event, on: boolean) =>
     imports.setAssociation(on),
+  );
+
+  // ─── Auto-update ─────────────────────────────────────────────────────────────
+  // The renderer never supplies a feed or URL; the service hardcodes owner/repo
+  // and is inert off packaged-Windows. `setPrefs` is the one channel carrying a
+  // payload, zod-validated like the rest.
+  ipcMain.handle(
+    IPC.updateGetState,
+    guard(() => updates.getState()),
+  );
+  ipcMain.handle(
+    IPC.updateCheck,
+    guard(() => updates.check()),
+  );
+  ipcMain.handle(
+    IPC.updateDownload,
+    guard(() => updates.download()),
+  );
+  ipcMain.handle(
+    IPC.updateRestart,
+    guard(() => updates.restart()),
+  );
+  ipcMain.handle(
+    IPC.updateOpenNotes,
+    guard(() => updates.openNotes()),
+  );
+  handleWith(IPC.updateSetPrefs, Schemas.updatePrefs, (_event, prefs: UpdatePrefs) =>
+    updates.setPrefs(prefs),
   );
 
   // ─── Keep the display awake while reading ────────────────────────────────────

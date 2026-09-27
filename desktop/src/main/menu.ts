@@ -8,7 +8,13 @@ import { app, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
  * never drawn (the window is frameless), while on macOS it populates the system
  * menu bar as users expect there.
  */
-export function buildAppMenu(opts: { isDev: boolean; createWindow: () => void }): void {
+export function buildAppMenu(opts: {
+  isDev: boolean;
+  createWindow: () => void;
+  /** Kick off a detection check. Inert off packaged-Windows (the service stays
+   *  `unsupported`); the renderer's Updates surface reflects the result. */
+  checkForUpdates: () => void;
+}): void {
   const isMac = process.platform === 'darwin';
 
   const template: MenuItemConstructorOptions[] = [
@@ -59,6 +65,11 @@ export function buildAppMenu(opts: { isDev: boolean; createWindow: () => void })
     {
       label: 'Help',
       submenu: [
+        {
+          label: 'Check for Updates…',
+          click: () => opts.checkForUpdates(),
+        },
+        { type: 'separator' as const },
         {
           label: 'About Pidom',
           click: () => {
