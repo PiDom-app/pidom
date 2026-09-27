@@ -1,0 +1,1143 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pidom Desktop — Reader mockups</title>
+    <style>
+      /* Tokens copied VERBATIM from desktop/src/renderer/design/global.css.
+         These are sign-off mockups only — the shipping reader uses the real
+         tokens via Tailwind utilities, not this inline copy. */
+      :root.light {
+        --background: 255 255 255;
+        --surface: 250 250 249;
+        --elevated: 255 255 255;
+        --sunken: 244 243 241;
+        --hover: 240 239 236;
+        --hairline: 236 234 230;
+        --border: 226 224 220;
+        --border-strong: 198 195 190;
+        --input: 226 224 220;
+        --foreground: 23 22 21;
+        --fg-muted: 110 108 104;
+        --fg-subtle: 143 141 136;
+        --fg-disabled: 176 174 169;
+        --fg-inverted: 255 255 255;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 92 76 214;
+        --primary-tint: 240 238 253;
+        --link: 90 74 214;
+        --destructive: 208 40 44;
+        --ok: 22 143 89;
+        --warn: 176 116 12;
+        --focus: 106 89 232;
+        --overlay: 23 22 21;
+      }
+      :root.dark {
+        --background: 0 0 0;
+        --surface: 13 13 13;
+        --elevated: 20 20 20;
+        --sunken: 8 8 8;
+        --hover: 26 26 26;
+        --hairline: 28 27 26;
+        --border: 38 37 35;
+        --border-strong: 61 59 56;
+        --input: 38 37 35;
+        --foreground: 232 230 227;
+        --fg-muted: 143 141 136;
+        --fg-subtle: 110 108 104;
+        --fg-disabled: 78 77 74;
+        --fg-inverted: 0 0 0;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 122 106 240;
+        --primary-tint: 26 22 51;
+        --link: 138 124 240;
+        --destructive: 235 87 87;
+        --ok: 61 194 128;
+        --warn: 224 168 62;
+        --focus: 122 106 240;
+        --overlay: 0 0 0;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: rgb(var(--background));
+        color: rgb(var(--foreground));
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      /* Every corner is 6px; full only for dots. */
+      .r {
+        border-radius: 6px;
+      }
+      .rt {
+        border-radius: 6px 6px 0 0;
+      }
+      .full {
+        border-radius: 9999px;
+      }
+
+      .bg-surface {
+        background: rgb(var(--surface));
+      }
+      .bg-elevated {
+        background: rgb(var(--elevated));
+      }
+      .bg-sunken {
+        background: rgb(var(--sunken));
+      }
+      .bg-hover {
+        background: rgb(var(--hover));
+      }
+      .bg-primary {
+        background: rgb(var(--primary));
+        color: rgb(var(--primary-foreground));
+      }
+      .bg-primary-tint {
+        background: rgb(var(--primary-tint));
+      }
+      .border {
+        border: 1px solid rgb(var(--border));
+      }
+      .brd-hairline {
+        border-color: rgb(var(--hairline));
+      }
+      .fg-muted {
+        color: rgb(var(--fg-muted));
+      }
+      .fg-subtle {
+        color: rgb(var(--fg-subtle));
+      }
+      .primary {
+        color: rgb(var(--primary));
+      }
+
+      .page-wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 24px 96px;
+      }
+      .screen-label {
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgb(var(--fg-subtle));
+        margin: 40px 0 10px;
+        font-weight: 600;
+      }
+      .screen-note {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        margin-bottom: 14px;
+        max-width: 70ch;
+      }
+
+      /* ── window frame ─────────────────────────────────────────────── */
+      .win {
+        height: 640px;
+        background: rgb(var(--background));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .titlebar {
+        height: 32px;
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .traffic {
+        width: 11px;
+        height: 11px;
+        border-radius: 9999px;
+        background: rgb(var(--border-strong));
+      }
+
+      /* ── reader chrome ────────────────────────────────────────────── */
+      .reader {
+        flex: 1 1 auto;
+        display: flex;
+        min-height: 0;
+      }
+      .rtoolbar {
+        position: absolute;
+        top: 34px;
+        left: 12px;
+        right: 12px;
+        height: 40px;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+      }
+      .tgrp {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .ibtn {
+        width: 30px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: rgb(var(--fg-muted));
+        cursor: default;
+      }
+      .ibtn:hover {
+        background: rgb(var(--hover));
+      }
+      .ibtn.active {
+        background: rgb(var(--primary-tint));
+        color: rgb(var(--primary));
+      }
+      .sep {
+        width: 1px;
+        height: 20px;
+        background: rgb(var(--hairline));
+        margin: 0 4px;
+      }
+      .pageind {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+      }
+      .pagebox {
+        padding: 3px 10px;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        background: rgb(var(--elevated));
+      }
+      .zoomval {
+        min-width: 44px;
+        text-align: center;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .title {
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .spacer {
+        flex: 1 1 auto;
+      }
+      svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* ── document surface ─────────────────────────────────────────── */
+      .docsurface {
+        flex: 1 1 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 92px 0 24px;
+        background: rgb(var(--sunken));
+      }
+      .docsurface.darkdoc {
+        background: #111;
+      }
+      .pdfpage {
+        width: 460px;
+        height: 300px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+        position: relative;
+      }
+      .pdfpage .pn {
+        position: absolute;
+        bottom: 8px;
+        right: 12px;
+        font-size: 11px;
+        color: #9a9a9a;
+      }
+      .pdfpage .txt {
+        padding: 26px 34px;
+        color: #2a2a2a;
+      }
+      .pdfpage .txt h3 {
+        font-size: 15px;
+        margin-bottom: 10px;
+      }
+      .pdfpage .txt p {
+        font-size: 9px;
+        line-height: 1.7;
+        color: #55555a;
+      }
+      .spread {
+        display: flex;
+        gap: 10px;
+      }
+      .spread .pdfpage {
+        width: 300px;
+        height: 400px;
+      }
+      .single .pdfpage {
+        width: 420px;
+        height: 540px;
+      }
+
+      /* ── sidebar ──────────────────────────────────────────────────── */
+      .sidebar {
+        width: 244px;
+        flex: 0 0 auto;
+        background: rgb(var(--surface));
+        border-right: 1px solid rgb(var(--hairline));
+        display: flex;
+        flex-direction: column;
+        padding-top: 92px;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        padding: 0 10px 8px;
+      }
+      .tab {
+        flex: 1;
+        text-align: center;
+        padding: 6px 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: rgb(var(--fg-muted));
+        border-radius: 6px;
+        cursor: default;
+      }
+      .tab.active {
+        background: rgb(var(--primary-tint));
+        color: rgb(var(--primary));
+      }
+      .tab:hover:not(.active) {
+        background: rgb(var(--hover));
+      }
+      .sbdiv {
+        height: 1px;
+        background: rgb(var(--hairline));
+        margin: 0 10px 8px;
+      }
+      .scroll {
+        overflow: auto;
+        padding: 4px 8px 12px;
+      }
+      .toc-item {
+        padding: 6px 8px;
+        font-size: 13px;
+        border-radius: 6px;
+        cursor: default;
+        color: rgb(var(--foreground));
+      }
+      .toc-item:hover {
+        background: rgb(var(--hover));
+      }
+      .toc-item.d1 {
+        padding-left: 22px;
+        color: rgb(var(--fg-muted));
+        font-size: 12px;
+      }
+      .toc-item.cur {
+        background: rgb(var(--primary-tint));
+        color: rgb(var(--primary));
+      }
+      .thumbgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 4px;
+      }
+      .thumb {
+        aspect-ratio: 3/4;
+        background: #fff;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        position: relative;
+      }
+      .thumb.cur {
+        outline: 2px solid rgb(var(--primary));
+      }
+      .thumb span {
+        position: absolute;
+        bottom: 3px;
+        right: 5px;
+        font-size: 9px;
+        color: #9a9a9a;
+      }
+      .bm-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      .bm-row:hover {
+        background: rgb(var(--hover));
+      }
+      .bm-pg {
+        font-size: 11px;
+        color: rgb(var(--fg-subtle));
+        font-variant-numeric: tabular-nums;
+        min-width: 30px;
+      }
+
+      /* ── floating surfaces ────────────────────────────────────────── */
+      .floating {
+        display: inline-grid;
+        gap: 20px;
+        grid-template-columns: repeat(3, auto);
+        align-items: start;
+        margin-top: 8px;
+      }
+      .surface {
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+        padding: 6px;
+        min-width: 200px;
+      }
+      .surface .cap {
+        font-size: 11px;
+        color: rgb(var(--fg-subtle));
+        padding: 4px 8px 6px;
+      }
+      .mi {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      .mi:hover {
+        background: rgb(var(--hover));
+      }
+      .mi.danger {
+        color: rgb(var(--destructive));
+      }
+      .findbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        padding: 6px 8px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+        min-width: 320px;
+      }
+      .inp {
+        flex: 1;
+        background: rgb(var(--elevated));
+        border: 1px solid rgb(var(--input));
+        border-radius: 6px;
+        padding: 6px 9px;
+        color: rgb(var(--foreground));
+        font-size: 13px;
+      }
+      .findcount {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+        font-variant-numeric: tabular-nums;
+      }
+      .jump {
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        padding: 12px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+        width: 220px;
+      }
+      .jump label {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      /* ── settings reader section ──────────────────────────────────── */
+      .set-wrap {
+        display: flex;
+        height: 100%;
+      }
+      .set-rail {
+        width: 210px;
+        border-right: 1px solid rgb(var(--hairline));
+        padding: 16px 10px;
+      }
+      .set-rail .ri {
+        padding: 7px 10px;
+        font-size: 13px;
+        border-radius: 6px;
+        color: rgb(var(--fg-muted));
+      }
+      .set-rail .ri.active {
+        background: rgb(var(--primary-tint));
+        color: rgb(var(--primary));
+        font-weight: 500;
+      }
+      .set-content {
+        flex: 1;
+        padding: 24px 32px;
+        overflow: auto;
+      }
+      .set-content h2 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .set-content .desc {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        margin-top: 4px;
+        margin-bottom: 18px;
+      }
+      .set-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+        padding: 14px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .set-row .lbl {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .set-row .sub {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        margin-top: 2px;
+      }
+      .select {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 168px;
+        justify-content: space-between;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 7px 11px;
+        font-size: 13px;
+      }
+      .switch {
+        width: 36px;
+        height: 20px;
+        border-radius: 9999px;
+        background: rgb(var(--border-strong));
+        position: relative;
+      }
+      .switch.on {
+        background: rgb(var(--primary));
+      }
+      .switch i {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+      }
+      .switch.on i {
+        left: 18px;
+      }
+      .kbd {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        padding: 2px 6px;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        background: rgb(var(--elevated));
+        color: rgb(var(--fg-muted));
+      }
+
+      .toggle-theme {
+        position: fixed;
+        top: 14px;
+        right: 16px;
+        z-index: 100;
+        background: rgb(var(--surface));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        padding: 7px 12px;
+        font-size: 12px;
+        color: rgb(var(--foreground));
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <button
+      class="toggle-theme"
+      onclick="
+        document.documentElement.classList.toggle('dark');
+        document.documentElement.classList.toggle('light');
+      "
+    >
+      Toggle light / dark
+    </button>
+    <div class="page-wrap">
+      <!-- 1. CONTINUOUS -->
+      <div class="screen-label">1 · Reader — continuous (default)</div>
+      <div class="screen-note">
+        Thin auto-hiding toolbar (Radix Toolbar). Pages are bare rendered surfaces on a sunken
+        document canvas — no card, no border box. Bottom edge of the window meets the desktop.
+        Sidebar collapsed.
+      </div>
+      <div class="win">
+        <div class="titlebar">
+          <span class="traffic"></span><span class="traffic"></span><span class="traffic"></span>
+        </div>
+        <div class="rtoolbar">
+          <div class="ibtn">
+            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+          </div>
+          <span class="title">Structure and Interpretation of Computer Programs</span>
+          <div class="spacer"></div>
+          <div class="pageind">
+            <div class="ibtn">
+              <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+            </div>
+            <span class="pagebox">218 / 1,024</span>
+            <div class="ibtn">
+              <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg>
+            </div>
+          </div>
+          <div class="sep"></div>
+          <div class="tgrp">
+            <div class="ibtn">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14" /></svg>
+            </div>
+            <span class="zoomval">100%</span>
+            <div class="ibtn">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+            </div>
+          </div>
+          <div class="sep"></div>
+          <div class="tgrp">
+            <div class="ibtn active" title="Continuous">
+              <svg viewBox="0 0 24 24">
+                <rect x="5" y="3" width="14" height="7" rx="1" />
+                <rect x="5" y="13" width="14" height="7" rx="1" />
+              </svg>
+            </div>
+            <div class="ibtn" title="Single page">
+              <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="1" /></svg>
+            </div>
+            <div class="ibtn" title="Two-page spread">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="8" height="16" rx="1" />
+                <rect x="13" y="4" width="8" height="16" rx="1" />
+              </svg>
+            </div>
+          </div>
+          <div class="sep"></div>
+          <div class="ibtn" title="Sidebar">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16" />
+            </svg>
+          </div>
+          <div class="ibtn" title="Find">
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4-4" />
+            </svg>
+          </div>
+          <div class="ibtn" title="Bookmark">
+            <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+          </div>
+          <div class="ibtn" title="More">
+            <svg viewBox="0 0 24 24">
+              <circle cx="5" cy="12" r="1.4" />
+              <circle cx="12" cy="12" r="1.4" />
+              <circle cx="19" cy="12" r="1.4" />
+            </svg>
+          </div>
+        </div>
+        <div class="reader">
+          <div class="docsurface">
+            <div class="pdfpage">
+              <div class="txt">
+                <h3>3.2 The Environment Model of Evaluation</h3>
+                <p>
+                  When we introduced compound procedures in chapter 1, we used the substitution
+                  model of evaluation to define what it means to apply a procedure to arguments.
+                  Once we admit assignment into our programming language, such a definition is no
+                  longer adequate.
+                </p>
+                <p>
+                  In particular, we argued that the meaning of a variable was determined by the
+                  value it names, and that this could be understood purely in terms of substitution.
+                </p>
+              </div>
+              <span class="pn">217</span>
+            </div>
+            <div class="pdfpage" style="outline: 2px solid rgb(var(--primary))">
+              <div class="txt">
+                <h3></h3>
+                <p>
+                  An environment is a sequence of frames. Each frame is a table of bindings, which
+                  associate variable names with their corresponding values. Each frame also has a
+                  pointer to its enclosing environment.
+                </p>
+                <p>
+                  The value of a variable with respect to an environment is the value given by the
+                  binding of the variable in the first frame in the environment that contains a
+                  binding for that variable.
+                </p>
+              </div>
+              <span class="pn">218</span>
+            </div>
+            <div class="pdfpage">
+              <div class="txt">
+                <p>
+                  If no frame in the sequence specifies a binding for the variable, then the
+                  variable is said to be unbound in the environment.
+                </p>
+              </div>
+              <span class="pn">219</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. SINGLE + SPREAD -->
+      <div class="screen-label">2 · Reader — single page &amp; two-page spread</div>
+      <div class="screen-note">
+        The layout ToggleGroup switches modes. Single centres one page; spread lays two side by side
+        with the cover-first rule. Same toolbar, same tokens.
+      </div>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap">
+        <div class="win" style="flex: 1 1 340px">
+          <div class="titlebar">
+            <span class="traffic"></span><span class="traffic"></span><span class="traffic"></span>
+          </div>
+          <div class="rtoolbar">
+            <div class="ibtn">
+              <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+            </div>
+            <span class="title">Single</span>
+            <div class="spacer"></div>
+            <span class="pagebox">42 / 512</span>
+            <div class="sep"></div>
+            <div class="tgrp">
+              <div class="ibtn">
+                <svg viewBox="0 0 24 24">
+                  <rect x="5" y="3" width="14" height="7" rx="1" />
+                  <rect x="5" y="13" width="14" height="7" rx="1" />
+                </svg>
+              </div>
+              <div class="ibtn active">
+                <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="1" /></svg>
+              </div>
+              <div class="ibtn">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="8" height="16" rx="1" />
+                  <rect x="13" y="4" width="8" height="16" rx="1" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="reader">
+            <div class="docsurface single">
+              <div class="pdfpage">
+                <div class="txt">
+                  <h3>Chapter 3 · Modularity</h3>
+                  <p style="margin-top: 8px">
+                    The object concept is a powerful strategy for organizing our understanding of a
+                    complex system.
+                  </p>
+                </div>
+                <span class="pn">42</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="win" style="flex: 1 1 340px">
+          <div class="titlebar">
+            <span class="traffic"></span><span class="traffic"></span><span class="traffic"></span>
+          </div>
+          <div class="rtoolbar">
+            <div class="ibtn">
+              <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+            </div>
+            <span class="title">Spread</span>
+            <div class="spacer"></div>
+            <span class="pagebox">88–89 / 512</span>
+            <div class="sep"></div>
+            <div class="tgrp">
+              <div class="ibtn">
+                <svg viewBox="0 0 24 24">
+                  <rect x="5" y="3" width="14" height="7" rx="1" />
+                  <rect x="5" y="13" width="14" height="7" rx="1" />
+                </svg>
+              </div>
+              <div class="ibtn">
+                <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="1" /></svg>
+              </div>
+              <div class="ibtn active">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="8" height="16" rx="1" />
+                  <rect x="13" y="4" width="8" height="16" rx="1" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="reader">
+            <div class="docsurface">
+              <div class="spread">
+                <div class="pdfpage">
+                  <div class="txt"><p>…the local state of the object.</p></div>
+                  <span class="pn">88</span>
+                </div>
+                <div class="pdfpage">
+                  <div class="txt"><p>We can model this using the environment model.</p></div>
+                  <span class="pn">89</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. SIDEBAR -->
+      <div class="screen-label">3 · Left navigation panel — Contents / Pages / Bookmarks</div>
+      <div class="screen-note">
+        Radix Tabs + ScrollArea. Contents from the document outline; Pages is a virtualized low-res
+        thumbnail grid; Bookmarks are account-synced. Collapsible.
+      </div>
+      <div class="win">
+        <div class="titlebar">
+          <span class="traffic"></span><span class="traffic"></span><span class="traffic"></span>
+        </div>
+        <div class="rtoolbar">
+          <div class="ibtn">
+            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+          </div>
+          <span class="title">The Society of Mind</span>
+          <div class="spacer"></div>
+          <span class="pagebox">64 / 336</span>
+          <div class="sep"></div>
+          <div class="ibtn active" title="Sidebar">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16" />
+            </svg>
+          </div>
+          <div class="ibtn">
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4-4" />
+            </svg>
+          </div>
+        </div>
+        <div class="reader">
+          <div class="sidebar">
+            <div class="tabs">
+              <div class="tab active">Contents</div>
+              <div class="tab">Pages</div>
+              <div class="tab">Marks</div>
+            </div>
+            <div class="sbdiv"></div>
+            <div class="scroll">
+              <div class="toc-item">1 · Prologue</div>
+              <div class="toc-item">2 · Wholes and Parts</div>
+              <div class="toc-item d1">2.1 Components and connections</div>
+              <div class="toc-item cur">2.2 Novelists and reductionists</div>
+              <div class="toc-item d1">2.3 Parts and wholes</div>
+              <div class="toc-item">3 · Conflict and Compromise</div>
+              <div class="toc-item">4 · The Self</div>
+              <div class="toc-item d1">4.1 Where does the self begin</div>
+            </div>
+          </div>
+          <div class="docsurface" style="padding-top: 92px">
+            <div class="pdfpage">
+              <div class="txt">
+                <h3>2.2 Novelists and reductionists</h3>
+                <p>
+                  What magical trick makes us intelligent? The trick is that there is no trick. The
+                  power of intelligence stems from our vast diversity, not from any single, perfect
+                  principle.
+                </p>
+              </div>
+              <span class="pn">64</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-note" style="margin-top: 14px">Pages tab and Bookmarks tab content:</div>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap">
+        <div class="surface" style="min-width: 260px">
+          <div class="cap">PAGES</div>
+          <div class="thumbgrid">
+            <div class="thumb"><span>62</span></div>
+            <div class="thumb"><span>63</span></div>
+            <div class="thumb cur"><span>64</span></div>
+            <div class="thumb"><span>65</span></div>
+          </div>
+        </div>
+        <div class="surface" style="min-width: 260px">
+          <div class="cap">BOOKMARKS</div>
+          <div class="bm-row"><span class="bm-pg">18</span><span>The agencies of mind</span></div>
+          <div class="bm-row">
+            <span class="bm-pg">64</span><span>Novelists and reductionists</span>
+          </div>
+          <div class="bm-row"><span class="bm-pg">201</span><span>—</span></div>
+        </div>
+      </div>
+
+      <!-- 4. FIND / JUMP / CONTEXT -->
+      <div class="screen-label">4 · Find bar · page-jump popover · selection context menu</div>
+      <div class="screen-note">
+        Find searches the local extracted-text index (independent of the render path). Page-jump is
+        a Radix Popover with a bounded input. Selection uses a Radix Context Menu.
+      </div>
+      <div class="floating">
+        <div class="findbar">
+          <svg viewBox="0 0 24 24" style="color: rgb(var(--fg-muted))">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4-4" />
+          </svg>
+          <input class="inp" value="environment model" />
+          <span class="findcount">3 / 17</span>
+          <div class="ibtn">
+            <svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6" /></svg>
+          </div>
+          <div class="ibtn">
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+          </div>
+        </div>
+        <div class="jump">
+          <label>Go to page</label>
+          <input class="inp" value="700" />
+          <div class="fg-subtle" style="font-size: 11px; margin-top: 6px">1 – 1,024</div>
+        </div>
+        <div class="surface">
+          <div class="mi">
+            <svg viewBox="0 0 24 24" style="color: rgb(var(--warn))"><path d="M4 4h16v4H4z" /></svg>
+            Highlight
+          </div>
+          <div class="mi">
+            <svg viewBox="0 0 24 24">
+              <rect x="9" y="9" width="11" height="11" rx="2" />
+              <path d="M5 15V5h10" />
+            </svg>
+            Copy
+          </div>
+          <div class="mi">
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4-4" />
+            </svg>
+            Search selection
+          </div>
+          <div style="height: 1px; background: rgb(var(--hairline)); margin: 4px 6px"></div>
+          <div class="mi">
+            <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></svg> Bookmark this page
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. SETTINGS -->
+      <div class="screen-label">5 · Settings → Reader (completed section)</div>
+      <div class="screen-note">
+        Flat, cardless rows with hairline dividers. Account-synced reader preferences
+        (defaultViewMode, scaling, spacing, background, direction, toolbar/sidebar behaviour,
+        restore position, navigation) plus a keyboard-shortcut reference.
+      </div>
+      <div class="win" style="height: 600px">
+        <div class="titlebar">
+          <span class="traffic"></span><span class="traffic"></span><span class="traffic"></span>
+        </div>
+        <div class="reader" style="padding-top: 34px">
+          <div class="set-wrap">
+            <div class="set-rail">
+              <div class="ri">Appearance</div>
+              <div class="ri">Accent color</div>
+              <div class="ri active">Reader</div>
+              <div class="ri">Library &amp; storage</div>
+              <div class="ri">Account &amp; sync</div>
+              <div class="ri">Keyboard shortcuts</div>
+              <div class="ri">Privacy &amp; security</div>
+            </div>
+            <div class="set-content">
+              <h2>Reader</h2>
+              <div class="desc">
+                How documents open and behave. These preferences follow your account across devices.
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Default view mode</div>
+                  <div class="sub">How pages flow when a document opens.</div>
+                </div>
+                <div class="select">
+                  Continuous
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Page scaling</div>
+                  <div class="sub">Automatic, fit width, fit page, or last used.</div>
+                </div>
+                <div class="select">
+                  Fit width
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Page spacing</div>
+                  <div class="sub">Gap between pages in continuous mode.</div>
+                </div>
+                <div class="select">
+                  Normal
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Document background</div>
+                  <div class="sub">The surface behind the page. Separate from the app theme.</div>
+                </div>
+                <div class="select">
+                  Neutral
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Page direction</div>
+                  <div class="sub">Left-to-right or right-to-left navigation.</div>
+                </div>
+                <div class="select">
+                  Left to right
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Toolbar</div>
+                  <div class="sub">Always visible, auto-hide while reading, or manual.</div>
+                </div>
+                <div class="select">
+                  Auto-hide
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Sidebar</div>
+                  <div class="sub">Open, collapsed, or remember last state.</div>
+                </div>
+                <div class="select">
+                  Remember
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Restore last position</div>
+                  <div class="sub">Reopen a document where you left off.</div>
+                </div>
+                <div class="switch on"><i></i></div>
+              </div>
+              <div class="set-row">
+                <div>
+                  <div class="lbl">Page navigation</div>
+                  <div class="sub">Continuous scroll or page snapping on wheel.</div>
+                </div>
+                <div class="select">
+                  Continuous
+                  <svg viewBox="0 0 24 24" style="width: 14px; color: rgb(var(--fg-muted))">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div style="margin-top: 22px">
+                <div class="lbl" style="margin-bottom: 10px">Keyboard shortcuts</div>
+                <div
+                  style="
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 8px 24px;
+                    max-width: 560px;
+                  "
+                >
+                  <div style="display: flex; justify-content: space-between">
+                    <span class="fg-muted">Next / previous page</span
+                    ><span><span class="kbd">→</span> <span class="kbd">←</span></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between">
+                    <span class="fg-muted">First / last page</span
+                    ><span><span class="kbd">Home</span> <span class="kbd">End</span></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between">
+                    <span class="fg-muted">Zoom in / out</span
+                    ><span><span class="kbd">⌘ +</span> <span class="kbd">⌘ −</span></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between">
+                    <span class="fg-muted">Fit width / page</span
+                    ><span><span class="kbd">⌘ 1</span> <span class="kbd">⌘ 2</span></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between">
+                    <span class="fg-muted">Toggle sidebar</span><span class="kbd">⌘ \</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between">
+                    <span class="fg-muted">Find in document</span><span class="kbd">⌘ F</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

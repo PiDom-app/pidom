@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pidom Desktop — Storage v2 (animations, migration, copy-path)</title>
+    <!--
+      Sign-off mockup for the Phase-2 additions:
+        • four selectable download animations (Bar / Comet / Ring / Stripes), shown live
+        • a "Download animation" control in Storage settings
+        • a working "Move library" migration flow (native picker → validate → move → verify)
+        • copy-path affordance on the library location
+      Tokens copied VERBATIM from desktop/src/renderer/design/global.css. Flat, cardless,
+      tokens only, 6px radii. This is a picture — not wired to app code.
+    -->
+    <style>
+      :root.light {
+        --background: 255 255 255;
+        --surface: 250 250 249;
+        --elevated: 255 255 255;
+        --sunken: 244 243 241;
+        --hover: 240 239 236;
+        --hairline: 236 234 230;
+        --border: 226 224 220;
+        --border-strong: 198 195 190;
+        --input: 226 224 220;
+        --foreground: 23 22 21;
+        --fg-muted: 110 108 104;
+        --fg-subtle: 143 141 136;
+        --fg-disabled: 176 174 169;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 92 76 214;
+        --primary-tint: 240 238 253;
+        --link: 90 74 214;
+        --destructive: 208 40 44;
+        --danger-tint: 253 240 240;
+        --ok: 22 143 89;
+        --warn: 176 116 12;
+        --warn-tint: 253 246 232;
+        --focus: 106 89 232;
+        --popover: 255 255 255;
+        --popover-foreground: 23 22 21;
+      }
+      :root.dark {
+        --background: 0 0 0;
+        --surface: 13 13 13;
+        --elevated: 20 20 20;
+        --sunken: 8 8 8;
+        --hover: 26 26 26;
+        --hairline: 28 27 26;
+        --border: 38 37 35;
+        --border-strong: 61 59 56;
+        --input: 38 37 35;
+        --foreground: 232 230 227;
+        --fg-muted: 143 141 136;
+        --fg-subtle: 110 108 104;
+        --fg-disabled: 78 77 74;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 122 106 240;
+        --primary-tint: 26 22 51;
+        --link: 138 124 240;
+        --destructive: 235 87 87;
+        --danger-tint: 45 20 20;
+        --ok: 61 194 128;
+        --warn: 224 168 62;
+        --warn-tint: 43 33 12;
+        --focus: 122 106 240;
+        --popover: 20 20 20;
+        --popover-foreground: 232 230 227;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: rgb(var(--background));
+        color: rgb(var(--foreground));
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        padding: 28px;
+      }
+      .muted {
+        color: rgb(var(--fg-muted));
+      }
+      .subtle {
+        color: rgb(var(--fg-subtle));
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+      h1.title {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin-bottom: 4px;
+      }
+      .frame-label {
+        font-size: 12px;
+        color: rgb(var(--fg-subtle));
+        margin: 28px 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .panel {
+        background: rgb(var(--surface));
+        border-radius: 6px;
+        padding: 28px;
+        max-width: 900px;
+      }
+      .section-title {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .section-desc {
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+        margin-top: 4px;
+        margin-bottom: 18px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: center;
+        padding: 16px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .row.start {
+        align-items: flex-start;
+      }
+      .row-label {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .row-desc {
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+        margin-top: 2px;
+      }
+      .row-value {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-ghost:hover {
+        background: rgb(var(--hover));
+      }
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgb(var(--primary));
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-icon {
+        width: 15px;
+        height: 15px;
+      }
+      .path-chip {
+        max-width: 340px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        background: rgb(var(--sunken));
+        color: rgb(var(--fg-muted));
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+
+      /* select */
+      .select {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 168px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+
+      /* ── animation picker — flat rows, cardless (matches the shipped build) ── */
+      .anim-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 16px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+        cursor: pointer;
+      }
+      .anim-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      .radio-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        border: 1px solid rgb(var(--border-strong));
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .anim-row.active .radio-dot {
+        border-color: rgb(var(--primary));
+      }
+      .anim-row.active .radio-dot > i {
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: rgb(var(--primary));
+      }
+      .anim-name {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .anim-hint {
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .anim-preview {
+        flex-shrink: 0;
+      }
+      .anim-preview.linear {
+        width: 160px;
+      }
+      /* Previews sit still and play only while the row is pointed at, so the list
+         is calm at rest — the app gates the same motion on group-hover. */
+      .anim-row .a-comet > i::after,
+      .anim-row .a-ring,
+      .anim-row .a-stripes > i {
+        animation-play-state: paused;
+      }
+      .anim-row:hover .a-comet > i::after,
+      .anim-row:hover .a-ring,
+      .anim-row:hover .a-stripes > i {
+        animation-play-state: running;
+      }
+
+      /* Style 1 — Bar (determinate, minimal): the shipped progress line */
+      .a-bar {
+        height: 3px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+      }
+      .a-bar > i {
+        display: block;
+        height: 100%;
+        width: 62%;
+        background: rgb(var(--primary));
+        border-radius: 9999px;
+      }
+
+      /* Style 2 — Comet (determinate fill + a light sweep riding the filled part) */
+      .a-comet {
+        position: relative;
+        height: 4px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+      }
+      .a-comet > i {
+        position: absolute;
+        inset: 0 38% 0 0;
+        background: rgb(var(--primary));
+        border-radius: 9999px;
+      }
+      .a-comet > i::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+        animation: comet 1.1s linear infinite;
+      }
+      @keyframes comet {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(350%);
+        }
+      }
+
+      /* Style 3 — Ring (circular determinate) */
+      .a-ring {
+        width: 34px;
+        height: 34px;
+        border-radius: 9999px;
+        background: conic-gradient(rgb(var(--primary)) 0 62%, rgb(var(--hairline)) 62% 100%);
+        display: grid;
+        place-items: center;
+        margin: 0 auto;
+        animation: spin 1.4s linear infinite;
+      }
+      .a-ring::after {
+        content: '';
+        width: 24px;
+        height: 24px;
+        border-radius: 9999px;
+        background: rgb(var(--surface));
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Style 4 — Stripes (determinate fill, animated barber-pole texture) */
+      .a-stripes {
+        height: 6px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+      }
+      .a-stripes > i {
+        display: block;
+        height: 100%;
+        width: 62%;
+        border-radius: 9999px;
+        background-image: linear-gradient(
+          45deg,
+          rgba(255, 255, 255, 0.25) 25%,
+          transparent 25%,
+          transparent 50%,
+          rgba(255, 255, 255, 0.25) 50%,
+          rgba(255, 255, 255, 0.25) 75%,
+          transparent 75%,
+          transparent
+        );
+        background-size: 14px 14px;
+        background-color: rgb(var(--primary));
+        animation: stripes 0.7s linear infinite;
+      }
+      @keyframes stripes {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 14px 0;
+        }
+      }
+
+      /* ── downloads rows (context) ────────────────────────────────────── */
+      .trow {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 8px 4px 8px 8px;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .cover {
+        width: 32px;
+        height: 40px;
+        border-radius: 6px;
+        background: rgb(var(--sunken));
+        border: 1px solid rgb(var(--border));
+        display: grid;
+        place-items: center;
+        font-size: 9px;
+        color: rgb(var(--fg-subtle));
+        flex-shrink: 0;
+      }
+      .doc-title {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .doc-author {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .status-cell {
+        width: 260px;
+        flex-shrink: 0;
+      }
+      .prog-meta {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+        margin-top: 5px;
+      }
+      .spacer {
+        flex: 1;
+      }
+
+      /* dialog */
+      .overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: grid;
+        place-items: center;
+      }
+      .dialog {
+        width: 30rem;
+        max-width: 92vw;
+        background: rgb(var(--popover));
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+      .dialog h3 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .dialog p {
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+        margin-top: 8px;
+      }
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
+      }
+      .mig-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        padding: 6px 0;
+      }
+      .mig-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+      }
+      .mig-dot.done {
+        background: rgb(var(--ok));
+      }
+      .mig-dot.active {
+        background: rgb(var(--primary));
+      }
+      .mig-dot.todo {
+        border: 2px solid rgb(var(--border-strong));
+      }
+      .toggle {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        border-radius: 9999px;
+        background: rgb(var(--border-strong));
+      }
+      .toggle.on {
+        background: rgb(var(--primary));
+      }
+      .toggle > i {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+      }
+      .toggle.on > i {
+        left: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 class="title">Storage v2 — download animations, library migration, copy-path</h1>
+    <p class="muted" style="font-size: 14px">
+      Everything below is wired in the real build. No "Coming soon".
+      <button
+        class="btn-ghost"
+        style="padding: 4px 10px"
+        onclick="
+          document.documentElement.classList.toggle('dark');
+          document.documentElement.classList.toggle('light');
+        "
+      >
+        Toggle theme
+      </button>
+    </p>
+
+    <!-- ══════════ Download animation picker (new Storage setting) ══════════ -->
+    <div class="frame-label">Settings › Library &amp; storage › Download animation (live)</div>
+    <div class="panel">
+      <div class="section-title">Download animation</div>
+      <div class="section-desc">
+        How an in-progress download looks in the Downloads list. Point at a style to see it move.
+        Respects Reduce motion.
+      </div>
+      <div class="anim-row active">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Bar</div>
+            <div class="anim-hint">Minimal · default</div>
+          </div>
+        </div>
+        <div class="anim-preview linear">
+          <div class="a-bar"><i></i></div>
+        </div>
+      </div>
+      <div class="anim-row">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Comet</div>
+            <div class="anim-hint">Light sweep</div>
+          </div>
+        </div>
+        <div class="anim-preview linear">
+          <div class="a-comet"><i></i></div>
+        </div>
+      </div>
+      <div class="anim-row">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Ring</div>
+            <div class="anim-hint">Circular</div>
+          </div>
+        </div>
+        <div class="anim-preview"><div class="a-ring"></div></div>
+      </div>
+      <div class="anim-row">
+        <div class="anim-left">
+          <span class="radio-dot"><i></i></span>
+          <div>
+            <div class="anim-name">Stripes</div>
+            <div class="anim-hint">Barber-pole</div>
+          </div>
+        </div>
+        <div class="anim-preview linear">
+          <div class="a-stripes"><i></i></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top: 18px">
+        <div>
+          <div class="row-label">Reduce motion</div>
+          <div class="row-desc">When on, every style falls back to a still determinate bar.</div>
+        </div>
+        <div class="toggle"><i></i></div>
+      </div>
+    </div>
+
+    <!-- ══════════ Downloads list showing the chosen animation ══════════ -->
+    <div class="frame-label">Downloads — rows using each animation (for comparison)</div>
+    <div class="panel">
+      <div class="trow">
+        <div class="cover">PDF</div>
+        <div style="min-width: 0">
+          <div class="doc-title">The Rust Programming Language</div>
+          <div class="doc-author">Klabnik &amp; Nichols</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="status-cell">
+          <div class="a-bar"><i></i></div>
+          <div class="prog-meta num">Downloading · 4.8 of 7.8 MB</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="cover">PDF</div>
+        <div style="min-width: 0">
+          <div class="doc-title">Designing Data-Intensive Applications</div>
+          <div class="doc-author">Martin Kleppmann</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="status-cell">
+          <div class="a-comet"><i></i></div>
+          <div class="prog-meta num">Downloading · 11.4 of 18.4 MB</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="cover">PDF</div>
+        <div style="min-width: 0">
+          <div class="doc-title">Refactoring, 2nd Edition</div>
+          <div class="doc-author">Martin Fowler</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="status-cell" style="display: flex; align-items: center; gap: 12px">
+          <div class="a-ring"></div>
+          <span class="prog-meta num" style="margin: 0">62% · 3.8 of 6.1 MB</span>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="cover">PDF</div>
+        <div style="min-width: 0">
+          <div class="doc-title">Structure and Interpretation of Computer Programs</div>
+          <div class="doc-author">Abelson &amp; Sussman</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="status-cell">
+          <div class="a-stripes"><i></i></div>
+          <div class="prog-meta num">Downloading · 5.6 of 9.0 MB</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ Library location — copy path + move ══════════ -->
+    <div class="frame-label">
+      Settings › Library &amp; storage › On this device (all controls live)
+    </div>
+    <div class="panel">
+      <div class="section-title">On this device</div>
+      <div class="section-desc">
+        Documents saved locally for offline reading. Kept separate from regenerable caches.
+      </div>
+
+      <div class="row start">
+        <div>
+          <div class="row-label">Library location</div>
+          <div class="row-desc">Where offline documents live on this computer.</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px">
+          <div style="display: flex; align-items: center; gap: 6px">
+            <span class="path-chip">/home/you/.config/Pidom/pidom-library</span>
+            <button class="btn-ghost" style="padding: 6px 9px" title="Copy path">
+              <svg
+                class="btn-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+          </div>
+          <div style="display: flex; gap: 8px">
+            <button class="btn-ghost" style="padding: 6px 10px">Reveal</button>
+            <button class="btn-ghost" style="padding: 6px 10px">Verify library</button>
+            <button class="btn-ghost" style="padding: 6px 10px">Move…</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="row-label">Choose a different folder</div>
+          <div class="row-desc">
+            Move every downloaded document to another drive. Reading stays available throughout.
+          </div>
+        </div>
+        <button class="btn-ghost">Choose folder…</button>
+      </div>
+    </div>
+
+    <!-- ══════════ Migration dialog (in progress) ══════════ -->
+    <div class="frame-label">Move library — progress dialog</div>
+    <div
+      style="
+        position: relative;
+        height: 360px;
+        max-width: 900px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgb(var(--border));
+      "
+    >
+      <div style="position: absolute; inset: 0; background: rgb(var(--surface))"></div>
+      <div class="overlay">
+        <div class="dialog">
+          <h3>Moving your library</h3>
+          <p>
+            12 documents · 348 MB → <span class="num">/mnt/books/Pidom</span>. You can keep reading
+            while this runs; documents already open stay open.
+          </p>
+          <div style="margin-top: 16px">
+            <div class="mig-step">
+              <span class="mig-dot done"
+                ><svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="3"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg></span
+              >Checked the folder is writable, with room to spare
+            </div>
+            <div class="mig-step">
+              <span class="mig-dot done"
+                ><svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="3"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg></span
+              >Copied 348 MB (12 of 12 documents)
+            </div>
+            <div class="mig-step">
+              <span class="mig-dot active"></span>Verifying copied files against their hashes…
+              <span class="num muted" style="margin-left: auto">9 / 12</span>
+            </div>
+            <div class="mig-step">
+              <span class="mig-dot todo"></span
+              ><span class="muted">Switch to the new location and remove the old copies</span>
+            </div>
+          </div>
+          <div style="margin-top: 14px" class="a-comet"><i style="inset: 0 25% 0 0"></i></div>
+          <div class="dialog-actions">
+            <button class="btn-ghost">Cancel &amp; keep current</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="muted" style="font-size: 13px; margin-top: 20px">
+      Migration is atomic in effect: files copy + verify at the destination first; the active root
+      only switches after every hash matches. On any failure the old library stays the source of
+      truth and the partial copy is removed. Cancel is safe at every step before the switch.
+    </p>
+  </body>
+</html>

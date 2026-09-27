@@ -1,0 +1,2262 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pidom — Import feature mockups</title>
+    <style>
+      /* Tokens ported verbatim from desktop/src/renderer/design/global.css (dark). */
+      :root.dark {
+        --background: 0 0 0;
+        --surface: 13 13 13;
+        --elevated: 20 20 20;
+        --sunken: 8 8 8;
+        --hover: 26 26 26;
+        --hairline: 28 27 26;
+        --border: 38 37 35;
+        --border-strong: 61 59 56;
+        --foreground: 232 230 227;
+        --fg-muted: 143 141 136;
+        --fg-subtle: 110 108 104;
+        --fg-disabled: 78 77 74;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 122 106 240;
+        --primary-tint: 26 22 51;
+        --destructive: 235 87 87;
+        --danger-tint: 45 20 20;
+        --ok: 61 194 128;
+        --warn: 224 168 62;
+        --warn-tint: 43 33 12;
+        --overlay: 0 0 0;
+      }
+      :root.light {
+        --background: 255 255 255;
+        --surface: 250 250 249;
+        --elevated: 255 255 255;
+        --sunken: 244 243 241;
+        --hover: 240 239 236;
+        --hairline: 236 234 230;
+        --border: 226 224 220;
+        --border-strong: 198 195 190;
+        --foreground: 23 22 21;
+        --fg-muted: 110 108 104;
+        --fg-subtle: 143 141 136;
+        --fg-disabled: 176 174 169;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 92 76 214;
+        --primary-tint: 240 238 253;
+        --destructive: 208 40 44;
+        --danger-tint: 253 240 240;
+        --ok: 22 143 89;
+        --warn: 176 116 12;
+        --warn-tint: 253 246 232;
+        --overlay: 23 22 21;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        background: rgb(var(--background));
+        color: rgb(var(--foreground));
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      /* Review scaffold — not part of the app UI. */
+      .review-bar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 20px;
+        background: rgb(var(--surface));
+        box-shadow: inset 0 -1px 0 rgb(var(--border));
+      }
+      .review-bar h1 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .review-bar .muted {
+        color: rgb(var(--fg-muted));
+        font-weight: 400;
+      }
+      .toggle-btn {
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .caption {
+        max-width: 1100px;
+        margin: 40px auto 12px;
+        padding: 0 24px;
+      }
+      .caption .step {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgb(var(--primary));
+        letter-spacing: 0.02em;
+      }
+      .caption h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 6px 0 4px;
+      }
+      .caption p {
+        margin: 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+        max-width: 60ch;
+      }
+
+      /* A framed device viewport so each screen reads as the real window. */
+      .frame {
+        max-width: 1100px;
+        margin: 0 auto 8px;
+        padding: 0 24px;
+      }
+      .window {
+        position: relative;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        overflow: hidden;
+        background: rgb(var(--background));
+        height: 620px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Title bar (custom, frameless — mirrors title-bar.tsx) ── */
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 40px;
+        padding: 0 12px;
+        background: rgb(var(--surface));
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .titlebar .brand {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgb(var(--foreground));
+      }
+      .titlebar .menu {
+        display: flex;
+        gap: 2px;
+      }
+      .titlebar .menu span {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      .titlebar .menu span.open {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .titlebar .search {
+        margin: 0 auto;
+        width: 320px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 5px 10px;
+        color: rgb(var(--fg-subtle));
+        font-size: 13px;
+      }
+      .titlebar .wc {
+        display: flex;
+        gap: 6px;
+      }
+      .titlebar .wc i {
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        display: inline-block;
+        background: rgb(var(--border-strong));
+      }
+
+      /* ── App body: nav rail + content ── */
+      .appbody {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .rail {
+        width: 208px;
+        background: rgb(var(--surface));
+        box-shadow: inset -1px 0 0 rgb(var(--border));
+        padding: 16px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .rail .navitem {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .rail .navitem.active {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+        font-weight: 500;
+      }
+      .rail .navitem .ic {
+        width: 16px;
+        height: 16px;
+        color: currentColor;
+      }
+      .rail .sectlabel {
+        font-size: 11px;
+        color: rgb(var(--fg-subtle));
+        padding: 12px 10px 4px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      .content {
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        padding: 32px;
+        position: relative;
+      }
+
+      /* ── Page header (page-header.tsx) ── */
+      .pagehead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+      .pagehead h1 {
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      .pagehead p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .headctrls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .count {
+        font-size: 12px;
+        color: rgb(var(--fg-subtle));
+      }
+
+      /* Buttons (lib/ui.ts) */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 6px;
+        background: rgb(var(--primary));
+        color: rgb(var(--primary-foreground));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-primary:hover {
+        background: rgb(var(--primary-hover));
+      }
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-ghost:hover {
+        background: rgb(var(--hover));
+      }
+      .btn-primary .ic,
+      .btn-ghost .ic {
+        width: 16px;
+        height: 16px;
+      }
+      .caret {
+        width: 14px;
+        height: 14px;
+        opacity: 0.8;
+      }
+
+      /* Toolbar (library-toolbar) */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .toolbar .field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        max-width: 280px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 7px 10px;
+        color: rgb(var(--fg-subtle));
+        font-size: 13px;
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+      }
+      .chip {
+        font-size: 13px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        color: rgb(var(--fg-muted));
+        border: 1px solid transparent;
+      }
+      .chip.on {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .viewtoggle {
+        margin-left: auto;
+        display: flex;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .viewtoggle span {
+        padding: 6px 9px;
+        color: rgb(var(--fg-muted));
+      }
+      .viewtoggle span.on {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+
+      /* Grid + tiles (library-grid / document-tile) */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 20px;
+      }
+      .tile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        text-align: left;
+      }
+      .cover {
+        position: relative;
+        aspect-ratio: 3/4;
+        border: 1px solid rgb(var(--border));
+        border-radius: 6px;
+        background: rgb(var(--sunken));
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cover .initials {
+        font-size: 18px;
+        font-weight: 600;
+        color: rgb(var(--fg-subtle));
+      }
+      .cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .tile .meta {
+        min-width: 0;
+      }
+      .tile .titlerow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tile .titlerow p {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: rgb(var(--foreground));
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tile .author {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .dot .ic {
+        width: 12px;
+        height: 12px;
+        color: rgb(var(--fg-subtle));
+      }
+      .dot.importing .ic {
+        color: rgb(var(--warn));
+      }
+      .dot.failed .ic {
+        color: rgb(var(--destructive));
+      }
+
+      /* Determinate progress line for an importing tile (progress-line) */
+      .progress {
+        height: 3px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+      }
+      .progress > i {
+        display: block;
+        height: 100%;
+        background: rgb(var(--primary));
+        border-radius: 9999px;
+      }
+
+      /* An import-in-progress cover overlay */
+      .cover .importmask {
+        position: absolute;
+        inset: 0;
+        background: rgb(var(--overlay) / 0.55);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: rgb(var(--fg-inverted, 255 255 255));
+      }
+      .cover .importmask .spin {
+        width: 22px;
+        height: 22px;
+        border-radius: 9999px;
+        border: 2px solid rgb(255 255 255 / 0.25);
+        border-top-color: rgb(255 255 255 / 0.9);
+        animation: sp 1s linear infinite;
+      }
+      @keyframes sp {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .cover .importmask .lbl {
+        font-size: 11px;
+        color: rgb(255 255 255 / 0.9);
+      }
+      .cover.failed {
+        border-color: rgb(var(--destructive) / 0.6);
+      }
+      .badge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: rgb(var(--warn-tint));
+        color: rgb(var(--warn));
+      }
+      .badge.failed {
+        background: rgb(var(--danger-tint));
+        color: rgb(var(--destructive));
+      }
+
+      /* Dropdown menu (surfaceClass / menuItemClass) */
+      .menu-pop {
+        position: absolute;
+        z-index: 40;
+        min-width: 200px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 4px;
+        box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+      }
+      .menu-pop .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 8px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: rgb(var(--foreground));
+        cursor: default;
+      }
+      .menu-pop .row:hover {
+        background: rgb(var(--hover));
+      }
+      .menu-pop .row .ic {
+        width: 16px;
+        height: 16px;
+        color: rgb(var(--fg-muted));
+      }
+      .menu-pop .row small {
+        margin-left: auto;
+        color: rgb(var(--fg-subtle));
+        font-size: 12px;
+      }
+      .menu-pop .sep {
+        height: 1px;
+        background: rgb(var(--hairline));
+        margin: 4px 0;
+      }
+
+      /* Drag-and-drop overlay */
+      .drop-overlay {
+        position: absolute;
+        inset: 12px;
+        z-index: 50;
+        border-radius: 6px;
+        border: 2px dashed rgb(var(--primary) / 0.7);
+        background: rgb(var(--primary-tint) / 0.85);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        backdrop-filter: blur(2px);
+      }
+      .drop-overlay .ring {
+        width: 64px;
+        height: 64px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgb(var(--primary) / 0.18);
+        color: rgb(var(--primary));
+      }
+      .drop-overlay .ring .ic {
+        width: 30px;
+        height: 30px;
+      }
+      .drop-overlay h3 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+        color: rgb(var(--foreground));
+      }
+      .drop-overlay p {
+        margin: 0;
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+      }
+
+      /* Empty state (empty-library) */
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 72px 0;
+        text-align: center;
+      }
+      .empty .glyph {
+        width: 56px;
+        height: 56px;
+        border-radius: 6px;
+        background: rgb(var(--sunken));
+        color: rgb(var(--fg-subtle));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .empty .glyph .ic {
+        width: 26px;
+        height: 26px;
+      }
+      .empty h2 {
+        margin: 18px 0 0;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .empty p {
+        margin: 8px 0 0;
+        max-width: 42ch;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .empty .actions {
+        margin-top: 22px;
+        display: flex;
+        gap: 10px;
+      }
+      .empty .hint {
+        margin-top: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: rgb(var(--fg-subtle));
+        border: 1px dashed rgb(var(--border));
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
+
+      /* Settings (settings-ui) */
+      .settings-wrap {
+        max-width: 720px;
+      }
+      .sect {
+        margin-bottom: 44px;
+      }
+      .sect > .head {
+        margin-bottom: 20px;
+      }
+      .sect > .head h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .sect > .head p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .setrow {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: center;
+        padding: 16px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .setrow.start {
+        align-items: flex-start;
+      }
+      .setrow .lbl {
+        min-width: 0;
+      }
+      .setrow .lbl p {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: rgb(var(--foreground));
+      }
+      .setrow .lbl small {
+        display: block;
+        margin-top: 2px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .setrow .ctrl {
+        flex-shrink: 0;
+      }
+      .sw {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        border-radius: 9999px;
+        background: rgb(var(--border-strong));
+      }
+      .sw.on {
+        background: rgb(var(--primary));
+      }
+      .sw i {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+        transition: transform 0.15s;
+      }
+      .sw.on i {
+        transform: translateX(16px);
+      }
+      .actionsrow {
+        display: flex;
+        gap: 10px;
+        padding: 16px 0;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .activity {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 0;
+      }
+      .activity .stat {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+      }
+      .activity .stat b {
+        color: rgb(var(--foreground));
+        font-weight: 600;
+      }
+      .activity .bar {
+        flex: 1;
+        max-width: 220px;
+        height: 4px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+      }
+      .activity .bar > i {
+        display: block;
+        height: 100%;
+        width: 62%;
+        background: rgb(var(--primary));
+      }
+      .link {
+        color: rgb(var(--primary));
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      /* toast (sonner) */
+      .toast {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 13px;
+        box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+      }
+      .toast .ic {
+        width: 16px;
+        height: 16px;
+        color: rgb(var(--ok));
+      }
+      .toast.err .ic {
+        color: rgb(var(--destructive));
+      }
+      svg {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Icon sprite (lucide-style, matches lucide-react used in the app). -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <g
+          id="i"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></g>
+      </defs>
+      <symbol
+        id="library"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m16 6 4 14M12 6v14M8 8v12M4 4v16" />
+      </symbol>
+      <symbol
+        id="plus"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M5 12h14M12 5v14" />
+      </symbol>
+      <symbol
+        id="file-plus"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+        <path d="M14 2v5h5M12 11v6M9 14h6" />
+      </symbol>
+      <symbol
+        id="folder"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+        />
+      </symbol>
+      <symbol
+        id="upload"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+      </symbol>
+      <symbol
+        id="chevron-down"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol
+        id="search"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </symbol>
+      <symbol
+        id="cloud"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6.5 19z" />
+      </symbol>
+      <symbol
+        id="hard-drive"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M22 12H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+        />
+        <path d="M6 16h.01M10 16h.01" />
+      </symbol>
+      <symbol
+        id="alert"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 9v4M12 17h.01" />
+        <circle cx="12" cy="12" r="10" />
+      </symbol>
+      <symbol
+        id="check"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol
+        id="rotate"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </symbol>
+      <symbol
+        id="x"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
+      <symbol
+        id="settings"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+        />
+        <circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol
+        id="grid"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </symbol>
+      <symbol
+        id="list"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+      </symbol>
+      <symbol
+        id="heart"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+        />
+      </symbol>
+      <symbol
+        id="check-circle"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21.8 10A10 10 0 1 1 17 3.3" />
+        <path d="m9 11 3 3L22 4" />
+      </symbol>
+      <symbol
+        id="inbox"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+        <path
+          d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+        />
+      </symbol>
+      <symbol
+        id="copy"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+      </symbol>
+      <symbol
+        id="external-link"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 3h6v6" />
+        <path d="M10 14 21 3" />
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      </symbol>
+      <symbol
+        id="folder-open"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"
+        />
+      </symbol>
+    </svg>
+    <style>
+      /* Default icon sizing so every <use> renders at a sane size. */
+      .ic {
+        width: 16px;
+        height: 16px;
+      }
+      .glyph .ic,
+      .empty .glyph .ic {
+        width: 26px;
+        height: 26px;
+      }
+      .ring .ic {
+        width: 30px;
+        height: 30px;
+      }
+      .importmask .lbl {
+        display: block;
+      }
+
+      /* ── Import-queue activity indicator (header) + its popover ── */
+      .activity-btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        border-radius: 6px;
+        padding: 7px 11px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .activity-btn .spin {
+        width: 14px;
+        height: 14px;
+        border-radius: 9999px;
+        border: 2px solid rgb(var(--border-strong));
+        border-top-color: rgb(var(--primary));
+        animation: sp 1s linear infinite;
+      }
+      .activity-btn .warndot {
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        width: 9px;
+        height: 9px;
+        border-radius: 9999px;
+        background: rgb(var(--destructive));
+        box-shadow: 0 0 0 2px rgb(var(--surface));
+      }
+      .queue-pop {
+        position: absolute;
+        z-index: 40;
+        width: 340px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--popover, var(--elevated)));
+        border-radius: 6px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+      }
+      .queue-pop .qhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px 8px;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+        margin-bottom: 4px;
+      }
+      .queue-pop .qhead p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .queue-pop .qhead .link {
+        font-size: 12px;
+      }
+      .qrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      .qrow:hover {
+        background: rgb(var(--hover));
+      }
+      .qrow .qic {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        color: rgb(var(--fg-muted));
+      }
+      .qrow.importing .qic {
+        color: rgb(var(--warn));
+      }
+      .qrow.failed .qic {
+        color: rgb(var(--destructive));
+      }
+      .qrow.done .qic {
+        color: rgb(var(--ok));
+      }
+      .qrow .qbody {
+        min-width: 0;
+        flex: 1;
+      }
+      .qrow .qbody p {
+        margin: 0;
+        font-size: 13px;
+        color: rgb(var(--foreground));
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .qrow .qbody small {
+        display: block;
+        margin: 2px 0 6px;
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .qrow .qbody .progress {
+        margin-top: 2px;
+      }
+      .qrow .qact {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .qrow .qact button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border: 0;
+        background: transparent;
+        color: rgb(var(--fg-muted));
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .qrow .qact button:hover {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .qrow .qact .ic {
+        width: 15px;
+        height: 15px;
+      }
+
+      /* An "already in library" (duplicate) tile badge — ok tone, not an error. */
+      .badge.ok {
+        background: rgb(var(--primary-tint));
+        color: rgb(var(--primary));
+      }
+      .dot.done .ic {
+        color: rgb(var(--ok));
+      }
+
+      /* Settings: a faux Radix Select + a read-only path box. */
+      .selectbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 190px;
+        justify-content: space-between;
+        border: 1px solid rgb(var(--input, var(--border)));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 13px;
+      }
+      .selectbox .ic {
+        width: 14px;
+        height: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .pathbox {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: rgb(var(--sunken));
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-top: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 360px;
+      }
+
+      /* Duplicate details popover (anchored under the batch toast). */
+      .detail-pop {
+        position: absolute;
+        z-index: 60;
+        width: 320px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        border-radius: 6px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+      }
+      .detail-pop .dhead {
+        padding: 6px 8px;
+        font-size: 12px;
+        color: rgb(var(--fg-subtle));
+      }
+      .detail-pop .drow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      .detail-pop .drow:hover {
+        background: rgb(var(--hover));
+      }
+      .detail-pop .drow .ic {
+        width: 15px;
+        height: 15px;
+        color: rgb(var(--fg-muted));
+      }
+    </style>
+
+    <div class="review-bar">
+      <h1>
+        Pidom Desktop — Import feature
+        <span class="muted">· visual mockups for review (not app code)</span>
+      </h1>
+      <button
+        class="toggle-btn"
+        onclick="
+          var r = document.documentElement;
+          r.classList.toggle('dark');
+          r.classList.toggle('light');
+        "
+      >
+        Toggle light / dark
+      </button>
+    </div>
+
+    <!-- ══════════ 1. Library + Import dropdown open ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 1 · Library</span>
+      <h2>Import affordance — header button with a dropdown</h2>
+      <p>
+        An <b>Import</b> primary button joins the page-header controls slot. Clicking it opens a
+        Radix dropdown with two entries; both mirror the File menu and the command palette. No new
+        visual surface — the button sits in the page flow.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem active">
+              <svg class="ic"><use href="#library" /></svg> Library
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#heart" /></svg> Favorites
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#check-circle" /></svg> Finished
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#cloud" /></svg> Downloads
+            </div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem">
+              <svg class="ic"><use href="#settings" /></svg> Settings
+            </div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Library</h1>
+                <p>Everything in your account, on every device.</p>
+              </div>
+              <div class="headctrls">
+                <span class="count">24 in library</span>
+                <div style="position: relative">
+                  <button class="btn-primary">
+                    <svg class="ic"><use href="#plus" /></svg> Import
+                    <svg class="caret"><use href="#chevron-down" /></svg>
+                  </button>
+                  <div class="menu-pop" style="top: 44px; right: 0">
+                    <div class="row">
+                      <svg class="ic"><use href="#file-plus" /></svg> Import files…
+                      <small>PDF</small>
+                    </div>
+                    <div class="row">
+                      <svg class="ic"><use href="#folder" /></svg> Import folder…
+                    </div>
+                    <div class="sep"></div>
+                    <div class="row">
+                      <svg class="ic"><use href="#upload" /></svg> …or drop PDFs anywhere
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- GRID1 -->
+            <div class="toolbar">
+              <div class="field">
+                <svg class="ic"><use href="#search" /></svg> Filter titles…
+              </div>
+              <div class="chips">
+                <span class="chip on">All</span><span class="chip">Favorites</span
+                ><span class="chip">Finished</span><span class="chip">Cloud</span
+                ><span class="chip">On device</span>
+              </div>
+              <div class="viewtoggle">
+                <span class="on"
+                  ><svg class="ic"><use href="#grid" /></svg></span
+                ><span
+                  ><svg class="ic"><use href="#list" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="tile">
+                <div class="cover"><span class="initials">DK</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Design of Kernels</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">B. Torvald</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">RP</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Reader's Playbook</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">M. Okafor</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">TQ</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>The Quiet Machine</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">L. Berg · 42%</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">FS</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Field Studies</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">Unknown author</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">GP</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Grammar of Print</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">A. Vance</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">NW</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Notes Westward</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">R. Idris</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">SO</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Signals & Order</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">P. Nam</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">HB</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Harbour Book</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">C. Salt</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">MT</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Meridian Tables</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">D. Roe</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">EV</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Evening Verses</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">T. Lune · 8%</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">CP</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Coastal Paths</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">S. Marr</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">AB</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Archive Basics</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">Unknown author</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 2. Import in progress + drop overlay ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 2 · Library</span>
+      <h2>Imports in the grid + the drag-and-drop overlay</h2>
+      <p>
+        Local-only and in-progress imports appear as tiles right away (airplane-mode: staged,
+        readable, not yet synced). A determinate line tracks staging; a failed import shows a
+        Retry/Cancel state. The window-level drop overlay appears while a file is dragged from
+        Explorer.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem active">
+              <svg class="ic"><use href="#library" /></svg> Library
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#heart" /></svg> Favorites
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#check-circle" /></svg> Finished
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#cloud" /></svg> Downloads
+            </div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem">
+              <svg class="ic"><use href="#settings" /></svg> Settings
+            </div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Library</h1>
+                <p>Everything in your account, on every device.</p>
+              </div>
+              <div class="headctrls">
+                <span class="count">26 in library</span>
+                <button class="btn-primary">
+                  <svg class="ic"><use href="#plus" /></svg> Import
+                  <svg class="caret"><use href="#chevron-down" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="toolbar">
+              <div class="field">
+                <svg class="ic"><use href="#search" /></svg> Filter titles…
+              </div>
+              <div class="chips">
+                <span class="chip on">All</span><span class="chip">Favorites</span
+                ><span class="chip">Finished</span><span class="chip">Cloud</span
+                ><span class="chip">On device</span>
+              </div>
+              <div class="viewtoggle">
+                <span class="on"
+                  ><svg class="ic"><use href="#grid" /></svg></span
+                ><span
+                  ><svg class="ic"><use href="#list" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="tile">
+                <div class="cover">
+                  <span class="initials">QR</span>
+                  <div class="badge">Importing</div>
+                  <div class="importmask">
+                    <span class="spin"></span><span class="lbl">Staging…</span>
+                  </div>
+                </div>
+                <div class="progress"><i style="width: 64%"></i></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Quarterly Report.pdf</p>
+                    <span class="dot importing"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">On this device · staging</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover">
+                  <span class="initials">LN</span>
+                  <div class="badge">On device</div>
+                </div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Lab Notebook.pdf</p>
+                    <span class="dot importing"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">On this device · will sync when online</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover failed">
+                  <span class="initials">BW</span>
+                  <div class="badge failed">Failed</div>
+                </div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Broken.pdf</p>
+                    <span class="dot failed"
+                      ><svg class="ic"><use href="#alert" /></svg
+                    ></span>
+                  </div>
+                  <p class="author" style="color: rgb(var(--destructive))">
+                    Not a PDF · Retry / Cancel
+                  </p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">DK</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Design of Kernels</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">B. Torvald</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">RP</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Reader's Playbook</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">M. Okafor</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">TQ</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>The Quiet Machine</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">L. Berg · 42%</p>
+                </div>
+              </div>
+            </div>
+            <div class="drop-overlay">
+              <div class="ring">
+                <svg class="ic"><use href="#upload" /></svg>
+              </div>
+              <h3>Drop PDFs to import</h3>
+              <p>They stay on this device and sync to your library when you're online.</p>
+            </div>
+            <div class="toast">
+              <svg class="ic"><use href="#check" /></svg> Importing 2 files — you can keep reading.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 3. Empty library, rewritten with a CTA ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 3 · Empty state</span>
+      <h2>First run — an active import call-to-action</h2>
+      <p>
+        Replaces the old "documents you add on your phone show up here" copy (which said the desktop
+        couldn't import). Now the empty state invites the reader to import, and states the drop hint
+        honestly.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem active">
+              <svg class="ic"><use href="#library" /></svg> Library
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#heart" /></svg> Favorites
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#check-circle" /></svg> Finished
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#cloud" /></svg> Downloads
+            </div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem">
+              <svg class="ic"><use href="#settings" /></svg> Settings
+            </div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div><h1>Library</h1></div>
+              <div class="headctrls">
+                <button class="btn-primary">
+                  <svg class="ic"><use href="#plus" /></svg> Import
+                  <svg class="caret"><use href="#chevron-down" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="empty">
+              <div class="glyph">
+                <svg class="ic"><use href="#library" /></svg>
+              </div>
+              <h2>Your library is empty</h2>
+              <p>
+                Import PDFs from this computer, or add them on your phone — everything syncs to the
+                same account.
+              </p>
+              <div class="actions">
+                <button class="btn-primary">
+                  <svg class="ic"><use href="#file-plus" /></svg> Import files…
+                </button>
+                <button class="btn-ghost">
+                  <svg class="ic"><use href="#folder" /></svg> Import folder…
+                </button>
+              </div>
+              <div class="hint">
+                <svg class="ic"><use href="#upload" /></svg> Or drop PDFs anywhere in this window
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ══════════ 4. Settings → Import ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 4 · Settings</span>
+      <h2>An Import section in Settings</h2>
+      <p>
+        Same actions as the header, plus the honest Windows caveat: we register Pidom as an
+        available "Open&nbsp;With" handler, not the forced default (Windows&nbsp;10+ reserves that
+        for the user). An activity readout mirrors the storage move-progress pattern.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem">
+              <svg class="ic"><use href="#library" /></svg> Library
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#heart" /></svg> Favorites
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#check-circle" /></svg> Finished
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#cloud" /></svg> Downloads
+            </div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem active">
+              <svg class="ic"><use href="#settings" /></svg> Settings
+            </div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Settings</h1>
+                <p>Preferences for this device.</p>
+              </div>
+            </div>
+            <div class="settings-wrap">
+              <div class="sect">
+                <div class="head">
+                  <h2>Import</h2>
+                  <p>
+                    Add PDFs from this computer. They stay on this device and sync to your library.
+                  </p>
+                </div>
+                <div class="actionsrow">
+                  <button class="btn-primary">
+                    <svg class="ic"><use href="#file-plus" /></svg> Import files…
+                  </button>
+                  <button class="btn-ghost">
+                    <svg class="ic"><use href="#folder" /></svg> Import folder…
+                  </button>
+                </div>
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Register the Pidom "Open With" handler</p>
+                    <small
+                      >Adds Pidom to the "Open with" list for PDF files in Explorer. Windows keeps
+                      the default handler your choice — this doesn't change it.</small
+                    >
+                  </div>
+                  <div class="ctrl">
+                    <div class="sw on"><i></i></div>
+                  </div>
+                </div>
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Import activity</p>
+                    <small>2 importing · 1 failed</small>
+                    <div class="activity">
+                      <div class="bar"><i></i></div>
+                      <span class="stat"><b>2</b> in progress</span
+                      ><span class="link">Retry all</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Library location</p>
+                    <small
+                      >Where imported PDFs are stored on this device. Moving re-hashes every file
+                      into the new folder before the old one is removed.</small
+                    >
+                    <div class="pathbox">C:\Users\MUCHACHO\AppData\Roaming\Pidom\library</div>
+                  </div>
+                  <div class="ctrl">
+                    <button class="btn-ghost">
+                      <svg class="ic"><use href="#hard-drive" /></svg> Change location…
+                    </button>
+                  </div>
+                </div>
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>When a file is already in your library</p>
+                    <small
+                      >Byte-identical files are detected on import. Skip silently keeps one copy;
+                      ask lets you import a duplicate anyway.</small
+                    >
+                  </div>
+                  <div class="ctrl">
+                    <div class="selectbox">
+                      Skip silently <svg class="ic"><use href="#chevron-down" /></svg>
+                    </div>
+                  </div>
+                </div>
+                <div class="setrow start">
+                  <div class="lbl">
+                    <p>Open library folder</p>
+                    <small>Reveal the storage folder in Explorer.</small>
+                  </div>
+                  <div class="ctrl">
+                    <button class="btn-ghost">
+                      <svg class="ic"><use href="#folder-open" /></svg> Open folder
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 5. Import-queue activity indicator + Popover ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 5 · Import queue</span>
+      <h2>A header activity indicator opening a queue Popover</h2>
+      <p>
+        A compact indicator (spinner + active count, a warning dot when something failed) sits in
+        the header controls. Clicking it opens a Radix Popover listing every active and failed job
+        with per-file progress — byte percentage while a PDF uploads to the cloud — and Retry /
+        Cancel per row. It fits the floating shell without a docked panel.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem active">
+              <svg class="ic"><use href="#library" /></svg> Library
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#heart" /></svg> Favorites
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#check-circle" /></svg> Finished
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#cloud" /></svg> Downloads
+            </div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem">
+              <svg class="ic"><use href="#settings" /></svg> Settings
+            </div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Library</h1>
+                <p>Everything in your account, on every device.</p>
+              </div>
+              <div class="headctrls">
+                <div style="position: relative">
+                  <button class="activity-btn">
+                    <span class="spin"></span> 2 importing<span class="warndot"></span>
+                  </button>
+                  <div class="queue-pop" style="top: 44px; right: 0">
+                    <div class="qhead">
+                      <p>Import queue</p>
+                      <span class="link">Retry all</span>
+                    </div>
+                    <div class="qrow importing">
+                      <svg class="qic"><use href="#cloud" /></svg>
+                      <div class="qbody">
+                        <p>Quarterly Report.pdf</p>
+                        <small>Uploading · 3.2 MB of 8.1 MB</small>
+                        <div class="progress"><i style="width: 40%"></i></div>
+                      </div>
+                      <div class="qact">
+                        <button title="Cancel">
+                          <svg class="ic"><use href="#x" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="qrow importing">
+                      <svg class="qic"><use href="#hard-drive" /></svg>
+                      <div class="qbody">
+                        <p>Lab Notebook.pdf</p>
+                        <small>Staging on this device…</small>
+                        <div class="progress"><i style="width: 72%"></i></div>
+                      </div>
+                      <div class="qact">
+                        <button title="Cancel">
+                          <svg class="ic"><use href="#x" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="qrow failed">
+                      <svg class="qic"><use href="#alert" /></svg>
+                      <div class="qbody">
+                        <p>Broken.pdf</p>
+                        <small style="color: rgb(var(--destructive))"
+                          >Not a PDF — the file couldn't be read</small
+                        >
+                      </div>
+                      <div class="qact">
+                        <button title="Retry">
+                          <svg class="ic"><use href="#rotate" /></svg></button
+                        ><button title="Dismiss">
+                          <svg class="ic"><use href="#x" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="qrow done">
+                      <svg class="qic"><use href="#check" /></svg>
+                      <div class="qbody">
+                        <p>Field Studies.pdf</p>
+                        <small>Added to your library</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn-primary">
+                  <svg class="ic"><use href="#plus" /></svg> Import
+                  <svg class="caret"><use href="#chevron-down" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="toolbar">
+              <div class="field">
+                <svg class="ic"><use href="#search" /></svg> Filter titles…
+              </div>
+              <div class="chips">
+                <span class="chip on">All</span><span class="chip">Favorites</span
+                ><span class="chip">Finished</span><span class="chip">Cloud</span
+                ><span class="chip">On device</span>
+              </div>
+              <div class="viewtoggle">
+                <span class="on"
+                  ><svg class="ic"><use href="#grid" /></svg></span
+                ><span
+                  ><svg class="ic"><use href="#list" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="tile">
+                <div class="cover">
+                  <span class="initials">QR</span>
+                  <div class="badge">Importing</div>
+                  <div class="importmask">
+                    <span class="spin"></span><span class="lbl">Uploading 40%</span>
+                  </div>
+                </div>
+                <div class="progress"><i style="width: 40%"></i></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Quarterly Report.pdf</p>
+                    <span class="dot importing"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">On this device · uploading</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">DK</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Design of Kernels</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">B. Torvald</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">RP</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Reader's Playbook</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">M. Okafor</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 6. Duplicate handling — unobtrusive + details ══════════ -->
+    <div class="caption">
+      <span class="step">Screen 6 · Duplicates</span>
+      <h2>Already-in-library files — skipped quietly, with a way back</h2>
+      <p>
+        A byte-identical re-import is skipped rather than duplicated. The tile reads
+        <b>Already in library</b> in an ok tone (not an error), a batch-summary toast tallies the
+        run, and a <b>Details</b> Popover per skipped file offers <b>Open existing</b> or
+        <b>Import a copy anyway</b> — the copy re-imports under a fresh id, a distinct document that
+        shares the same bytes.
+      </p>
+    </div>
+    <div class="frame">
+      <div class="window">
+        <div class="titlebar">
+          <span class="brand">Pidom</span>
+          <div class="menu"><span>File</span><span>View</span><span>Help</span></div>
+          <div class="search">
+            <svg class="ic"><use href="#search" /></svg> Search your library…
+          </div>
+          <div class="wc"><i></i><i></i><i></i></div>
+        </div>
+        <div class="appbody">
+          <div class="rail">
+            <div class="navitem active">
+              <svg class="ic"><use href="#library" /></svg> Library
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#heart" /></svg> Favorites
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#check-circle" /></svg> Finished
+            </div>
+            <div class="navitem">
+              <svg class="ic"><use href="#cloud" /></svg> Downloads
+            </div>
+            <div class="sectlabel">This device</div>
+            <div class="navitem">
+              <svg class="ic"><use href="#settings" /></svg> Settings
+            </div>
+          </div>
+          <div class="content">
+            <div class="pagehead">
+              <div>
+                <h1>Library</h1>
+                <p>Everything in your account, on every device.</p>
+              </div>
+              <div class="headctrls">
+                <span class="count">24 in library</span>
+                <button class="btn-primary">
+                  <svg class="ic"><use href="#plus" /></svg> Import
+                  <svg class="caret"><use href="#chevron-down" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="toolbar">
+              <div class="field">
+                <svg class="ic"><use href="#search" /></svg> Filter titles…
+              </div>
+              <div class="chips">
+                <span class="chip on">All</span><span class="chip">Favorites</span
+                ><span class="chip">Finished</span><span class="chip">Cloud</span
+                ><span class="chip">On device</span>
+              </div>
+              <div class="viewtoggle">
+                <span class="on"
+                  ><svg class="ic"><use href="#grid" /></svg></span
+                ><span
+                  ><svg class="ic"><use href="#list" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="tile">
+                <div class="cover">
+                  <span class="initials">DK</span>
+                  <div class="badge ok">Already in library</div>
+                  <div class="importmask">
+                    <svg class="ic" style="width: 22px; height: 22px; color: rgb(var(--ok))">
+                      <use href="#check-circle" /></svg
+                    ><span class="lbl">Already here</span>
+                  </div>
+                </div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Design of Kernels</p>
+                    <span class="dot done"
+                      ><svg class="ic"><use href="#check-circle" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">B. Torvald · not imported again</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">RP</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>Reader's Playbook</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#cloud" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">M. Okafor</p>
+                </div>
+              </div>
+              <div class="tile">
+                <div class="cover"><span class="initials">TQ</span></div>
+                <div class="meta">
+                  <div class="titlerow">
+                    <p>The Quiet Machine</p>
+                    <span class="dot"
+                      ><svg class="ic"><use href="#hard-drive" /></svg
+                    ></span>
+                  </div>
+                  <p class="author">L. Berg · 42%</p>
+                </div>
+              </div>
+            </div>
+            <div class="detail-pop" style="right: 20px; bottom: 88px">
+              <div class="dhead">Already in your library — 3 files</div>
+              <div class="drow">
+                <svg class="ic"><use href="#copy" /></svg
+                ><span
+                  style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                  >Design of Kernels.pdf</span
+                ><span class="link">Open existing</span><span class="link">Import a copy</span>
+              </div>
+              <div class="drow">
+                <svg class="ic"><use href="#copy" /></svg
+                ><span
+                  style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                  >Field Studies.pdf</span
+                ><span class="link">Open existing</span><span class="link">Import a copy</span>
+              </div>
+              <div class="drow">
+                <svg class="ic"><use href="#copy" /></svg
+                ><span
+                  style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                  >Meridian Tables.pdf</span
+                ><span class="link">Open existing</span><span class="link">Import a copy</span>
+              </div>
+            </div>
+            <div class="toast">
+              <svg class="ic"><use href="#check-circle" /></svg> 12 imported · 3 already in library
+              · 1 couldn't be read <span class="link" style="margin-left: 8px">Details</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption" style="margin-bottom: 64px">
+      <p style="font-size: 12px; color: rgb(var(--fg-subtle))">
+        Mockup file: <code>desktop/mockups/import-artifacts.html</code> — built with the real Pidom
+        tokens (all colours semantic, every radius 6px). Delete once the UI is approved. No app code
+        has changed yet.
+      </p>
+    </div>
+  </body>
+</html>

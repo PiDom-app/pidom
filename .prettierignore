@@ -6,6 +6,11 @@ dist/
 web-build/
 docs/screens/
 convex/_generated/
+
+# The desktop companion is its own npm project with its own tooling and CI
+# (`desktop-quality`). The mobile `prettier --check .` must not reach into it.
+desktop/
+
 *.svg
 *.png
 *.lock

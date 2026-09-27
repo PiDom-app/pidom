@@ -1,0 +1,51 @@
+/*
+ * The text layer PDF.js positions over each rendered page. The spans are
+ * transparent glyphs sitting exactly on top of the painted ones, so a drag
+ * selects real text and the find bar can highlight it. These rules are the
+ * minimum the layer needs to line up; the colours below are selection chrome,
+ * not app surfaces, so they are intentionally not theme tokens.
+ */
+
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+}
+
+.pdf-text-layer span,
+.pdf-text-layer br {
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  color: transparent;
+}
+
+/* Marked-content spans are structural, not glyphs; they must collapse to zero
+ * height or they push the real spans off their glyphs. Straight from PDF.js. */
+.pdf-text-layer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.pdf-text-layer ::selection {
+  background: rgb(59 130 246 / 0.35);
+}
+
+/* PDF.js marks the span it scrolled a find match to. */
+.pdf-text-layer .highlight {
+  background: rgb(250 204 21 / 0.4);
+  border-radius: 2px;
+}
+
+.pdf-text-layer .highlight.selected {
+  background: rgb(249 115 22 / 0.5);
+}

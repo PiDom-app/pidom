@@ -3,11 +3,8 @@ import type { PaginationOptions, PaginationResult } from 'convex/server';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { assertOwner } from './auth';
-import { COLLECTION_NAME_MAX, RAIL_LIMIT, cleanText, invalid } from './limits';
+import { COLLECTION_NAME_MAX, cleanText, invalid } from './limits';
 import { clientClock, collectionByOpId, isLocalId, isStale } from './sync';
-
-/** How many collections the picker lists, and so how many ticks it can show. */
-const PICKER_LIMIT = RAIL_LIMIT * 4;
 
 /**
  * Collections, and the membership rows that make them.

@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pidom Desktop — Local Storage screens (mockup)</title>
+    <!--
+      Static mockup for sign-off before any app code changes (Phase 1: Download-to-offline).
+      Token values are copied VERBATIM from desktop/src/renderer/design/global.css.
+      Layout mirrors app-shell.tsx (nav rail + one bg-surface panel, 6px top corners),
+      settings-screen.tsx (centered max-w-4xl, section rail), and library-table.tsx
+      (dense rows, Where + Size columns, hairline dividers). Flat, cardless, tokens only.
+      This is a picture of the UI — not wired to anything.
+    -->
+    <style>
+      /* ── Tokens (verbatim from global.css) ─────────────────────────────── */
+      :root.light {
+        --background: 255 255 255;
+        --surface: 250 250 249;
+        --elevated: 255 255 255;
+        --sunken: 244 243 241;
+        --hover: 240 239 236;
+        --hairline: 236 234 230;
+        --border: 226 224 220;
+        --border-strong: 198 195 190;
+        --input: 226 224 220;
+        --foreground: 23 22 21;
+        --fg-muted: 110 108 104;
+        --fg-subtle: 143 141 136;
+        --fg-disabled: 176 174 169;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 92 76 214;
+        --primary-tint: 240 238 253;
+        --link: 90 74 214;
+        --destructive: 208 40 44;
+        --danger-tint: 253 240 240;
+        --ok: 22 143 89;
+        --warn: 176 116 12;
+        --warn-tint: 253 246 232;
+        --focus: 106 89 232;
+        --popover: 255 255 255;
+        --popover-foreground: 23 22 21;
+      }
+      :root.dark {
+        --background: 0 0 0;
+        --surface: 13 13 13;
+        --elevated: 20 20 20;
+        --sunken: 8 8 8;
+        --hover: 26 26 26;
+        --hairline: 28 27 26;
+        --border: 38 37 35;
+        --border-strong: 61 59 56;
+        --input: 38 37 35;
+        --foreground: 232 230 227;
+        --fg-muted: 143 141 136;
+        --fg-subtle: 110 108 104;
+        --fg-disabled: 78 77 74;
+        --primary: 106 89 232;
+        --primary-foreground: 255 255 255;
+        --primary-hover: 122 106 240;
+        --primary-tint: 26 22 51;
+        --link: 138 124 240;
+        --destructive: 235 87 87;
+        --danger-tint: 45 20 20;
+        --ok: 61 194 128;
+        --warn: 224 168 62;
+        --warn-tint: 43 33 12;
+        --focus: 122 106 240;
+        --popover: 20 20 20;
+        --popover-foreground: 232 230 227;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: rgb(var(--background));
+        color: rgb(var(--foreground));
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .muted {
+        color: rgb(var(--fg-muted));
+      }
+      .subtle {
+        color: rgb(var(--fg-subtle));
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Shell (mirrors app-shell.tsx) ─────────────────────────────────── */
+      .shell {
+        display: flex;
+        height: 100vh;
+      }
+      .rail {
+        width: 256px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 36px 12px 12px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px 4px;
+      }
+      .brand-mark {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: rgb(var(--primary));
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .brand-word {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .conn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px 14px;
+        font-size: 12px;
+      }
+      .conn-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: rgb(var(--ok));
+      }
+      .group-label {
+        padding: 16px 12px 6px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgb(var(--fg-subtle));
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        color: rgb(var(--fg-muted));
+        cursor: default;
+      }
+      .nav-item svg {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+      }
+      .nav-item:hover {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .nav-item.active {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .rail-spacer {
+        flex: 1;
+      }
+      .rail-divider {
+        height: 1px;
+        background: rgb(var(--hairline));
+        margin: 0 4px 8px;
+      }
+
+      .main {
+        min-width: 0;
+        flex: 1;
+        padding: 40px 10px 0 0;
+      }
+      .panel {
+        height: 100%;
+        overflow: hidden;
+        border-radius: 6px 6px 0 0;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--surface));
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Page header ───────────────────────────────────────────────────── */
+      .page {
+        padding: 32px;
+        overflow: auto;
+      }
+      .page-wide {
+        max-width: 1152px;
+        margin: 0 auto;
+      }
+      .page-narrow {
+        max-width: 896px;
+        margin: 0 auto;
+      }
+      .h1 {
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .page-sub {
+        margin-top: 4px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+
+      /* ── Buttons / controls ────────────────────────────────────────────── */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 6px;
+        background: rgb(var(--primary));
+        color: rgb(var(--primary-foreground));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        cursor: default;
+      }
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 6px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: default;
+      }
+      .btn-danger {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 6px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--destructive));
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: default;
+      }
+      .btn-icon {
+        width: 15px;
+        height: 15px;
+      }
+
+      /* ── Downloads toolbar ─────────────────────────────────────────────── */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 20px 0 4px;
+      }
+      .search {
+        flex: 1;
+        max-width: 360px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 6px;
+        border: 1px solid rgb(var(--input));
+        background: rgb(var(--elevated));
+        padding: 8px 12px;
+        font-size: 14px;
+        color: rgb(var(--fg-subtle));
+      }
+      .seg {
+        display: inline-flex;
+        border-radius: 6px;
+        border: 1px solid rgb(var(--border));
+        overflow: hidden;
+      }
+      .seg span {
+        padding: 7px 12px;
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        cursor: default;
+      }
+      .seg span.on {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .count {
+        margin-left: auto;
+        font-size: 13px;
+        color: rgb(var(--fg-subtle));
+      }
+
+      /* ── Table (mirrors library-table.tsx) ─────────────────────────────── */
+      .thead,
+      .trow {
+        display: flex;
+        align-items: center;
+        width: 100%;
+      }
+      .thead {
+        position: sticky;
+        top: 0;
+        background: rgb(var(--surface));
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .th {
+        font-size: 12px;
+        font-weight: 500;
+        color: rgb(var(--fg-subtle));
+        padding: 10px 0;
+      }
+      .trow {
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+        height: 56px;
+      }
+      .trow:hover {
+        background: rgb(var(--hover));
+      }
+      .c-title {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-right: 16px;
+      }
+      .c-where {
+        width: 130px;
+        flex-shrink: 0;
+      }
+      .c-size {
+        width: 96px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+      .c-status {
+        width: 190px;
+        flex-shrink: 0;
+      }
+      .c-actions {
+        width: 44px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+      .cover {
+        width: 32px;
+        height: 42px;
+        border-radius: 6px;
+        background: rgb(var(--sunken));
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        color: rgb(var(--fg-subtle));
+        font-size: 9px;
+      }
+      .doc-title {
+        font-size: 14px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .doc-author {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .where {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+      }
+      .where svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      /* state pills / progress (progress-line.tsx = hairline track + primary fill) */
+      .state {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+      }
+      .state-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+      }
+      .dot-ok {
+        background: rgb(var(--ok));
+      }
+      .dot-warn {
+        background: rgb(var(--warn));
+      }
+      .dot-bad {
+        background: rgb(var(--destructive));
+      }
+      .dot-idle {
+        background: rgb(var(--fg-disabled));
+      }
+      .progress-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .progress-track {
+        height: 3px;
+        width: 150px;
+        border-radius: 9999px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: rgb(var(--primary));
+        border-radius: 9999px;
+      }
+      .progress-meta {
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .kebab {
+        color: rgb(var(--fg-subtle));
+        width: 18px;
+        height: 18px;
+        cursor: default;
+      }
+      .kebab:hover {
+        color: rgb(var(--foreground));
+      }
+
+      /* ── Dropdown menu (surfaceClass + menuItemClass) ──────────────────── */
+      .menu {
+        position: absolute;
+        z-index: 50;
+        min-width: 200px;
+        border-radius: 6px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--popover));
+        color: rgb(var(--popover-foreground));
+        padding: 4px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      }
+      .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 6px;
+        padding: 7px 8px;
+        font-size: 14px;
+        cursor: default;
+      }
+      .menu-item:hover {
+        background: rgb(var(--hover));
+      }
+      .menu-item svg {
+        width: 15px;
+        height: 15px;
+      }
+      .menu-item.danger {
+        color: rgb(var(--destructive));
+      }
+      .menu-item.danger:hover {
+        background: rgb(var(--danger-tint));
+      }
+      .menu-sep {
+        height: 1px;
+        background: rgb(var(--hairline));
+        margin: 4px 0;
+      }
+
+      /* ── Settings (settings-ui.tsx) ────────────────────────────────────── */
+      .settings-cols {
+        display: flex;
+        gap: 40px;
+        margin-top: 32px;
+      }
+      .sec-rail {
+        width: 192px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .sec-rail button {
+        text-align: left;
+        border: none;
+        background: none;
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+        cursor: default;
+        font-family: inherit;
+      }
+      .sec-rail button:hover {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+      }
+      .sec-rail button.active {
+        background: rgb(var(--hover));
+        color: rgb(var(--foreground));
+        font-weight: 500;
+      }
+      .sec-content {
+        min-width: 0;
+        flex: 1;
+      }
+      .section {
+        margin-bottom: 48px;
+      }
+      .section-head {
+        margin-bottom: 20px;
+      }
+      .section-title {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .section-desc {
+        margin-top: 4px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 16px 0;
+        align-items: center;
+        box-shadow: inset 0 -1px 0 rgb(var(--hairline));
+      }
+      .row.start {
+        align-items: flex-start;
+      }
+      .row-label {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .row-desc {
+        margin-top: 2px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .row-value {
+        flex-shrink: 0;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .path-chip {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+        background: rgb(var(--sunken));
+        border-radius: 6px;
+        padding: 4px 8px;
+      }
+
+      /* usage meter */
+      .meter {
+        height: 8px;
+        border-radius: 6px;
+        background: rgb(var(--hairline));
+        overflow: hidden;
+        display: flex;
+        margin: 12px 0 10px;
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+      }
+      .meter .docs {
+        background: rgb(var(--primary));
+      }
+      .meter .cache {
+        background: rgb(var(--warn));
+      }
+      .legend {
+        display: flex;
+        gap: 20px;
+        font-size: 12px;
+        color: rgb(var(--fg-muted));
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .swatch {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+      }
+
+      /* dialog (AlertDialog) */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: grid;
+        place-items: center;
+        z-index: 40;
+      }
+      .dialog {
+        width: 400px;
+        border-radius: 6px;
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        padding: 20px;
+        box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+      }
+      .dialog h3 {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .dialog p {
+        margin-top: 8px;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 20px;
+      }
+
+      /* toggle for light/dark demo */
+      .theme-toggle {
+        position: fixed;
+        top: 12px;
+        right: 16px;
+        z-index: 60;
+        display: flex;
+        gap: 6px;
+      }
+      .theme-toggle button {
+        border: 1px solid rgb(var(--border));
+        background: rgb(var(--elevated));
+        color: rgb(var(--foreground));
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .frame-label {
+        max-width: 1152px;
+        margin: 40px auto 8px;
+        padding: 0 8px;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgb(var(--fg-subtle));
+        font-weight: 600;
+      }
+      .stack {
+        padding-bottom: 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="theme-toggle">
+      <button onclick="document.documentElement.className = 'light'">Light</button>
+      <button onclick="document.documentElement.className = 'dark'">Dark</button>
+    </div>
+
+    <div class="stack">
+      <!-- ══════════════ SCREEN 1: DOWNLOADS MANAGER ══════════════ -->
+      <div class="frame-label">Screen 1 — Downloads (offline library manager)</div>
+      <div class="shell" style="height: 720px">
+        <!-- nav rail -->
+        <aside class="rail">
+          <div class="brand">
+            <div class="brand-mark">P</div>
+            <div class="brand-word">Pidom</div>
+          </div>
+          <div class="conn"><span class="conn-dot"></span><span class="muted">Connected</span></div>
+          <div class="group-label">Browse</div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg
+            >Home
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5V5a2 2 0 0 1 2-2h14v18H6.5A2.5 2.5 0 0 1 4 19.5z"
+              /></svg
+            >Library
+          </div>
+          <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg
+            >Downloads
+          </div>
+          <div class="group-label">Organise</div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"
+              /></svg
+            >Collections
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3 6.5 7 .6-5.3 4.6 1.6 6.8L12 17l-6.3 3.5 1.6-6.8L2 9.1l7-.6z" /></svg
+            >Favorites
+          </div>
+          <div class="rail-spacer"></div>
+          <div class="rail-divider"></div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.31.4.55.74.65"
+              /></svg
+            >Settings
+          </div>
+        </aside>
+
+        <!-- workspace -->
+        <main class="main">
+          <div class="panel">
+            <div class="page">
+              <div class="page-wide">
+                <div class="h1">Downloads</div>
+                <div class="page-sub">Documents saved on this computer for offline reading.</div>
+
+                <div class="toolbar">
+                  <div class="search">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      style="width: 15px; height: 15px"
+                    >
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="M21 21l-4.3-4.3" />
+                    </svg>
+                    Search downloads
+                  </div>
+                  <div class="seg">
+                    <span class="on">All</span><span>On device</span><span>Cloud only</span>
+                  </div>
+                  <span class="count num">12 documents · 348 MB on this device</span>
+                </div>
+
+                <!-- table -->
+                <div style="margin-top: 8px">
+                  <div class="thead">
+                    <div class="th c-title" style="padding-left: 44px">Title</div>
+                    <div class="th c-where">Where</div>
+                    <div class="th c-size">Size</div>
+                    <div class="th c-status">Status</div>
+                    <div class="th c-actions"></div>
+                  </div>
+
+                  <!-- available -->
+                  <div class="trow">
+                    <div class="c-title">
+                      <div class="cover">PDF</div>
+                      <div>
+                        <div class="doc-title">Clean Code</div>
+                        <div class="doc-author">Robert C. Martin</div>
+                      </div>
+                    </div>
+                    <div class="c-where">
+                      <span class="where"
+                        ><svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <rect x="2" y="14" width="20" height="8" rx="2" />
+                          <path d="M6 18h.01M10 18h.01" /></svg
+                        >On device</span
+                      >
+                    </div>
+                    <div class="c-size num muted">4.2 MB</div>
+                    <div class="c-status">
+                      <span class="state"
+                        ><span class="state-dot dot-ok"></span>Available offline</span
+                      >
+                    </div>
+                    <div class="c-actions">
+                      <svg class="kebab" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="12" cy="19" r="1.6" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- downloading (progress-line) -->
+                  <div class="trow">
+                    <div class="c-title">
+                      <div class="cover">PDF</div>
+                      <div>
+                        <div class="doc-title">The Rust Programming Language</div>
+                        <div class="doc-author">Klabnik &amp; Nichols</div>
+                      </div>
+                    </div>
+                    <div class="c-where">
+                      <span class="where"
+                        ><svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" /></svg
+                        >Cloud</span
+                      >
+                    </div>
+                    <div class="c-size num muted">7.8 MB</div>
+                    <div class="c-status">
+                      <div class="progress-wrap">
+                        <div class="progress-track">
+                          <span class="progress-fill" style="width: 62%"></span>
+                        </div>
+                        <span class="progress-meta num">Downloading · 4.8 of 7.8 MB</span>
+                      </div>
+                    </div>
+                    <div class="c-actions">
+                      <svg class="kebab" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="12" cy="19" r="1.6" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- cloud only (not downloaded) -->
+                  <div class="trow">
+                    <div class="c-title">
+                      <div class="cover">PDF</div>
+                      <div>
+                        <div class="doc-title">Designing Data-Intensive Applications</div>
+                        <div class="doc-author">Martin Kleppmann</div>
+                      </div>
+                    </div>
+                    <div class="c-where">
+                      <span class="where"
+                        ><svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" /></svg
+                        >Cloud</span
+                      >
+                    </div>
+                    <div class="c-size num muted">18.4 MB</div>
+                    <div class="c-status">
+                      <button class="btn-ghost" style="padding: 5px 10px; font-size: 13px">
+                        <svg
+                          class="btn-icon"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+                          /></svg
+                        >Download
+                      </button>
+                    </div>
+                    <div class="c-actions">
+                      <svg class="kebab" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="12" cy="19" r="1.6" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- outdated -->
+                  <div class="trow">
+                    <div class="c-title">
+                      <div class="cover">PDF</div>
+                      <div>
+                        <div class="doc-title">Refactoring, 2nd Edition</div>
+                        <div class="doc-author">Martin Fowler</div>
+                      </div>
+                    </div>
+                    <div class="c-where">
+                      <span class="where"
+                        ><svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <rect x="2" y="14" width="20" height="8" rx="2" />
+                          <path d="M6 18h.01M10 18h.01" /></svg
+                        >On device</span
+                      >
+                    </div>
+                    <div class="c-size num muted">6.1 MB</div>
+                    <div class="c-status">
+                      <span class="state"
+                        ><span class="state-dot dot-warn"></span>Outdated · redownload</span
+                      >
+                    </div>
+                    <div class="c-actions">
+                      <svg class="kebab" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="12" cy="19" r="1.6" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- failed -->
+                  <div class="trow">
+                    <div class="c-title">
+                      <div class="cover">PDF</div>
+                      <div>
+                        <div class="doc-title">
+                          Structure and Interpretation of Computer Programs
+                        </div>
+                        <div class="doc-author">Abelson &amp; Sussman</div>
+                      </div>
+                    </div>
+                    <div class="c-where">
+                      <span class="where"
+                        ><svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" /></svg
+                        >Cloud</span
+                      >
+                    </div>
+                    <div class="c-size num muted">9.0 MB</div>
+                    <div class="c-status">
+                      <span class="state"
+                        ><span class="state-dot dot-bad"></span>Download failed · retry</span
+                      >
+                    </div>
+                    <div class="c-actions">
+                      <svg class="kebab" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="12" cy="19" r="1.6" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- open dropdown menu, shown for reference -->
+                <div class="menu" style="position: relative; margin: 20px 0 0 auto; width: 210px">
+                  <div class="menu-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                      <circle cx="12" cy="12" r="3" /></svg
+                    >Open
+                  </div>
+                  <div class="menu-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path
+                        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+                      /></svg
+                    >Redownload
+                  </div>
+                  <div class="menu-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path
+                        d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                      /></svg
+                    >Verify
+                  </div>
+                  <div class="menu-sep"></div>
+                  <div class="menu-item danger">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path
+                        d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+                      /></svg
+                    >Remove local copy
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- ══════════════ SCREEN 2: STORAGE SETTINGS ══════════════ -->
+      <div class="frame-label">Screen 2 — Settings › Library &amp; storage</div>
+      <div class="shell" style="height: 760px">
+        <aside class="rail">
+          <div class="brand">
+            <div class="brand-mark">P</div>
+            <div class="brand-word">Pidom</div>
+          </div>
+          <div class="conn"><span class="conn-dot"></span><span class="muted">Connected</span></div>
+          <div class="group-label">Browse</div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg
+            >Home
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5V5a2 2 0 0 1 2-2h14v18H6.5A2.5 2.5 0 0 1 4 19.5z"
+              /></svg
+            >Library
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg
+            >Downloads
+          </div>
+          <div class="rail-spacer"></div>
+          <div class="rail-divider"></div>
+          <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.31.4.55.74.65"
+              /></svg
+            >Settings
+          </div>
+        </aside>
+
+        <main class="main">
+          <div class="panel">
+            <div class="page">
+              <div class="page-narrow">
+                <div class="h1">Settings</div>
+                <div class="settings-cols">
+                  <nav class="sec-rail">
+                    <button>Appearance</button>
+                    <button>Accent color</button>
+                    <button>Reader</button>
+                    <button class="active">Library &amp; storage</button>
+                    <button>Account &amp; sync</button>
+                    <button>Profile</button>
+                    <button>Keyboard shortcuts</button>
+                    <button>Privacy &amp; security</button>
+                  </nav>
+
+                  <div class="sec-content">
+                    <!-- Section A: cloud counters (kept) -->
+                    <section class="section">
+                      <div class="section-head">
+                        <div class="section-title">Library &amp; storage</div>
+                        <div class="section-desc">What your account holds across devices.</div>
+                      </div>
+                      <div class="row">
+                        <div>
+                          <div class="row-label">Documents in the cloud</div>
+                          <div class="row-desc">
+                            Synced and available to download on any device.
+                          </div>
+                        </div>
+                        <div class="row-value num">128</div>
+                      </div>
+                      <div class="row">
+                        <div class="row-label">Cloud storage used</div>
+                        <div class="row-value num">2.1 GB</div>
+                      </div>
+                      <div class="row">
+                        <div>
+                          <div class="row-label">On one device only</div>
+                          <div class="row-desc">Imported on a phone and not yet synced.</div>
+                        </div>
+                        <div class="row-value num">3</div>
+                      </div>
+                    </section>
+
+                    <!-- Section B: on this device (NEW) -->
+                    <section class="section">
+                      <div class="section-head">
+                        <div class="section-title">On this device</div>
+                        <div class="section-desc">
+                          Documents saved locally for offline reading. Kept separate from
+                          regenerable caches.
+                        </div>
+                      </div>
+
+                      <!-- usage meter -->
+                      <div
+                        style="padding: 4px 0 16px; box-shadow: inset 0 -1px 0 rgb(var(--hairline))"
+                      >
+                        <div class="meter">
+                          <i class="docs" style="width: 70%"></i>
+                          <i class="cache" style="width: 12%"></i>
+                        </div>
+                        <div class="legend">
+                          <span
+                            ><span class="swatch" style="background: rgb(var(--primary))"></span
+                            >Documents · 348 MB</span
+                          >
+                          <span
+                            ><span class="swatch" style="background: rgb(var(--warn))"></span>Cache
+                            · 61 MB</span
+                          >
+                          <span
+                            ><span class="swatch" style="background: rgb(var(--hairline))"></span
+                            >Free · 214 GB</span
+                          >
+                        </div>
+                      </div>
+
+                      <div class="row">
+                        <div>
+                          <div class="row-label">Documents on this computer</div>
+                          <div class="row-desc">Open instantly, no connection needed.</div>
+                        </div>
+                        <div class="row-value num">12</div>
+                      </div>
+                      <div class="row">
+                        <div class="row-label">Document storage used</div>
+                        <div class="row-value num">348 MB</div>
+                      </div>
+                      <div class="row">
+                        <div>
+                          <div class="row-label">Regenerable cache</div>
+                          <div class="row-desc">
+                            Rendered pages and search data. Safe to clear; documents stay.
+                          </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px">
+                          <span class="row-value num">61 MB</span
+                          ><button class="btn-ghost" style="padding: 6px 10px; font-size: 13px">
+                            Clear cache
+                          </button>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="row-label">Free disk space</div>
+                        <div class="row-value num">214 GB</div>
+                      </div>
+                      <div class="row start">
+                        <div>
+                          <div class="row-label">Library location</div>
+                          <div class="row-desc">Where offline documents live on this computer.</div>
+                        </div>
+                        <div
+                          style="
+                            display: flex;
+                            flex-direction: column;
+                            align-items: flex-end;
+                            gap: 8px;
+                          "
+                        >
+                          <span class="path-chip"
+                            >~/Library/Application Support/Pidom/pidom-library</span
+                          >
+                          <div style="display: flex; gap: 8px">
+                            <button class="btn-ghost" style="padding: 6px 10px; font-size: 13px">
+                              Reveal in Finder
+                            </button>
+                            <button class="btn-ghost" style="padding: 6px 10px; font-size: 13px">
+                              Verify library
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div>
+                          <div class="row-label">Choose a different folder</div>
+                          <div class="row-desc">
+                            Moving the library to another drive arrives in a later update.
+                          </div>
+                        </div>
+                        <span class="subtle" style="font-size: 14px">Coming soon</span>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- ══════════════ Clear-cache confirm (AlertDialog) ══════════════ -->
+      <div class="frame-label">Confirm dialog — Clear cache (AlertDialog pattern)</div>
+      <div
+        style="
+          position: relative;
+          height: 320px;
+          max-width: 1152px;
+          margin: 0 auto;
+          border-radius: 6px;
+          overflow: hidden;
+          border: 1px solid rgb(var(--border));
+        "
+      >
+        <div style="position: absolute; inset: 0; background: rgb(var(--surface))"></div>
+        <div class="overlay" style="position: absolute">
+          <div class="dialog">
+            <h3>Clear regenerable cache?</h3>
+            <p>
+              This removes 61 MB of rendered pages and search data. Your 12 downloaded documents
+              stay on this computer and reopen instantly. The cache rebuilds as you read.
+            </p>
+            <div class="dialog-actions">
+              <button class="btn-ghost">Cancel</button>
+              <button class="btn-primary">Clear cache</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
