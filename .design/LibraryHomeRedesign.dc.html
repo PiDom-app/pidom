@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { margin: 0; background: #18181b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; padding: 32px; }
+    * { box-sizing: border-box; }
+    .grid { display: flex; gap: 34px; flex-wrap: wrap; align-items: flex-start; }
+    .label { color: #e8e6e3; font-size: 13px; font-weight: 600; margin: 0 0 2px 2px; }
+    .sub { color: #6e6c68; font-size: 11px; margin: 0 0 10px 2px; }
+    .frame { width: 390px; height: 844px; position: relative; overflow: hidden; border-radius: 14px; background:#000; }
+    .c2 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; }
+    .pretty { text-wrap: pretty; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script>
+  var S = 'stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block"';
+  var bell = function(c,w){ w=w||22; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.85" '+S+'><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg>'; };
+  var search = function(c,w){ w=w||18; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.75" '+S+'><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>'; };
+  var plus = function(c,w){ w=w||26; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2.2" '+S+'><path d="M5 12h14"/><path d="M12 5v14"/></svg>'; };
+  var xmark = function(c,w){ w=w||26; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2.2" '+S+'><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'; };
+  var fileUp = function(c,w){ w=w||18; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.9" '+S+'><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>'; };
+  var folder = function(c,w){ w=w||18; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.9" '+S+'><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>'; };
+  var link = function(c,w){ w=w||18; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.9" '+S+'><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'; };
+  var chevR = function(c,w){ w=w||16; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2" '+S+'><path d="m9 18 6-6-6-6"/></svg>'; };
+  var play = function(c,w){ w=w||15; return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="'+c+'" stroke="'+c+'" stroke-width="1.5" '+S+'><polygon points="6 3 20 12 6 21 6 3"/></svg>'; };
+
+  function paperCover(title, author, w, h){
+    w=w||120; h=h||170; var lines=''; var ys=[78,87,96,105,114,123,132,141,150];
+    var sc = w/120;
+    for (var i=0;i<ys.length;i++){ var ww=(i===3||i===7)?58:92; lines+='<div style="position:absolute;left:'+(14*sc)+'px;top:'+(ys[i]*sc)+'px;width:'+(ww*sc)+'px;height:1.6px;background:#c9c6c0"></div>'; }
+    return '<div style="position:relative;width:'+w+'px;height:'+h+'px;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#fdfdfc;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)">'
+      + '<div style="position:absolute;left:'+(14*sc)+'px;right:'+(14*sc)+'px;top:'+(28*sc)+'px;font-size:'+(11*sc)+'px;line-height:1.2;font-weight:700;letter-spacing:-.01em;color:#1a1a1a" class="c2">'+title+'</div>'
+      + '<div style="position:absolute;left:'+(14*sc)+'px;top:'+(58*sc)+'px;font-size:'+(7*sc)+'px;color:#6e6c68">'+(author||'')+'</div>'+lines+'</div>';
+  }
+  function tintCover(title, hue, w, h){
+    w=w||120; h=h||170; var sc=w/120;
+    return '<div style="position:relative;width:'+w+'px;height:'+h+'px;flex:0 0 auto;border-radius:6px;overflow:hidden;background:oklch(0.295 0.062 '+hue+');box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)">'
+      + '<div style="position:absolute;left:'+(10*sc)+'px;right:'+(10*sc)+'px;top:'+(10*sc)+'px;font-size:'+(12.5*sc)+'px;line-height:1.26;font-weight:600;letter-spacing:-.01em;color:oklch(0.900 0.045 '+hue+')" class="c2 pretty">'+title+'</div>'
+      + '<div style="position:absolute;right:'+(8*sc)+'px;bottom:'+(7*sc)+'px;font-size:'+(8*sc)+'px;font-weight:600;letter-spacing:.09em;opacity:.48;color:oklch(0.900 0.045 '+hue+')">PDF</div></div>';
+  }
+  function progItem(cover,title,pct,meta){
+    return '<div style="width:120px;flex:0 0 auto">'+cover
+      +'<div style="margin-top:8px;font-size:12px;line-height:16px;letter-spacing:-.006em;color:#e8e6e3" class="c2">'+title+'</div>'
+      +'<div style="margin-top:7px;height:2px;border-radius:6px;background:#262523;overflow:hidden"><div style="width:'+pct+'%;height:100%;border-radius:6px;background:#6a59e8"></div></div>'
+      +'<div style="margin-top:5px;font-size:10px;line-height:13px;color:#6e6c68">'+meta+'</div></div>';
+  }
+  function plainItem(cover,title,meta){
+    return '<div style="width:120px;flex:0 0 auto">'+cover
+      +'<div style="margin-top:8px;font-size:12px;line-height:16px;letter-spacing:-.006em;color:#e8e6e3" class="c2">'+title+'</div>'
+      +'<div style="margin-top:4px;font-size:10px;line-height:13px;color:#6e6c68">'+meta+'</div></div>';
+  }
+  function rail(title,items,seeAll){
+    var head = '<div style="padding:0 24px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;line-height:20px;font-weight:700;letter-spacing:-.014em;color:#e8e6e3">'+title+'</div>'
+      + (seeAll?'<div style="font-size:12px;color:#6e6c68;display:flex;align-items:center;gap:2px">All '+chevR('#6e6c68',13)+'</div>':'') + '</div>';
+    return '<section style="margin-top:26px">'+head
+      +'<div style="margin-top:12px;display:flex;gap:14px;padding:0 24px;overflow:hidden">'+items.join('')+'</div></section>';
+  }
+  function statusbar(){ return '<div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:15px;font-weight:600;color:#e8e6e3;z-index:5"><span>9:41</span><span>&#9679;&#9679;&#9679; &#9776;</span></div>'; }
+
+  function header(){
+    return '<div style="padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between;gap:16px">'
+      +'<div style="min-width:0"><div style="font-size:12px;line-height:16px;color:#6e6c68">Good evening</div>'
+      +'<div style="margin-top:2px;font-size:24px;line-height:30px;font-weight:700;letter-spacing:-.02em;color:#e8e6e3">Emmanuel</div></div>'
+      +'<div style="display:flex;align-items:center;gap:14px;flex:0 0 auto">'
+      +'<div style="position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center">'+bell('#e8e6e3',22)
+      +'<div style="position:absolute;top:-3px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:9999px;background:#6a59e8;box-shadow:0 0 0 2px #000;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;font-weight:600;color:#fff" class="tnum">2</span></div></div>'
+      +'<div style="width:36px;height:36px;border-radius:9999px;background:#6a59e8;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:13px;font-weight:600;color:#fff;letter-spacing:.01em">EG</div>'
+      +'</div></div>';
+  }
+  function searchPill(){
+    return '<div style="margin:20px 24px 0;height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:6px;background:#0d0d0d;box-shadow:inset 0 0 0 1px #1c1b1a">'
+      +search('#6e6c68')+'<span style="font-size:14px;color:#6e6c68">Search your library</span></div>';
+  }
+  function featured(){
+    return '<div style="margin:22px 24px 0;padding:14px;border-radius:12px;background:#0d0d0d;box-shadow:inset 0 0 0 1px #1c1b1a;display:flex;gap:14px;align-items:center">'
+      + paperCover('Thinking, Fast and Slow','Daniel Kahneman',74,105)
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:11px;letter-spacing:.02em;color:#6a59e8;font-weight:600">JUMP BACK IN</div>'
+      +   '<div style="margin-top:4px;font-size:15px;line-height:19px;font-weight:600;letter-spacing:-.01em;color:#e8e6e3" class="c2">Thinking, Fast and Slow</div>'
+      +   '<div style="margin-top:8px;height:3px;border-radius:6px;background:#262523;overflow:hidden"><div style="width:43%;height:100%;border-radius:6px;background:#6a59e8"></div></div>'
+      +   '<div style="margin-top:5px;font-size:11px;color:#6e6c68">43% · page 216 of 499</div>'
+      +   '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:6px;background:#6a59e8"><span style="font-size:12px;font-weight:600;color:#fff">Resume</span>'+play('#fff',12)+'</div>'
+      + '</div></div>';
+  }
+
+  function homeBody(withFeatured){
+    var railsFull = [
+      rail('Continue reading', [
+        progItem(paperCover('Thinking, Fast and Slow','Daniel Kahneman'),'Thinking, Fast and Slow',43,'43% · page 216 of 499'),
+        progItem(paperCover('The Design of Everyday Things','Don Norman'),'The Design of Everyday Things',71,'71% · page 261 of 368'),
+        progItem(tintCover('Convex Backend Architecture',282),'Convex Backend Architecture',18,'18% · page 15 of 84')
+      ], true),
+      rail('Recently added', [
+        plainItem(paperCover('Annual Report 2025','Kilimani Housing Co-op'),'Annual Report 2025','PDF · 2.4 MB'),
+        plainItem(paperCover('Lease Agreement — 14 Kilimani Road',''),'Lease Agreement — 14 Kilimani Road','PDF · 9 pages'),
+        plainItem(tintCover('React Native Performance Notes',192),'React Native Performance Notes','PDF · 380 KB')
+      ], true)
+    ];
+    var railsTrim = [
+      rail('Recently added', [
+        plainItem(paperCover('Annual Report 2025','Kilimani Housing Co-op'),'Annual Report 2025','PDF · 2.4 MB'),
+        plainItem(paperCover('Lease Agreement — 14 Kilimani Road',''),'Lease Agreement — 14 Kilimani Road','PDF · 9 pages'),
+        plainItem(tintCover('React Native Performance Notes',192),'React Native Performance Notes','PDF · 380 KB')
+      ], true),
+      rail('Favourites', [
+        plainItem(tintCover('The Design of Everyday Things',102),'The Design of Everyday Things','PDF · 368 pages'),
+        plainItem(tintCover('The Pragmatic Programmer',252),'The Pragmatic Programmer','PDF · 352 pages'),
+        plainItem(tintCover('Thinking, Fast and Slow',342),'Thinking, Fast and Slow','PDF · 499 pages')
+      ], true)
+    ];
+    return '<div style="padding-top:24px;padding-bottom:120px">'+header()+searchPill()
+      + (withFeatured ? featured()+railsTrim.join('') : railsFull.join('')) + '</div>';
+  }
+
+  // floating corner FAB (collapsed)
+  function fab(){
+    return '<div style="position:absolute;right:22px;bottom:30px;width:56px;height:56px;border-radius:9999px;background:#6a59e8;box-shadow:0 8px 24px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:6">'+plus('#fff',26)+'</div>';
+  }
+  function speedAction(label, icon){
+    return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-bottom:16px">'
+      + '<div style="height:34px;display:flex;align-items:center;padding:0 14px;border-radius:8px;background:#161514;box-shadow:inset 0 0 0 1px #262523;font-size:13px;font-weight:500;color:#e8e6e3">'+label+'</div>'
+      + '<div style="width:46px;height:46px;border-radius:9999px;background:#161514;box-shadow:inset 0 0 0 1px #262523;display:flex;align-items:center;justify-content:center;flex:0 0 auto">'+icon+'</div></div>';
+  }
+  function fabExpanded(){
+    return '<div style="position:absolute;inset:0;background:rgba(0,0,0,.62);z-index:6"></div>'
+      + '<div style="position:absolute;right:22px;bottom:30px;z-index:7;display:flex;flex-direction:column;align-items:flex-end">'
+      + speedAction('Import PDF', fileUp('#e8e6e3'))
+      + speedAction('Import from link', link('#e8e6e3'))
+      + speedAction('New collection', folder('#e8e6e3'))
+      + '<div style="width:56px;height:56px;border-radius:9999px;background:#6a59e8;box-shadow:0 8px 24px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;margin-top:2px">'+xmark('#fff',26)+'</div></div>';
+  }
+  // center floating dock
+  function dock(){
+    var item = function(icon,lbl,active){
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">'+icon+'<span style="font-size:10px;font-weight:500;color:'+(active?'#e8e6e3':'#6e6c68')+'">'+lbl+'</span></div>'; };
+    return '<div style="position:absolute;left:24px;right:24px;bottom:26px;height:60px;border-radius:16px;background:rgba(20,19,18,.86);box-shadow:inset 0 0 0 1px #262523, 0 10px 30px rgba(0,0,0,.5);display:flex;align-items:center;padding:0 8px;z-index:6">'
+      + item(search('#e8e6e3',20),'Search',true)
+      + '<div style="flex:0 0 auto;margin:0 6px"><div style="width:52px;height:52px;border-radius:9999px;background:#6a59e8;box-shadow:0 6px 18px rgba(106,89,232,.5);display:flex;align-items:center;justify-content:center;transform:translateY(-14px)">'+plus('#fff',26)+'</div></div>'
+      + item(bell('#e8e6e3',20),'Activity',false)
+      + '</div>';
+  }
+
+  function frame(inner){ return '<div class="frame">'+inner+statusbar()+'</div>'; }
+  function cell(label, sub, inner){ return '<div><p class="label">'+label+'</p><p class="sub">'+sub+'</p>'+frame(inner)+'</div>'; }
+
+  document.getElementById('grid').innerHTML =
+      cell('1 · Corner FAB — collapsed', 'Rails home + floating “+” bottom-right', '<div style="position:absolute;inset:0;overflow:hidden">'+homeBody(false)+'</div>'+fab())
+    + cell('2 · Corner FAB — expanded', 'Tap “+” → Import PDF, Import from link, New collection', '<div style="position:absolute;inset:0;overflow:hidden">'+homeBody(false)+'</div>'+fabExpanded())
+    + cell('3 · Center dock', 'Floating bar: Search · “+” · Activity', '<div style="position:absolute;inset:0;overflow:hidden">'+homeBody(false)+'</div>'+dock())
+    + cell('4 · “Jump back in” + FAB', 'Featured resume card atop rails, corner “+”', '<div style="position:absolute;inset:0;overflow:hidden">'+homeBody(true)+'</div>'+fab());
+</script>
+</body>
+</html>
