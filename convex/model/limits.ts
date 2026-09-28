@@ -19,6 +19,21 @@ export const AUTHOR_MAX = 200;
 /** A collection name has to fit a 148px tile in two lines at 13px. */
 export const COLLECTION_NAME_MAX = 80;
 
+/**
+ * Documents one bulk mutation acts on.
+ *
+ * The multi-select toolbar turns one gesture into one write over an array of
+ * ids, and this bounds that array: a bulk mutation reads and patches once per
+ * id, so an unbounded array is an unbounded loop against a mutation's one-second
+ * budget and 16 MiB read ceiling. Two hundred is the same order as
+ * `SHARES_PER_DOCUMENT` and `GROUP_MEMBER_MAX` — past it the client chunks into
+ * sequential calls rather than the server accepting one transaction it cannot
+ * finish. It is also the page size `snapshot` and `byIds` already cap at, so a
+ * selection that spans more than one loaded page was going to be chunked
+ * anyway.
+ */
+export const BULK_MAX = 200;
+
 /** `application/vnd.openxmlformats-officedocument.wordprocessingml.document` is 71. */
 export const MIME_TYPE_MAX = 128;
 

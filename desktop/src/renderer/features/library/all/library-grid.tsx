@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DocumentTile } from '../components/document-tile';
+import type { CollectionContext } from '../components/document-actions';
+import type { DocumentId, Selection } from '../data/use-selection';
 import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
 import type { LibraryEntry } from '@/features/import/data/pseudo-document';
 
@@ -32,9 +34,17 @@ function columnsForWidth(width: number): number {
 export function LibraryGrid({
   documents,
   onNearEnd,
+  collectionContext,
+  selection,
+  selectableIds,
 }: {
   documents: LibraryEntry[];
   onNearEnd: () => void;
+  collectionContext?: CollectionContext;
+  /** When set, tiles show a selection affordance driven by this shared model. */
+  selection?: Selection;
+  /** On-screen order of selectable ids, for Shift-range selection. */
+  selectableIds?: DocumentId[];
 }) {
   const { density } = useDesktopSettings();
   const gap = density === 'compact' ? 12 : 20; // gap-3 / gap-5, in px
@@ -105,7 +115,14 @@ export function LibraryGrid({
               }}
             >
               {row.map((document) => (
-                <DocumentTile key={document.id} document={document} onScreen />
+                <DocumentTile
+                  key={document.id}
+                  document={document}
+                  onScreen
+                  collectionContext={collectionContext}
+                  selection={selection}
+                  selectableIds={selectableIds}
+                />
               ))}
             </div>
           );

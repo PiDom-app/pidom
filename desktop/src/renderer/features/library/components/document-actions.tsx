@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { AlertDialog, ContextMenu, DropdownMenu } from 'radix-ui';
-import { useQuery } from 'convex/react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   BookOpen,
   BookOpenCheck,
+  FolderMinus,
   FolderPlus,
   Info,
   MoreHorizontal,
@@ -14,13 +14,17 @@ import {
   StarOff,
   Trash2,
 } from 'lucide-react';
-import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { cn } from '@/lib/utils';
-import { buttonGhostClass, menuItemClass, menuSeparatorClass, surfaceClass } from '@/lib/ui';
+import { buttonGhostClass, menuItemClass, surfaceClass } from '@/lib/ui';
 import { useDocumentActions } from '../data/use-document-actions';
 import { RenameDialog } from './rename-dialog';
-import type { LibraryCollection, LibraryDocument } from '../data/types';
+import { AddToCollectionDialog } from './add-to-collection-dialog';
+import type { LibraryDocument } from '../data/types';
+
+/** The collection a document is being shown inside, when it is. Enables the
+ *  "Remove from collection" action on the document's menus. */
+export type CollectionContext = { id: Id<'collections'>; name: string };
 
 /**
  * Open a dialog from a menu item on the next tick, not inside `onSelect`. Radix
@@ -39,14 +43,16 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Rename + remove confirmations, mounted once and shared by both the three-dot
- * menu and the right-click context menu so a document has one set of dialogs
- * however the reader reaches them.
+ * Rename, add-to-collection, details, and remove dialogs, mounted once and
+ * shared by both the three-dot menu and the right-click context menu so a
+ * document has one set of dialogs however the reader reaches them.
  */
 function DocumentDialogs({
   document,
   renaming,
   setRenaming,
+  adding,
+  setAdding,
   removing,
   setRemoving,
   details,
@@ -55,6 +61,8 @@ function DocumentDialogs({
   document: LibraryDocument;
   renaming: boolean;
   setRenaming: (open: boolean) => void;
+  adding: boolean;
+  setAdding: (open: boolean) => void;
   removing: boolean;
   setRemoving: (open: boolean) => void;
   details: boolean;
@@ -69,6 +77,7 @@ function DocumentDialogs({
         onOpenChange={setRenaming}
         onRename={(title) => void renameDocument(document.id, title)}
       />
+      <AddToCollectionDialog document={document} open={adding} onOpenChange={setAdding} />
       <AlertDialog.Root open={details} onOpenChange={setDetails}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="animate-fade-in fixed inset-0 z-50 bg-overlay/50" />
@@ -131,42 +140,127 @@ function DocumentDialogs({
   );
 }
 
-/** The collections a document can be added to, plus the add handler. */
-function useMenuCollections(document: LibraryDocument) {
-  const { addDocumentToCollection } = useDocumentActions();
-  const collections = useQuery(api.collections.list, {});
-  const add = (collectionId: Id<'collections'>, name: string) =>
-    void addDocumentToCollection(collectionId, document.id, name);
-  return { collections, add };
+/** The action items, shared verbatim by the dropdown and the context menu.
+ *  `Item` is the menu's own item component so each renders in its own tree. */
+function actionItems(
+  Item: typeof DropdownMenu.Item | typeof ContextMenu.Item,
+  {
+    document,
+    collectionContext,
+    open,
+    toggleFavorite,
+    setFinished,
+    removeDocumentFromCollection,
+    setAdding,
+    setRenaming,
+    setDetails,
+    setRemoving,
+  }: {
+    document: LibraryDocument;
+    collectionContext?: CollectionContext;
+    open: () => void;
+    toggleFavorite: (id: Id<'documents'>, next: boolean) => void;
+    setFinished: (id: Id<'documents'>, next: boolean, pageCount: number) => void;
+    removeDocumentFromCollection: (
+      collectionId: Id<'collections'>,
+      documentId: Id<'documents'>,
+      name: string,
+    ) => void;
+    setAdding: (open: boolean) => void;
+    setRenaming: (open: boolean) => void;
+    setDetails: (open: boolean) => void;
+    setRemoving: (open: boolean) => void;
+  },
+) {
+  return (
+    <>
+      <Item className={menuItemClass} onSelect={open}>
+        <BookOpen className="size-4" />
+        Open
+      </Item>
+      <Item
+        className={menuItemClass}
+        onSelect={() => toggleFavorite(document.id, !document.isFavorite)}
+      >
+        {document.isFavorite ? <StarOff className="size-4" /> : <Star className="size-4" />}
+        {document.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      </Item>
+      <Item
+        className={menuItemClass}
+        onSelect={() => setFinished(document.id, !document.isFinished, document.pageCount ?? 0)}
+      >
+        {document.isFinished ? <RotateCcw className="size-4" /> : <BookOpenCheck className="size-4" />}
+        {document.isFinished ? 'Mark as unread' : 'Mark as finished'}
+      </Item>
+      <Item className={menuItemClass} onSelect={() => deferOpen(() => setAdding(true))}>
+        <FolderPlus className="size-4" />
+        Add to collection
+      </Item>
+      {collectionContext && (
+        <Item
+          className={menuItemClass}
+          onSelect={() =>
+            removeDocumentFromCollection(collectionContext.id, document.id, collectionContext.name)
+          }
+        >
+          <FolderMinus className="size-4" />
+          Remove from collection
+        </Item>
+      )}
+      <Item className={menuItemClass} onSelect={() => deferOpen(() => setRenaming(true))}>
+        <Pencil className="size-4" />
+        Rename
+      </Item>
+      <Item className={menuItemClass} onSelect={() => deferOpen(() => setDetails(true))}>
+        <Info className="size-4" />
+        Details
+      </Item>
+      <Item
+        className={cn(menuItemClass, 'text-destructive data-[highlighted]:bg-danger-tint')}
+        onSelect={() => deferOpen(() => setRemoving(true))}
+      >
+        <Trash2 className="size-4" />
+        Remove from library
+      </Item>
+    </>
+  );
 }
 
-function collectionRows(
-  collections: LibraryCollection[] | undefined,
-  render: (collection: LibraryCollection) => ReactNode,
-): ReactNode {
-  if (collections === undefined)
-    return <div className="px-2 py-1.5 text-sm text-fg-subtle">Loading…</div>;
-  if (collections.length === 0)
-    return <div className="px-2 py-1.5 text-sm text-fg-subtle">No collections yet</div>;
-  return collections.map(render);
+/** Shared dialog state for a menu instance. */
+function useDocumentMenuState() {
+  const [renaming, setRenaming] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [details, setDetails] = useState(false);
+  const { toggleFavorite, setFinished, removeDocumentFromCollection } = useDocumentActions();
+  const navigate = useNavigate();
+  return {
+    renaming,
+    setRenaming,
+    adding,
+    setAdding,
+    removing,
+    setRemoving,
+    details,
+    setDetails,
+    toggleFavorite,
+    setFinished,
+    removeDocumentFromCollection,
+    open: (id: Id<'documents'>) => void navigate({ to: '/reader/$documentId', params: { documentId: id } }),
+  };
 }
 
 /** The three-dot dropdown, anchored to a tile or row. */
 export function DocumentActions({
   document,
   className,
+  collectionContext,
 }: {
   document: LibraryDocument;
   className?: string;
+  collectionContext?: CollectionContext;
 }) {
-  const [renaming, setRenaming] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [details, setDetails] = useState(false);
-  const { toggleFavorite, setFinished } = useDocumentActions();
-  const { collections, add } = useMenuCollections(document);
-  const navigate = useNavigate();
-  const open = () =>
-    void navigate({ to: '/reader/$documentId', params: { documentId: document.id } });
+  const s = useDocumentMenuState();
 
   return (
     <>
@@ -182,83 +276,32 @@ export function DocumentActions({
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={surfaceClass} align="end" sideOffset={4}>
-            <DropdownMenu.Item className={menuItemClass} onSelect={open}>
-              <BookOpen className="size-4" />
-              Open
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className={menuItemClass}
-              onSelect={() => void toggleFavorite(document.id, !document.isFavorite)}
-            >
-              {document.isFavorite ? <StarOff className="size-4" /> : <Star className="size-4" />}
-              {document.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className={menuItemClass}
-              onSelect={() =>
-                void setFinished(document.id, !document.isFinished, document.pageCount ?? 0)
-              }
-            >
-              {document.isFinished ? (
-                <RotateCcw className="size-4" />
-              ) : (
-                <BookOpenCheck className="size-4" />
-              )}
-              {document.isFinished ? 'Mark as unread' : 'Mark as finished'}
-            </DropdownMenu.Item>
-            <DropdownMenu.Sub>
-              <DropdownMenu.SubTrigger className={menuItemClass}>
-                <FolderPlus className="size-4" />
-                Add to collection
-              </DropdownMenu.SubTrigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.SubContent className={surfaceClass} sideOffset={2} alignOffset={-4}>
-                  {collectionRows(collections, (collection) => (
-                    <DropdownMenu.Item
-                      key={collection.id}
-                      className={menuItemClass}
-                      onSelect={() => add(collection.id, collection.name)}
-                    >
-                      {collection.name}
-                    </DropdownMenu.Item>
-                  ))}
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Sub>
-            <DropdownMenu.Item
-              className={menuItemClass}
-              onSelect={() => deferOpen(() => setRenaming(true))}
-            >
-              <Pencil className="size-4" />
-              Rename
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className={menuItemClass}
-              onSelect={() => deferOpen(() => setDetails(true))}
-            >
-              <Info className="size-4" />
-              Details
-            </DropdownMenu.Item>
-            <DropdownMenu.Separator className={menuSeparatorClass} />
-            <DropdownMenu.Item
-              className={cn(menuItemClass, 'text-destructive data-[highlighted]:bg-danger-tint')}
-              onSelect={() => deferOpen(() => setRemoving(true))}
-            >
-              <Trash2 className="size-4" />
-              Remove from library
-            </DropdownMenu.Item>
+            {actionItems(DropdownMenu.Item, {
+              document,
+              collectionContext,
+              open: () => s.open(document.id),
+              toggleFavorite: s.toggleFavorite,
+              setFinished: s.setFinished,
+              removeDocumentFromCollection: s.removeDocumentFromCollection,
+              setAdding: s.setAdding,
+              setRenaming: s.setRenaming,
+              setDetails: s.setDetails,
+              setRemoving: s.setRemoving,
+            })}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
 
       <DocumentDialogs
         document={document}
-        renaming={renaming}
-        setRenaming={setRenaming}
-        removing={removing}
-        setRemoving={setRemoving}
-        details={details}
-        setDetails={setDetails}
+        renaming={s.renaming}
+        setRenaming={s.setRenaming}
+        adding={s.adding}
+        setAdding={s.setAdding}
+        removing={s.removing}
+        setRemoving={s.setRemoving}
+        details={s.details}
+        setDetails={s.setDetails}
       />
     </>
   );
@@ -268,18 +311,13 @@ export function DocumentActions({
 export function DocumentContextMenu({
   document,
   children,
+  collectionContext,
 }: {
   document: LibraryDocument;
   children: ReactNode;
+  collectionContext?: CollectionContext;
 }) {
-  const [renaming, setRenaming] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [details, setDetails] = useState(false);
-  const { toggleFavorite, setFinished } = useDocumentActions();
-  const { collections, add } = useMenuCollections(document);
-  const navigate = useNavigate();
-  const open = () =>
-    void navigate({ to: '/reader/$documentId', params: { documentId: document.id } });
+  const s = useDocumentMenuState();
 
   return (
     <>
@@ -287,83 +325,32 @@ export function DocumentContextMenu({
         <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
         <ContextMenu.Portal>
           <ContextMenu.Content className={surfaceClass}>
-            <ContextMenu.Item className={menuItemClass} onSelect={open}>
-              <BookOpen className="size-4" />
-              Open
-            </ContextMenu.Item>
-            <ContextMenu.Item
-              className={menuItemClass}
-              onSelect={() => void toggleFavorite(document.id, !document.isFavorite)}
-            >
-              {document.isFavorite ? <StarOff className="size-4" /> : <Star className="size-4" />}
-              {document.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            </ContextMenu.Item>
-            <ContextMenu.Item
-              className={menuItemClass}
-              onSelect={() =>
-                void setFinished(document.id, !document.isFinished, document.pageCount ?? 0)
-              }
-            >
-              {document.isFinished ? (
-                <RotateCcw className="size-4" />
-              ) : (
-                <BookOpenCheck className="size-4" />
-              )}
-              {document.isFinished ? 'Mark as unread' : 'Mark as finished'}
-            </ContextMenu.Item>
-            <ContextMenu.Sub>
-              <ContextMenu.SubTrigger className={menuItemClass}>
-                <FolderPlus className="size-4" />
-                Add to collection
-              </ContextMenu.SubTrigger>
-              <ContextMenu.Portal>
-                <ContextMenu.SubContent className={surfaceClass} sideOffset={2} alignOffset={-4}>
-                  {collectionRows(collections, (collection) => (
-                    <ContextMenu.Item
-                      key={collection.id}
-                      className={menuItemClass}
-                      onSelect={() => add(collection.id, collection.name)}
-                    >
-                      {collection.name}
-                    </ContextMenu.Item>
-                  ))}
-                </ContextMenu.SubContent>
-              </ContextMenu.Portal>
-            </ContextMenu.Sub>
-            <ContextMenu.Item
-              className={menuItemClass}
-              onSelect={() => deferOpen(() => setRenaming(true))}
-            >
-              <Pencil className="size-4" />
-              Rename
-            </ContextMenu.Item>
-            <ContextMenu.Item
-              className={menuItemClass}
-              onSelect={() => deferOpen(() => setDetails(true))}
-            >
-              <Info className="size-4" />
-              Details
-            </ContextMenu.Item>
-            <ContextMenu.Separator className={menuSeparatorClass} />
-            <ContextMenu.Item
-              className={cn(menuItemClass, 'text-destructive data-[highlighted]:bg-danger-tint')}
-              onSelect={() => deferOpen(() => setRemoving(true))}
-            >
-              <Trash2 className="size-4" />
-              Remove from library
-            </ContextMenu.Item>
+            {actionItems(ContextMenu.Item, {
+              document,
+              collectionContext,
+              open: () => s.open(document.id),
+              toggleFavorite: s.toggleFavorite,
+              setFinished: s.setFinished,
+              removeDocumentFromCollection: s.removeDocumentFromCollection,
+              setAdding: s.setAdding,
+              setRenaming: s.setRenaming,
+              setDetails: s.setDetails,
+              setRemoving: s.setRemoving,
+            })}
           </ContextMenu.Content>
         </ContextMenu.Portal>
       </ContextMenu.Root>
 
       <DocumentDialogs
         document={document}
-        renaming={renaming}
-        setRenaming={setRenaming}
-        removing={removing}
-        setRemoving={setRemoving}
-        details={details}
-        setDetails={setDetails}
+        renaming={s.renaming}
+        setRenaming={s.setRenaming}
+        adding={s.adding}
+        setAdding={s.setAdding}
+        removing={s.removing}
+        setRemoving={s.setRemoving}
+        details={s.details}
+        setDetails={s.setDetails}
       />
     </>
   );

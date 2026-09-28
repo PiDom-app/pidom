@@ -477,6 +477,158 @@ describe('collections', () => {
   });
 });
 
+/**
+ * The multi-select toolbar sends one call for a whole selection. Each is one
+ * transaction and one rate-limit token, so the checks that guard a single
+ * membership write have to hold for every element of the array — and the array
+ * has to stay bounded, because a mutation reads and writes inside one budget.
+ */
+describe('bulk collection membership', () => {
+  test('adding a selection sets the count to the number of distinct documents', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const a = await as.mutation(api.library.importDocument, anImport({ localId: localId('a') }));
+    const b = await as.mutation(api.library.importDocument, anImport({ localId: localId('b') }));
+    const c = await as.mutation(api.library.importDocument, anImport({ localId: localId('c') }));
+    const collectionId = await as.mutation(api.collections.create, { name: 'Rust' });
+
+    await as.mutation(api.collections.addDocuments, { collectionId, documentIds: [a, b, c] });
+
+    const [collection] = await as.query(api.collections.list, {});
+    expect(collection?.documentCount).toBe(3);
+  });
+
+  test('a selection delivered twice is still a set, not six memberships', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const a = await as.mutation(api.library.importDocument, anImport({ localId: localId('a') }));
+    const b = await as.mutation(api.library.importDocument, anImport({ localId: localId('b') }));
+    const collectionId = await as.mutation(api.collections.create, { name: 'Rust' });
+
+    // A dropped reply after the mutation committed looks exactly like this: the
+    // drainer replays the same op, and membership is a set on both ends.
+    await as.mutation(api.collections.addDocuments, { collectionId, documentIds: [a, b] });
+    await as.mutation(api.collections.addDocuments, { collectionId, documentIds: [a, b] });
+
+    const [collection] = await as.query(api.collections.list, {});
+    expect(collection?.documentCount).toBe(2);
+  });
+
+  test('one foreign id in the array refuses the whole call', async () => {
+    const t = harness();
+    const mine = await signedIn(t);
+    const theirs = await signedIn(t, OTHER);
+    const mineDoc = await mine.mutation(
+      api.library.importDocument,
+      anImport({ localId: localId('m') }),
+    );
+    const theirsDoc = await theirs.mutation(
+      api.library.importDocument,
+      anImport({ localId: localId('t') }),
+    );
+    const collectionId = await mine.mutation(api.collections.create, { name: 'Rust' });
+
+    // The array is checked element by element with the same `assertOwner` a
+    // single add uses: smuggling someone else's document in among your own is
+    // rejected, not silently skipped.
+    await expect(
+      mine.mutation(api.collections.addDocuments, {
+        collectionId,
+        documentIds: [mineDoc, theirsDoc],
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('a selection longer than the bound is refused before any write', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const documentId = await as.mutation(api.library.importDocument, anImport());
+    const collectionId = await as.mutation(api.collections.create, { name: 'Rust' });
+
+    // 201 > BULK_MAX. The client's job is to chunk; the server's is to refuse a
+    // transaction that would not fit its budget.
+    const documentIds = Array.from({ length: 201 }, () => documentId);
+    await expect(
+      as.mutation(api.collections.addDocuments, { collectionId, documentIds }),
+    ).rejects.toThrow();
+  });
+
+  test('removing a selection twice is silent the second time', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const a = await as.mutation(api.library.importDocument, anImport({ localId: localId('a') }));
+    const b = await as.mutation(api.library.importDocument, anImport({ localId: localId('b') }));
+    const collectionId = await as.mutation(api.collections.create, { name: 'Rust' });
+    await as.mutation(api.collections.addDocuments, { collectionId, documentIds: [a, b] });
+
+    await as.mutation(api.collections.removeDocuments, { collectionId, documentIds: [a, b] });
+    await expect(
+      as.mutation(api.collections.removeDocuments, { collectionId, documentIds: [a, b] }),
+    ).resolves.toBeNull();
+
+    const [collection] = await as.query(api.collections.list, {});
+    expect(collection?.documentCount).toBe(0);
+  });
+});
+
+describe('bulk favourite and finished', () => {
+  test('favouriting a selection sets every one of them', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const a = await as.mutation(api.library.importDocument, anImport({ localId: localId('a') }));
+    const b = await as.mutation(api.library.importDocument, anImport({ localId: localId('b') }));
+
+    await as.mutation(api.library.setFavoriteMany, { documentIds: [a, b], isFavorite: true });
+
+    expect((await storedDocument(t, a))?.isFavorite).toBe(true);
+    expect((await storedDocument(t, b))?.isFavorite).toBe(true);
+  });
+
+  test('a foreign id in a favourite selection refuses the call', async () => {
+    const t = harness();
+    const mine = await signedIn(t);
+    const theirs = await signedIn(t, OTHER);
+    const mineDoc = await mine.mutation(
+      api.library.importDocument,
+      anImport({ localId: localId('m') }),
+    );
+    const theirsDoc = await theirs.mutation(
+      api.library.importDocument,
+      anImport({ localId: localId('t') }),
+    );
+
+    await expect(
+      mine.mutation(api.library.setFavoriteMany, {
+        documentIds: [mineDoc, theirsDoc],
+        isFavorite: true,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('a favourite selection longer than the bound is refused', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const documentId = await as.mutation(api.library.importDocument, anImport());
+    const documentIds = Array.from({ length: 201 }, () => documentId);
+
+    await expect(
+      as.mutation(api.library.setFavoriteMany, { documentIds, isFavorite: true }),
+    ).rejects.toThrow();
+  });
+
+  test('marking a selection finished sets every one of them', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const a = await as.mutation(api.library.importDocument, anImport({ localId: localId('a') }));
+    const b = await as.mutation(api.library.importDocument, anImport({ localId: localId('b') }));
+
+    await as.mutation(api.library.setFinishedMany, { documentIds: [a, b], isFinished: true });
+
+    expect((await storedDocument(t, a))?.isFinished).toBe(true);
+    expect((await storedDocument(t, b))?.isFinished).toBe(true);
+  });
+});
+
 describe('the reconcile reads', () => {
   test('snapshot returns the whole account, paged', async () => {
     const t = harness();

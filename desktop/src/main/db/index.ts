@@ -43,8 +43,10 @@ let raw: DatabaseSync | null = null;
  *  v2 added `local_settings`; a Phase-1 database stamped at v1 must re-run
  *  migrateUp (IF NOT EXISTS no-ops the existing tables) or that table is missing
  *  and every `local_settings` read throws. v3 added `import_jobs` for the
- *  desktop-initiated import pipeline. */
-const SCHEMA_VERSION = 3;
+ *  desktop-initiated import pipeline. v4 added the offline organization mirror
+ *  (`collections`, `collection_items`, `sync_queue`) so collection/favorite/
+ *  finished edits work with no network and drain to Convex on reconnect. */
+const SCHEMA_VERSION = 4;
 
 /**
  * A synchronous diagnostic line, straight to stderr.
@@ -127,6 +129,42 @@ function migrateUp(database: DatabaseSync): void {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS import_jobs_by_state ON import_jobs (state);
+
+    CREATE TABLE IF NOT EXISTS collections (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      document_count INTEGER NOT NULL DEFAULT 0,
+      client_op_id TEXT,
+      client_updated_at INTEGER,
+      created_at INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      is_synced INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS collections_by_owner ON collections (owner_id);
+
+    CREATE TABLE IF NOT EXISTS collection_items (
+      collection_id TEXT NOT NULL,
+      document_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      added_at INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS collection_items_unique
+      ON collection_items (collection_id, document_id);
+    CREATE INDEX IF NOT EXISTS collection_items_by_document ON collection_items (document_id);
+
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      op_id TEXT PRIMARY KEY NOT NULL,
+      kind TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      client_updated_at INTEGER,
+      state TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      created_at INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS sync_queue_by_state ON sync_queue (state);
   `);
 }
 

@@ -85,6 +85,26 @@ Same Convex Google-OIDC model (`../docs/security.md`). Do not weaken it.
 - **Fail closed** on secure storage: if `safeStorage` is unavailable, refuse to
   persist rather than writing a bearer credential in the clear.
 
+### Content-Security-Policy
+
+The packaged app serves its CSP as an HTTP header from `src/main/index.ts`
+(authoritative over the `<meta>` fallback in `index.html`, which applies only to
+the Vite dev server).
+
+- **`script-src 'self'`** — no `'unsafe-inline'`. The only scripts the renderer
+  runs are same-origin bundle files. The pre-paint theme setter lives in
+  `public/theme-init.js` (served at `/theme-init.js` in dev, copied to the bundle
+  root and served over `app://bundle/theme-init.js` packaged) and is loaded
+  synchronously in `<head>` — an external file rather than an inline block
+  precisely so this `'self'`-only policy accepts it while preserving no-flash.
+  The dev `<meta>` still carries `'unsafe-inline'` for Vite HMR / React-refresh;
+  keep it there, not in the packaged header.
+- **`style-src 'self' 'unsafe-inline'`** — an intentional residual. The TanStack
+  virtualizer and Radix set inline `style=` attributes (transform/positioning) at
+  runtime; locking those down needs `style-src-attr`, which in practice still
+  requires `'unsafe-inline'` (a nonce/hash cannot cover attribute styles). Low
+  risk given `script-src` is already `'self'`-only.
+
 ## Backend wiring
 
 - The shared Convex generated API is reached by the `@convex` alias →

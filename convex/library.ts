@@ -12,6 +12,7 @@ import { limit } from './model/rateLimits';
 import * as Usage from './model/usage';
 import { queueExtraction } from './workflows/document';
 import {
+  BULK_MAX,
   COLLECTION_COVER_LIMIT,
   COLLECTION_LIMIT,
   DOWNLOAD_URL_SECONDS,
@@ -354,6 +355,59 @@ export const setFavorite = mutation({
     // Metered now that it can arrive in a flush rather than only under a thumb.
     await limit(ctx, user, 'editDocument');
     await Library.setFavorite(ctx, user, args.documentId, args.isFavorite, args.clientUpdatedAt);
+    return null;
+  },
+});
+
+/**
+ * Favourites or unfavourites a selection of documents in one call — the
+ * multi-select toolbar's "Favorite" / "Remove favorite".
+ *
+ * One `editDocument` token for the whole gesture. The array is capped at
+ * `BULK_MAX`; a longer selection is the client's to chunk. Each id is
+ * owner-checked inside `Library.setFavoriteMany`.
+ */
+export const setFavoriteMany = mutation({
+  args: {
+    documentIds: v.array(v.id('documents')),
+    isFavorite: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (args.documentIds.length > BULK_MAX) {
+      throw new ConvexError({
+        code: 'INVALID',
+        message: `A single change is limited to ${BULK_MAX} documents.`,
+      });
+    }
+    await limit(ctx, user, 'editDocument');
+    await Library.setFavoriteMany(ctx, user, args.documentIds, args.isFavorite);
+    return null;
+  },
+});
+
+/**
+ * Marks a selection finished, or back to unread, in one call — the toolbar's
+ * "Mark finished" / "Mark unread". Same position semantics as the single
+ * `recordProgress` finish, applied per document against its own page count.
+ */
+export const setFinishedMany = mutation({
+  args: {
+    documentIds: v.array(v.id('documents')),
+    isFinished: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (args.documentIds.length > BULK_MAX) {
+      throw new ConvexError({
+        code: 'INVALID',
+        message: `A single change is limited to ${BULK_MAX} documents.`,
+      });
+    }
+    await limit(ctx, user, 'recordProgress');
+    await Library.setFinishedMany(ctx, user, args.documentIds, args.isFinished);
     return null;
   },
 });

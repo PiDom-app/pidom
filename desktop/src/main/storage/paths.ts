@@ -167,6 +167,29 @@ export function mintLocalId(): string {
   return randomUUID().replace(/-/g, '');
 }
 
+/** A client-minted local collection id, worn until the create syncs and the
+ *  drainer re-keys it to the Convex id. The `col_` prefix makes "not yet on the
+ *  server" a property of the id itself — see `isLocalCollectionId`. */
+export function mintCollectionId(): string {
+  return `col_${mintLocalId()}`;
+}
+
+/** Whether a collection id is a local placeholder (not yet a Convex id). */
+export function isLocalCollectionId(value: string): boolean {
+  return /^col_[a-f0-9]{32}$/.test(value);
+}
+
+/**
+ * A collection id the main process will accept from the renderer: either a
+ * Convex id (lowercase alphanumeric, bounded) or a `col_<32hex>` local
+ * placeholder. Bounded and character-checked as defence in depth, the same
+ * posture as `isSafeDocumentId`.
+ */
+export function isSafeCollectionId(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 64) return false;
+  return isLocalCollectionId(value) || SAFE_ID.test(value);
+}
+
 export interface ValidatedSource {
   /** The canonical, symlink-resolved absolute path of the picked file. */
   canonical: string;

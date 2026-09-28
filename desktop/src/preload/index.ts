@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
   IPC,
   type AuthState,
+  type CollectionsSnapshot,
   type EditAction,
   type ImportJobStatus,
   type LocalDocumentStatus,
@@ -118,6 +119,28 @@ const bridge: PidomBridge = {
       const handler = (_event: unknown, documentId: string) => listener(documentId);
       ipcRenderer.on(IPC.importOpenExternalFile, handler);
       return () => ipcRenderer.removeListener(IPC.importOpenExternalFile, handler);
+    },
+  },
+  collections: {
+    list: () => ipcRenderer.invoke(IPC.collectionsList),
+    forDocument: (documentId: string) => ipcRenderer.invoke(IPC.collectionsForDocument, documentId),
+    create: (name: string) => ipcRenderer.invoke(IPC.collectionsCreate, name),
+    rename: (collectionId: string, name: string) =>
+      ipcRenderer.invoke(IPC.collectionsRename, { collectionId, name }),
+    remove: (collectionId: string) => ipcRenderer.invoke(IPC.collectionsRemove, collectionId),
+    addDocuments: (collectionId: string, documentIds: string[]) =>
+      ipcRenderer.invoke(IPC.collectionsAddDocuments, { collectionId, documentIds }),
+    removeDocuments: (collectionId: string, documentIds: string[]) =>
+      ipcRenderer.invoke(IPC.collectionsRemoveDocuments, { collectionId, documentIds }),
+    setFavorite: (documentIds: string[], isFavorite: boolean) =>
+      ipcRenderer.invoke(IPC.collectionsSetFavorite, { documentIds, isFavorite }),
+    setFinished: (documentIds: string[], isFinished: boolean) =>
+      ipcRenderer.invoke(IPC.collectionsSetFinished, { documentIds, isFinished }),
+    pending: () => ipcRenderer.invoke(IPC.collectionsPending),
+    onChange: (listener: (snapshot: CollectionsSnapshot) => void) => {
+      const handler = (_event: unknown, snapshot: CollectionsSnapshot) => listener(snapshot);
+      ipcRenderer.on(IPC.collectionsChanged, handler);
+      return () => ipcRenderer.removeListener(IPC.collectionsChanged, handler);
     },
   },
   update: {

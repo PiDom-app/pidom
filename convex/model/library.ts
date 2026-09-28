@@ -904,6 +904,76 @@ export async function setFavorite(
   });
 }
 
+/**
+ * Favourites or unfavourites a bounded set of documents in one transaction.
+ *
+ * The multi-select toolbar's "Favorite" is one gesture over many documents, and
+ * looping the single mutation client-side would be one round trip and one rate
+ * token *per document* — a burst that trips its own bucket. This does the whole
+ * selection as one write, reusing the same `requireDocument` guard per id, so a
+ * foreign id anywhere in the array is rejected exactly as a single call would
+ * reject it.
+ *
+ * The array is bounded by `BULK_MAX` at the public boundary; the loop is that
+ * many point reads and patches, which stays inside a mutation's budget. No
+ * `clientUpdatedAt` here — this is the desktop's live control, and the offline
+ * outbox replays it per id through the single path when it needs last-writer
+ * semantics.
+ */
+export async function setFavoriteMany(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  documentIds: Id<'documents'>[],
+  isFavorite: boolean,
+): Promise<void> {
+  const now = Date.now();
+  for (const documentId of documentIds) {
+    const doc = await requireDocument(ctx, owner, documentId);
+    // Skip a no-op patch: re-favouriting an already-favourite document should
+    // not bump `updatedAt` and wake every device's reconcile for nothing.
+    if (doc.isFavorite === isFavorite) {
+      continue;
+    }
+    await ctx.db.patch('documents', doc._id, { isFavorite, updatedAt: now });
+  }
+}
+
+/**
+ * Marks a bounded set of documents finished, or back to unread, in one write.
+ *
+ * Finishing moves the position to the last page and reopening drops it to the
+ * first — the same thing the single-document "Mark as finished / unread" does
+ * through `recordProgress`, done here per id against each document's own
+ * `pageCount` so the client need not know the length of every selected book.
+ */
+export async function setFinishedMany(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  documentIds: Id<'documents'>[],
+  isFinished: boolean,
+): Promise<void> {
+  const now = Date.now();
+  for (const documentId of documentIds) {
+    const doc = await requireDocument(ctx, owner, documentId);
+    if (doc.isFinished === isFinished) {
+      continue;
+    }
+    const targetPage = isFinished
+      ? doc.pageCount === undefined
+        ? doc.currentPage
+        : Math.max(1, doc.pageCount)
+      : 1;
+    const { currentPage, progress } = clampPosition(targetPage, doc.pageCount);
+    await ctx.db.patch('documents', doc._id, {
+      isFinished,
+      currentPage,
+      progress,
+      lastOpenedAt: now,
+      updatedAt: now,
+    });
+  }
+}
+
 export async function rename(
   ctx: MutationCtx,
   owner: Doc<'users'>,

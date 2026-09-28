@@ -1,14 +1,15 @@
-import { Cloud, HardDrive } from 'lucide-react';
+import { Check, Cloud, HardDrive } from 'lucide-react';
 import { Tooltip } from 'radix-ui';
 import { DocumentCover } from './document-cover';
 import { ProgressLine } from './progress-line';
-import { DocumentActions, DocumentContextMenu } from './document-actions';
+import { DocumentActions, DocumentContextMenu, type CollectionContext } from './document-actions';
 import {
   ImportContextMenu,
   ImportStatusDot,
   isOpenable,
   uploadFraction,
 } from '@/features/import/components/import-context-menu';
+import { handleSelectionClick, type DocumentId, type Selection } from '../data/use-selection';
 import { formatProgress } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { LibraryEntry } from '@/features/import/data/pseudo-document';
@@ -28,30 +29,86 @@ export function DocumentTile({
   document,
   onScreen = true,
   className,
+  collectionContext,
+  selection,
+  selectableIds,
 }: {
   document: LibraryEntry;
   /** Gate the cover mint until the tile is in the viewport. */
   onScreen?: boolean;
   className?: string;
+  /** When shown inside a collection, enables "Remove from collection". */
+  collectionContext?: CollectionContext;
+  /** When set, the tile shows a selection affordance driven by this model. */
+  selection?: Selection;
+  /** On-screen order of selectable ids, for Shift-range selection. */
+  selectableIds?: DocumentId[];
 }) {
   if (document.importJob)
     return <ImportTile document={document} onScreen={onScreen} className={className} />;
 
   const started = document.progress > 0 && !document.isFinished;
+  // A local-only import is never selectable (no account id yet); the guard is
+  // in the screen's `selectableIds`, so here selection is simply enabled when a
+  // model was passed to a real document.
+  const selectable = selection !== undefined && selectableIds !== undefined;
+  const selected = selectable && selection.isSelected(document.id);
+
+  const onClick = (e: React.MouseEvent) => {
+    if (!selectable) return;
+    // Consume the click for selection when a modifier is held or a selection is
+    // already live; a plain click while nothing is selected falls through
+    // untouched (the tile opens through its menu / checkbox, not a bare click).
+    if (handleSelectionClick(selection, selectableIds, document.id, e)) {
+      e.preventDefault();
+    }
+  };
 
   return (
-    <DocumentContextMenu document={document}>
-      <div className={cn('group relative flex w-full flex-col gap-2 text-left', className)}>
+    <DocumentContextMenu document={document} collectionContext={collectionContext}>
+      <div
+        onClick={selectable ? onClick : undefined}
+        className={cn(
+          'group relative flex w-full flex-col gap-2 rounded-md text-left',
+          selectable && 'cursor-default',
+          selected && 'bg-primary-tint ring-2 ring-focus',
+          className,
+        )}
+      >
         <div className="relative">
           <DocumentCover document={document} enabled={onScreen} />
+          {selectable && (
+            <button
+              type="button"
+              aria-label={selected ? 'Deselect' : 'Select'}
+              aria-pressed={selected}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (e.shiftKey) selection.toggleRange(document.id, selectableIds);
+                else selection.toggle(document.id);
+              }}
+              className={cn(
+                'absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-md border bg-elevated/90 backdrop-blur-sm transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                selected
+                  ? 'border-primary bg-primary text-primary-foreground opacity-100'
+                  : 'border-border text-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+              )}
+            >
+              <Check className="size-3.5" />
+            </button>
+          )}
           <div className="absolute top-1.5 right-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-            <DocumentActions document={document} className="bg-elevated/80 backdrop-blur-sm" />
+            <DocumentActions
+              document={document}
+              className="bg-elevated/80 backdrop-blur-sm"
+              collectionContext={collectionContext}
+            />
           </div>
         </div>
 
         {started && <ProgressLine progress={document.progress} />}
 
-        <div className="min-w-0">
+        <div className="min-w-0 px-0.5 pb-0.5">
           <div className="flex items-center gap-1.5">
             <p className="truncate text-sm font-medium text-foreground" title={document.title}>
               {document.title}

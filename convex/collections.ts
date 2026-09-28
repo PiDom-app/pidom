@@ -6,7 +6,7 @@ import { requireUser } from './model/auth';
 import * as Collections from './model/collections';
 import * as Library from './model/library';
 import { limit } from './model/rateLimits';
-import { COLLECTION_COVER_LIMIT, RAIL_LIMIT } from './model/limits';
+import { COLLECTION_COVER_LIMIT, RAIL_LIMIT, BULK_MAX, invalid } from './model/limits';
 
 /**
  * The collections API.
@@ -55,6 +55,36 @@ export const membership = query({
     const user = await requireUser(ctx);
     const page = await Collections.membershipPage(ctx, user._id, args.paginationOpts);
     return page;
+  },
+});
+
+/**
+ * The documents inside one collection, a page at a time.
+ *
+ * Hydrated to the same wire shape the library view reads, so the collection
+ * detail screen renders through the very same grid and list. A read, so no rate
+ * limit; owner-checked on the collection, and again on each document as it is
+ * hydrated.
+ */
+export const documents = query({
+  args: { collectionId: v.id('collections'), paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(Library.publicDocumentValidator),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    return await Collections.documentsPage(ctx, user, args.collectionId, args.paginationOpts);
+  },
+});
+
+/**
+ * The collections a document belongs to — the checkmark state for the add
+ * picker. A read, so no rate limit; owner-checked on the document.
+ */
+export const forDocument = query({
+  args: { documentId: v.id('documents') },
+  returns: v.array(v.id('collections')),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    return await Collections.collectionIdsFor(ctx, user, args.documentId, RAIL_LIMIT * 4);
   },
 });
 
@@ -121,6 +151,50 @@ export const removeDocument = mutation({
     const user = await requireUser(ctx);
     await limit(ctx, user, 'editCollection');
     await Collections.removeDocument(ctx, user, args.collectionId, args.documentId);
+    return null;
+  },
+});
+
+/**
+ * Adds a selection of documents to a collection in one call — the multi-select
+ * toolbar's "Add to collection".
+ *
+ * One `editCollection` token for the whole gesture, not one per document. The
+ * array is capped at `BULK_MAX`; a longer selection is the client's to chunk
+ * into sequential calls, which keeps each transaction inside a mutation's
+ * budget. Ownership of the collection and of every document is checked in
+ * `Collections.addDocuments`.
+ */
+export const addDocuments = mutation({
+  args: {
+    collectionId: v.id('collections'),
+    documentIds: v.array(v.id('documents')),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (args.documentIds.length > BULK_MAX) {
+      invalid(`A single change is limited to ${BULK_MAX} documents.`);
+    }
+    await limit(ctx, user, 'editCollection');
+    await Collections.addDocuments(ctx, user, args.collectionId, args.documentIds);
+    return null;
+  },
+});
+
+export const removeDocuments = mutation({
+  args: {
+    collectionId: v.id('collections'),
+    documentIds: v.array(v.id('documents')),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (args.documentIds.length > BULK_MAX) {
+      invalid(`A single change is limited to ${BULK_MAX} documents.`);
+    }
+    await limit(ctx, user, 'editCollection');
+    await Collections.removeDocuments(ctx, user, args.collectionId, args.documentIds);
     return null;
   },
 });

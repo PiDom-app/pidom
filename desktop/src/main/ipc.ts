@@ -8,6 +8,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import { z } from 'zod';
+import { BULK_MAX } from '@convex-model/limits';
 import {
   IPC,
   type EditAction,
@@ -19,6 +20,7 @@ import {
 import { SessionManager } from './auth/oauth';
 import { userVersion } from './db';
 import { closeDocument, fetchText, openDocument } from './reader';
+import type { CollectionsService } from './collections/service';
 import type { StorageService } from './storage/service';
 import type { ImportService } from './storage/import-service';
 import type { UpdateService } from './updater/update-service';
@@ -47,6 +49,16 @@ const IdSchema = z.string().regex(/^[A-Za-z0-9]{1,64}$/);
 const HandleSchema = z.string().regex(/^[a-f0-9]{32}$/);
 const UrlSchema = z.string().min(1).max(4096);
 const PathSchema = z.string().min(1).max(4096);
+// A collection id is either a synced Convex id (the same alnum shape as a
+// document id) or a client-minted `col_<32hex>` placeholder awaiting reconcile.
+const CollectionIdSchema = z.string().regex(/^(?:col_[a-f0-9]{32}|[A-Za-z0-9]{1,64})$/);
+// A generous outer bound; the service's `cleanName` trims and slices to
+// COLLECTION_NAME_MAX (80) and re-validates, so this only stops an unbounded
+// string reaching main, not the real length rule.
+const CollectionNameSchema = z.string().min(1).max(200);
+// A bulk document-id set, length-capped at BULK_MAX so no single call hands main
+// an unbounded array; the renderer chunks larger selections.
+const DocIdsSchema = z.array(IdSchema).min(1).max(BULK_MAX);
 
 const Schemas = {
   forceRefresh: z.object({ forceRefresh: z.boolean() }),
@@ -68,6 +80,14 @@ const Schemas = {
     autoDownload: z.boolean(),
     quiet: z.boolean(),
   }),
+  // ─── Collections / favorites / finished (local-first organization) ─────────
+  collectionName: CollectionNameSchema,
+  collectionId: CollectionIdSchema,
+  documentIds: DocIdsSchema,
+  collectionRename: z.object({ collectionId: CollectionIdSchema, name: CollectionNameSchema }),
+  collectionDocs: z.object({ collectionId: CollectionIdSchema, documentIds: DocIdsSchema }),
+  setFavorite: z.object({ documentIds: DocIdsSchema, isFavorite: z.boolean() }),
+  setFinished: z.object({ documentIds: DocIdsSchema, isFinished: z.boolean() }),
 } as const;
 
 /**
@@ -81,6 +101,7 @@ export function registerIpc(
   storage: StorageService,
   imports: ImportService,
   updates: UpdateService,
+  collections: CollectionsService,
   opts: IpcOptions,
 ): void {
   // Compare the sender's ORIGIN, not a URL prefix. Electron's guidance is
@@ -219,6 +240,20 @@ export function registerIpc(
   };
   updates.onChange(() => {
     if (!updateFlush) updateFlush = setTimeout(flushUpdate, 150);
+  });
+
+  // Push organization changes (a collection created/renamed, a membership or
+  // favorite/finished toggle, an outbox row draining) so the library, collection
+  // screens and the "Changes will sync" chip track the local mirror live. Each
+  // send is a full snapshot (the list plus the pending-outbox count), so a burst
+  // collapses to the latest on the same 150 ms trailing timer as the others.
+  let collectionsFlush: ReturnType<typeof setTimeout> | null = null;
+  const flushCollections = () => {
+    collectionsFlush = null;
+    broadcast(IPC.collectionsChanged, collections.snapshot());
+  };
+  collections.onChange(() => {
+    if (!collectionsFlush) collectionsFlush = setTimeout(flushCollections, 150);
   });
 
   ipcMain.handle(
@@ -462,6 +497,55 @@ export function registerIpc(
   );
   handleWith(IPC.updateSetPrefs, Schemas.updatePrefs, (_event, prefs: UpdatePrefs) =>
     updates.setPrefs(prefs),
+  );
+
+  // ─── Collections / favorites / finished (local-first organization) ─────────
+  // One controlled method per op — never a generic SQL passthrough. Every write
+  // lands in the local mirror and an outbox row in one transaction and is
+  // replayed to the same owner-checked Convex functions on reconnect; reads come
+  // from the local mirror so organization works offline. Ids and names are
+  // validated here (outer layer) and re-validated in the service; the service
+  // scopes every row by the signed-in account.
+  ipcMain.handle(
+    IPC.collectionsList,
+    guard(() => collections.list()),
+  );
+  ipcMain.handle(
+    IPC.collectionsPending,
+    guard(() => collections.pending()),
+  );
+  handleWith(IPC.collectionsForDocument, Schemas.documentId, (_event, documentId: string) =>
+    collections.forDocument(documentId),
+  );
+  handleWith(IPC.collectionsCreate, Schemas.collectionName, (_event, name: string) =>
+    collections.create(name),
+  );
+  handleWith(IPC.collectionsRename, Schemas.collectionRename, (_event, { collectionId, name }) =>
+    collections.rename(collectionId, name),
+  );
+  handleWith(IPC.collectionsRemove, Schemas.collectionId, (_event, collectionId: string) =>
+    collections.remove(collectionId),
+  );
+  handleWith(
+    IPC.collectionsAddDocuments,
+    Schemas.collectionDocs,
+    (_event, { collectionId, documentIds }) => collections.addDocuments(collectionId, documentIds),
+  );
+  handleWith(
+    IPC.collectionsRemoveDocuments,
+    Schemas.collectionDocs,
+    (_event, { collectionId, documentIds }) =>
+      collections.removeDocuments(collectionId, documentIds),
+  );
+  handleWith(
+    IPC.collectionsSetFavorite,
+    Schemas.setFavorite,
+    (_event, { documentIds, isFavorite }) => collections.setFavorite(documentIds, isFavorite),
+  );
+  handleWith(
+    IPC.collectionsSetFinished,
+    Schemas.setFinished,
+    (_event, { documentIds, isFinished }) => collections.setFinished(documentIds, isFinished),
   );
 
   // ─── Keep the display awake while reading ────────────────────────────────────

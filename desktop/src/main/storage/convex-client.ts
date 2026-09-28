@@ -128,4 +128,159 @@ export class StorageConvex {
       ...(typeof opts?.pageCount === 'number' ? { pageCount: opts.pageCount } : {}),
     });
   }
+
+  /* ── organization outbox replay (see collections/drain.ts) ──────────────── */
+
+  /**
+   * Creates a collection on the account and returns its Convex id.
+   *
+   * Idempotent on `clientOpId` — the device-minted 32-hex id the outbox filed
+   * this create under: a replayed create returns the row it made the first time
+   * rather than a second folder (`convex/model/sync.ts` `collectionByOpId`).
+   * `clientUpdatedAt` lets the server settle a concurrent rename by last-writer.
+   */
+  async createCollection(name: string, clientOpId: string, clientUpdatedAt: number): Promise<string> {
+    const client = await this.client();
+    const id = await client.mutation(api.collections.create, { name, clientOpId, clientUpdatedAt });
+    return id as string;
+  }
+
+  /** Renames a collection. Owner-checked; last-writer-wins on `clientUpdatedAt`. */
+  async renameCollection(collectionId: string, name: string, clientUpdatedAt: number): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.collections.rename, {
+      collectionId: collectionId as Id<'collections'>,
+      name,
+      clientUpdatedAt,
+    });
+  }
+
+  /** Deletes a collection and its memberships. The documents survive. Owner-checked. */
+  async removeCollection(collectionId: string): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.collections.remove, {
+      collectionId: collectionId as Id<'collections'>,
+    });
+  }
+
+  /** Files a bounded set of documents into a collection in one call. Ownership of
+   *  the collection and of every document is checked server-side. */
+  async addDocumentsToCollection(collectionId: string, documentIds: string[]): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.collections.addDocuments, {
+      collectionId: collectionId as Id<'collections'>,
+      documentIds: documentIds as Id<'documents'>[],
+    });
+  }
+
+  /** Removes a bounded set of documents from a collection in one call. Owner-checked. */
+  async removeDocumentsFromCollection(collectionId: string, documentIds: string[]): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.collections.removeDocuments, {
+      collectionId: collectionId as Id<'collections'>,
+      documentIds: documentIds as Id<'documents'>[],
+    });
+  }
+
+  /** Favourites/unfavourites a bounded set of documents in one call. Owner-checked. */
+  async setFavoriteMany(documentIds: string[], isFavorite: boolean): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.library.setFavoriteMany, {
+      documentIds: documentIds as Id<'documents'>[],
+      isFavorite,
+    });
+  }
+
+  /** Marks a bounded set of documents finished/unread in one call. Owner-checked. */
+  async setFinishedMany(documentIds: string[], isFinished: boolean): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.library.setFinishedMany, {
+      documentIds: documentIds as Id<'documents'>[],
+      isFinished,
+    });
+  }
+
+  /* ── hydration reads (pull the account's truth into the local mirror) ────── */
+
+  /** Every collection on the account, with its denormalised document count. */
+  async listCollections(): Promise<
+    { id: string; name: string; documentCount: number; createdAt: number }[]
+  > {
+    const client = await this.client();
+    const rows = await client.query(api.collections.list, {});
+    return rows.map((r) => ({
+      id: r.id as string,
+      name: r.name,
+      documentCount: r.documentCount,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  /** One page of the whole membership relation, for a device rebuilding its mirror. */
+  async membershipPage(
+    cursor: string | null,
+    numItems: number,
+  ): Promise<{
+    page: { collectionId: string; documentId: string; addedAt: number }[];
+    isDone: boolean;
+    continueCursor: string;
+  }> {
+    const client = await this.client();
+    const result = await client.query(api.collections.membership, {
+      paginationOpts: { numItems, cursor },
+    });
+    return {
+      page: result.page.map((m) => ({
+        collectionId: m.collectionId as string,
+        documentId: m.documentId as string,
+        addedAt: m.addedAt,
+      })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  }
+
+  /** One page of every document the account owns, for favorite/finished mirror. */
+  async snapshotPage(
+    cursor: string | null,
+    numItems: number,
+  ): Promise<{
+    page: {
+      id: string;
+      title: string;
+      author: string | null;
+      pageCount: number | null;
+      byteSize: number;
+      currentPage: number;
+      progress: number;
+      isFinished: boolean;
+      isFavorite: boolean;
+      isSynced: boolean;
+      createdAt: number;
+    }[];
+    isDone: boolean;
+    continueCursor: string;
+  }> {
+    const client = await this.client();
+    const result = await client.query(api.library.snapshot, {
+      paginationOpts: { numItems, cursor },
+    });
+    return {
+      page: result.page.map((d) => ({
+        id: d.id as string,
+        title: d.title,
+        author: d.author,
+        pageCount: d.pageCount,
+        byteSize: d.byteSize,
+        currentPage: d.currentPage,
+        progress: d.progress,
+        isFinished: d.isFinished,
+        isFavorite: d.isFavorite,
+        isSynced: d.isSynced,
+        createdAt: d.createdAt,
+      })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  }
 }

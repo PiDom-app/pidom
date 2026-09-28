@@ -15,6 +15,7 @@ import {
 import { StorageService } from './storage/service';
 import { ImportService } from './storage/import-service';
 import { UpdateService } from './updater/update-service';
+import { CollectionsService } from './collections/service';
 import { handleSquirrelAssociation } from './squirrel-events';
 
 // Electron Forge's Vite plugin injects these for the renderer entry.
@@ -61,6 +62,7 @@ const authSession = new SessionManager();
 const storage = new StorageService(authSession);
 const importService = new ImportService(authSession, storage);
 const updateService = new UpdateService();
+const collectionsService = new CollectionsService(authSession);
 
 /**
  * The first `.pdf` path in a launch argv, or null. Windows hands a
@@ -232,10 +234,17 @@ if (shouldBoot)
         `connect-src 'self' ${READER_SCHEME}: https://*.convex.cloud wss://*.convex.cloud https://*.convex.site; ` +
         // blob: covers the images PDF.js decodes out of a page before painting.
         "img-src 'self' data: blob: https:; " +
+        // `style-src` keeps 'unsafe-inline' deliberately: the TanStack virtualizer
+        // and Radix write inline `style=` attributes (transform/positioning) at
+        // runtime. Locking those down needs `style-src-attr`, which in practice
+        // still requires 'unsafe-inline' — a nonce/hash cannot cover attribute
+        // styles. Documented as an intentional residual in desktop/CLAUDE.md.
         "style-src 'self' 'unsafe-inline'; " +
-        // 'unsafe-inline' covers the pre-paint theme script in index.html, which
-        // is same-origin app code injected at build, not remote content.
-        "script-src 'self' 'unsafe-inline'; " +
+        // 'self' with no 'unsafe-inline': the only script the page runs are
+        // same-origin bundle files — the app bundle and the pre-paint theme
+        // setter, which is served from app://bundle/theme-init.js (public/) for
+        // exactly this reason rather than being inlined in index.html.
+        "script-src 'self'; " +
         // The PDF.js worker is a bundled same-origin asset, never a CDN; blob: is
         // the fallback path the library takes when it cannot load that URL.
         "worker-src 'self' blob:; " +
@@ -261,7 +270,7 @@ if (shouldBoot)
       checkForUpdates: () => void updateService.check(),
     });
 
-    registerIpc(authSession, storage, importService, updateService, {
+    registerIpc(authSession, storage, importService, updateService, collectionsService, {
       getWindow: () => mainWindow,
       createWindow: () => {
         mainWindow = createWindow();
@@ -287,6 +296,11 @@ if (shouldBoot)
     // Resume any import left mid-flight by a previous run (staged-but-not-uploaded).
     // No-op until auth returns; `ImportService` also drains on the next sign-in.
     void importService.drain();
+
+    // Replay any organization edits queued offline and pull the account's truth
+    // into the local mirror. No-op until auth returns; `CollectionsService` also
+    // syncs on the next sign-in (via its own `session.onChange` subscription).
+    void collectionsService.sync();
 
     // Launched with a file (Windows double-click / "Open With" / Open Recent):
     // stage it and open it once the window is ready. On macOS the same intent

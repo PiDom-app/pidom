@@ -69,7 +69,11 @@ function HomeContent({ home }: { home: NonNullable<ReturnType<typeof useHome>> }
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {collections.map((collection) => (
-              <CollectionTile key={collection.id} collection={collection} />
+              <CollectionTile
+                key={collection.id}
+                collection={collection}
+                coverDocumentIds={collection.coverDocumentIds}
+              />
             ))}
           </div>
         </section>
