@@ -1,7 +1,8 @@
-import { Search } from 'lucide-react-native';
+import { Bell, Search } from 'lucide-react-native';
 import React from 'react';
 
 import { Avatar, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
+import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
@@ -19,15 +20,21 @@ export function LibraryHeader({
   name,
   email,
   photoUrl,
+  unreadActivity,
   onOpenAccount,
+  onOpenActivity,
   onOpenSearch,
 }: {
   name: string | null;
   email: string | null;
   photoUrl: string | null;
+  unreadActivity: number;
   onOpenAccount: () => void;
+  onOpenActivity: () => void;
   onOpenSearch: () => void;
 }) {
+  const unreadLabel = unreadActivity > 9 ? '9+' : String(unreadActivity);
+
   return (
     <VStack>
       <HStack className="items-start justify-between px-4 pt-5" space="lg">
@@ -40,17 +47,39 @@ export function LibraryHeader({
           </Text>
         </VStack>
 
-        <Pressable
-          onPress={onOpenAccount}
-          accessibilityRole="button"
-          accessibilityLabel="Account"
-          className="rounded-full"
-        >
-          <Avatar className="h-9 w-9">
-            <AvatarFallbackText>{name ?? email ?? 'Reader'}</AvatarFallbackText>
-            <AvatarImage source={{ uri: photoUrl }} />
-          </Avatar>
-        </Pressable>
+        <HStack className="items-center" space="md">
+          {/* The bell is always tappable — the badge only reports a count. An
+              empty Activity screen is a fine place to land. */}
+          <Pressable
+            onPress={onOpenActivity}
+            accessibilityRole="button"
+            accessibilityLabel={unreadActivity > 0 ? `Activity, ${unreadLabel} unseen` : 'Activity'}
+            className="rounded-full p-1"
+          >
+            <Box className="relative">
+              <Icon as={Bell} size="xl" className="text-foreground" />
+              {unreadActivity > 0 ? (
+                <Box className="absolute -right-1.5 -top-1.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-background bg-primary px-1">
+                  <Text size="2xs" className="font-semibold text-primary-foreground">
+                    {unreadLabel}
+                  </Text>
+                </Box>
+              ) : null}
+            </Box>
+          </Pressable>
+
+          <Pressable
+            onPress={onOpenAccount}
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+            className="rounded-full"
+          >
+            <Avatar className="h-9 w-9">
+              <AvatarFallbackText>{name ?? email ?? 'Reader'}</AvatarFallbackText>
+              <AvatarImage source={{ uri: photoUrl }} />
+            </Avatar>
+          </Pressable>
+        </HStack>
       </HStack>
 
       <Pressable
