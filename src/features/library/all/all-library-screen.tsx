@@ -274,7 +274,6 @@ export function AllLibraryScreen() {
                 width={tileWidth}
                 showProgress={item.progress > 0}
                 onPress={openDocument}
-                onLongPress={setActing}
               />
             </Box>
           )}

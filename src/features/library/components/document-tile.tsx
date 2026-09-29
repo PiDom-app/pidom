@@ -57,10 +57,11 @@ function glyphFor(document: LibraryDocument, placement: Placement) {
  * this or `DocumentRow` beside it, which is what keeps a document looking like
  * the same object wherever the reader meets it.
  *
- * There is no overflow button and no badge. Actions arrive on a long press, so
- * a rail of twelve documents carries twelve fewer pieces of chrome than it
- * would otherwise — which is most of what stops the screen reading as a
- * dashboard.
+ * There is no overflow button and no badge. Actions arrive on a long press
+ * where one is wired — the tile takes `onLongPress` only when a surface wants
+ * the sheet, so a rail of twelve documents carries twelve fewer pieces of
+ * chrome than it would otherwise, which is most of what stops the screen
+ * reading as a dashboard.
  */
 export function DocumentTile({
   document,
@@ -73,7 +74,7 @@ export function DocumentTile({
   width?: number;
   showProgress?: boolean;
   onPress: (document: LibraryDocument) => void;
-  onLongPress: (document: LibraryDocument) => void;
+  onLongPress?: (document: LibraryDocument) => void;
 }) {
   // `fileState` on the row is what says whether this one opens, and it is the
   // only thing that does: it is written after a download has been checked, not
@@ -105,7 +106,7 @@ export function DocumentTile({
   return (
     <Pressable
       onPress={() => onPress(document)}
-      onLongPress={() => onLongPress(document)}
+      onLongPress={onLongPress ? () => onLongPress(document) : undefined}
       accessibilityRole="button"
       accessibilityLabel={`${document.title}. ${meta}`}
       style={{ width, height: tileHeight(width, showProgress) }}
