@@ -22,7 +22,15 @@ import { handleSquirrelAssociation } from './squirrel-events';
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// This module is bundled and loaded as CommonJS (main.cjs — see the
+// `entryFileNames: 'main.cjs'` note in vite.main.config.ts), where Node provides
+// `__dirname` natively. The Vite/esbuild pipeline does not reliably rewrite
+// `import.meta.url` for that CommonJS output: in the packaged app it evaluates to
+// `undefined`, so `fileURLToPath(undefined)` threw ERR_INVALID_ARG_TYPE and crashed
+// the main process on launch/install. Prefer the CommonJS global, and fall back to
+// `import.meta.url` only if a future build ever emits real ESM.
+const moduleDir =
+  typeof __dirname === 'string' ? __dirname : dirname(fileURLToPath(import.meta.url));
 
 // The custom app scheme that serves the renderer in production, replacing
 // `file://` (which grants a page access to the whole filesystem). Registered as
@@ -91,7 +99,7 @@ function openExternalPdf(sourcePath: string): void {
 }
 
 /** The renderer build directory Forge's Vite plugin emits next to main.js. */
-const rendererDir = join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
+const rendererDir = join(moduleDir, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
 
 /**
  * Serves the packaged renderer over `app://bundle/...`. Every resolved path is
@@ -123,7 +131,7 @@ function createWindow(): BrowserWindow {
     // The Pidom mark, copied next to the main bundle by vite.main.config.ts's
     // app-icon plugin. Drives the dev window and the Linux/Windows taskbar icon;
     // the packaged Windows .exe carries its own icon from packagerConfig.
-    icon: join(__dirname, 'icon.png'),
+    icon: join(moduleDir, 'icon.png'),
     // A single custom title bar across platforms: on macOS the traffic lights
     // stay (inset into our bar); on Windows/Linux the frame is gone and the
     // renderer draws its own controls.
@@ -131,7 +139,7 @@ function createWindow(): BrowserWindow {
     trafficLightPosition: { x: 12, y: 10 },
     webPreferences: {
       // main.js and preload.js are emitted side by side in .vite/build.
-      preload: join(__dirname, 'preload.js'),
+      preload: join(moduleDir, 'preload.js'),
       // The security posture documented in CLAUDE.md — the renderer is an
       // untrusted web context and reaches Node only through the preload bridge.
       contextIsolation: true,
