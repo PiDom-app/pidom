@@ -760,6 +760,26 @@ export const attachUpload = mutation({
   },
 });
 
+/**
+ * Links a freshly rendered cover to an already-synced document.
+ *
+ * `attachUpload` cannot do this: it recomputes the PDF key and reads the blob's
+ * metadata back, but a deduped document's `storageKey` is a twin's blob, so
+ * there is no upload of its own to attach. A reprobe on the device produces a
+ * new cover with nothing to ride along with, and this is the only path that
+ * carries it to the account so every other device stops drawing the fallback.
+ */
+export const attachCover = mutation({
+  args: { documentId: v.id('documents'), coverStorageKey: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    await limit(ctx, user, 'attachUpload');
+    await Library.attachCover(ctx, user, args);
+    return null;
+  },
+});
+
 /** Stops syncing a document. The copy on this device stays. */
 export const detachUpload = mutation({
   args: { documentId: v.id('documents') },

@@ -580,6 +580,13 @@ export default defineSchema({
     .index('by_owner_and_updated', ['ownerId', 'updatedAt'])
     .index('by_owner_and_opened', ['ownerId', 'lastOpenedAt'])
     .index('by_owner_and_title', ['ownerId', 'title'])
+    // A cover object can be shared between two of the same reader's documents:
+    // a duplicate import adopts the twin's `coverStorageKey` (see
+    // `adoptContentOf`), so two rows can name one object. This is the point
+    // lookup `releaseContent` uses to avoid deleting a cover another document
+    // still points at — the same "delete only when nothing needs it" rule the
+    // PDF blob follows.
+    .index('by_cover_key', ['coverStorageKey'])
     // `ownerId` as a filter field is what keeps one reader's search out of
     // another's library — a search index has no implicit scope.
     .searchIndex('search_title', {

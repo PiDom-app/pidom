@@ -1257,6 +1257,66 @@ export async function attachUpload(
   }
 }
 
+/**
+ * Attaches a freshly rendered cover to a document that is already synced.
+ *
+ * The reprobe path needs this. A document imported without a cover — its
+ * first-page render failed, or it arrived from another device — that is
+ * reprocessed and this time produces one has its cover land on the importing
+ * device's disk, but nothing carried it to the account: `hasCover` stayed false
+ * and every other device and the desktop app drew the tinted fallback for good.
+ * `attachUpload` cannot stand in, because it recomputes the PDF key and re-reads
+ * that object, and a deduplicated document's `storageKey` is the blob's rather
+ * than its own.
+ *
+ * The key is this document's own — `coverKey(owner, doc)` — so setting it can
+ * never point one document at another's object, which is the shape
+ * `releaseContent` now defends against. A bad cover is dropped rather than
+ * refused: it is decoration, and the fallback already covers its absence.
+ */
+export async function attachCover(
+  ctx: MutationCtx,
+  owner: Doc<'users'>,
+  input: { documentId: Id<'documents'>; coverStorageKey: string },
+): Promise<void> {
+  const expectedCover = coverKey(owner._id, input.documentId);
+  if (input.coverStorageKey !== expectedCover) {
+    invalid('That cover does not belong to this document.');
+  }
+
+  let doc: Doc<'documents'>;
+  try {
+    doc = await requireDocument(ctx, owner, input.documentId);
+  } catch (error) {
+    await r2.deleteObject(ctx, input.coverStorageKey).catch(() => undefined);
+    throw error;
+  }
+
+  // Only a synced document has anything in the account for a cover to sit
+  // beside. A local-only one uploads its cover with its PDF, in `attachUpload`.
+  if (doc.storageKey === undefined) {
+    await r2.deleteObject(ctx, input.coverStorageKey).catch(() => undefined);
+    invalid('That document is not synced.');
+  }
+
+  const cover = await r2.getMetadata(ctx, input.coverStorageKey);
+  if (
+    cover === null ||
+    (cover.size !== undefined && cover.size > COVER_BYTE_MAX) ||
+    cover.contentType?.startsWith('image/') !== true
+  ) {
+    if (cover !== null) {
+      await r2.deleteObject(ctx, input.coverStorageKey);
+    }
+    return;
+  }
+
+  await ctx.db.patch('documents', doc._id, {
+    coverStorageKey: input.coverStorageKey,
+    updatedAt: Date.now(),
+  });
+}
+
 /** Deletes objects that were rejected, so a refusal does not become storage. */
 async function discard(
   ctx: MutationCtx,
@@ -1333,11 +1393,22 @@ async function releaseContent(ctx: MutationCtx, doc: Doc<'documents'>): Promise<
     }
   }
 
-  // The cover is this document's own either way. It is a rendering of a page
-  // rather than the page, it is a few hundred kilobytes, and sharing one would
-  // buy almost nothing for a second thing to count.
+  // The cover can be shared: a duplicate import adopts the twin's
+  // `coverStorageKey` (see `adoptContentOf`), so two of this reader's documents
+  // can name the same object. Deleting it whenever either goes would leave the
+  // survivor with `hasCover` true and nothing behind it — a broken cover on
+  // every device. So it goes only when this is the last document that names it,
+  // the same rule the blob above follows.
   if (doc.coverStorageKey !== undefined) {
-    await r2.deleteObject(ctx, doc.coverStorageKey).catch(() => undefined);
+    const coverStorageKey = doc.coverStorageKey;
+    const alsoUsing = await ctx.db
+      .query('documents')
+      .withIndex('by_cover_key', (q) => q.eq('coverStorageKey', coverStorageKey))
+      .filter((q) => q.neq(q.field('_id'), doc._id))
+      .first();
+    if (alsoUsing === null) {
+      await r2.deleteObject(ctx, coverStorageKey).catch(() => undefined);
+    }
   }
 }
 
