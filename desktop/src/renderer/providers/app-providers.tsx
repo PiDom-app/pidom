@@ -4,6 +4,7 @@ import { Tooltip } from 'radix-ui';
 import { ThemeProvider } from './theme-provider';
 import { SessionProvider } from './session-provider';
 import { ConvexProvider } from './convex-provider';
+import { CollectionsMirrorProvider } from '@/features/library/data/use-collections-mirror';
 
 /**
  * The provider stack, in the order the dependencies require — the desktop
@@ -13,6 +14,7 @@ import { ConvexProvider } from './convex-provider';
  *   ThemeProvider         .dark/.light class toggle on <html>
  *   SessionProvider       Google identity, mirrored from the main process
  *   ConvexProvider        reads the session through useConvexGoogleAuth
+ *   CollectionsMirror     local-first organization mirror, pushed from main
  *
  * Session ABOVE Convex is not stylistic: `ConvexProviderWithAuth` invokes its
  * `useAuth` hook from inside its own tree, so the context that hook reads must
@@ -26,7 +28,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <ThemeProvider>
         <SessionProvider>
           <ConvexProvider>
-            <Tooltip.Provider delayDuration={300}>{children}</Tooltip.Provider>
+            <CollectionsMirrorProvider>
+              <Tooltip.Provider delayDuration={300}>{children}</Tooltip.Provider>
+            </CollectionsMirrorProvider>
           </ConvexProvider>
         </SessionProvider>
       </ThemeProvider>

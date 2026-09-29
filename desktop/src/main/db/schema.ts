@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * Local cache schema. This mirrors a subset of the cloud document model
@@ -186,3 +186,119 @@ export const localSettings = sqliteTable('local_settings', {
 });
 
 export type LocalSettingRow = typeof localSettings.$inferSelect;
+
+/**
+ * The local mirror of a collection — the offline source of truth for the
+ * organization UI. Mirrors a subset of the cloud `collections` row
+ * (convex/schema.ts) plus the fields the outbox needs to sync it.
+ *
+ * `id` is either a Convex collection id (once the create has synced) or a
+ * client-minted `col_<32hex>` id worn while the collection exists only on this
+ * device. `clientOpId` is the 32-hex idempotency key of the create op that will
+ * mint it on the server — sent as `clientOpId` so a lost create reply cannot
+ * produce two folders (see convex/model/sync.ts `collectionByOpId`). Once the
+ * create drains, the drainer re-keys `col_<hex>` → the returned Convex id across
+ * this table, `collection_items`, and any still-pending `sync_queue` payloads,
+ * exactly as the import pipeline re-keys `localId` → `documentId`.
+ *
+ * `document_count` is denormalised to match the cloud model so the list renders
+ * a count with no membership scan; it is kept in step with `collection_items`
+ * by the service inside the same transaction that writes them.
+ */
+export const collections = sqliteTable(
+  'collections',
+  {
+    /** Convex collection id, or a client-minted `col_<32hex>` while unsynced. */
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull(),
+    name: text('name').notNull(),
+    documentCount: integer('document_count').notNull().default(0),
+    /** 32-hex idempotency key of the create op; sent to the server as clientOpId. */
+    clientOpId: text('client_op_id'),
+    /** The device clock for last-writer-wins on rename (server honors it via isStale). */
+    clientUpdatedAt: integer('client_updated_at'),
+    createdAt: integer('created_at').notNull().default(0),
+    updatedAt: integer('updated_at').notNull().default(0),
+    /** False while the id is still a `col_<hex>` placeholder awaiting reconcile. */
+    isSynced: integer('is_synced', { mode: 'boolean' }).notNull().default(false),
+  },
+  (t) => ({ byOwner: index('collections_by_owner').on(t.ownerId) }),
+);
+
+export type CollectionRow = typeof collections.$inferSelect;
+
+/**
+ * A local membership row: one document in one collection. The uniqueness the
+ * brief calls for is enforced by the database, not just app code — a
+ * `uniqueIndex` on (`collection_id`, `document_id`) makes a double-add a no-op at
+ * the storage layer (upsert `onConflictDoNothing`), mirroring the server's
+ * idempotent `by_collection_and_document` check. `by_document` backs "which
+ * collections is this document in".
+ */
+export const collectionItems = sqliteTable(
+  'collection_items',
+  {
+    collectionId: text('collection_id').notNull(),
+    documentId: text('document_id').notNull(),
+    ownerId: text('owner_id').notNull(),
+    addedAt: integer('added_at').notNull().default(0),
+  },
+  (t) => ({
+    unique: uniqueIndex('collection_items_unique').on(t.collectionId, t.documentId),
+    byDocument: index('collection_items_by_document').on(t.documentId),
+  }),
+);
+
+export type CollectionItemRow = typeof collectionItems.$inferSelect;
+
+/**
+ * The kinds of organization write the outbox replays. Each maps to an existing
+ * owner-checked Convex mutation; the drainer knows how to send each one. The
+ * `col_<hex>`-bearing kinds (`create` and anything naming a collection) have
+ * their ids reconciled before or during replay.
+ */
+export type SyncOpKind =
+  | 'collection.create'
+  | 'collection.rename'
+  | 'collection.remove'
+  | 'collection.addDocuments'
+  | 'collection.removeDocuments'
+  | 'library.setFavorite'
+  | 'library.setFinished';
+
+/** The lifecycle of an outbox row. Mirrors the import job states' spirit:
+ *  durable, resumable, and drained on boot + reconnect. */
+export type SyncOpState = 'pending' | 'inflight' | 'done' | 'failed';
+
+/**
+ * The offline outbox. Every organization write is recorded here in one
+ * transaction with the local-table change it represents, then replayed against
+ * Convex when a connection is available — so a change made with no network is
+ * never lost. `op_id` is a device-minted 32-hex idempotency key: for a
+ * `collection.create` it becomes the server `clientOpId`, and the server dedups
+ * a replayed create on it. `payload` is a JSON string of the op's arguments
+ * (validated ids only — never a SQL string or path). Processed FIFO by
+ * `created_at`, so a collection's create always replays before the adds that
+ * name it.
+ */
+export const syncQueue = sqliteTable(
+  'sync_queue',
+  {
+    /** Device-minted 32-hex idempotency key. */
+    opId: text('op_id').primaryKey(),
+    kind: text('kind').$type<SyncOpKind>().notNull(),
+    /** JSON string of the op arguments; ids are validated before enqueue. */
+    payload: text('payload').notNull(),
+    /** Device clock for last-writer-wins ops (rename/favorite/finished). */
+    clientUpdatedAt: integer('client_updated_at'),
+    state: text('state').$type<SyncOpState>().notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    /** Short non-sensitive error code from the last failed replay. */
+    error: text('error'),
+    createdAt: integer('created_at').notNull().default(0),
+    updatedAt: integer('updated_at').notNull().default(0),
+  },
+  (t) => ({ byState: index('sync_queue_by_state').on(t.state) }),
+);
+
+export type SyncQueueRow = typeof syncQueue.$inferSelect;

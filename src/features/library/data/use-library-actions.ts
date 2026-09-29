@@ -52,6 +52,7 @@ export function useLibraryActions() {
   const uploadUrl = useMutation(api.library.uploadUrl);
   const syncMetadata = useMutation(api.r2.syncMetadata);
   const attachUpload = useMutation(api.library.attachUpload);
+  const attachCover = useMutation(api.library.attachCover);
   const detachUpload = useMutation(api.library.detachUpload);
   const reprocessDocument = useMutation(api.library.reprocess);
 
@@ -369,6 +370,41 @@ export function useLibraryActions() {
   );
 
   /**
+   * Carries a reprobed document's new cover up to the account.
+   *
+   * `performUpload` cannot stand in for this: it recomputes and re-reads the
+   * *PDF* key, and a deduped document's `storageKey` is a twin's blob, so there
+   * is no upload of its own to attach the cover to. Without this path a cover
+   * rendered by a reprobe reaches only the device that rendered it, and every
+   * other device — and the desktop app — keeps drawing the fallback because
+   * `hasCover` never turns true on the server.
+   *
+   * A cover is decoration: a failure here is logged and swallowed, never
+   * surfaced, and never costs the document.
+   */
+  const pushCover = useCallback(
+    async (remoteId: string, localId: string): Promise<void> => {
+      if (profileId === null) {
+        return;
+      }
+      const cover = coverFile(profileId, localId);
+      if (!cover.exists) {
+        return;
+      }
+      const documentId = remoteId as Id<'documents'>;
+      try {
+        const target = await uploadUrl({ documentId, what: 'cover' });
+        await uploadFile(cover, target.url, 'image/jpeg');
+        await syncMetadata({ key: target.key });
+        await attachCover({ documentId, coverStorageKey: target.key });
+      } catch (error) {
+        log.debug(SCOPE, 'reprobe cover upload failed; keeping the document', error);
+      }
+    },
+    [profileId, uploadUrl, syncMetadata, attachCover],
+  );
+
+  /**
    * Records what a probe found, from wherever one was mounted.
    *
    * The import screen has its own path through `useImportFlow`, because there
@@ -423,8 +459,20 @@ export function useLibraryActions() {
         'pageCount',
         'hasOutline',
       ]);
+
+      // A synced document's new cover has to reach the account too, or it shows
+      // only on this device: `hasCover` stays false on the server, so every
+      // other device and the desktop app draw the fallback for good. A
+      // local-only document's cover rides along with its eventual upload, so
+      // this is only for one that already has a cloud copy.
+      if (coverKept && !offline) {
+        const row = await Documents.liveDocumentById(db, documentId);
+        if (row !== null && row.isSynced && row.remoteId !== null) {
+          await pushCover(row.remoteId, documentId);
+        }
+      }
     },
-    [profileId, bumpCoverEpoch],
+    [profileId, offline, bumpCoverEpoch, pushCover],
   );
 
   /** Removes the account's copy. The file on this device stays put. */

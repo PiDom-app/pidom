@@ -76,6 +76,22 @@ export const IPC = {
   importSetAssociation: 'import:setAssociation',
   importChanged: 'import:changed', // main → renderer push
 
+  // Offline organization: collections, membership, favorite, and finished as
+  // local-first writes. The renderer edits the local SQLite mirror through these
+  // (instant, offline-safe); an outbox replays each change to Convex on
+  // reconnect. One controlled method per op — never a generic SQL channel.
+  collectionsList: 'collections:list',
+  collectionsForDocument: 'collections:forDocument',
+  collectionsCreate: 'collections:create',
+  collectionsRename: 'collections:rename',
+  collectionsRemove: 'collections:remove',
+  collectionsAddDocuments: 'collections:addDocuments',
+  collectionsRemoveDocuments: 'collections:removeDocuments',
+  collectionsSetFavorite: 'collections:setFavorite',
+  collectionsSetFinished: 'collections:setFinished',
+  collectionsPending: 'collections:pending',
+  collectionsChanged: 'collections:changed', // main → renderer push
+
   // Auto-update (Windows, packaged only): a lightweight probe detects a new
   // version without downloading; download + apply run through Electron's built-in
   // Squirrel autoUpdater. `update:changed` pushes the full state on every phase move.
@@ -291,6 +307,32 @@ export interface UpdatePrefs {
   quiet: boolean;
 }
 
+/**
+ * One collection as the renderer reads it from the local mirror. `id` is a
+ * Convex collection id once synced, or a `col_<32hex>` placeholder while the
+ * create is still queued — the renderer treats both as opaque ids and hands
+ * either back on the next write, so a document can be filed into a collection
+ * that only exists offline. `documentCount` is the mirror's denormalised count.
+ */
+export interface CollectionSummary {
+  id: string;
+  name: string;
+  documentCount: number;
+  /** False while the id is still a local placeholder awaiting first sync. */
+  isSynced: boolean;
+}
+
+/**
+ * The whole organization snapshot pushed on every local change: the collections
+ * list and how many outbox writes are still waiting to reach Convex (drives the
+ * "Changes will sync" chip). Small enough to send whole rather than diff.
+ */
+export interface CollectionsSnapshot {
+  collections: CollectionSummary[];
+  /** Outbox rows not yet confirmed by the server (pending + in-flight). */
+  pending: number;
+}
+
 /** The surface exposed on `window.pidom` by the preload bridge. */
 export interface PidomBridge {
   auth: {
@@ -411,6 +453,32 @@ export interface PidomBridge {
      *  / "Open With" / Open Recent). Carries the just-imported document id so the
      *  renderer can navigate to the reader; returns an unsubscribe function. */
     onOpenExternalDocument(listener: (documentId: string) => void): () => void;
+  };
+  collections: {
+    /** The account's collections from the local mirror (offline-safe). */
+    list(): Promise<CollectionSummary[]>;
+    /** The collection ids a document is filed under, from the local mirror. */
+    forDocument(documentId: string): Promise<string[]>;
+    /** Creates a collection locally and queues it to sync; returns the new row
+     *  (its `id` is a `col_<hex>` placeholder until the create reaches Convex). */
+    create(name: string): Promise<CollectionSummary>;
+    /** Renames a collection locally and queues the change. */
+    rename(collectionId: string, name: string): Promise<void>;
+    /** Deletes a collection (and its local membership) and queues the change.
+     *  A collection that never synced is simply dropped, with nothing to replay. */
+    remove(collectionId: string): Promise<void>;
+    /** Files a bounded set of documents into a collection and queues the change. */
+    addDocuments(collectionId: string, documentIds: string[]): Promise<void>;
+    /** Removes a bounded set of documents from a collection and queues the change. */
+    removeDocuments(collectionId: string, documentIds: string[]): Promise<void>;
+    /** Sets the favorite flag on a bounded set of documents and queues the change. */
+    setFavorite(documentIds: string[], isFavorite: boolean): Promise<void>;
+    /** Sets the finished flag on a bounded set of documents and queues the change. */
+    setFinished(documentIds: string[], isFinished: boolean): Promise<void>;
+    /** How many outbox writes are still waiting to reach Convex. */
+    pending(): Promise<number>;
+    /** Subscribe to mirror/outbox changes; returns an unsubscribe function. */
+    onChange(listener: (snapshot: CollectionsSnapshot) => void): () => void;
   };
   update: {
     /** The current update state, for seeding the hook on mount. */

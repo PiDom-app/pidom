@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { AlertDialog, DropdownMenu, Toolbar } from 'radix-ui';
-import { useQuery } from 'convex/react';
 import {
   BookOpenCheck,
   ChevronRight,
@@ -14,11 +13,11 @@ import {
   StarOff,
   Trash2,
 } from 'lucide-react';
-import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { cn } from '@/lib/utils';
 import { buttonGhostClass, menuItemClass, menuSeparatorClass, surfaceClass } from '@/lib/ui';
 import { useDocumentActions } from '@/features/library/data/use-document-actions';
+import { useCollectionsMirror } from '@/features/library/data/use-collections-mirror';
 import { RenameDialog } from '@/features/library/components/rename-dialog';
 
 /**
@@ -66,7 +65,7 @@ export function ReaderMoreMenu({
 }) {
   const { toggleFavorite, setFinished, addDocumentToCollection, renameDocument, removeDocument } =
     useDocumentActions();
-  const collections = useQuery(api.collections.list, {});
+  const { collections, loading } = useCollectionsMirror();
 
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -129,7 +128,7 @@ export function ReaderMoreMenu({
                   className={cn(surfaceClass, 'max-h-72 w-52 overflow-auto')}
                   sideOffset={4}
                 >
-                  {collections === undefined ? (
+                  {loading ? (
                     <p className="px-2 py-1.5 text-sm text-fg-subtle">Loading…</p>
                   ) : collections.length === 0 ? (
                     <p className="px-2 py-1.5 text-sm text-fg-subtle">No collections yet.</p>

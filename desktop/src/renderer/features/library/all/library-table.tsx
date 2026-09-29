@@ -9,10 +9,11 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, ChevronsUpDown, Cloud, HardDrive } from 'lucide-react';
-import { DocumentActions } from '../components/document-actions';
+import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Cloud, HardDrive } from 'lucide-react';
+import { DocumentActions, type CollectionContext } from '../components/document-actions';
 import { ProgressLine } from '../components/progress-line';
 import { ImportStatusDot, uploadFraction } from '@/features/import/components/import-context-menu';
+import { handleSelectionClick, type DocumentId, type Selection } from '../data/use-selection';
 import { formatBytes, formatProgress, formatRelative } from '@/lib/format';
 import { useDesktopSettings } from '@/features/settings/use-desktop-settings';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,8 @@ import type { LibraryEntry } from '@/features/import/data/pseudo-document';
  * virtualization) still aligns like a table. `title` takes the remaining space. */
 function columnWidthClass(id: string): string {
   switch (id) {
+    case 'select':
+      return 'w-10 shrink-0';
     case 'title':
       return 'flex-1 min-w-0';
     case 'author':
@@ -44,6 +47,23 @@ function columnWidthClass(id: string): string {
   }
 }
 
+/** The 4px-radius selection box used in the header and each row. */
+function SelectBox({ checked, className }: { checked: boolean; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'flex size-4 items-center justify-center rounded-md border transition-colors',
+        checked
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-elevated text-transparent',
+        className,
+      )}
+    >
+      <Check className="size-3" />
+    </span>
+  );
+}
+
 /** The dense list. TanStack Table owns sort/filter state (headless); TanStack
  * Virtual mounts only the rows in view, so a library of thousands stays a few
  * dozen DOM nodes. Sorting and the text filter apply to the pages loaded so far;
@@ -52,18 +72,72 @@ export function LibraryTable({
   documents,
   globalFilter,
   onNearEnd,
+  collectionContext,
+  selection,
+  selectableIds,
 }: {
   documents: LibraryEntry[];
   globalFilter: string;
   onNearEnd: () => void;
+  collectionContext?: CollectionContext;
+  /** When set, rows show a leading selection column driven by this model. */
+  selection?: Selection;
+  /** On-screen order of selectable ids, for Shift-range selection. */
+  selectableIds?: DocumentId[];
 }) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const { density } = useDesktopSettings();
   const rowHeight = density === 'compact' ? 40 : 48;
   const cellPad = density === 'compact' ? 'py-1.5' : 'py-2';
 
+  const selectable = selection !== undefined && selectableIds !== undefined;
+  const allSelected =
+    selectable && selectableIds.length > 0 && selectableIds.every((id) => selection.isSelected(id));
+
   const columns = useMemo<ColumnDef<LibraryEntry>[]>(
     () => [
+      ...(selection && selectableIds
+        ? [
+            {
+              id: 'select',
+              enableSorting: false,
+              header: () => (
+                <button
+                  type="button"
+                  aria-label={allSelected ? 'Deselect all' : 'Select all'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    selection.setMany(selectableIds, !allSelected);
+                  }}
+                  className="flex items-center outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  <SelectBox checked={allSelected} />
+                </button>
+              ),
+              cell: ({ row }) =>
+                row.original.importJob ? null : (
+                  <button
+                    type="button"
+                    aria-label={selection.isSelected(row.original.id) ? 'Deselect' : 'Select'}
+                    aria-pressed={selection.isSelected(row.original.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (e.shiftKey) selection.toggleRange(row.original.id, selectableIds);
+                      else selection.toggle(row.original.id);
+                    }}
+                    className={cn(
+                      'flex items-center outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                      selection.isSelected(row.original.id)
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100',
+                    )}
+                  >
+                    <SelectBox checked={selection.isSelected(row.original.id)} />
+                  </button>
+                ),
+            } satisfies ColumnDef<LibraryEntry>,
+          ]
+        : []),
       {
         accessorKey: 'title',
         header: 'Title',
@@ -153,10 +227,12 @@ export function LibraryTable({
         header: '',
         enableSorting: false,
         cell: ({ row }) =>
-          row.original.importJob ? null : <DocumentActions document={row.original} />,
+          row.original.importJob ? null : (
+            <DocumentActions document={row.original} collectionContext={collectionContext} />
+          ),
       },
     ],
-    [],
+    [collectionContext, selection, selectableIds, allSelected],
   );
 
   const table = useReactTable({
@@ -229,12 +305,22 @@ export function LibraryTable({
         >
           {items.map((item) => {
             const row = rows[item.index];
+            const isSelected = selectable && selection.isSelected(row.original.id);
+            const onRowClick = (e: React.MouseEvent) => {
+              if (!selectable || row.original.importJob) return;
+              handleSelectionClick(selection, selectableIds, row.original.id, e);
+            };
             return (
               <tr
                 key={row.id}
                 data-index={item.index}
                 ref={virtualizer.measureElement}
-                className="flex w-full items-center shadow-[inset_0_-1px_0_rgb(var(--hairline))] hover:bg-hover"
+                onClick={selectable ? onRowClick : undefined}
+                className={cn(
+                  'group flex w-full items-center shadow-[inset_0_-1px_0_rgb(var(--hairline))]',
+                  isSelected ? 'bg-primary-tint' : 'hover:bg-hover',
+                  selectable && !row.original.importJob && 'cursor-default',
+                )}
                 style={{
                   position: 'absolute',
                   top: 0,

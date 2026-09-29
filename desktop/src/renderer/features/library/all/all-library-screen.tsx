@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { useDesktopSettings, desktopSettings } from '@/features/settings/use-desktop-settings';
 import { ImportMenu } from '@/features/import/components/import-menu';
 import { ImportDropZone } from '@/features/import/components/import-drop-zone';
 import { useAllLibrary } from '../data/use-all-library';
+import { useSelection, type DocumentId } from '../data/use-selection';
 import { EmptyLibrary } from '../components/empty-library';
+import { SyncStatusChip } from '../components/sync-status-chip';
 import { LibraryGrid } from './library-grid';
 import { LibraryTable } from './library-table';
 import { LibraryToolbar, type LibraryFilter } from './library-toolbar';
+import { SelectionToolbar } from './selection-toolbar';
 import type { LibraryEntry } from '@/features/import/data/pseudo-document';
 
 function matches(document: LibraryEntry, filter: LibraryFilter, query: string): boolean {
@@ -50,6 +53,30 @@ export function AllLibraryScreen({
     [documents, effectiveFilter, query],
   );
 
+  const selection = useSelection();
+
+  // Only real (synced) documents can be organised — a still-importing local
+  // file has a device-minted id the account does not know. Range selection and
+  // select-all run against this order, the on-screen order after filter/sort.
+  const selectableIds = useMemo<DocumentId[]>(
+    () => filtered.filter((d) => !d.importJob).map((d) => d.id),
+    [filtered],
+  );
+  const selectedDocuments = useMemo(
+    () => filtered.filter((d) => !d.importJob && selection.isSelected(d.id)),
+    [filtered, selection],
+  );
+
+  // Escape clears a live selection, the expected way out of selection mode.
+  useEffect(() => {
+    if (!selection.active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') selection.clear();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selection]);
+
   const onNearEnd = () => {
     if (status === 'CanLoadMore') loadMoreDefault();
   };
@@ -65,18 +92,27 @@ export function AllLibraryScreen({
               {status === 'Exhausted' ? `${documents.length} in library` : 'Loading…'}
             </span>
           )}
+          <SyncStatusChip />
           <ImportMenu />
         </PageHeader>
 
-        <LibraryToolbar
-          view={view}
-          onViewChange={desktopSettings.setLibraryView}
-          filter={effectiveFilter}
-          onFilterChange={lockedFilter ? undefined : setFilter}
-          query={query}
-          onQueryChange={setQuery}
-          count={filtered.length}
-        />
+        {selection.active ? (
+          <SelectionToolbar
+            count={selection.count}
+            selectedDocuments={selectedDocuments}
+            onClear={selection.clear}
+          />
+        ) : (
+          <LibraryToolbar
+            view={view}
+            onViewChange={desktopSettings.setLibraryView}
+            filter={effectiveFilter}
+            onFilterChange={lockedFilter ? undefined : setFilter}
+            query={query}
+            onQueryChange={setQuery}
+            count={filtered.length}
+          />
+        )}
 
         <div className="min-h-0 flex-1">
           {firstLoad ? (
@@ -92,9 +128,20 @@ export function AllLibraryScreen({
               <EmptyLibrary />
             )
           ) : view === 'grid' ? (
-            <LibraryGrid documents={filtered} onNearEnd={onNearEnd} />
+            <LibraryGrid
+              documents={filtered}
+              onNearEnd={onNearEnd}
+              selection={selection}
+              selectableIds={selectableIds}
+            />
           ) : (
-            <LibraryTable documents={filtered} globalFilter="" onNearEnd={onNearEnd} />
+            <LibraryTable
+              documents={filtered}
+              globalFilter=""
+              onNearEnd={onNearEnd}
+              selection={selection}
+              selectableIds={selectableIds}
+            />
           )}
         </div>
       </div>
