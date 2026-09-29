@@ -41,6 +41,19 @@ const RELEASES_URL = `https://github.com/${OWNER}/${REPO}/releases/latest`;
 /** How often auto-check re-probes while the app runs (6h); launch probes once. */
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
+/** Extra probe attempts before a check is declared failed, and the gap between
+ *  them. The launch probe often races a network that isn't ready yet, and the
+ *  hosted feed can cold-start with a transient 5xx; a couple of short retries
+ *  turn those blips into a clean result instead of "Couldn't check for updates". */
+const PROBE_RETRIES = 2;
+const PROBE_RETRY_DELAY_MS = 3000;
+
+/** After a check genuinely fails, re-check this soon (5m) rather than waiting the
+ *  full 6h auto-check interval — so a transient outage self-heals quickly. */
+const ERROR_RETRY_MS = 5 * 60 * 1000;
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** Defaults: check + download automatically, indicator visible (quiet off). */
 const DEFAULT_PREFS: UpdatePrefs = { autoCheck: true, autoDownload: true, quiet: false };
 
@@ -60,6 +73,7 @@ export class UpdateService {
   private error: string | null = null;
 
   private checkTimer: ReturnType<typeof setInterval> | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private squirrelWired = false;
   private probing = false;
 
@@ -108,6 +122,8 @@ export class UpdateService {
   dispose(): void {
     if (this.checkTimer) clearInterval(this.checkTimer);
     this.checkTimer = null;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
   }
 
   setPrefs(prefs: UpdatePrefs): void {
@@ -141,9 +157,10 @@ export class UpdateService {
     this.probing = true;
     this.setPhase('checking');
     try {
-      const found = await this.probe();
+      const found = await this.probeWithRetries();
       this.lastCheckedAt = Date.now();
       this.error = null;
+      this.clearErrorRetry();
       if (!found) {
         this.availableVersion = null;
         this.notes = null;
@@ -159,9 +176,48 @@ export class UpdateService {
     } catch {
       this.error = 'check-failed';
       this.setPhase('error');
+      this.scheduleErrorRetry();
     } finally {
       this.probing = false;
     }
+  }
+
+  /**
+   * Runs `probe()` up to `PROBE_RETRIES + 1` times with a short backoff, so a
+   * transient failure (network not ready at launch, feed cold-start 5xx, a
+   * GitHub blip that isn't a clean 404) doesn't strand the UI on
+   * "Couldn't check for updates". Rethrows the last error only if every attempt
+   * fails. Note: `probe()` already resolves (not rejects) for the benign 204/404
+   * and "not actually newer" cases, so those short-circuit without retrying.
+   */
+  private async probeWithRetries(): Promise<{ version: string | null; notes: string | null } | null> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= PROBE_RETRIES; attempt++) {
+      try {
+        return await this.probe();
+      } catch (err) {
+        lastError = err;
+        if (attempt < PROBE_RETRIES) await delay(PROBE_RETRY_DELAY_MS);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('probe failed');
+  }
+
+  /** Schedule a single near-term re-check after a persistent failure, so the app
+   *  recovers in minutes rather than waiting the full 6h auto-check interval.
+   *  Guards against stacking timers; the periodic auto-check still runs too. */
+  private scheduleErrorRetry(): void {
+    if (this.retryTimer) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.check();
+    }, ERROR_RETRY_MS);
+  }
+
+  /** Cancel a pending error re-check (a normal check has since succeeded). */
+  private clearErrorRetry(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
   }
 
   /**
