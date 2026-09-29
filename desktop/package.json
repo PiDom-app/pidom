@@ -35,7 +35,7 @@
     "drizzle-orm": "^1.0.0-rc.4",
     "electron-squirrel-startup": "^1.0.1",
     "fast-glob": "^3.3.2",
-    "file-type": "^19.6.0",
+    "file-type": "^21.3.2",
     "lucide-react": "^1.39.0",
     "mime-types": "^2.1.35",
     "motion": "^11.15.0",
@@ -74,7 +74,7 @@
     "tailwindcss": "^4.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "vite": "^8.3.1"
   },
   "keywords": [],
   "author": {
