@@ -8,7 +8,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import { z } from 'zod';
-import { BULK_MAX } from '@convex-model/limits';
+import { BULK_MAX, COVER_BYTE_MAX } from '@convex-model/limits';
 import {
   IPC,
   type EditAction,
@@ -71,6 +71,13 @@ const Schemas = {
   signedUrl: UrlSchema,
   documentId: IdSchema,
   destination: PathSchema,
+  // A rendered page-1 cover handed from the renderer (pdfjs is renderer-only) for
+  // main to PUT to R2. Bounded by the same COVER_BYTE_MAX the server enforces, so
+  // a hostile or buggy renderer cannot hand main an unbounded buffer; empty is
+  // rejected too (a zero-byte cover is never a valid JPEG).
+  attachCover: z
+    .object({ documentId: IdSchema, jpeg: z.instanceof(ArrayBuffer) })
+    .refine((v) => v.jpeg.byteLength > 0 && v.jpeg.byteLength <= COVER_BYTE_MAX),
   // Drag-drop hands main a batch of resolved absolute paths; a folder scan can be
   // large, so the cap is generous but finite. Each path is bounded too.
   paths: z.array(PathSchema).min(1).max(10_000),
@@ -431,6 +438,12 @@ export function registerIpc(
   );
   handleWith(IPC.storageMoveLibrary, Schemas.destination, (_event, destination: string) =>
     storage.moveLibrary(destination),
+  );
+  // The renderer renders page 1 to a JPEG (pdfjs is renderer-only) and hands the
+  // bytes here; main does the R2 PUT and attach, keeping R2 out of the renderer's
+  // CSP. Best-effort in the service — a cover never fails an import.
+  handleWith(IPC.storageAttachCover, Schemas.attachCover, (_event, { documentId, jpeg }) =>
+    storage.attachCover(documentId, new Uint8Array(jpeg)),
   );
 
   // ─── Desktop-initiated import ────────────────────────────────────────────────

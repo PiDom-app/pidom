@@ -57,6 +57,10 @@ export const IPC = {
   // document tree to it (validate → copy → verify → switch → clean up).
   storageChooseFolder: 'storage:chooseFolder',
   storageMoveLibrary: 'storage:moveLibrary',
+  // Uploads a renderer-rendered cover JPEG for a document and attaches it. Page 1
+  // is rendered by pdfjs (renderer-only); the R2 PUT runs in main, since the
+  // renderer CSP has no connect-src for R2.
+  storageAttachCover: 'storage:attachCover',
   storageChanged: 'storage:changed', // main → renderer push
   storageMigrationChanged: 'storage:migrationChanged', // main → renderer push
 
@@ -418,6 +422,14 @@ export interface PidomBridge {
      * `onMigration`; this resolves with the final outcome.
      */
     moveLibrary(destination: string): Promise<MigrationResult>;
+    /**
+     * Uploads a rendered cover JPEG for a document and attaches it to the
+     * account, so `hasCover` turns true and every device (and this app) stops
+     * drawing the lettered fallback. The renderer renders page 1 (pdfjs is
+     * renderer-only) and hands the bytes here; main does the R2 PUT. Best-effort:
+     * a cover is decoration, so the caller ignores a rejection.
+     */
+    attachCover(documentId: string, jpeg: ArrayBuffer): Promise<void>;
     /** Subscribe to local-status changes; returns an unsubscribe function. */
     onChange(listener: (status: LocalDocumentStatus) => void): () => void;
     /** Subscribe to migration progress; returns an unsubscribe function. */

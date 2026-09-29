@@ -1,6 +1,8 @@
+import { net } from 'electron';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
+import { COVER_BYTE_MAX } from '@convex-model/limits';
 import type { SessionManager } from '../auth/oauth';
 
 /**
@@ -127,6 +129,65 @@ export class StorageConvex {
       ...(opts?.coverStorageKey ? { coverStorageKey: opts.coverStorageKey } : {}),
       ...(typeof opts?.pageCount === 'number' ? { pageCount: opts.pageCount } : {}),
     });
+  }
+
+  /** Attaches an already-uploaded cover object to a synced document. Decoupled
+   *  from `attachUpload` so a cover can land after the document is `done` — the
+   *  case desktop hits, since the cover is rendered by a renderer-side probe long
+   *  after the headless main pipeline finished the upload. Owner-checked; the
+   *  server drops a bad cover and never fails the document. */
+  async attachCover(documentId: string, coverStorageKey: string): Promise<void> {
+    const client = await this.client();
+    await client.mutation(api.library.attachCover, {
+      documentId: documentId as Id<'documents'>,
+      coverStorageKey,
+    });
+  }
+
+  /**
+   * Uploads a rendered cover JPEG for a synced document and attaches it — the
+   * desktop analogue of the mobile app's `pushCover`. The renderer (which alone
+   * runs pdfjs) rendered page 1 and handed the bytes here; the R2 PUT stays in
+   * main because the renderer's CSP has no `connect-src` for R2.
+   *
+   * Two windows have to be waited out, both cleared with the same backoff the
+   * document upload uses in `import-service.ts`:
+   *   - the document may not be synced yet (its own upload is still in flight) —
+   *     `attachCover` throws "not synced", which is retried;
+   *   - `syncMetadata` only *schedules* the R2 HEAD-and-record, so a fast attach
+   *     reads null metadata and `attachCover` silently drops the cover (it does
+   *     not throw). So each attach is confirmed by re-reading `hasCover`, and the
+   *     loop retries until it turns true.
+   * A cover is decoration: the caller treats any throw as non-fatal.
+   */
+  async pushCover(documentId: string, bytes: Uint8Array): Promise<void> {
+    if (bytes.byteLength === 0 || bytes.byteLength > COVER_BYTE_MAX) {
+      throw new Error('cover rejected: bad size');
+    }
+    const docId = documentId as Id<'documents'>;
+    const target = await this.uploadUrl(documentId, 'cover');
+    const url = new URL(target.url);
+    if (url.protocol !== 'https:') throw new Error('cover rejected: non-https URL');
+    await putCover(url, Buffer.from(bytes));
+    await this.syncMetadata(target.key);
+
+    const waits = [250, 500, 1000, 2000, 3500];
+    for (let attempt = 0; attempt < waits.length; attempt += 1) {
+      await delay(waits[attempt]);
+      const last = attempt === waits.length - 1;
+      try {
+        await this.attachCover(documentId, target.key);
+      } catch (error) {
+        // The document's own upload may still be in flight; give it time. Any
+        // other failure (wrong key, over-size) is permanent — rethrow at once.
+        if (isNotSynced(error) && !last) continue;
+        throw error;
+      }
+      const client = await this.client();
+      const doc = await client.query(api.library.document, { documentId: docId });
+      if (doc?.hasCover) return;
+    }
+    throw new Error('cover attach did not settle');
   }
 
   /* ── organization outbox replay (see collections/drain.ts) ──────────────── */
@@ -283,4 +344,47 @@ export class StorageConvex {
       continueCursor: result.continueCursor,
     };
   }
+}
+
+/** PUTs a small fixed-length cover body to a presigned R2 URL. A cover is tens of
+ *  KB, so the whole buffer is sent under an explicit `Content-Length` (a chunked
+ *  body would break the presigned signature) with no progress reporting — the
+ *  larger, progress-reporting document PUT lives in `import-service.ts`. */
+function putCover(url: URL, body: Buffer): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const request = net.request({ method: 'PUT', url: url.toString(), credentials: 'omit' });
+    request.setHeader('Content-Type', 'image/jpeg');
+    request.setHeader('Content-Length', String(body.byteLength));
+    request.on('response', (response) => {
+      const status = response.statusCode;
+      response.on('data', () => {
+        /* drain the body; R2 answers a PUT with an empty or short one */
+      });
+      response.on('end', () => {
+        if (status >= 200 && status < 300) resolve();
+        else reject(new Error(`server ${status}`));
+      });
+      response.on('error', reject);
+    });
+    request.on('error', reject);
+    request.end(body);
+  });
+}
+
+/** Resolves after `ms` milliseconds. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Whether a Convex error is `attachCover`'s "not synced" — the document's own
+ *  upload has not landed yet, so its cover has nothing to sit beside. Transient:
+ *  the upload finishes and a later attach succeeds. */
+function isNotSynced(error: unknown): boolean {
+  const data = (error as { data?: unknown } | null)?.data;
+  if (data && typeof data === 'object') {
+    const message = (data as { message?: unknown }).message;
+    if (typeof message === 'string' && message.includes('not synced')) return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('not synced');
 }

@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useCoverUrl } from '../data/use-cover-url';
 import { CollectionContextMenu } from './collection-actions';
 import type { Id } from '@convex/dataModel';
@@ -35,12 +35,20 @@ export function CollectionTile({
   coverDocumentIds?: Id<'documents'>[];
 }) {
   const covers = coverDocumentIds.slice(0, 4);
+  const navigate = useNavigate();
+
+  // The tile is a link, so a single click opens it. A double-click — the desktop
+  // reflex for a folder — opens it too; navigating to the route it is already
+  // heading to is idempotent, so both gestures land on the same screen.
+  const open = () =>
+    void navigate({ to: '/collections/$collectionId', params: { collectionId: collection.id } });
 
   return (
     <CollectionContextMenu collection={collection}>
       <Link
         to="/collections/$collectionId"
         params={{ collectionId: collection.id }}
+        onDoubleClick={open}
         className="group flex w-full flex-col gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         <div className="grid aspect-[3/4] grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-md border border-border bg-sunken transition-colors group-hover:border-border-strong">

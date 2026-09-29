@@ -126,6 +126,24 @@ export class StorageService {
     this.assertNotMigrating();
   }
 
+  /**
+   * Uploads a rendered page-1 cover for a synced document and attaches it to the
+   * account, so `hasCover` turns true and the lettered fallback gives way to the
+   * real cover everywhere. The renderer alone runs pdfjs, so it renders the JPEG
+   * and hands the bytes here over `storage:attachCover`; the R2 PUT stays in main
+   * because the renderer's CSP has no `connect-src` for R2. Best-effort: a cover
+   * is decoration, so a failure is swallowed rather than surfaced — the document
+   * is untouched and its tile simply keeps the fallback.
+   */
+  async attachCover(documentId: string, bytes: Uint8Array): Promise<void> {
+    if (!isSafeDocumentId(documentId)) return;
+    try {
+      await this.convex.pushCover(documentId, bytes);
+    } catch {
+      /* best-effort: a cover never fails an import or blocks the library */
+    }
+  }
+
   private emit(status: LocalDocumentStatus): void {
     for (const listener of this.listeners) listener(status);
   }
