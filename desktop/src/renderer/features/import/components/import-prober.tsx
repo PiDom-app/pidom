@@ -114,6 +114,20 @@ async function probe(
       pageCount,
       outline,
     });
+
+    // Render page 1 to a bounded JPEG and attach it as the cover. This is the one
+    // place a desktop cover can be made — pdfjs runs only in the renderer — and
+    // until it existed a desktop-imported document never got one, so every tile
+    // and collection mosaic drew the lettered fallback. The bytes go to main,
+    // which does the R2 PUT (the renderer's CSP has no `connect-src` for R2). Its
+    // own try/catch: the probe above already landed, and a cover is decoration —
+    // a render or upload failure must never undo a `ready` document.
+    try {
+      const jpeg = await renderCoverJpeg(pdf);
+      if (jpeg) await window.pidom.storage.attachCover(documentId, jpeg);
+    } catch {
+      /* best-effort: the document stays `ready` and keeps the fallback cover */
+    }
   } catch {
     /* best-effort: the document stays `probing` and a later session retries */
   } finally {
@@ -121,4 +135,34 @@ async function probe(
     void pdf?.destroy();
     if (handle) void window.pidom.reader.closeDocument(handle);
   }
+}
+
+/** Backing-store width of a rendered cover, in pixels. Wide enough to stay crisp
+ *  on the ~148px collection mosaic cells and 120px grid tiles at 2×, small enough
+ *  that a quality-0.8 JPEG sits far under the server's COVER_BYTE_MAX (512 KB). */
+const COVER_RENDER_WIDTH = 640;
+
+/**
+ * Renders page 1 to a bounded JPEG, or null when the canvas cannot encode one.
+ *
+ * The size is deterministic regardless of the display: the backing store is sized
+ * to `COVER_RENDER_WIDTH` directly rather than scaled by `devicePixelRatio` (as
+ * the reader's `renderPageToCanvas` is, to stay sharp on any monitor), so the
+ * encoded bytes stay predictable and well under the cover cap on every machine.
+ * The canvas is never attached to the DOM — pdfjs paints an offscreen one fine.
+ */
+async function renderCoverJpeg(pdf: PDFDocumentProxy): Promise<ArrayBuffer | null> {
+  const page = await pdf.getPage(1);
+  const base = page.getViewport({ scale: 1 });
+  const viewport = page.getViewport({ scale: COVER_RENDER_WIDTH / base.width });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) return null;
+  await page.render({ canvasContext: context, viewport }).promise;
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/jpeg', 0.8),
+  );
+  return blob ? blob.arrayBuffer() : null;
 }

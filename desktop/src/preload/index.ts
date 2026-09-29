@@ -78,6 +78,8 @@ const bridge: PidomBridge = {
     copyPath: () => ipcRenderer.invoke(IPC.storageCopyPath),
     chooseFolder: () => ipcRenderer.invoke(IPC.storageChooseFolder),
     moveLibrary: (destination: string) => ipcRenderer.invoke(IPC.storageMoveLibrary, destination),
+    attachCover: (documentId: string, jpeg: ArrayBuffer) =>
+      ipcRenderer.invoke(IPC.storageAttachCover, { documentId, jpeg }),
     onChange: (listener: (status: LocalDocumentStatus) => void) => {
       const handler = (_event: unknown, status: LocalDocumentStatus) => listener(status);
       ipcRenderer.on(IPC.storageChanged, handler);

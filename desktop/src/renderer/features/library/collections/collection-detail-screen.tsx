@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, FolderClosed } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
+import { FolderClosed, RefreshCw } from 'lucide-react';
 import type { Id } from '@convex/dataModel';
 import { PageHeader } from '@/components/shell/page-header';
+import { Breadcrumbs } from '@/components/shell/breadcrumbs';
 import { useDesktopSettings, desktopSettings } from '@/features/settings/use-desktop-settings';
 import { useCollection } from '../data/use-collection';
+import { isLocalCollectionId } from '../data/collection-id';
 import { useCollectionsMirror } from '../data/use-collections-mirror';
 import { LibraryGrid } from '../all/library-grid';
 import { LibraryTable } from '../all/library-table';
@@ -19,7 +21,7 @@ import { CollectionMenu } from '../components/collection-actions';
  * collection is offered on each tile (see the `collectionContext` prop threaded
  * to the grid and list).
  */
-export function CollectionDetailScreen({ collectionId }: { collectionId: Id<'collections'> }) {
+export function CollectionDetailScreen({ collectionId }: { collectionId: string }) {
   const settings = useDesktopSettings();
   const view = settings.libraryView;
   const navigate = useNavigate();
@@ -27,6 +29,12 @@ export function CollectionDetailScreen({ collectionId }: { collectionId: Id<'col
   const { collections } = useCollectionsMirror();
   const collection = collections.find((c) => c.id === collectionId);
   const { documents, status, loadMoreDefault } = useCollection(collectionId);
+
+  // A collection created offline wears a `col_<hex>` id until its create syncs;
+  // its documents can't be read from the account until then. Show that honestly
+  // rather than "Nothing here yet" — the outbox re-keys it to the Convex id
+  // within a drain, after which the list loads.
+  const syncing = isLocalCollectionId(collectionId) || collection?.isSynced === false;
 
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -43,17 +51,14 @@ export function CollectionDetailScreen({ collectionId }: { collectionId: Id<'col
 
   const firstLoad = status === 'LoadingFirstPage';
   const name = collection?.name ?? 'Collection';
-  const collectionContext = { id: collectionId, name };
+  const collectionContext = { id: collectionId as Id<'collections'>, name };
 
   return (
     <div className="flex h-full flex-col px-8 py-8">
-      <Link
-        to="/collections"
-        className="mb-4 inline-flex w-fit items-center gap-1.5 rounded-md text-sm text-fg-muted outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
-      >
-        <ArrowLeft className="size-4" />
-        Collections
-      </Link>
+      <Breadcrumbs
+        className="mb-4"
+        items={[{ label: 'Collections', to: '/collections' }, { label: name }]}
+      />
 
       <PageHeader
         title={name}
@@ -90,6 +95,8 @@ export function CollectionDetailScreen({ collectionId }: { collectionId: Id<'col
         ) : filtered.length === 0 ? (
           query ? (
             <p className="py-16 text-center text-sm text-fg-muted">No documents match.</p>
+          ) : syncing ? (
+            <SyncingCollection />
           ) : (
             <EmptyCollection />
           )
@@ -104,6 +111,23 @@ export function CollectionDetailScreen({ collectionId }: { collectionId: Id<'col
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/** Shown for a collection that exists only offline so far — its documents live
+ *  on the account and appear once the create syncs. */
+function SyncingCollection() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <div className="flex size-12 items-center justify-center rounded-md bg-sunken text-fg-subtle">
+        <RefreshCw className="size-6" />
+      </div>
+      <h2 className="mt-4 text-lg font-semibold text-foreground">Syncing…</h2>
+      <p className="mt-1 max-w-sm text-sm text-fg-muted">
+        This collection was created offline. Its documents appear here once it syncs to your
+        account.
+      </p>
     </div>
   );
 }
