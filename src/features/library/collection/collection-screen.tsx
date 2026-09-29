@@ -19,7 +19,6 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAppToast } from '@/components/feedback/use-app-toast';
 
-import { DocumentActions } from '../components/document-actions';
 import * as Collections from '../local/repository/collections';
 import { useLocalQuery } from '../local/use-local-query';
 import { useCollectionActions } from '../data/use-collection-actions';
@@ -76,10 +75,8 @@ export function CollectionScreen() {
 
   useCoverSync(data?.documents ?? EMPTY);
 
-  const [acting, setActing] = useState<LibraryDocument | null>(null);
-
   // The same rule as every other surface: tap fetches what is only in the
-  // account, and opens what is here. Long press is always the sheet.
+  // account, and opens what is here.
   const openDocument = useCallback(
     (document: LibraryDocument) => {
       // Two taps mean "get it": a document only the account has, and one whose
@@ -183,7 +180,6 @@ export function CollectionScreen() {
                 width={106}
                 showProgress={item.progress > 0}
                 onPress={openDocument}
-                onLongPress={setActing}
               />
             </Box>
           )}
@@ -191,8 +187,6 @@ export function CollectionScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-
-      <DocumentActions document={acting} onClose={() => setActing(null)} />
 
       <NameDialog
         isOpen={renaming}

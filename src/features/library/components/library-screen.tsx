@@ -28,7 +28,6 @@ import { databaseFault } from '../local/db';
 import type { LibraryShare } from '../local/repository/types';
 import { documentFile } from '../local/paths';
 import { COLLECTION_TILE_HEIGHT, CollectionTile } from './collection-tile';
-import { DocumentActions } from './document-actions';
 import { COVER_WIDTH } from './document-cover';
 import { DocumentProbe, type ProbeResult } from './document-probe';
 import { DocumentTile, tileHeight } from './document-tile';
@@ -99,8 +98,6 @@ export function LibraryScreen() {
     [sections],
   );
   const pending = usePendingProbe(documents);
-
-  const [acting, setActing] = useState<LibraryDocument | null>(null);
 
   // Google's copy is there the instant the sheet closes; the Convex row is a
   // round trip later. Preferring the local one keeps the header from flashing.
@@ -183,7 +180,6 @@ export function LibraryScreen() {
               document={document}
               showProgress={section.showProgress}
               onPress={openDocument}
-              onLongPress={setActing}
             />
           )}
         />
@@ -309,8 +305,6 @@ export function LibraryScreen() {
           return true;
         }}
       />
-
-      <DocumentActions document={acting} onClose={() => setActing(null)} />
 
       {/* Mounted, not called: reading a PDF page means putting a native view on
           screen and snapshotting it. It sits off-screen and reports once, and
