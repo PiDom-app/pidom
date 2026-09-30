@@ -74,7 +74,7 @@ export function NavRail() {
         ))}
       </div>
 
-      <div className="mt-2 flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5">
         <NavLink to="/settings" label="Settings" icon={SettingsIcon} pad={itemPad} />
         <AccountControl />
       </div>

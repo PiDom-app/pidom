@@ -42,6 +42,7 @@ export function AllLibraryScreen({
 }) {
   const settings = useDesktopSettings();
   const view = settings.libraryView;
+  const isListView = view === 'list';
   const { documents, status, loadMoreDefault } = useAllLibrary();
 
   const [filter, setFilter] = useState<LibraryFilter>(lockedFilter ?? 'all');
@@ -77,6 +78,10 @@ export function AllLibraryScreen({
     return () => window.removeEventListener('keydown', onKey);
   }, [selection]);
 
+  useEffect(() => {
+    if (!isListView && selection.active) selection.clear();
+  }, [isListView, selection.active, selection.clear]);
+
   const onNearEnd = () => {
     if (status === 'CanLoadMore') loadMoreDefault();
   };
@@ -96,7 +101,7 @@ export function AllLibraryScreen({
           <ImportMenu />
         </PageHeader>
 
-        {selection.active ? (
+        {isListView && selection.active ? (
           <SelectionToolbar
             count={selection.count}
             selectedDocuments={selectedDocuments}
@@ -128,12 +133,7 @@ export function AllLibraryScreen({
               <EmptyLibrary />
             )
           ) : view === 'grid' ? (
-            <LibraryGrid
-              documents={filtered}
-              onNearEnd={onNearEnd}
-              selection={selection}
-              selectableIds={selectableIds}
-            />
+            <LibraryGrid documents={filtered} onNearEnd={onNearEnd} />
           ) : (
             <LibraryTable
               documents={filtered}
