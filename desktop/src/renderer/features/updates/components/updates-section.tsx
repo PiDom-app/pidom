@@ -218,7 +218,7 @@ function describe(
     case 'error':
       return {
         icon: <TriangleAlert className="size-4 text-warn" />,
-        text: 'Couldn’t check for updates',
+        text: updateErrorLabel(state.error),
         tone: 'text-fg-muted',
       };
     default:
@@ -227,5 +227,22 @@ function describe(
         text: 'Pidom is up to date',
         tone: 'text-fg-muted',
       };
+  }
+}
+
+function updateErrorLabel(error: string | null): string {
+  switch (error) {
+    case 'feed-timeout':
+      return 'The update service took too long to respond';
+    case 'feed network error':
+      return 'The update service is unreachable';
+    case 'feed parse failed':
+    case 'feed version missing':
+      return 'The latest release data was invalid';
+    case 'download-failed':
+    case 'update-error':
+      return 'Couldn’t download the update';
+    default:
+      return 'Couldn’t check for updates';
   }
 }

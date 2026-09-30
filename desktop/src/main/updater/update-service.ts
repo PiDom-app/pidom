@@ -33,6 +33,7 @@ const REPO = 'pidom';
 
 /** Electron's free hosted update feed for public repos. HTTPS only. */
 const FEED_HOST = 'https://update.electronjs.org';
+const FEED_PLATFORM = `win32-${process.arch}`;
 
 /** The release page opened by "What's new" — a fixed github.com URL, never feed
  *  data, so it always passes the shell's https guard. */
@@ -51,6 +52,8 @@ const PROBE_RETRY_DELAY_MS = 3000;
 /** After a check genuinely fails, re-check this soon (5m) rather than waiting the
  *  full 6h auto-check interval — so a transient outage self-heals quickly. */
 const ERROR_RETRY_MS = 5 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 15_000;
+const SQUIRREL_FIRST_RUN_DELAY_MS = 10_000;
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -76,6 +79,7 @@ export class UpdateService {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private squirrelWired = false;
   private probing = false;
+  private startTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.supported = app.isPackaged && process.platform === 'win32';
@@ -115,7 +119,17 @@ export class UpdateService {
   start(): void {
     if (!this.supported) return;
     this.applyAutoCheck();
-    if (this.prefs.autoCheck) void this.check();
+    if (!this.prefs.autoCheck) return;
+    // Squirrel holds a file lock during first-run setup. Electron documents
+    // that autoUpdater requests can fail during this window.
+    if (process.argv.includes('--squirrel-firstrun')) {
+      this.startTimer = setTimeout(() => {
+        this.startTimer = null;
+        void this.check();
+      }, SQUIRREL_FIRST_RUN_DELAY_MS);
+      return;
+    }
+    void this.check();
   }
 
   /** Stop the periodic timer (on quit). */
@@ -124,6 +138,8 @@ export class UpdateService {
     this.checkTimer = null;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = null;
+    if (this.startTimer) clearTimeout(this.startTimer);
+    this.startTimer = null;
   }
 
   setPrefs(prefs: UpdatePrefs): void {
@@ -139,6 +155,10 @@ export class UpdateService {
     if (this.checkTimer) {
       clearInterval(this.checkTimer);
       this.checkTimer = null;
+    }
+    if (!this.prefs.autoCheck && this.startTimer) {
+      clearTimeout(this.startTimer);
+      this.startTimer = null;
     }
     if (this.prefs.autoCheck) {
       this.checkTimer = setInterval(() => void this.check(), AUTO_CHECK_INTERVAL_MS);
@@ -173,8 +193,10 @@ export class UpdateService {
       this.notesUrl = RELEASES_URL;
       this.setPhase('available');
       if (this.prefs.autoDownload) void this.download();
-    } catch {
-      this.error = 'check-failed';
+    } catch (error) {
+      this.error = error instanceof Error && error.message.startsWith('feed ')
+        ? error.message
+        : 'check-failed';
       this.setPhase('error');
       this.scheduleErrorRetry();
     } finally {
@@ -229,36 +251,58 @@ export class UpdateService {
    */
   private probe(): Promise<{ version: string | null; notes: string | null } | null> {
     return new Promise((resolve, reject) => {
-      const url = `${FEED_HOST}/${OWNER}/${REPO}/win32/${encodeURIComponent(this.currentVersion)}`;
+      const url = `${FEED_HOST}/${OWNER}/${REPO}/${FEED_PLATFORM}/${encodeURIComponent(this.currentVersion)}`;
       const request = net.request({ method: 'GET', url });
+      const timeout = setTimeout(() => {
+        request.abort();
+        reject(new Error('feed-timeout'));
+      }, REQUEST_TIMEOUT_MS);
+      const finish = <T>(fn: (value: T) => void, value: T): void => {
+        clearTimeout(timeout);
+        fn(value);
+      };
       request.on('response', (response) => {
         const status = response.statusCode;
         const chunks: Buffer[] = [];
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
         response.on('end', () => {
-          if (status === 204) return resolve(null);
+          if (status === 204) return finish(resolve, null);
           // A 404 is not a failure: the feed has no matching update to offer —
           // no releases published yet, no asset matching this platform, or a
           // brief GitHub rate-limit (update.electronjs.org collapses all of
           // these to 404). Treat it exactly like a 204 "up to date" so the UI
           // never shows "Couldn't check for updates" for the common, benign
           // case of there simply being nothing newer to install.
-          if (status === 404) return resolve(null);
-          if (status !== 200) return reject(new Error(`feed status ${status}`));
+          if (status === 404) return finish(resolve, null);
+          if (status !== 200) {
+            clearTimeout(timeout);
+            return reject(new Error(`feed status ${status}`));
+          }
           try {
             const parsed = parseProbeResponse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-            if (!parsed) return resolve(null);
+            if (!parsed) {
+              clearTimeout(timeout);
+              return reject(new Error('feed parse failed'));
+            }
             const version = extractVersion(parsed.name ?? null, parsed.url ?? null);
+            if (!version) {
+              clearTimeout(timeout);
+              return reject(new Error('feed version missing'));
+            }
             // Defence in depth: the server gates on semver, but if we can read a
             // version, refuse to advertise one that isn't strictly newer.
-            if (version && !isNewer(version, this.currentVersion)) return resolve(null);
-            resolve({ version, notes: parsed.notes ?? null });
+            if (!isNewer(version, this.currentVersion)) return finish(resolve, null);
+            finish(resolve, { version, notes: parsed.notes ?? null });
           } catch {
+            clearTimeout(timeout);
             reject(new Error('feed parse failed'));
           }
         });
       });
-      request.on('error', () => reject(new Error('feed network error')));
+      request.on('error', () => {
+        clearTimeout(timeout);
+        reject(new Error('feed network error'));
+      });
       request.end();
     });
   }
@@ -273,7 +317,7 @@ export class UpdateService {
     if (this.phase === 'downloading' || this.phase === 'ready') return;
     try {
       this.wireSquirrel();
-      const feed = `${FEED_HOST}/${OWNER}/${REPO}/win32/${encodeURIComponent(this.currentVersion)}`;
+      const feed = `${FEED_HOST}/${OWNER}/${REPO}/${FEED_PLATFORM}/${encodeURIComponent(this.currentVersion)}`;
       autoUpdater.setFeedURL({ url: feed });
       this.error = null;
       this.setPhase('downloading');

@@ -420,6 +420,7 @@ jobs:
           done < <(find out/make/squirrel.windows -name '*.nupkg')
           test "$NUPKG_COUNT" -gt 0
           echo "Staged RELEASES + ${NUPKG_COUNT} nupkg(s) for the update feed."
+          npm run validate:release -- release "$DESKTOP_VERSION"
 
       # Sign the staged installer with signtool and a PFX from secrets. This is
       # the certificate-agnostic path — it works with a Certum Open Source cert, a
@@ -569,3 +570,10 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Pidom Desktop ${DESKTOP_VERSION}" \
             --notes-file "$RELEASE_NOTES"
+
+          # Verify the public hosted feed can see the just-published Squirrel
+          # package before declaring the release successful. GitHub release
+          # propagation can take a few seconds, so retry the read.
+          FEED_URL="https://update.electronjs.org/${GITHUB_REPOSITORY}/win32-x64/0.0.0"
+          FEED_JSON="$(curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 "$FEED_URL")"
+          FEED_JSON="$FEED_JSON" node -e "const p=JSON.parse(process.env.FEED_JSON); if (!p || typeof p.name !== 'string' || typeof p.url !== 'string') throw new Error('Hosted update feed returned an invalid release payload');"

@@ -42,3 +42,19 @@ compatible update to the `production` channel. Pull requests run quality checks
 only. The public GitHub Release body includes the generated changelog, the EAS
 build ID, the commit, checksum verification instructions, the update/runtime
 boundary, and the active Observe/security notes for that APK.
+
+## Windows desktop updates
+
+The packaged desktop app uses Electron's Squirrel.Windows updater through
+`https://update.electronjs.org/PiDom-app/pidom`. Each desktop GitHub Release
+must retain the generated `RELEASES` manifest and every `.nupkg` file referenced
+by that manifest; renaming either breaks automatic updates. The release
+workflow validates this relationship before publishing and probes the hosted
+feed after publication.
+
+Desktop versions are stamped in CI as `1.0.<workflow run number>`. The
+`desktop/package.json` version is only the committed major/minor base used to
+produce that stamp; do not manually publish an installer from the base version.
+The updater checks the architecture-specific Windows feed, waits through
+Squirrel's first-run file lock, retries transient failures, and reports
+network/feed/download failures separately in Settings.
