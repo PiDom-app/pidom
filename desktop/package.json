@@ -14,6 +14,7 @@
     "routes": "tsr generate",
     "db:generate": "drizzle-kit generate",
     "icons": "node scripts/generate-icons.mjs",
+    "validate:release": "node scripts/validate-release-artifacts.mjs",
     "typecheck": "tsc --noEmit",
     "tokens": "node scripts/check-tokens.mjs",
     "test": "node --test \"test/**/*.test.ts\"",
