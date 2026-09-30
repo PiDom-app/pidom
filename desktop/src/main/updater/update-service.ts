@@ -52,6 +52,7 @@ const PROBE_RETRY_DELAY_MS = 3000;
 /** After a check genuinely fails, re-check this soon (5m) rather than waiting the
  *  full 6h auto-check interval — so a transient outage self-heals quickly. */
 const ERROR_RETRY_MS = 5 * 60 * 1000;
+const INITIAL_NETWORK_RETRY_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const SQUIRREL_FIRST_RUN_DELAY_MS = 10_000;
 
@@ -194,9 +195,16 @@ export class UpdateService {
       this.setPhase('available');
       if (this.prefs.autoDownload) void this.download();
     } catch (error) {
-      this.error = error instanceof Error && error.message.startsWith('feed ')
+      const reason = error instanceof Error && error.message.startsWith('feed ')
         ? error.message
         : 'check-failed';
+      if (this.lastCheckedAt === null && (reason === 'feed network error' || reason === 'feed-timeout')) {
+        this.error = null;
+        this.setPhase('idle');
+        this.scheduleErrorRetry(INITIAL_NETWORK_RETRY_MS);
+        return;
+      }
+      this.error = reason;
       this.setPhase('error');
       this.scheduleErrorRetry();
     } finally {
@@ -228,12 +236,12 @@ export class UpdateService {
   /** Schedule a single near-term re-check after a persistent failure, so the app
    *  recovers in minutes rather than waiting the full 6h auto-check interval.
    *  Guards against stacking timers; the periodic auto-check still runs too. */
-  private scheduleErrorRetry(): void {
+  private scheduleErrorRetry(delayMs = ERROR_RETRY_MS): void {
     if (this.retryTimer) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       void this.check();
-    }, ERROR_RETRY_MS);
+    }, delayMs);
   }
 
   /** Cancel a pending error re-check (a normal check has since succeeded). */
@@ -251,57 +259,55 @@ export class UpdateService {
    */
   private probe(): Promise<{ version: string | null; notes: string | null } | null> {
     return new Promise((resolve, reject) => {
+      let settled = false;
       const url = `${FEED_HOST}/${OWNER}/${REPO}/${FEED_PLATFORM}/${encodeURIComponent(this.currentVersion)}`;
       const request = net.request({ method: 'GET', url });
-      const timeout = setTimeout(() => {
-        request.abort();
-        reject(new Error('feed-timeout'));
-      }, REQUEST_TIMEOUT_MS);
-      const finish = <T>(fn: (value: T) => void, value: T): void => {
+      const complete = <T>(fn: (value: T) => void, value: T): void => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timeout);
         fn(value);
       };
+      const timeout = setTimeout(() => {
+        complete(reject, new Error('feed-timeout'));
+        request.abort();
+      }, REQUEST_TIMEOUT_MS);
       request.on('response', (response) => {
         const status = response.statusCode;
         const chunks: Buffer[] = [];
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
         response.on('end', () => {
-          if (status === 204) return finish(resolve, null);
+          if (status === 204) return complete(resolve, null);
           // A 404 is not a failure: the feed has no matching update to offer —
           // no releases published yet, no asset matching this platform, or a
           // brief GitHub rate-limit (update.electronjs.org collapses all of
           // these to 404). Treat it exactly like a 204 "up to date" so the UI
           // never shows "Couldn't check for updates" for the common, benign
           // case of there simply being nothing newer to install.
-          if (status === 404) return finish(resolve, null);
+          if (status === 404) return complete(resolve, null);
           if (status !== 200) {
-            clearTimeout(timeout);
-            return reject(new Error(`feed status ${status}`));
+            return complete(reject, new Error(`feed status ${status}`));
           }
           try {
             const parsed = parseProbeResponse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
             if (!parsed) {
-              clearTimeout(timeout);
-              return reject(new Error('feed parse failed'));
+              return complete(reject, new Error('feed parse failed'));
             }
             const version = extractVersion(parsed.name ?? null, parsed.url ?? null);
             if (!version) {
-              clearTimeout(timeout);
-              return reject(new Error('feed version missing'));
+              return complete(reject, new Error('feed version missing'));
             }
             // Defence in depth: the server gates on semver, but if we can read a
             // version, refuse to advertise one that isn't strictly newer.
-            if (!isNewer(version, this.currentVersion)) return finish(resolve, null);
-            finish(resolve, { version, notes: parsed.notes ?? null });
+            if (!isNewer(version, this.currentVersion)) return complete(resolve, null);
+            complete(resolve, { version, notes: parsed.notes ?? null });
           } catch {
-            clearTimeout(timeout);
-            reject(new Error('feed parse failed'));
+            complete(reject, new Error('feed parse failed'));
           }
         });
       });
       request.on('error', () => {
-        clearTimeout(timeout);
-        reject(new Error('feed network error'));
+        complete(reject, new Error('feed network error'));
       });
       request.end();
     });
