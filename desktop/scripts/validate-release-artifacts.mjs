@@ -18,7 +18,7 @@ const entries = fs.readFileSync(manifestPath, 'utf8')
   .map((line) => {
     const parts = line.split(/\s+/);
     if (parts.length !== 3) throw new Error(`Invalid RELEASES entry: ${line}`);
-    return { hash: parts[0], size: Number(parts[1]), name: parts[2] };
+    return { hash: parts[0], name: parts[1], size: Number(parts[2]) };
   });
 
 if (entries.length === 0) throw new Error('RELEASES contains no packages');
