@@ -66,7 +66,11 @@ const Schemas = {
   zoomAction: z.enum(['in', 'out', 'reset']),
   externalUrl: UrlSchema,
   keepAwake: z.boolean(),
-  readerOpen: z.object({ documentId: IdSchema, signedUrl: UrlSchema }),
+  readerOpen: z.object({
+    documentId: IdSchema,
+    signedUrl: UrlSchema,
+    documentKind: z.string().max(16).optional(),
+  }),
   handle: HandleSchema,
   signedUrl: UrlSchema,
   documentId: IdSchema,

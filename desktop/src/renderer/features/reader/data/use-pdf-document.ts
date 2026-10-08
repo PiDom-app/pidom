@@ -30,7 +30,10 @@ const NOT_SYNCED =
   'This document is not stored in your account yet, so there is nothing here to open.';
 const OPEN_FAILED = "This document couldn't be opened.";
 
-export function usePdfDocument(documentId: Id<'documents'>): PdfDocumentState {
+export function usePdfDocument(
+  documentId: Id<'documents'>,
+  documentKind: string = 'pdf',
+): PdfDocumentState {
   const convex = useConvex();
   const [state, setState] = useState<PdfDocumentState>({
     status: 'loading',
@@ -47,6 +50,18 @@ export function usePdfDocument(documentId: Id<'documents'>): PdfDocumentState {
     let doc: PDFDocumentProxy | null = null;
 
     setState({ status: 'loading', doc: null, pageCount: 0, firstPageSize: null, error: null });
+    if (documentKind !== 'pdf') {
+      setState({
+        status: 'error',
+        doc: null,
+        pageCount: 0,
+        firstPageSize: null,
+        error: null,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
 
     void (async () => {
       // Minting a signed URL can fail for two benign reasons: a local-only
@@ -70,6 +85,7 @@ export function usePdfDocument(documentId: Id<'documents'>): PdfDocumentState {
         const opened = await window.pidom.reader.openDocument({
           documentId,
           signedUrl: signedUrl ?? '',
+          documentKind,
         });
         handle = opened.handle;
         url = opened.url;
@@ -119,7 +135,7 @@ export function usePdfDocument(documentId: Id<'documents'>): PdfDocumentState {
       void doc?.destroy();
       if (handle) void window.pidom.reader.closeDocument(handle);
     };
-  }, [convex, documentId]);
+  }, [convex, documentId, documentKind]);
 
   return state;
 }

@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { CLOUD_BYTE_MAX, TEXT_BYTE_MAX } from '@convex-model/limits';
 import type { ReaderDocumentHandle, ReaderOpenRequest } from '../shared/ipc';
 import { isSafeDocumentId } from './storage/paths';
+import { detectDocumentFormat, hasRecognizedSignature } from '../../../src/lib/document-formats';
 
 /**
  * The one privileged thing the reader needs: turn a signed URL into bytes the
@@ -76,9 +77,6 @@ const FETCH_TIMEOUT_MS = 60_000;
  */
 const MAX_OPEN_DOCUMENTS = 8;
 
-/** Every PDF begins with this. Anything else is not one, whatever it was named. */
-const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
-
 interface OpenDocument {
   path: string;
   bytes: number;
@@ -87,6 +85,7 @@ interface OpenDocument {
    *  Closing or evicting the handle drops the map entry but must NOT delete the
    *  file — that copy outlives the reader session. */
   persistent?: boolean;
+  contentType: string;
 }
 
 /** Handle → verified copy. The renderer only ever holds the key. */
@@ -127,7 +126,7 @@ function handleDocumentProtocol(request: Request): Promise<Response> {
       new Response(file.body, {
         status: file.status,
         headers: {
-          'content-type': 'application/pdf',
+          'content-type': entry.contentType,
           'content-length': String(entry.bytes),
           // The copy is temporary and already local; a second cache layer would
           // only keep bytes alive past the `closeDocument` that deleted them.
@@ -193,6 +192,12 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     throw new Error('openDocument rejected: bad document id');
   }
 
+  const format = detectDocumentFormat(
+    request.documentKind ? `document.${request.documentKind}` : 'document.pdf',
+    undefined,
+  );
+  if (format.format === 'unknown') throw new Error('openDocument rejected: unsupported format');
+
   // A persistent local copy opens with no network at all: the storage service
   // already fetched, verified the `%PDF-` magic, and hashed these bytes when it
   // downloaded them, so this serves them straight back over the same handle the
@@ -209,8 +214,14 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
         bytes: info.size,
         openedAt: Date.now(),
         persistent: true,
+        contentType: format.contentType,
       });
-      return { handle, url: `${DOC_SCHEME}://${handle}/document.pdf`, bytes: info.size };
+      return {
+        handle,
+        url: `${DOC_SCHEME}://${handle}/document`,
+        bytes: info.size,
+        contentType: format.contentType,
+      };
     } catch {
       // The record said available but the file is gone; fall through and fetch.
     }
@@ -233,7 +244,7 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
   // The id is hashed into the name rather than written into it, so nothing the
   // renderer sends becomes a filename even after the shape check above.
   const stamp = createHash('sha256').update(request.documentId).digest('hex').slice(0, 16);
-  const path = normalize(join(dir, `${stamp}-${handle}.pdf`));
+  const path = normalize(join(dir, `${stamp}-${handle}.${format.extensions[0] ?? 'bin'}`));
   if (!path.startsWith(dir + sep)) throw new Error('openDocument failed: bad cache path');
 
   const controller = new AbortController();
@@ -260,7 +271,7 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     if (!response.body) throw new Error('openDocument failed: empty response');
 
     const sink = createWriteStream(path, { mode: 0o600 });
-    const head = Buffer.alloc(PDF_MAGIC.byteLength);
+    const head = Buffer.alloc(8);
     let headLength = 0;
 
     try {
@@ -279,9 +290,6 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
             0,
             Math.min(chunk.byteLength, head.byteLength - headLength),
           );
-          if (headLength === head.byteLength && !head.equals(PDF_MAGIC)) {
-            throw new Error('openDocument rejected: not a PDF');
-          }
         }
 
         // Respect backpressure: a fast network into a slow disk would otherwise
@@ -291,7 +299,9 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
         }
       }
 
-      if (headLength < head.byteLength) throw new Error('openDocument rejected: not a PDF');
+      if (!hasRecognizedSignature(format.format, head.subarray(0, headLength))) {
+        throw new Error('openDocument rejected: invalid document signature');
+      }
 
       await new Promise<void>((resolve, reject) =>
         sink.end((error?: Error | null) => (error ? reject(error) : resolve())),
@@ -308,9 +318,19 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     clearTimeout(timer);
   }
 
-  open.set(handle, { path, bytes: total, openedAt: Date.now() });
+  open.set(handle, {
+    path,
+    bytes: total,
+    openedAt: Date.now(),
+    contentType: format.contentType,
+  });
 
-  return { handle, url: `${DOC_SCHEME}://${handle}/document.pdf`, bytes: total };
+  return {
+    handle,
+    url: `${DOC_SCHEME}://${handle}/document`,
+    bytes: total,
+    contentType: format.contentType,
+  };
 }
 
 /**

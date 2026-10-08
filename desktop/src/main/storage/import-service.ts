@@ -14,15 +14,18 @@ import { importJobs, localFiles, type ImportJobRow, type ImportJobState } from '
 import type { SessionManager } from '../auth/oauth';
 import { StorageConvex } from './convex-client';
 import type { StorageService } from './service';
+import { detectDocumentFormat } from '../../../../src/lib/document-formats';
 import {
   documentPath,
   fingerprintOfFile,
   isSafeDocumentId,
   mintLocalId,
-  scanPdfs,
+  scanDocuments,
   validateSourceFile,
 } from './paths';
 import { getPdfAssociation, setPdfAssociation } from '../squirrel-events';
+
+const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
 
 /**
  * The desktop-initiated import pipeline.
@@ -44,8 +47,6 @@ import { getPdfAssociation, setPdfAssociation } from '../squirrel-events';
  */
 
 /** Every PDF begins with this. A renamed non-PDF fails here, whatever its name. */
-const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
-
 /** Presentation title cap; the id, not the title, is ever a path segment. */
 const MAX_TITLE = 200;
 
@@ -139,14 +140,45 @@ export class ImportService {
 
   // ---- acquisition ---------------------------------------------------------
 
-  /** Opens the OS file picker (PDF filter, multi-select), stages every chosen
+  /** Opens the OS file picker (all supported document formats, multi-select), stages every chosen
    *  file, and returns how many were queued. No path crosses back to a caller. */
   async pickFiles(): Promise<number> {
     const parent = activeWindow();
     const options: Electron.OpenDialogOptions = {
-      title: 'Import PDFs',
+      title: 'Import documents',
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      filters: [
+        {
+          name: 'Supported documents',
+          extensions: [
+            'pdf',
+            'txt',
+            'text',
+            'log',
+            'md',
+            'markdown',
+            'html',
+            'htm',
+            'epub',
+            'doc',
+            'docx',
+            'odt',
+            'rtf',
+            'csv',
+            'xls',
+            'xlsx',
+            'ppt',
+            'pptx',
+            'png',
+            'jpg',
+            'jpeg',
+            'gif',
+            'bmp',
+            'webp',
+            'avif',
+          ],
+        },
+      ],
     };
     const result = parent
       ? await dialog.showOpenDialog(parent, options)
@@ -155,19 +187,19 @@ export class ImportService {
     return this.addPaths(result.filePaths);
   }
 
-  /** Opens the OS folder picker, scans it for PDFs (bounded), stages them, and
+  /** Opens the OS folder picker, scans it for supported documents (bounded), stages them, and
    *  returns how many were queued. */
   async pickFolder(): Promise<number> {
     const parent = activeWindow();
     const options: Electron.OpenDialogOptions = {
-      title: 'Import a folder of PDFs',
+      title: 'Import a folder of documents',
       properties: ['openDirectory'],
     };
     const result = parent
       ? await dialog.showOpenDialog(parent, options)
       : await dialog.showOpenDialog(options);
     if (result.canceled || result.filePaths.length === 0) return 0;
-    const files = await scanPdfs(result.filePaths[0]);
+    const files = await scanDocuments(result.filePaths[0]);
     return this.addPaths(files);
   }
 
@@ -204,7 +236,7 @@ export class ImportService {
    */
   private async stageOne(sourcePath: string): Promise<string | null> {
     this.storage.throwIfBusy();
-    const { canonical, size } = await validateSourceFile(sourcePath);
+    const { canonical, size, format, mimeType } = await validateSourceFile(sourcePath);
     const fingerprint = await fingerprintOfFile(canonical, size);
 
     // Skip bytes a live job already holds. The server dedups too, but this avoids
@@ -221,7 +253,7 @@ export class ImportService {
     const title = titleFromPath(canonical);
     const originalName = basename(canonical);
     const paths = await this.storage.resolvePaths();
-    const finalPath = documentPath(paths, localId);
+    const finalPath = documentPath(paths, localId, format.format);
     const partPath = join(paths.tmp, `${localId}-${Date.now()}.part`);
 
     db.insert(importJobs)
@@ -229,6 +261,8 @@ export class ImportService {
         localId,
         title,
         originalName,
+        documentKind: format.format,
+        mimeType,
         byteSize: size,
         fingerprint,
         state: 'staging',
@@ -238,7 +272,7 @@ export class ImportService {
     this.emit();
 
     try {
-      const contentHash = await stageCopy(canonical, partPath, size);
+      const contentHash = await stageCopy(canonical, partPath, size, format.format);
       // Re-check right before the move: a migration may have begun while the
       // (slow) copy above ran, and `moveLibrary` walks `documents/` — renaming a
       // new file in mid-walk could copy a half or drop it. The throw is caught
@@ -325,12 +359,24 @@ export class ImportService {
           title: job.title,
           byteSize: job.byteSize,
           localId,
-          // Parity with the mobile importer: the account records what kind of file
-          // this is and when the device imported it, so a desktop-imported document
-          // is indistinguishable from one added on the phone. `author`/`pageCount`
-          // come from the PDF probe, which is renderer-only work desktop does not
-          // run yet — so they are sent only when a prior step happened to fill them.
-          mimeType: 'application/pdf',
+          mimeType: job.mimeType ?? detectDocumentFormat(job.originalName ?? '', null).contentType,
+          documentKind: job.documentKind as
+            | 'pdf'
+            | 'doc'
+            | 'docx'
+            | 'odt'
+            | 'rtf'
+            | 'epub'
+            | 'md'
+            | 'txt'
+            | 'html'
+            | 'csv'
+            | 'xls'
+            | 'xlsx'
+            | 'ppt'
+            | 'pptx'
+            | 'image'
+            | undefined,
           clientUpdatedAt: Date.now(),
           ...(job.fingerprint ? { fingerprint: job.fingerprint } : {}),
           ...(job.originalName ? { originalFileName: job.originalName } : {}),
@@ -368,8 +414,26 @@ export class ImportService {
   private async reconcile(localId: string, remoteId: string): Promise<void> {
     const db = getDb();
     const paths = await this.storage.resolvePaths();
-    const from = documentPath(paths, localId);
-    const to = documentPath(paths, remoteId);
+    const job = this.jobOrThrow(localId);
+    const format = job.documentKind as
+      | 'pdf'
+      | 'doc'
+      | 'docx'
+      | 'odt'
+      | 'rtf'
+      | 'epub'
+      | 'md'
+      | 'txt'
+      | 'html'
+      | 'csv'
+      | 'xls'
+      | 'xlsx'
+      | 'ppt'
+      | 'pptx'
+      | 'image'
+      | undefined;
+    const from = documentPath(paths, localId, format);
+    const to = documentPath(paths, remoteId, format);
 
     const destExists = await stat(to).then(
       () => true,
@@ -440,7 +504,10 @@ export class ImportService {
     this.uploadProgress.set(localId, 0);
     this.emit();
     let lastEmit = 0;
-    await putFixedLength(url, body, 'application/pdf', (sent) => {
+    const job = this.jobOrThrow(localId);
+    const contentType =
+      job.mimeType ?? detectDocumentFormat(job.originalName ?? '', null).contentType;
+    await putFixedLength(url, body, contentType, (sent) => {
       this.uploadProgress.set(localId, sent);
       const now = Date.now();
       if (sent >= body.byteLength || now - lastEmit >= PROGRESS_INTERVAL_MS) {
@@ -597,7 +664,12 @@ function titleFromPath(path: string): string {
  * applies to a network body, since a local file is untrusted input too. Returns
  * the full sha256 of what was written; the caller renames the `.part` into place.
  */
-async function stageCopy(source: string, part: string, _expected: number): Promise<string> {
+async function stageCopy(
+  source: string,
+  part: string,
+  _expected: number,
+  format: string,
+): Promise<string> {
   const hash = createHash('sha256');
   const src = createReadStream(source);
   const sink = createWriteStream(part, { mode: 0o600 });
@@ -615,14 +687,14 @@ async function stageCopy(source: string, part: string, _expected: number): Promi
           0,
           Math.min(chunk.byteLength, head.byteLength - headLength),
         );
-        if (headLength === head.byteLength && !head.equals(PDF_MAGIC)) {
+        if (format === 'pdf' && headLength === head.byteLength && !head.equals(PDF_MAGIC)) {
           throw new Error('not a PDF');
         }
       }
       hash.update(chunk);
       if (!sink.write(chunk)) await once(sink, 'drain');
     }
-    if (headLength < head.byteLength) throw new Error('not a PDF');
+    if (format === 'pdf' && headLength < head.byteLength) throw new Error('not a PDF');
     await new Promise<void>((resolve, reject) =>
       sink.end((error?: Error | null) => (error ? reject(error) : resolve())),
     );

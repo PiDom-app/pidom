@@ -221,6 +221,27 @@ export const importDocument = mutation({
     originalFileName: v.optional(v.string()),
     /** What the picker claimed. Recorded, not trusted — the bytes decided. */
     mimeType: v.optional(v.string()),
+    /** Stable format family for capability-based renderers. */
+    documentKind: v.optional(
+      v.union(
+        v.literal('pdf'),
+        v.literal('doc'),
+        v.literal('docx'),
+        v.literal('odt'),
+        v.literal('rtf'),
+        v.literal('epub'),
+        v.literal('md'),
+        v.literal('txt'),
+        v.literal('html'),
+        v.literal('csv'),
+        v.literal('xls'),
+        v.literal('xlsx'),
+        v.literal('ppt'),
+        v.literal('pptx'),
+        v.literal('image'),
+        v.literal('unknown'),
+      ),
+    ),
     /** From the probe, when it finished before the reader committed. */
     pageCount: v.optional(v.number()),
     /** `<byteSize>-<sha256 of both ends>`, checked for shape server-side. */

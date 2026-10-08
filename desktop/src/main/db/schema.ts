@@ -153,6 +153,8 @@ export const importJobs = sqliteTable(
     /** Sanitized picked filename, for presentation only. */
     title: text('title').notNull(),
     originalName: text('original_name'),
+    documentKind: text('document_kind'),
+    mimeType: text('mime_type'),
     byteSize: integer('byte_size').notNull(),
     /** Mobile `<size>-<sha256(head|"|size|"|tail)>` fingerprint, for server dedup. */
     fingerprint: text('fingerprint'),

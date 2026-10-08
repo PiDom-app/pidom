@@ -3,6 +3,34 @@
 How a document gets from a file picker to a second phone, and what owns which
 half of it along the way.
 
+## Format capability boundary
+
+Pidom now records a normalised `documentKind` alongside the original filename
+and MIME type. The kind is a stable capability key (`pdf`, `epub`, `docx`,
+`xlsx`, `image`, and the other common families), while the filename and MIME
+type remain untrusted presentation metadata.
+
+The distinction matters:
+
+- **PDF** continues to use the existing fixed-layout pipeline: native PDF
+  rendering on mobile, PDF.js in the desktop renderer, page positions, PDF
+  outlines, and page-oriented annotations.
+- **Reflowable formats** such as Markdown, HTML, EPUB, DOCX, ODT, and RTF must
+  expose a text/section representation rather than pretending to have PDF
+  pages.
+- **Structured formats** such as CSV, XLS/XLSX, and PPT/PPTX need format-specific
+  viewers and limits. A spreadsheet is a grid and a presentation is a slide
+  sequence; neither should be flattened into the PDF page contract.
+- **Images** preserve their pixel dimensions and do not automatically become
+  searchable text. OCR is a separate, bounded capability.
+
+The registry is shared by desktop import, storage, protocol serving, and reader
+dispatch. Desktop adapters produce fixed-page, reflowable, structured, or
+slide surfaces while mobile remains PDF-only. Every adapter opens bytes through
+the main-process `pidom-doc` protocol; filesystem paths, storage keys, and
+arbitrary network access never cross into the renderer. Archive-backed formats
+are bounded and office/EPUB active content is not executed.
+
 ## Where a PDF lives
 
 **Convex owns metadata, the device owns the file.** Rendering the library never
