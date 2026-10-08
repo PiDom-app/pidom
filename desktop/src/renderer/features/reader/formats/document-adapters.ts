@@ -18,13 +18,23 @@ function stripMarkup(value: string): string {
 
 function sanitizeHtml(value: string): string {
   return value
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<(iframe|object|embed|form)\b[^>]*\/?>/gi, '')
-    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/\s+(?:src|href)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, (attribute) =>
-      /\s+href\s*=\s*["']#/i.test(attribute) ? attribute : '',
+    .replace(
+      /<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
+      '',
+    )
+    .replace(/<(script|style|iframe|object|embed|form)\b[^>]*\/?>/gi, '')
+    .replace(
+      /(\s+|\/)on[a-z][a-z0-9:_-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'=`<>]+))?/gi,
+      (_attribute, separator: string) => (separator === '/' ? '/' : ''),
+    )
+    .replace(
+      /(\s+|\/)(src|href|action|formaction|poster|cite|background|srcset|xlink:href)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'=`<>]+)/gi,
+      (attribute, separator: string, name: string) =>
+        name.toLowerCase() === 'href' && /\s*=\s*["']#/i.test(attribute)
+          ? attribute
+          : separator === '/'
+            ? '/'
+            : '',
     );
 }
 

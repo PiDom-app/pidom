@@ -24,10 +24,55 @@ test('desktop adapter fixture matrix', async (t) => {
 
   await t.test('sanitizes HTML active content and external resources', () => {
     const result = parseDocumentBytes(
-      text('<h1>Pidom</h1><script>alert(1)</script><img src="https://evil.test/x" onerror="alert(2)">'),
+      text(
+        '<h1>Pidom</h1><script>alert(1)</script><img src="https://evil.test/x" onerror="alert(2)">',
+      ),
       'html',
     );
     assert.deepEqual(result, { kind: 'html', html: '<h1>Pidom</h1><img>' });
+  });
+
+  await t.test('removes varied event-handler attributes', () => {
+    const result = parseDocumentBytes(
+      text(
+        '<div onload="a()" ONCLICK = \'b()\' onfocus=c() onmouseover\n=\n"d()" ' +
+          'onerror></div><img/onbeforeinput="e()">',
+      ),
+      'html',
+    );
+    assert.deepEqual(result, { kind: 'html', html: '<div></div><img/>' });
+  });
+
+  await t.test('removes active URL attributes but keeps fragment links', () => {
+    const result = parseDocumentBytes(
+      text(
+        '<a href="#section">local</a><a href="https://evil.test">external</a>' +
+          '<form action="/submit"><button formaction="https://evil.test">submit</button></form>' +
+          '<img srcset="https://evil.test/a 1x" poster="https://evil.test/v">',
+      ),
+      'html',
+    );
+    assert.deepEqual(result, {
+      kind: 'html',
+      html: '<a href="#section">local</a><a>external</a><img>',
+    });
+  });
+
+  await t.test('blocks active elements with whitespace-tolerant closing tags', () => {
+    const result = parseDocumentBytes(
+      text(
+        '<main>Safe</main>' +
+          '<script>alert(1)</script >' +
+          '<style>.safe{color:red}</style >' +
+          '<iframe src="https://evil.test/frame">frame</iframe >' +
+          '<object data="https://evil.test/object">object</object >' +
+          '<embed src="https://evil.test/embed">' +
+          '<form action="https://evil.test/form">form</form >',
+      ),
+      'html',
+    );
+
+    assert.deepEqual(result, { kind: 'html', html: '<main>Safe</main>' });
   });
 
   await t.test('reads CSV into a bounded structured grid', () => {
