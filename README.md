@@ -16,9 +16,38 @@ without changing the reader shell or its offline-first behavior.
 [![React Native 0.86](https://img.shields.io/badge/React%20Native-0.86-20232a?logo=react)](https://reactnative.dev)
 [![Convex](https://img.shields.io/badge/Convex-backend-EE342F)](https://convex.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![CI](https://github.com/PiDom-app/pidom/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PiDom-app/pidom/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/PiDom-app/pidom?display_name=tag&sort=semver)](https://github.com/PiDom-app/pidom/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6a59e8.svg)](LICENSE)
 
 </div>
+
+## Download
+
+Try the latest production builds from [GitHub Releases](https://github.com/PiDom-app/pidom/releases/latest):
+
+- [Android APK](https://github.com/PiDom-app/pidom/releases/latest)
+- [Windows desktop installer](https://github.com/PiDom-app/pidom/releases/latest)
+
+Release artifacts include checksums where available. For setup requirements and
+development builds, see [docs/setup.md](docs/setup.md).
+
+## See Pidom
+
+<p>
+  <a href="docs/screens/home-light.png">
+    <img src="docs/screens/home-light.png" alt="Pidom library on mobile" width="31%">
+  </a>
+  <a href="docs/screens/reader.png">
+    <img src="docs/screens/reader.png" alt="Pidom document reader" width="31%">
+  </a>
+  <a href="docs/screens/offline.png">
+    <img src="docs/screens/offline.png" alt="Pidom library in offline mode" width="31%">
+  </a>
+</p>
+
+The screenshots show the mobile library, reader, and offline experience. The
+same account and reading model extends to the desktop app.
 
 ## Features
 
@@ -128,6 +157,9 @@ Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING
 and keep changes focused, tested, and small enough to review.
 
 Security reports should follow [SECURITY.md](SECURITY.md).
+
+If Pidom is useful to you, [star the repository](https://github.com/PiDom-app/pidom)
+to help other privacy-minded readers find it.
 
 ## License
 

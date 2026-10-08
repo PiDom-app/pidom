@@ -2,6 +2,26 @@
   "name": "pidom",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "description": "A private, offline-first document reader for Android and Windows.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PiDom-app/pidom.git"
+  },
+  "homepage": "https://github.com/PiDom-app/pidom/releases/latest",
+  "bugs": {
+    "url": "https://github.com/PiDom-app/pidom/issues"
+  },
+  "keywords": [
+    "document-reader",
+    "pdf-reader",
+    "offline-first",
+    "privacy",
+    "react-native",
+    "expo",
+    "electron",
+    "convex"
+  ],
+  "license": "MIT",
   "dependencies": {
     "@convex-dev/expo-push-notifications": "^0.3.1",
     "@convex-dev/presence": "^0.4.0",

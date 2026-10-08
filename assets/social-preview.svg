@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">Pidom private offline-first document reader</title>
+  <desc id="desc">A branded Pidom social preview for Android and Windows.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17152d"/>
+      <stop offset="1" stop-color="#6a59e8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#background)"/>
+  <circle cx="1040" cy="80" r="220" fill="#ffffff" opacity=".08"/>
+  <circle cx="1160" cy="560" r="320" fill="#ffffff" opacity=".06"/>
+  <g transform="translate(112 132)" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M78 0C35 0 0 35 0 78s35 78 78 78h8c43 0 78-35 78-78 0-15-4-29-11-41l19-19-10-10-18 18C130 10 108 0 86 0h-8z"/>
+    <path d="m44 64 40 40 70-70"/>
+  </g>
+  <text x="112" y="350" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="92" font-weight="700">Pidom</text>
+  <text x="116" y="430" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="400">Private, offline-first document reading</text>
+  <text x="116" y="505" fill="#eceaff" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="600">Android • Windows • Your library</text>
+</svg>
