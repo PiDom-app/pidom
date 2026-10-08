@@ -68,6 +68,87 @@ export const readingModeValidator = v.union(
 );
 
 export type ReadingMode = 'continuous' | 'single' | 'spread';
+export type DocumentKind =
+  | 'pdf'
+  | 'doc'
+  | 'docx'
+  | 'odt'
+  | 'rtf'
+  | 'epub'
+  | 'md'
+  | 'txt'
+  | 'html'
+  | 'csv'
+  | 'xls'
+  | 'xlsx'
+  | 'ppt'
+  | 'pptx'
+  | 'image'
+  | 'unknown';
+
+const KIND_BY_EXTENSION: Record<string, DocumentKind> = {
+  pdf: 'pdf',
+  doc: 'doc',
+  docx: 'docx',
+  odt: 'odt',
+  rtf: 'rtf',
+  epub: 'epub',
+  md: 'md',
+  markdown: 'md',
+  txt: 'txt',
+  text: 'txt',
+  log: 'txt',
+  html: 'html',
+  htm: 'html',
+  csv: 'csv',
+  xls: 'xls',
+  xlsx: 'xlsx',
+  ppt: 'ppt',
+  pptx: 'pptx',
+  avif: 'image',
+  bmp: 'image',
+  gif: 'image',
+  jpeg: 'image',
+  jpg: 'image',
+  png: 'image',
+  webp: 'image',
+};
+
+const KIND_BY_MIME: Record<string, DocumentKind> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.oasis.opendocument.text': 'odt',
+  'application/rtf': 'rtf',
+  'text/rtf': 'rtf',
+  'application/epub+zip': 'epub',
+  'text/markdown': 'md',
+  'text/x-markdown': 'md',
+  'text/plain': 'txt',
+  'text/html': 'html',
+  'application/xhtml+xml': 'html',
+  'text/csv': 'csv',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'image/avif': 'image',
+  'image/bmp': 'image',
+  'image/gif': 'image',
+  'image/jpeg': 'image',
+  'image/png': 'image',
+  'image/webp': 'image',
+};
+
+function kindFromMetadata(
+  filename: string | undefined,
+  mimeType: string | undefined,
+): DocumentKind {
+  const byMime = mimeType === undefined ? undefined : KIND_BY_MIME[mimeType.toLowerCase()];
+  if (byMime !== undefined) return byMime;
+  const extension = filename?.toLowerCase().split('.').pop() ?? '';
+  return KIND_BY_EXTENSION[extension] ?? 'unknown';
+}
 
 export type PublicDocument = {
   id: Id<'documents'>;
@@ -96,6 +177,7 @@ export type PublicDocument = {
   /** What the file was called when it was picked, if that was recorded. */
   originalFileName: string | null;
   mimeType: string | null;
+  documentKind: DocumentKind;
   /**
    * Enough of the file to recognise it again.
    *
@@ -136,6 +218,7 @@ export function toPublicDocument(doc: Doc<'documents'>): PublicDocument {
     hasOutline: doc.hasOutline ?? false,
     originalFileName: doc.originalFileName ?? null,
     mimeType: doc.mimeType ?? null,
+    documentKind: doc.documentKind ?? 'pdf',
     fingerprint: doc.fingerprint ?? null,
     // `processingError` is deliberately absent: it is a code the client already
     // has a sentence for, and a backend string rendered straight into a screen
@@ -182,6 +265,24 @@ export const publicDocumentValidator = v.object({
   hasOutline: v.boolean(),
   originalFileName: v.union(v.string(), v.null()),
   mimeType: v.union(v.string(), v.null()),
+  documentKind: v.union(
+    v.literal('pdf'),
+    v.literal('doc'),
+    v.literal('docx'),
+    v.literal('odt'),
+    v.literal('rtf'),
+    v.literal('epub'),
+    v.literal('md'),
+    v.literal('txt'),
+    v.literal('html'),
+    v.literal('csv'),
+    v.literal('xls'),
+    v.literal('xlsx'),
+    v.literal('ppt'),
+    v.literal('pptx'),
+    v.literal('image'),
+    v.literal('unknown'),
+  ),
   fingerprint: v.union(v.string(), v.null()),
 });
 
@@ -303,6 +404,7 @@ export type ImportInput = {
   originalFileName?: string;
   /** What the picker claimed. Recorded, not trusted. */
   mimeType?: string;
+  documentKind?: DocumentKind;
   /**
    * From the probe, which runs while the reader is still typing a title. A
    * document arrives in the library already knowing how long it is; only a
@@ -360,6 +462,7 @@ export async function importDocument(
   // document id is — so this is about legibility rather than safety.
   const originalFileName = cleanOptionalText(input.originalFileName, TITLE_MAX, 'File name');
   const mimeType = cleanOptionalText(input.mimeType, MIME_TYPE_MAX, 'File type');
+  const documentKind = input.documentKind ?? kindFromMetadata(originalFileName, mimeType);
 
   if (!Number.isFinite(input.byteSize) || input.byteSize <= 0) {
     invalid('A document must have a size.');
@@ -416,6 +519,7 @@ export async function importDocument(
     ...(author === undefined ? {} : { author }),
     ...(originalFileName === undefined ? {} : { originalFileName }),
     ...(mimeType === undefined ? {} : { mimeType }),
+    documentKind,
     ...(pageCount === undefined ? {} : { pageCount }),
     ...(fingerprint === undefined ? {} : { fingerprint }),
     ...localIdField(input.localId),

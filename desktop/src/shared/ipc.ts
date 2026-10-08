@@ -135,6 +135,8 @@ export interface ReaderOpenRequest {
   documentId: string;
   /** A short-lived signed R2 URL the renderer just minted through Convex. */
   signedUrl: string;
+  /** Verified by Convex metadata; main still applies a safe registry lookup. */
+  documentKind?: string;
 }
 
 /**
@@ -148,6 +150,7 @@ export interface ReaderDocumentHandle {
   handle: string;
   url: string;
   bytes: number;
+  contentType: string;
 }
 
 /** The availability of a document's physical copy on this computer. Mirrors the
@@ -179,14 +182,7 @@ export interface LocalDocumentStatus {
 /** The phases of a library-location migration, reported as it runs. `copying`
  *  and `verifying` carry progress; the rest are transitions. */
 export type MigrationPhase =
-  | 'idle'
-  | 'validating'
-  | 'copying'
-  | 'verifying'
-  | 'switching'
-  | 'cleaning'
-  | 'done'
-  | 'failed';
+  'idle' | 'validating' | 'copying' | 'verifying' | 'switching' | 'cleaning' | 'done' | 'failed';
 
 /** Live migration progress pushed to the renderer while a move runs. */
 export interface MigrationStatus {
@@ -274,13 +270,7 @@ export interface ImportJobStatus {
  * - `error`: the last probe or download failed (surfaced, non-fatal).
  */
 export type UpdatePhase =
-  | 'unsupported'
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'error';
+  'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
 
 /** The full auto-update state, pushed to the renderer on every phase change.
  *  Carries only version strings, notes text, and timestamps — never a path. */

@@ -4,6 +4,13 @@ import { mkdir, open as openFile, readdir, realpath, stat } from 'node:fs/promis
 import { isAbsolute, join, normalize, resolve, sep } from 'node:path';
 
 import { CLOUD_BYTE_MAX } from '@convex-model/limits';
+import {
+  detectDocumentFormat,
+  formatFromFilename,
+  hasRecognizedSignature,
+  type DocumentCapabilities,
+  type DocumentFormat,
+} from '../../../../src/lib/document-formats';
 
 /**
  * Where offline documents live on this computer, and the rules that keep a
@@ -134,18 +141,23 @@ export async function validateDestinationBase(
  * `[A-Za-z0-9]`, so there is no separator or `..` to normalise away — this is
  * the second gate, matching the reader cache's `startsWith(dir + sep)` check.
  */
-export function documentPath(paths: LibraryPaths, documentId: string): string {
+export function documentPath(
+  paths: LibraryPaths,
+  documentId: string,
+  format: DocumentFormat = 'pdf',
+): string {
   if (!isSafeDocumentId(documentId)) {
     throw new Error('storage rejected: bad document id');
   }
-  const path = normalize(join(paths.documents, `${documentId}.pdf`));
+  const extension = formatFromFilename(`document.${format}`).extensions[0] ?? 'bin';
+  const path = normalize(join(paths.documents, `${documentId}.${extension}`));
   if (!path.startsWith(paths.documents + sep)) {
     throw new Error('storage rejected: path escapes the library root');
   }
   return path;
 }
 
-/** Every PDF begins with this. A renamed `.txt` fails here, whatever its name. */
+/** Every PDF begins with this. Other formats use their own bounded signature rules. */
 const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
 
 /** The 64 KB edge window the mobile fingerprint hashes at each end of the file. */
@@ -195,6 +207,8 @@ export interface ValidatedSource {
   canonical: string;
   /** Its size in bytes, already bounded against `CLOUD_BYTE_MAX`. */
   size: number;
+  format: DocumentCapabilities;
+  mimeType: string;
 }
 
 /**
@@ -221,18 +235,25 @@ export async function validateSourceFile(pickedPath: string): Promise<ValidatedS
   if (info.size <= 0) throw new Error('import rejected: empty file');
   if (info.size > CLOUD_BYTE_MAX) throw new Error('import rejected: file exceeds the size ceiling');
 
-  const head = Buffer.alloc(PDF_MAGIC.byteLength);
+  const extensionFormat = formatFromFilename(pickedPath);
+  const head = Buffer.alloc(Math.max(PDF_MAGIC.byteLength, 8));
   const handle = await openFile(canonical, 'r');
   try {
     const { bytesRead } = await handle.read(head, 0, head.byteLength, 0);
-    if (bytesRead < head.byteLength || !head.equals(PDF_MAGIC)) {
-      throw new Error('import rejected: not a PDF');
-    }
+    if (bytesRead < 1) throw new Error('import rejected: empty file');
+    const bytes = head.subarray(0, bytesRead);
+    const format = detectDocumentFormat(pickedPath, extensionFormat.mimeTypes[0]);
+    const valid = format.format !== 'unknown' && hasRecognizedSignature(format.format, bytes);
+    if (!valid) throw new Error('import rejected: unsupported or invalid document');
+    return {
+      canonical,
+      size: info.size,
+      format,
+      mimeType: format.contentType,
+    };
   } finally {
     await handle.close();
   }
-
-  return { canonical, size: info.size };
 }
 
 /**
@@ -270,7 +291,7 @@ export async function fingerprintOfFile(path: string, size: number): Promise<str
  * both depth and count. Extension is advisory here — every returned path is still
  * put through `validateSourceFile` before anything is staged.
  */
-export async function scanPdfs(folder: string): Promise<string[]> {
+export async function scanDocuments(folder: string): Promise<string[]> {
   if (typeof folder !== 'string' || folder.length === 0 || !isAbsolute(folder)) {
     throw new Error('import rejected: not an absolute path');
   }
@@ -295,7 +316,10 @@ export async function scanPdfs(folder: string): Promise<string[]> {
       const child = join(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(child, depth + 1);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.pdf')) {
+      } else if (
+        entry.isFile() &&
+        detectDocumentFormat(entry.name, undefined).format !== 'unknown'
+      ) {
         found.push(child);
       }
     }
@@ -303,3 +327,6 @@ export async function scanPdfs(folder: string): Promise<string[]> {
   await walk(root, 0);
   return found;
 }
+
+/** Backwards-compatible name for callers that still use the old PDF-only scan. */
+export const scanPdfs = scanDocuments;

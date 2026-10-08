@@ -6,6 +6,7 @@
  * are kept apart so a screen never has to know that `isFavorite` is an integer,
  * and so a column can be added without every consumer learning about it.
  */
+import { detectDocumentFormat, type DocumentFormat } from '@/lib/document-formats';
 
 /**
  * Where a document's file is, on this device.
@@ -116,6 +117,8 @@ export type LibraryDocument = {
   hasOutline: boolean;
   originalFileName: string | null;
   mimeType: string | null;
+  /** Stable format family derived from recorded filename/MIME metadata. */
+  documentKind: DocumentFormat;
   /**
    * Enough of the file to recognise it again.
    *
@@ -363,6 +366,7 @@ export function toLibraryDocument(row: DocumentRow): LibraryDocument {
     hasOutline: asBool(row.hasOutline),
     originalFileName: row.originalFileName,
     mimeType: row.mimeType,
+    documentKind: detectDocumentFormat(row.originalFileName ?? '', row.mimeType).format,
     fingerprint: row.fingerprint,
     fileState: (row.fileState as FileState | null) ?? 'missing',
     syncState: (row.syncState as SyncState) ?? 'pending',

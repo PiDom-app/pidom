@@ -405,6 +405,34 @@ export default defineSchema({
     mimeType: v.optional(v.string()),
 
     /**
+     * Normalised format family used by future format-specific renderers.
+     *
+     * Optional for backwards compatibility with existing PDF rows. The
+     * original MIME type remains presentation metadata; this field is the
+     * stable capability key and must not be inferred by every client.
+     */
+    documentKind: v.optional(
+      v.union(
+        v.literal('pdf'),
+        v.literal('doc'),
+        v.literal('docx'),
+        v.literal('odt'),
+        v.literal('rtf'),
+        v.literal('epub'),
+        v.literal('md'),
+        v.literal('txt'),
+        v.literal('html'),
+        v.literal('csv'),
+        v.literal('xls'),
+        v.literal('xlsx'),
+        v.literal('ppt'),
+        v.literal('pptx'),
+        v.literal('image'),
+        v.literal('unknown'),
+      ),
+    ),
+
+    /**
      * Enough of the file to recognise it again, so the same PDF is not
      * imported twice as two rows, two files and two uploads.
      *

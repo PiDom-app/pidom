@@ -8,6 +8,7 @@ import PQueue from 'p-queue';
 import { eq } from 'drizzle-orm';
 
 import { CLOUD_BYTE_MAX } from '@convex-model/limits';
+import { formatFromFilename, formatFromMimeType } from '../../../../src/lib/document-formats';
 import type {
   LocalDocumentStatus,
   LocalFileState,
@@ -352,7 +353,6 @@ export class StorageService {
     setState('downloading');
     setJob({ state: 'running', receivedBytes: 0, error: null });
 
-    const finalPath = documentPath(paths, documentId);
     // A random suffix so a re-download while an old `.part` lingers cannot clash.
     const partPath = join(paths.tmp, `${documentId}-${now}.part`);
 
@@ -389,6 +389,9 @@ export class StorageService {
         throw new Error('exceeds size ceiling');
       }
       if (!response.body) throw new Error('empty response');
+      const format = formatFromMimeType(response.headers.get('content-type'));
+      if (format.format === 'unknown') throw new Error('unsupported document format');
+      const finalPath = documentPath(paths, documentId, format.format);
       setJob({ state: 'running', totalBytes });
 
       const sink = createWriteStream(partPath, { mode: 0o600 });
@@ -410,7 +413,11 @@ export class StorageService {
               0,
               Math.min(chunk.byteLength, head.byteLength - headLength),
             );
-            if (headLength === head.byteLength && !head.equals(PDF_MAGIC)) {
+            if (
+              format.format === 'pdf' &&
+              headLength === head.byteLength &&
+              !head.equals(PDF_MAGIC)
+            ) {
               throw new Error('not a PDF');
             }
           }
@@ -425,7 +432,7 @@ export class StorageService {
           }
         }
 
-        if (headLength < head.byteLength) throw new Error('not a PDF');
+        if (format.format === 'pdf' && headLength < head.byteLength) throw new Error('not a PDF');
         await new Promise<void>((resolve, reject) =>
           sink.end((error?: Error | null) => (error ? reject(error) : resolve())),
         );
@@ -617,7 +624,7 @@ export class StorageService {
         present.push({
           documentId: row.documentId,
           from: row.path,
-          to: documentPath(target, row.documentId),
+          to: documentPath(target, row.documentId, formatFromFilename(row.path ?? '').format),
           bytes: info.size,
         });
         totalBytes += info.size;
@@ -658,7 +665,14 @@ export class StorageService {
         for (const row of rows) {
           if (copied.has(row.documentId)) {
             tx.update(localFiles)
-              .set({ path: documentPath(targetPaths, row.documentId), updatedAt: Date.now() })
+              .set({
+                path: documentPath(
+                  targetPaths,
+                  row.documentId,
+                  formatFromFilename(row.path ?? '').format,
+                ),
+                updatedAt: Date.now(),
+              })
               .where(eq(localFiles.documentId, row.documentId))
               .run();
           } else {

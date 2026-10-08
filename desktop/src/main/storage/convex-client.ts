@@ -4,6 +4,7 @@ import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { COVER_BYTE_MAX } from '@convex-model/limits';
 import type { SessionManager } from '../auth/oauth';
+import type { DocumentKind } from '@convex-model/library';
 
 /**
  * A main-process Convex client for the storage service.
@@ -71,6 +72,7 @@ export class StorageConvex {
     originalFileName?: string;
     author?: string;
     mimeType?: string;
+    documentKind?: DocumentKind;
     pageCount?: number;
     clientUpdatedAt?: number;
   }): Promise<string> {
@@ -83,6 +85,7 @@ export class StorageConvex {
       ...(input.originalFileName ? { originalFileName: input.originalFileName } : {}),
       ...(input.author ? { author: input.author } : {}),
       ...(input.mimeType ? { mimeType: input.mimeType } : {}),
+      ...(input.documentKind ? { documentKind: input.documentKind } : {}),
       ...(typeof input.pageCount === 'number' ? { pageCount: input.pageCount } : {}),
       ...(typeof input.clientUpdatedAt === 'number'
         ? { clientUpdatedAt: input.clientUpdatedAt }
@@ -200,14 +203,22 @@ export class StorageConvex {
    * rather than a second folder (`convex/model/sync.ts` `collectionByOpId`).
    * `clientUpdatedAt` lets the server settle a concurrent rename by last-writer.
    */
-  async createCollection(name: string, clientOpId: string, clientUpdatedAt: number): Promise<string> {
+  async createCollection(
+    name: string,
+    clientOpId: string,
+    clientUpdatedAt: number,
+  ): Promise<string> {
     const client = await this.client();
     const id = await client.mutation(api.collections.create, { name, clientOpId, clientUpdatedAt });
     return id as string;
   }
 
   /** Renames a collection. Owner-checked; last-writer-wins on `clientUpdatedAt`. */
-  async renameCollection(collectionId: string, name: string, clientUpdatedAt: number): Promise<void> {
+  async renameCollection(
+    collectionId: string,
+    name: string,
+    clientUpdatedAt: number,
+  ): Promise<void> {
     const client = await this.client();
     await client.mutation(api.collections.rename, {
       collectionId: collectionId as Id<'collections'>,

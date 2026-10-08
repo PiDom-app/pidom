@@ -1,4 +1,5 @@
 import type { LibraryDocument } from '../local/repository/types';
+import { detectDocumentFormat } from '@/lib/document-formats';
 
 /**
  * The client's names for the shapes the screens read.
@@ -10,6 +11,10 @@ import type { LibraryDocument } from '../local/repository/types';
  * local one, and `src/features/library/sync/` is the single place the two meet.
  */
 export type { LibraryCollection, LibraryDocument } from '../local/repository/types';
+
+function formatLabel(document: LibraryDocument): string {
+  return detectDocumentFormat(document.originalFileName ?? '', document.mimeType).label;
+}
 
 /** Bytes as a reader reads them. `2411724` becomes `2.3 MB`. */
 export function formatBytes(bytes: number): string {
@@ -155,11 +160,11 @@ export function metaLineFor(
     // Import reads the count off the same load that renders the first page, so
     // this is the exception: a document imported before the probe existed, and
     // never opened since.
-    return `PDF · ${formatBytes(document.byteSize)}`;
+    return `${formatLabel(document)} · ${formatBytes(document.byteSize)}`;
   }
   // A document that is only here is worth saying so about — it is the one state
   // where losing the phone loses the document.
   return document.isSynced
-    ? `PDF · ${document.pageCount} pages`
+    ? `${formatLabel(document)} · ${document.pageCount} pages`
     : `On this phone only · ${document.pageCount} pages`;
 }

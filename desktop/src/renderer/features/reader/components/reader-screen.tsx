@@ -22,6 +22,7 @@ import { ReaderCanvas, type ReaderCanvasHandle } from './reader-canvas';
 import { FindBar } from './find-bar';
 import { SelectionMenu } from './selection-menu';
 import { ReaderError, ReaderLoading } from './reader-states';
+import { DocumentReader } from '../formats/document-reader';
 
 /** The fits the toolbar's fit button cycles through, in order. */
 const FIT_CYCLE: Fit[] = ['fit-width', 'fit-page', 'auto'];
@@ -40,7 +41,8 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const goBack = useCallback(() => void navigate({ to: '/library' }), [navigate]);
 
   const meta = useQuery(api.library.document, { documentId });
-  const pdf = usePdfDocument(documentId);
+  const documentKind = meta?.documentKind ?? 'pdf';
+  const pdf = usePdfDocument(documentId, documentKind);
   const { prefs } = useReaderPreferences();
   const { readerTint, keepAwake } = useDesktopSettings();
   const view = useReaderView(prefs);
@@ -167,6 +169,17 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
     onToggleToolbar: dock.toggle,
     onClose: () => (findOpen ? setFindOpen(false) : goBack()),
   });
+
+  if (documentKind !== 'pdf') {
+    return (
+      <DocumentReader
+        documentId={documentId}
+        format={documentKind}
+        title={meta?.title ?? 'Document'}
+        onBack={goBack}
+      />
+    );
+  }
 
   if (pdf.status === 'error')
     return (

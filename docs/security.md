@@ -181,6 +181,26 @@ megabyte pointing at page `1e9`.
 
 ## A document is not a trusted input
 
+Desktop multi-format support keeps the same boundary. Import validates the
+recognized format before staging, derives managed filenames from a device or
+server document id, and serves bytes only through the allow-listed
+`pidom-doc` protocol. The renderer receives a handle, not a filesystem path.
+Downloads and imports remain size-bounded and atomic.
+
+Archive-backed formats use bounded extraction: entry count, decoded text, and
+rendered representation are capped. Office and EPUB active content is not
+executed. HTML is parsed into a detached document, scripts, forms, embedded
+frames, event-handler attributes, and unsafe resource schemes are removed
+before the resulting markup is displayed. RTF and legacy binary formats are
+treated as text representations, not handed to an office runtime or macro
+engine. Spreadsheet formulas and external links are never evaluated by the
+reader.
+
+This is intentionally a reading surface, not an office editor. The adapter
+contract prefers an explicit bounded representation or a user-visible failure
+over silently opening active content or claiming pixel fidelity that the parser
+cannot guarantee.
+
 The import checks that a file is a PDF and refuses one with a password, and
 `convex/node/extract.ts` parses it under a bound on every axis. All of that is
 about a file _arriving_. The reader is about a file being **rendered**, on the

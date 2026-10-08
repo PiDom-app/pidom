@@ -46,7 +46,7 @@ let raw: DatabaseSync | null = null;
  *  desktop-initiated import pipeline. v4 added the offline organization mirror
  *  (`collections`, `collection_items`, `sync_queue`) so collection/favorite/
  *  finished edits work with no network and drain to Convex on reconnect. */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 /**
  * A synchronous diagnostic line, straight to stderr.
@@ -118,6 +118,8 @@ function migrateUp(database: DatabaseSync): void {
       local_id TEXT PRIMARY KEY NOT NULL,
       title TEXT NOT NULL,
       original_name TEXT,
+      document_kind TEXT,
+      mime_type TEXT,
       byte_size INTEGER NOT NULL,
       fingerprint TEXT,
       content_hash TEXT,
@@ -166,6 +168,19 @@ function migrateUp(database: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS sync_queue_by_state ON sync_queue (state);
   `);
+  // Additive columns for databases created before multi-format imports. SQLite
+  // has no IF NOT EXISTS form for ALTER TABLE, so tolerate the already-present
+  // case while surfacing all other migration failures.
+  for (const statement of [
+    'ALTER TABLE import_jobs ADD COLUMN document_kind TEXT',
+    'ALTER TABLE import_jobs ADD COLUMN mime_type TEXT',
+  ]) {
+    try {
+      database.exec(statement);
+    } catch (error) {
+      if (!(error instanceof Error) || !/duplicate column name/i.test(error.message)) throw error;
+    }
+  }
 }
 
 /** Reads an integer PRAGMA (e.g. `user_version`). `node:sqlite` returns PRAGMA
