@@ -36,7 +36,7 @@
     "drizzle-orm": "^1.0.0-rc.4",
     "electron-squirrel-startup": "^1.0.1",
     "fast-glob": "^3.3.2",
-    "fflate": "^0.8.2",
+    "fflate": "^0.8.3",
     "file-type": "^21.3.2",
     "lucide-react": "^1.39.0",
     "mime-types": "^2.1.35",
