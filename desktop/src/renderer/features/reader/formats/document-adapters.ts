@@ -17,25 +17,154 @@ function stripMarkup(value: string): string {
 }
 
 function sanitizeHtml(value: string): string {
-  return value
-    .replace(
-      /<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-      '',
-    )
-    .replace(/<(script|style|iframe|object|embed|form)\b[^>]*\/?>/gi, '')
-    .replace(
-      /(\s+|\/)on[a-z][a-z0-9:_-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'=`<>]+))?/gi,
-      (_attribute, separator: string) => (separator === '/' ? '/' : ''),
-    )
-    .replace(
-      /(\s+|\/)(src|href|action|formaction|poster|cite|background|srcset|xlink:href)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'=`<>]+)/gi,
-      (attribute, separator: string, name: string) =>
-        name.toLowerCase() === 'href' && /\s*=\s*["']#/i.test(attribute)
-          ? attribute
-          : separator === '/'
-            ? '/'
-            : '',
-    );
+  const blocked = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form']);
+  const blockedVoid = new Set(['embed']);
+  const safeAttributes = new Set([
+    'alt',
+    'class',
+    'colspan',
+    'height',
+    'id',
+    'role',
+    'rowspan',
+    'title',
+    'width',
+  ]);
+  const urlAttributes = new Set([
+    'action',
+    'background',
+    'cite',
+    'formaction',
+    'href',
+    'poster',
+    'src',
+    'srcset',
+    'xlink:href',
+  ]);
+
+  const tagEnd = (start: number): number => {
+    let quote = '';
+    for (let index = start; index < value.length; index += 1) {
+      const character = value[index];
+      if (quote) {
+        if (character === quote) quote = '';
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '>') {
+        return index;
+      }
+    }
+    return -1;
+  };
+
+  const tagInfo = (start: number, end: number) => {
+    let index = start + 1;
+    let closing = false;
+    if (value[index] === '/') {
+      closing = true;
+      index += 1;
+    }
+    while (index < end && /\s/.test(value[index])) index += 1;
+    const nameStart = index;
+    while (index < end && /[A-Za-z0-9:_-]/.test(value[index])) index += 1;
+    if (index === nameStart) return null;
+    return { closing, name: value.slice(nameStart, index).toLowerCase(), attributesStart: index };
+  };
+
+  const output: string[] = [];
+  let index = 0;
+  while (index < value.length) {
+    if (value[index] !== '<') {
+      output.push(value[index]);
+      index += 1;
+      continue;
+    }
+    if (value.startsWith('<!--', index)) {
+      const commentEnd = value.indexOf('-->', index + 4);
+      index = commentEnd === -1 ? value.length : commentEnd + 3;
+      continue;
+    }
+    const end = tagEnd(index + 1);
+    if (end === -1) {
+      output.push('&lt;');
+      index += 1;
+      continue;
+    }
+    const info = tagInfo(index, end);
+    if (!info) {
+      output.push('&lt;');
+      index += 1;
+      continue;
+    }
+    if (blocked.has(info.name)) {
+      if (!info.closing) {
+        if (blockedVoid.has(info.name)) {
+          index = end + 1;
+          continue;
+        }
+        let depth = 1;
+        index = end + 1;
+        while (index < value.length && depth > 0) {
+          if (value[index] !== '<') {
+            index += 1;
+            continue;
+          }
+          const nestedEnd = tagEnd(index + 1);
+          if (nestedEnd === -1) break;
+          const nested = tagInfo(index, nestedEnd);
+          if (nested?.name === info.name) depth += nested.closing ? -1 : 1;
+          index = nestedEnd + 1;
+        }
+      } else {
+        index = end + 1;
+      }
+      continue;
+    }
+    if (info.closing) {
+      output.push(`</${info.name}>`);
+      index = end + 1;
+      continue;
+    }
+
+    let attributes = '';
+    let cursor = info.attributesStart;
+    let selfClosing = false;
+    while (cursor < end) {
+      while (cursor < end && /\s/.test(value[cursor])) cursor += 1;
+      if (cursor >= end) break;
+      if (value[cursor] === '/') {
+        selfClosing = true;
+        cursor += 1;
+        continue;
+      }
+      const attributeStart = cursor;
+      while (cursor < end && !/[\s=/>]/.test(value[cursor])) cursor += 1;
+      const name = value.slice(attributeStart, cursor).toLowerCase();
+      while (cursor < end && /\s/.test(value[cursor])) cursor += 1;
+      let attributeValue = '';
+      if (value[cursor] === '=') {
+        cursor += 1;
+        while (cursor < end && /\s/.test(value[cursor])) cursor += 1;
+        const quote = value[cursor] === '"' || value[cursor] === "'" ? value[cursor++] : '';
+        const valueStart = cursor;
+        while (cursor < end && (quote ? value[cursor] !== quote : !/[\s/>]/.test(value[cursor]))) {
+          cursor += 1;
+        }
+        attributeValue = value.slice(valueStart, cursor);
+        if (quote && value[cursor] === quote) cursor += 1;
+      }
+      const isEvent = name.startsWith('on');
+      const isUrl = urlAttributes.has(name);
+      const isFragment = name === 'href' && attributeValue.trim().startsWith('#');
+      const isSafe = safeAttributes.has(name) || (name.startsWith('data-') || name.startsWith('aria-'));
+      if (!isEvent && ((isUrl && isFragment) || (!isUrl && isSafe))) {
+        attributes += ` ${name}${attributeValue ? `="${attributeValue.replaceAll('"', '&quot;')}"` : ''}`;
+      }
+    }
+    output.push(`<${info.name}${attributes}${selfClosing ? '/' : ''}>`);
+    index = end + 1;
+  }
+  return output.join('');
 }
 
 function xmlText(value: string): string {
