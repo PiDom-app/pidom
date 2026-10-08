@@ -8,9 +8,7 @@ function clamp(value: string): string {
 }
 
 function stripMarkup(value: string): string {
-  return value
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+  return sanitizeHtml(value)
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
