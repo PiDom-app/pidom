@@ -40,15 +40,15 @@ PDF. This keeps the UI stable while making fidelity and platform limitations
 visible. Multi-format import and rendering are desktop-only; the mobile app
 continues to use its established PDF pipeline.
 
-| Format family       | Capability status  | Current renderer                              | Layout contract                                |
-| ------------------- | ------------------ | --------------------------------------------- | ---------------------------------------------- |
-| PDF                 | Production         | Mobile native PDF renderer and desktop PDF.js | Fixed layout preserved                         |
-| TXT, Markdown, HTML | Desktop production | Bounded text, Markdown, and sanitized HTML    | Reflowable document surface                    |
-| EPUB                | Desktop production | Bounded archive text extraction               | Reflowable; scripts and active content blocked |
-| DOC/DOCX, ODT, RTF  | Desktop production | Safe text/intermediate representation         | Semantic content; not pixel-perfect            |
-| CSV, XLS/XLSX       | Desktop production | Bounded table/intermediate representation     | Structured cells; not a PDF page model         |
-| PPT/PPTX            | Desktop production | Safe slide/text representation                | Slide boundaries represented where available   |
-| Images              | Desktop production | Main-process verified local image surface     | Pixel dimensions preserved                     |
+| Format family       | Capability status     | Current renderer                              | Layout contract                                   |
+| ------------------- | --------------------- | --------------------------------------------- | ------------------------------------------------- |
+| PDF                 | Production            | Mobile native PDF renderer and desktop PDF.js | Fixed layout preserved                            |
+| TXT, Markdown, HTML | Implemented (desktop) | Bounded text, Markdown, and sanitized HTML    | Reflowable document surface                       |
+| EPUB                | Implemented (desktop) | Bounded archive text extraction               | Reflowable; scripts and active content blocked    |
+| DOC/DOCX, ODT, RTF  | Implemented (desktop) | Safe text/intermediate representation         | Semantic content; not pixel-perfect               |
+| CSV, XLS/XLSX       | Implemented (desktop) | Bounded table/intermediate representation     | Structured cells; not a PDF page model            |
+| PPT/PPTX            | Implemented (desktop) | Safe slide/text representation                | Extracted slide content; not full-fidelity slides |
+| Images              | Implemented (desktop) | Main-process verified local image surface     | Pixel dimensions preserved                        |
 
 The registry is intentionally shared by import, storage, and rendering. Every
 desktop adapter declares its security policy, offline behavior, search
@@ -116,9 +116,11 @@ credentials, follow [docs/setup.md](docs/setup.md).
 
 The core PDF reader, desktop multi-format reader, library, import flow, offline
 storage, sync, sharing, search, collections, notes, bookmarks, push
-registration, and Android release pipeline are in place. OCR for scanned
-documents, office-suite editing, conversion, and export remain separate
-capabilities rather than being implied by filename recognition.
+registration, and Android release pipeline are in place. Desktop format
+adapters have fixture coverage for text, Markdown, HTML, EPUB, DOC/DOCX, ODT,
+RTF, CSV/XLS/XLSX, PPT/PPTX, and images. OCR for scanned documents,
+office-suite editing, pixel-perfect office rendering, conversion, and export
+remain separate capabilities rather than being implied by filename recognition.
 
 ## Contributing
 

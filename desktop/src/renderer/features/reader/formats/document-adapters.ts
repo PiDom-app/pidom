@@ -16,6 +16,18 @@ function stripMarkup(value: string): string {
     .trim();
 }
 
+function sanitizeHtml(value: string): string {
+  return value
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<(iframe|object|embed|form)\b[^>]*\/?>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s+(?:src|href)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, (attribute) =>
+      /\s+href\s*=\s*["']#/i.test(attribute) ? attribute : '',
+    );
+}
+
 function xmlText(value: string): string {
   return stripMarkup(
     value
@@ -90,26 +102,11 @@ export type ParsedDocument =
   | { kind: 'table'; rows: string[][] }
   | { kind: 'binary-text'; text: string };
 
-export async function parseDocument(url: string, format: string): Promise<ParsedDocument> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('document could not be read');
-  const bytes = new Uint8Array(await response.arrayBuffer());
+export function parseDocumentBytes(bytes: Uint8Array, format: string): ParsedDocument {
   if (format === 'image') return { kind: 'text', text: '' };
   if (format === 'html') {
     const raw = new TextDecoder().decode(bytes).slice(0, MAX_TEXT);
-    const parsed = new DOMParser().parseFromString(raw, 'text/html');
-    parsed
-      .querySelectorAll('script,style,iframe,object,embed,form')
-      .forEach((node) => node.remove());
-    parsed.querySelectorAll<HTMLElement>('*').forEach((node) => {
-      for (const attr of [...node.attributes]) {
-        if (attr.name.toLowerCase().startsWith('on')) node.removeAttribute(attr.name);
-        if (attr.name === 'src' || (attr.name === 'href' && !attr.value.startsWith('#'))) {
-          node.removeAttribute(attr.name);
-        }
-      }
-    });
-    return { kind: 'html', html: parsed.body.innerHTML };
+    return { kind: 'html', html: sanitizeHtml(raw) };
   }
   if (format === 'csv') return { kind: 'table', rows: csvRows(new TextDecoder().decode(bytes)) };
   if (['docx', 'odt', 'xlsx', 'pptx', 'epub'].includes(format)) {
@@ -123,4 +120,10 @@ export async function parseDocument(url: string, format: string): Promise<Parsed
     text = text.replace(/^#{1,6}\s+/gm, '').replace(/[*_`]/g, '');
   }
   return { kind: 'text', text: clamp(text) };
+}
+
+export async function parseDocument(url: string, format: string): Promise<ParsedDocument> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('document could not be read');
+  return parseDocumentBytes(new Uint8Array(await response.arrayBuffer()), format);
 }
