@@ -3,6 +3,14 @@
   "productName": "Pidom",
   "version": "1.0.0",
   "description": "Pidom desktop companion — an Electron reader sharing the mobile app's Convex backend, theme, and security model.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PiDom-app/pidom.git"
+  },
+  "homepage": "https://github.com/PiDom-app/pidom/releases/latest",
+  "bugs": {
+    "url": "https://github.com/PiDom-app/pidom/issues"
+  },
   "main": ".vite/build/main.cjs",
   "private": true,
   "type": "module",
@@ -78,7 +86,14 @@
     "typescript": "^5.7.2",
     "vite": "^8.3.1"
   },
-  "keywords": [],
+  "keywords": [
+    "document-reader",
+    "pdf-reader",
+    "offline-first",
+    "privacy",
+    "electron",
+    "convex"
+  ],
   "author": {
     "name": "Pidom"
   },
