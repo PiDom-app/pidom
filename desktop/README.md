@@ -79,10 +79,12 @@ electron-builder uses them for release artifacts; `src/main/index.ts` sets the
 
 CI uses `.github/workflows/desktop-release.yml` for desktop releases:
 
-- A `vX.Y.Z` tag must match `package.json`; the workflow builds Windows NSIS,
-  macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts.
-- Stable Windows publication is blocked until the approved SignPath signer is
-  enabled. macOS artifacts are validation-only until notarization is configured.
+- A successful push to `main` creates `v<version>-desktop.<run-number>`; a
+  manually supplied `vX.Y.Z` tag must match `package.json`. The workflow
+  builds Windows NSIS, macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts.
+- Windows artifacts are currently published unsigned with electron-builder
+  SHA-512 metadata while the approved SignPath signer is being configured.
+  macOS artifacts are validation-only until notarization is configured.
 - `.github/workflows/desktop-rollout.yml` changes release-side
   `stagingPercentage` metadata from 0 to 100. The client never exposes that
   control.

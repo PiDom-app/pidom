@@ -45,12 +45,22 @@ boundary, and the active Observe/security notes for that APK.
 
 ## Desktop updates
 
-Desktop releases use electron-builder and electron-updater. A `vX.Y.Z` tag must
-match `desktop/package.json`; the tag is the only release version and CI rejects
-run-number or package-version mismatches. The release matrix produces Windows
-NSIS, macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts. Windows stable publication is blocked until the approved SignPath signer is
-enabled. macOS artifacts are validation-only until notarization is configured;
-Linux automatic updates are limited to AppImage builds.
+Desktop releases use electron-builder and electron-updater. A successful push
+to `main` produces a desktop release tagged
+`v<desktop-version>-desktop.<run-number>`, matching the mobile release cadence.
+A manually supplied `vX.Y.Z` tag is also accepted, but its version must match
+`desktop/package.json`; CI rejects version mismatches. The release matrix
+produces Windows NSIS, macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts.
+The Windows installer is currently published unsigned with electron-builder
+SHA-512 metadata so the release path is usable while the approved SignPath
+signer is being configured. macOS artifacts are validation-only until
+notarization is configured; Linux automatic updates are limited to AppImage
+builds.
+
+Desktop releases are marked as the repository's GitHub **Latest** release.
+Android releases are explicitly not marked latest so the desktop updater's
+GitHub provider always resolves a desktop `latest*.yml` manifest rather than an
+Android APK release.
 
 The updater reads GitHub Releases over HTTPS, verifies artifacts through
 electron-updater's platform signature checks, retries transient failures, and
