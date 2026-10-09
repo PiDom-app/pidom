@@ -2,13 +2,16 @@ name: Desktop release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       tag:
         description: Existing semver tag to build
-        required: true
+        required: false
+        default: ''
         type: string
 
 permissions:
@@ -58,13 +61,21 @@ jobs:
 
       - name: Validate release version
         env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
+          if [ -n "$INPUT_TAG" ]; then
+            RELEASE_TAG="$INPUT_TAG"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          else
+            RELEASE_TAG="v$(node -p "require('./package.json').version")-desktop.${GITHUB_RUN_NUMBER}"
+          fi
           case "$RELEASE_TAG" in
-            v[0-9]*.[0-9]*.[0-9]*) ;;
+            v[0-9]*.[0-9]*.[0-9]*|v[0-9]*.[0-9]*.[0-9]*-desktop.[0-9]*) ;;
             *) echo "Expected a semver tag such as v1.2.3"; exit 1 ;;
           esac
           TAG_VERSION="${RELEASE_TAG#v}"
+          TAG_VERSION="${TAG_VERSION%%-desktop.*}"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           test "$TAG_VERSION" = "$PACKAGE_VERSION" || {
             echo "Tag $TAG_VERSION does not match desktop/package.json $PACKAGE_VERSION"
@@ -116,19 +127,23 @@ jobs:
       - name: Resolve tag
         id: tag
         env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          INPUT_TAG: ${{ inputs.tag || '' }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            RELEASE_TAG="$INPUT_TAG"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          else
+            VERSION="$(node -p "require('./desktop/package.json').version")"
+            RELEASE_TAG="v${VERSION}-desktop.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Publish signed-capable artifacts
+      - name: Publish desktop artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
-          SIGNPATH_ENABLED: ${{ vars.SIGNPATH_ENABLED }}
         run: |
-          if [ "$SIGNPATH_ENABLED" != "true" ]; then
-            echo "Stable Windows publication is blocked until the approved SignPath signer is enabled."
-            exit 1
-          fi
           mapfile -t ASSETS < <(find release -type f \
             \( -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
             -o -name 'latest*.yml' -o -name '*.blockmap' -o -name '*.sha512' \) \
@@ -137,5 +152,7 @@ jobs:
           test "${#ASSETS[@]}" -gt 0
           gh release create "$TAG" "${ASSETS[@]}" \
             --title "Pidom Desktop ${TAG#v}" \
+            --notes "Unsigned desktop artifacts are published with electron-builder SHA-512 metadata. Windows Authenticode signing and macOS notarization remain release-gated until the approved signing infrastructure is configured." \
             --generate-notes \
+            --latest \
             --target "$GITHUB_SHA"

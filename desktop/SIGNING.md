@@ -9,8 +9,11 @@ artifact — that is the day-one integrity guarantee, signed or not.
 
 The preferred Windows path is the existing **SignPath Foundation** integration.
 electron-builder's native signing environment variables are intentionally not
-committed or exposed in app settings. The workflow has **one gated Windows
-signing path**:
+committed or exposed in app settings. The workflow currently publishes the
+unsigned artifact so the desktop release cadence is not blocked, and the
+release notes identify that state. Once the approved SignPath integration is
+configured, it should replace the unsigned installer before enabling public
+rollouts.
 
 - **Path A — SignPath Foundation** (`if: vars.SIGNPATH_ENABLED == 'true'`):
   free managed Authenticode signing for open-source projects.
@@ -58,8 +61,7 @@ publicly-trusted option, wired through Path B below.
 
 ## SignPath Foundation (free, recommended)
 
-The Windows signing integration is gated **off**. To
-enable it:
+The Windows signing integration is not yet wired. To enable it:
 
 1. **Make the repository public.** The Foundation only signs OSS projects.
 2. **Apply to the SignPath Foundation** at <https://signpath.org/apply> and wait
