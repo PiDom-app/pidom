@@ -5,7 +5,7 @@ import type { UpdateState } from '../../../../shared/ipc';
 /**
  * The live view of the desktop auto-updater.
  *
- * Main owns the whole loop — detection probe, Squirrel download, the staged
+ * Main owns the whole loop — detection, download, and staging —
  * update — and this hook mirrors its state into React. It seeds once from
  * `update.getState()`, then follows the coalesced `update.onChange` push so a
  * probe finishing, a download advancing, or a failure lands without re-querying.
@@ -34,6 +34,7 @@ const INITIAL: UpdateState = {
   notes: null,
   notesUrl: null,
   lastCheckedAt: null,
+  downloadProgress: null,
   error: null,
 };
 

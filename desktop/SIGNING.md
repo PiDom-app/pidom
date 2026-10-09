@@ -1,20 +1,22 @@
-# Signing the Windows build
+# Signing desktop builds
 
-The desktop release (`.github/workflows/ci.yml` → `desktop-release`) ships an
-**unsigned** Windows installer by default. Unsigned `.exe`s trigger the
+The desktop release (`.github/workflows/desktop-release.yml`) uses
+electron-builder. It ships an **unsigned** Windows installer by default. Unsigned `.exe`s trigger the
 SmartScreen "Windows protected your PC — unknown publisher" prompt; users install
 via **More info → Run anyway**, and the release notes say so. The SHA-256 checksum
 attached to every release lets anyone verify the download is byte-for-byte the CI
 artifact — that is the day-one integrity guarantee, signed or not.
 
-The workflow has **two gated signing paths**, both off by default. Enable **one**:
+The preferred Windows path is the existing **SignPath Foundation** integration.
+electron-builder's native signing environment variables are intentionally not
+committed or exposed in app settings. The workflow has **one gated Windows
+signing path**:
 
 - **Path A — SignPath Foundation** (`if: vars.SIGNPATH_ENABLED == 'true'`):
   free managed Authenticode signing for open-source projects.
-- **Path B — signtool + PFX** (`if: vars.WINDOWS_SIGN_ENABLED == 'true'`):
-  certificate-agnostic; signs with any code-signing certificate you supply as a
-  base64 PFX secret (Certum Open Source, a commercial CA, or — for internal
-  fleets only — a self-signed cert).
+- A conventional PFX fallback may be added later through a dedicated CI signer;
+  do not add certificate material, passwords, or signing variables to the
+  repository or runtime.
 
 ## The 2026 reality — signing is not a "no warning" switch
 
@@ -54,9 +56,9 @@ Recommendation: **stay on the checksum + SignPath Foundation path.** If SignPath
 is declined or you need a personal cert, **Certum Open Source** is the cheapest
 publicly-trusted option, wired through Path B below.
 
-## Path A — SignPath Foundation (free, recommended)
+## SignPath Foundation (free, recommended)
 
-The `Sign installer (SignPath)` step in `desktop-release` is gated **off**. To
+The Windows signing integration is gated **off**. To
 enable it:
 
 1. **Make the repository public.** The Foundation only signs OSS projects.
@@ -87,32 +89,12 @@ enable it:
    gh secret set SIGNPATH_API_TOKEN --env production
    ```
 
-## Path B — signtool + PFX (any certificate)
+## macOS notarization
 
-The `Sign installer (signtool + PFX)` step is already in `desktop-release`, gated
-on `WINDOWS_SIGN_ENABLED`. It locates the Windows SDK `signtool.exe` on the
-runner, decodes a base64 PFX from a secret into `RUNNER_TEMP`, signs the staged
-installer with SHA-256 and an RFC-3161 timestamp, verifies it, and always deletes
-the decoded PFX. The checksum step then runs over the **signed** file.
-
-To enable it, supply a certificate as a base64-encoded PFX and set the config:
-
-```bash
-# Base64-encode your .pfx (no line wraps).
-#   Windows PowerShell:
-#     [Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx")) > cert.b64
-#   Git Bash / Linux / macOS:
-#     base64 -w0 cert.pfx > cert.b64   # macOS: base64 -i cert.pfx
-
-gh variable set WINDOWS_SIGN_ENABLED --env production --body "true"
-gh secret   set WINDOWS_CERT_PFX_BASE64 --env production < cert.b64
-gh secret   set WINDOWS_CERT_PASSWORD   --env production          # prompts
-# Optional — defaults to http://timestamp.sectigo.com:
-gh variable set WINDOWS_SIGN_TIMESTAMP_URL --env production --body "http://time.certum.pl"
-```
-
-Enable **either** Path A or Path B, never both. Never commit the `.pfx`, its
-password, or `cert.b64`.
+macOS DMG/ZIP artifacts are built in CI for validation, but stable macOS
+publication and automatic updates remain gated until a Developer ID signing and
+notarization credential strategy is deliberately configured. No Apple ID,
+App-Specific Password, Team ID, or API key is stored in this repository.
 
 ### Local signing with signtool (any PFX)
 
@@ -175,9 +157,8 @@ by asking end users to do it.
 
 ## Versioning
 
-`desktop/package.json` `version` is the human-facing installer version. Per-merge
-releases share that version but get a unique tag
-`v<version>-desktop.<run_number>`. Cutting a "real" version is a manual bump of
+`desktop/package.json` `version` is the human-facing installer version and must
+match the release tag `v<version>`. Cutting a release is a manual bump of
 the `version` field in `desktop/package.json` (commit it; the next merge to `main`
 releases under the new number).
 

@@ -1,0 +1,56 @@
+name: Desktop rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to promote
+        required: true
+        type: string
+      percentage:
+        description: Percentage of installations that should receive this release
+        required: true
+        type: number
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate rollout
+        env:
+          TAG: ${{ inputs.tag }}
+          PERCENTAGE: ${{ inputs.percentage }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          node -e "const n=Number(process.env.PERCENTAGE); if (!Number.isInteger(n) || n < 0 || n > 100) process.exit(1)"
+
+      - name: Download release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release download "$TAG" --pattern 'latest*.yml' --dir rollout
+
+      - name: Set staged rollout percentage
+        env:
+          PERCENTAGE: ${{ inputs.percentage }}
+        run: |
+          for metadata in rollout/latest*.yml; do
+            node desktop/scripts/set-staging-percentage.mjs "$metadata" "$PERCENTAGE"
+          done
+
+      - name: Upload promoted metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release upload "$TAG" rollout/latest*.yml --clobber

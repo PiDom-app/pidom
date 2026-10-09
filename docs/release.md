@@ -43,18 +43,23 @@ only. The public GitHub Release body includes the generated changelog, the EAS
 build ID, the commit, checksum verification instructions, the update/runtime
 boundary, and the active Observe/security notes for that APK.
 
-## Windows desktop updates
+## Desktop updates
 
-The packaged desktop app uses Electron's Squirrel.Windows updater through
-`https://update.electronjs.org/PiDom-app/pidom`. Each desktop GitHub Release
-must retain the generated `RELEASES` manifest and every `.nupkg` file referenced
-by that manifest; renaming either breaks automatic updates. The release
-workflow validates this relationship before publishing and probes the hosted
-feed after publication.
+Desktop releases use electron-builder and electron-updater. A `vX.Y.Z` tag must
+match `desktop/package.json`; the tag is the only release version and CI rejects
+run-number or package-version mismatches. The release matrix produces Windows
+NSIS, macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts. Windows stable publication is blocked until the approved SignPath signer is
+enabled. macOS artifacts are validation-only until notarization is configured;
+Linux automatic updates are limited to AppImage builds.
 
-Desktop versions are stamped in CI as `1.0.<workflow run number>`. The
-`desktop/package.json` version is only the committed major/minor base used to
-produce that stamp; do not manually publish an installer from the base version.
-The updater checks the architecture-specific Windows feed, waits through
-Squirrel's first-run file lock, retries transient failures, and reports
-network/feed/download failures separately in Settings.
+The updater reads GitHub Releases over HTTPS, verifies artifacts through
+electron-updater's platform signature checks, retries transient failures, and
+never installs an invalid or unverifiable package. Users can check status in
+Settings ▸ Updates or About, download in the background, and explicitly choose
+Restart to Update. The current app remains usable when an update fails.
+
+Rollouts are release-side only. Run `.github/workflows/desktop-rollout.yml` to
+set `stagingPercentage` in the published `latest*.yml` metadata from 0 to 100;
+the client never exposes a rollout override. macOS artifacts are currently
+packaged for validation but stable publication remains gated until notarization
+credentials are configured.

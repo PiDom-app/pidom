@@ -1,8 +1,4 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
-import { MakerZIP } from '@electron-forge/maker-zip';
-import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
@@ -18,19 +14,6 @@ const config: ForgeConfig = {
     icon: 'icons/icon',
   },
   rebuildConfig: {},
-  makers: [
-    new MakerSquirrel({
-      // Installer/Setup.exe icon, the Start-menu/desktop shortcut icon, and the
-      // icon shown while the Squirrel installer runs.
-      setupIcon: 'icons/icon.ico',
-      // The Add/Remove Programs ("Apps & features") icon. Squirrel requires a
-      // URL here, not a local path; it points at the committed icon on main.
-      iconUrl: 'https://raw.githubusercontent.com/PiDom-app/pidom/main/desktop/icons/icon.ico',
-    }),
-    new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
-  ],
   plugins: [
     new VitePlugin({
       // Three separate Vite builds. `entry`/`config` pair the source with its

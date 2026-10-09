@@ -96,9 +96,9 @@ export const IPC = {
   collectionsPending: 'collections:pending',
   collectionsChanged: 'collections:changed', // main → renderer push
 
-  // Auto-update (Windows, packaged only): a lightweight probe detects a new
-  // version without downloading; download + apply run through Electron's built-in
-  // Squirrel autoUpdater. `update:changed` pushes the full state on every phase move.
+  // Auto-update (packaged Windows/macOS/AppImage): electron-updater consumes
+  // HTTPS GitHub release metadata and verifies the downloaded artifact before
+  // installation. `update:changed` pushes the full state on every phase move.
   updateGetState: 'update:getState',
   updateCheck: 'update:check',
   updateDownload: 'update:download',
@@ -265,7 +265,7 @@ export interface ImportJobStatus {
  * - `idle`: up to date (or not yet checked).
  * - `checking`: a detection probe is in flight.
  * - `available`: a newer version was detected (via probe) but not downloaded.
- * - `downloading`: Squirrel is fetching + staging the package (indeterminate).
+ * - `downloading`: electron-updater is fetching and staging the package.
  * - `ready`: the update is staged; a restart applies it.
  * - `error`: the last probe or download failed (surfaced, non-fatal).
  */
@@ -286,6 +286,8 @@ export interface UpdateState {
   notesUrl: string | null;
   /** When the last detection completed, epoch ms. */
   lastCheckedAt: number | null;
+  /** Download percentage while an update is being staged. */
+  downloadProgress: number | null;
   /** A short non-sensitive reason code when `phase` is `error`. */
   error: string | null;
 }
@@ -487,7 +489,7 @@ export interface PidomBridge {
     getState(): Promise<UpdateState>;
     /** Runs a detection probe (no download). Moves to `available` or `idle`. */
     check(): Promise<void>;
-    /** Downloads + stages the detected update (Squirrel). Moves to `ready`. */
+    /** Downloads + stages the detected update. Moves to `ready`. */
     download(): Promise<void>;
     /** Quits and applies a staged update, relaunching into the new version. */
     restart(): Promise<void>;

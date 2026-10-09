@@ -182,9 +182,8 @@ function PopoverBody({
               {version ? <span className="font-semibold">Pidom {version}</span> : 'Update'}
             </p>
             <p className="mt-0.5 text-xs text-fg-muted">Downloading and preparing to install</p>
-            {/* Squirrel.Windows emits no byte progress — an honest indeterminate
-                bar: a filled primary track with the app's barber-pole texture
-                sliding over it (stopped under reduce-motion). No fake percentage. */}
+            {/* Keep an honest indeterminate bar when the provider cannot report
+                progress; the main process exposes a percentage when available. */}
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-primary">
               <div className="dl-stripe-texture animate-dl-stripes h-full w-full" />
             </div>
