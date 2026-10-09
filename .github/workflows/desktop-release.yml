@@ -1,0 +1,141 @@
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing semver tag to build
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            args: '--win nsis --x64'
+            publish: true
+          - name: macOS
+            os: macos-latest
+            args: '--mac dmg zip'
+            publish: false
+          - name: Linux
+            os: ubuntu-latest
+            args: '--linux AppImage deb rpm'
+            publish: true
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    env:
+      VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
+      VITE_CONVEX_SITE_URL: ${{ vars.VITE_CONVEX_SITE_URL }}
+      GOOGLE_DESKTOP_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
+      GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          case "$RELEASE_TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Expected a semver tag such as v1.2.3"; exit 1 ;;
+          esac
+          TAG_VERSION="${RELEASE_TAG#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          test "$TAG_VERSION" = "$PACKAGE_VERSION" || {
+            echo "Tag $TAG_VERSION does not match desktop/package.json $PACKAGE_VERSION"
+            exit 1
+          }
+
+      - name: Install desktop dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install shared backend dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm ci
+
+      - name: Generate route tree
+        run: npm run routes
+
+      - name: Build release artifacts
+        run: npm run make -- ${{ matrix.args }} --publish never
+
+      - name: Verify macOS release gate
+        if: matrix.name == 'macOS'
+        run: |
+          test -n "$(find dist -type f \( -name '*.dmg' -o -name '*.zip' \) -print -quit)"
+          echo "macOS artifacts are packaged for validation only; stable publication remains gated until notarization is configured."
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          path: desktop/dist
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release
+          merge-multiple: true
+
+      - name: Resolve tag
+        id: tag
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish signed-capable artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          SIGNPATH_ENABLED: ${{ vars.SIGNPATH_ENABLED }}
+        run: |
+          if [ "$SIGNPATH_ENABLED" != "true" ]; then
+            echo "Stable Windows publication is blocked until the approved SignPath signer is enabled."
+            exit 1
+          fi
+          mapfile -t ASSETS < <(find release -type f \
+            \( -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+            -o -name 'latest*.yml' -o -name '*.blockmap' -o -name '*.sha512' \) \
+            ! -name '*.dmg' ! -name '*-mac.zip' ! -name 'latest-mac.yml' \
+            -print)
+          test "${#ASSETS[@]}" -gt 0
+          gh release create "$TAG" "${ASSETS[@]}" \
+            --title "Pidom Desktop ${TAG#v}" \
+            --generate-notes \
+            --target "$GITHUB_SHA"

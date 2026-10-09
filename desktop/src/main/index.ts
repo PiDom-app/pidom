@@ -1,7 +1,6 @@
 import { app, BrowserWindow, net, protocol, session as electronSession } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, normalize, sep } from 'node:path';
-import started from 'electron-squirrel-startup';
 import { registerIpc } from './ipc';
 import { buildAppMenu } from './menu';
 import { SessionManager } from './auth/oauth';
@@ -16,7 +15,7 @@ import { StorageService } from './storage/service';
 import { ImportService } from './storage/import-service';
 import { UpdateService } from './updater/update-service';
 import { CollectionsService } from './collections/service';
-import { handleSquirrelAssociation } from './squirrel-events';
+import { registerAssociation } from './squirrel-events';
 
 // Electron Forge's Vite plugin injects these for the renderer entry.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -43,15 +42,6 @@ protocol.registerSchemesAsPrivileged([
   { scheme: READER_SCHEME, privileges: READER_SCHEME_PRIVILEGES },
 ]);
 
-// Squirrel (Windows) shortcut lifecycle; quits early during install/uninstall.
-if (started) app.quit();
-
-// Windows install/uninstall also maintains our `.pdf` "Open With" association.
-// Run it even when `started` already fired — an install needs both the shortcut
-// electron-squirrel-startup writes and this registry entry. Like `started`, a
-// handled event means the process is quitting itself, so it must not boot.
-const squirrelHandledAssociation = handleSquirrelAssociation();
-
 // One instance only. The local SQLite cache is opened synchronously on the main
 // thread; a second instance holding the WAL lock would make the first process's
 // `new Database()` block the whole event loop — the app appears to freeze. Refuse
@@ -59,11 +49,7 @@ const squirrelHandledAssociation = handleSquirrelAssociation();
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) app.quit();
 
-// `app.quit()` only *schedules* the quit; synchronous module code below keeps
-// running, and top-level `return` is not available here. So gate the boot: a
-// Squirrel setup launch or a refused second instance must not go on to open a
-// window mid-teardown.
-const shouldBoot = !started && !squirrelHandledAssociation && gotSingleInstanceLock;
+const shouldBoot = gotSingleInstanceLock;
 
 let mainWindow: BrowserWindow | null = null;
 const authSession = new SessionManager();
@@ -198,6 +184,7 @@ function createWindow(): BrowserWindow {
 
 if (shouldBoot)
   app.whenReady().then(() => {
+    if (process.platform === 'win32' && app.isPackaged) void registerAssociation();
     protocol.handle(APP_SCHEME, handleAppProtocol);
     // The reader serves verified PDF bytes back to the renderer, so its CORS
     // header is scoped to the one origin that renderer runs at — `app://bundle`
@@ -276,6 +263,8 @@ if (shouldBoot)
       isDev: Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL),
       createWindow,
       checkForUpdates: () => void updateService.check(),
+      getUpdateState: () => updateService.getState(),
+      restartUpdate: () => updateService.restart(),
     });
 
     registerIpc(authSession, storage, importService, updateService, collectionsService, {

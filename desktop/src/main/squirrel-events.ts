@@ -1,10 +1,8 @@
-import { app } from 'electron';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 /**
- * Windows "Open With" file association for `.pdf`, and the Squirrel install-time
- * lifecycle that maintains it.
+ * Windows "Open With" file association for `.pdf`.
  *
  * Windows 10+ forbids an app from programmatically seizing the *default* handler
  * for an extension — that stays the user's explicit choice in Settings. What an
@@ -77,34 +75,7 @@ export async function getPdfAssociation(): Promise<boolean> {
 }
 
 /** Toggles the association on or off, returning the resulting state. Drives the
- *  Settings toggle; the Squirrel lifecycle uses the register/unregister pair. */
+ *  Settings toggle. */
 export async function setPdfAssociation(on: boolean): Promise<boolean> {
   return on ? registerAssociation() : unregisterAssociation();
-}
-
-/**
- * Handles the Squirrel install lifecycle events Windows passes on the command
- * line, maintaining the file association alongside the shortcuts
- * `electron-squirrel-startup` manages. Returns true when an event was handled and
- * the process should quit immediately (install/uninstall are one-shot and must
- * not go on to open a window). Always false on non-Windows or a normal launch.
- */
-export function handleSquirrelAssociation(): boolean {
-  if (!isWindows()) return false;
-  const arg = process.argv[1];
-  switch (arg) {
-    case '--squirrel-install':
-    case '--squirrel-updated':
-      // Fire-and-forget: the process is quit by electron-squirrel-startup; give
-      // the registry write a beat to land before exit.
-      void registerAssociation().finally(() => setTimeout(() => app.quit(), 300));
-      return true;
-    case '--squirrel-uninstall':
-      void unregisterAssociation().finally(() => setTimeout(() => app.quit(), 300));
-      return true;
-    case '--squirrel-obsolete':
-      return true;
-    default:
-      return false;
-  }
 }

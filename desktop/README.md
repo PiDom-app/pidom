@@ -48,7 +48,7 @@ npx convex env set GOOGLE_DESKTOP_CLIENT_ID <id>.apps.googleusercontent.com
 | Script                | Does                                                                |
 | --------------------- | ------------------------------------------------------------------- |
 | `npm start`           | Launch the app in dev (Vite + Electron, HMR).                       |
-| `npm run make`        | Build distributables via Electron Forge.                            |
+| `npm run make`        | Build electron-builder distributables for the current platform.      |
 | `npm run routes`      | Regenerate the TanStack Router tree.                                |
 | `npm run db:generate` | Generate Drizzle migrations from `src/main/db/schema.ts`.           |
 | `npm run icons`       | Regenerate `icons/icon.ico` + `icons/icon.png` from the brand mark. |
@@ -70,37 +70,26 @@ npm run icons
 ```
 
 `scripts/generate-icons.mjs` is pure Node (jimp + png-to-ico), so it runs the same
-on Windows and Linux. `forge.config.ts` wires the `.ico`/`.png` into the packager
-and Squirrel maker; `src/main/index.ts` sets the `BrowserWindow` icon; and
+on Windows and Linux. `forge.config.ts` wires the `.ico`/`.png` into the application bundle and
+electron-builder uses them for release artifacts; `src/main/index.ts` sets the
+`BrowserWindow` icon; and
 `index.html` carries the mark as an inline-SVG favicon.
 
 ## Release
 
-CI (`.github/workflows/ci.yml`) mirrors the mobile app:
+CI uses `.github/workflows/desktop-release.yml` for desktop releases:
 
-- **`desktop-quality`** runs on every push and PR to `main` — installs, generates
-  the route tree, then runs the token guard and typecheck.
-- **`desktop-release`** runs on merge to `main`: builds the Windows installer on
-  `windows-latest` with the shared Convex deployment baked in, checksums the
-  `Setup.exe`, and publishes a GitHub Release tagged
-  `v<version>-desktop.<run_number>` with generated notes, install/verify steps,
-  and a SHA-256 checksum. It does **not** deploy Convex — the mobile release job
-  already does that on the same push.
+- A `vX.Y.Z` tag must match `package.json`; the workflow builds Windows NSIS,
+  macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts.
+- Stable Windows publication is blocked until the approved SignPath signer is
+  enabled. macOS artifacts are validation-only until notarization is configured.
+- `.github/workflows/desktop-rollout.yml` changes release-side
+  `stagingPercentage` metadata from 0 to 100. The client never exposes that
+  control.
 
-Builds ship **unsigned** by default (SmartScreen shows "unknown publisher"; the
-SHA-256 checksum is the integrity guarantee). Two signing paths are prepared and
-gated **off** in CI — enable one when you have a certificate:
-
-- **SignPath Foundation** — free Authenticode signing for OSS (`SIGNPATH_ENABLED`).
-- **signtool + PFX** — any certificate (Certum Open Source, a commercial CA, or a
-  self-signed PFX for internal fleets) supplied as a base64 secret
-  (`WINDOWS_SIGN_ENABLED`).
-
-Signing establishes publisher identity and lets SmartScreen reputation build; it
-is not an instant "no warning" switch (EV no longer bypasses SmartScreen as of
-2026). See [`SIGNING.md`](./SIGNING.md) for the ranked options, exact `signtool`
-commands, and the Certum application steps. Cut a new version by bumping
-`version` in `package.json`; the next merge releases under it.
+See [`SIGNING.md`](./SIGNING.md) for the Windows SignPath and macOS
+notarization gates. No signing certificate, password, Apple ID, Team ID, or API
+key is stored in the repository.
 
 ## Process split
 

@@ -1,4 +1,5 @@
 import { app, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
+import type { UpdateState } from '../shared/ipc';
 
 /**
  * Builds and installs a role-based application menu. Its job is narrow: give the
@@ -11,9 +12,11 @@ import { app, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 export function buildAppMenu(opts: {
   isDev: boolean;
   createWindow: () => void;
-  /** Kick off a detection check. Inert off packaged-Windows (the service stays
+  /** Kick off a detection check. Inert off unsupported packaged targets (the service stays
    *  `unsupported`); the renderer's Updates surface reflects the result. */
   checkForUpdates: () => void;
+  getUpdateState: () => UpdateState;
+  restartUpdate: () => void;
 }): void {
   const isMac = process.platform === 'darwin';
 
@@ -71,14 +74,31 @@ export function buildAppMenu(opts: {
         { type: 'separator' as const },
         {
           label: 'About Pidom',
-          click: () => {
-            void dialog.showMessageBox({
+          click: async () => {
+            const state = opts.getUpdateState();
+            const updateText =
+              state.phase === 'ready'
+                ? `Update ${state.availableVersion ?? ''} is ready.`
+                : state.phase === 'available'
+                  ? `Update ${state.availableVersion ?? ''} is available.`
+                  : state.phase === 'downloading'
+                    ? `Downloading ${state.availableVersion ?? 'the latest update'}…`
+                    : state.phase === 'error'
+                      ? 'The latest update could not be installed.'
+                      : state.phase === 'unsupported'
+                        ? 'Automatic updates are unavailable for this build.'
+                        : 'Pidom is up to date.';
+            const buttons = state.phase === 'ready' ? ['Close', 'Restart to Update'] : ['Close', 'Check for Updates'];
+            const result = await dialog.showMessageBox({
               type: 'info',
               title: 'About Pidom',
               message: 'Pidom for Desktop',
-              detail: `Version ${app.getVersion()}\nThe desktop companion to your Pidom reading library.`,
-              buttons: ['OK'],
+              detail: `Version ${app.getVersion()}\nThe desktop companion to your Pidom reading library.\n\nUpdates\n${updateText}`,
+              buttons,
             });
+            if (result.response !== 1) return;
+            if (state.phase === 'ready') opts.restartUpdate();
+            else opts.checkForUpdates();
           },
         },
       ],

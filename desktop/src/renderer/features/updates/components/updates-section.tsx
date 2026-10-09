@@ -30,8 +30,8 @@ import type { UpdateState } from '../../../../shared/ipc';
  * drives `autoUpdater`. Flat and cardless — rows sit in the page on hairline
  * dividers, not in boxes.
  *
- * When the platform can't self-update (anything but a packaged Windows build,
- * which main reports as the `unsupported` phase) the live controls give way to a
+ * When the platform can't self-update (anything but a packaged Windows/macOS or
+ * Linux AppImage build, which main reports as the `unsupported` phase) the live controls give way to a
  * plain muted note, so the surface stays honest without pretending to update.
  */
 export function UpdatesSection() {
@@ -120,8 +120,8 @@ export function UpdatesSection() {
         <div className="mt-4 flex items-start gap-2.5 rounded-md border border-dashed border-border px-4 py-3.5 text-sm text-fg-muted">
           <Info className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
           <span>
-            Automatic updates are available in the packaged Windows app. On this platform, update
-            Pidom by installing the latest release manually.
+            Automatic updates are available in packaged Windows, macOS, and Linux AppImage builds.
+            On this platform, update Pidom by installing the latest release manually.
           </span>
         </div>
       )}
@@ -206,7 +206,9 @@ function describe(
     case 'downloading':
       return {
         icon: <Loader className="size-4 animate-spin text-fg-muted" />,
-        text: version ? `Downloading Pidom ${version}…` : 'Downloading the update…',
+        text: version
+          ? `Downloading Pidom ${version}${state.downloadProgress === null ? '…' : ` (${Math.round(state.downloadProgress)}%)…`}`
+          : 'Downloading the update…',
         tone: 'text-fg-muted',
       };
     case 'ready':
