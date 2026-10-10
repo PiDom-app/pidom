@@ -181,8 +181,8 @@ function actionItems(
         Open
       </Item>
       <Item
-        className={cn(menuItemClass, !['txt', 'md', 'csv', 'image', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'].includes(document.documentKind) && 'opacity-50')}
-        disabled={!['txt', 'md', 'csv', 'image', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'].includes(document.documentKind)}
+        className={cn(menuItemClass, !['pdf', 'txt', 'md', 'csv', 'image', 'docx', 'xlsx', 'pptx', 'odt'].includes(document.documentKind) && 'opacity-50')}
+        disabled={!['pdf', 'txt', 'md', 'csv', 'image', 'docx', 'xlsx', 'pptx', 'odt'].includes(document.documentKind)}
         onSelect={edit}
       >
         <Pencil className="size-4" />

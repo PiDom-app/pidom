@@ -163,7 +163,7 @@ export interface ReaderSaveAsRequest {
   handle: string;
   bytes: ArrayBuffer;
   suggestedName: string;
-  format: 'txt' | 'md' | 'csv' | 'image';
+  format: 'txt' | 'md' | 'csv' | 'docx' | 'odt' | 'xlsx' | 'pptx' | 'pdf' | 'image';
 }
 
 export interface ReaderSaveAsResult {
@@ -174,7 +174,7 @@ export interface ReaderSaveRequest {
   handle: string;
   bytes: ArrayBuffer;
   expectedContentHash: string;
-  format: 'txt' | 'md' | 'csv' | 'image';
+  format: 'txt' | 'md' | 'csv' | 'docx' | 'odt' | 'xlsx' | 'pptx' | 'pdf' | 'image';
 }
 
 export type ReaderSaveResult =

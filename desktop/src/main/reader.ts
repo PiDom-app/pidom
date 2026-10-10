@@ -188,6 +188,20 @@ function validateEditorBytes(request: { bytes: ArrayBuffer; format: string }): v
     }
     return;
   }
+  if (request.format === 'pdf') {
+    const bytes = new Uint8Array(request.bytes);
+    if (new TextDecoder('latin1').decode(bytes.slice(0, 5)) !== '%PDF-') {
+      throw new Error('save rejected: document is not a PDF');
+    }
+    return;
+  }
+  if (['docx', 'odt', 'xlsx', 'pptx'].includes(request.format)) {
+    const bytes = new Uint8Array(request.bytes);
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+      throw new Error('save rejected: Office document is not a ZIP package');
+    }
+    return;
+  }
   try {
     new TextDecoder('utf-8', { fatal: true }).decode(request.bytes);
   } catch {
@@ -236,7 +250,7 @@ export async function saveDocumentAs(
   request: ReaderSaveAsRequest,
 ): Promise<ReaderSaveAsResult> {
   if (!open.has(request.handle)) throw new Error('saveAs rejected: unknown document handle');
-  if (!['txt', 'md', 'csv', 'image'].includes(request.format)) {
+  if (!['txt', 'md', 'csv', 'docx', 'odt', 'xlsx', 'pptx', 'pdf', 'image'].includes(request.format)) {
     throw new Error('saveAs rejected: unsupported editable format');
   }
 
@@ -253,6 +267,10 @@ export async function saveDocumentAs(
       bytes[6] === 0x1a &&
       bytes[7] === 0x0a;
     if (!isPng) throw new Error('saveAs rejected: image export is not a PNG');
+  } else if (request.format === 'pdf') {
+    validateEditorBytes(request);
+  } else if (['docx', 'odt', 'xlsx', 'pptx'].includes(request.format)) {
+    validateEditorBytes(request);
   } else {
     try {
       new TextDecoder('utf-8', { fatal: true }).decode(request.bytes);

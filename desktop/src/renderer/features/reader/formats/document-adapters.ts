@@ -253,6 +253,7 @@ export type ParsedDocument =
 
 export function parseDocumentBytes(bytes: Uint8Array, format: string): ParsedDocument {
   if (format === 'image') return { kind: 'text', text: '' };
+  if (format === 'pdf') return { kind: 'text', text: '' };
   if (format === 'html') {
     const raw = new TextDecoder().decode(bytes).slice(0, MAX_TEXT);
     return { kind: 'html', html: sanitizeHtml(raw) };
