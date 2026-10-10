@@ -108,8 +108,25 @@ export class ImportService {
       .where(eq(importJobs.localId, localId))
       .get();
     if (existing) {
-      if (PENDING.includes(existing.state)) this.enqueueAdvance(localId);
-      return;
+      if (existing.state === 'failed') {
+        const available = this.storage.availablePath(localId);
+        if (available) {
+          this.setState(localId, 'staged');
+        } else {
+          // A failed starter from an older build may have lost its staged
+          // bytes. Clear that orphan so the deterministic guide can be rebuilt.
+          await this.cancel(localId);
+        }
+      }
+      const current = getDb()
+        .select()
+        .from(importJobs)
+        .where(eq(importJobs.localId, localId))
+        .get();
+      if (current) {
+        if (PENDING.includes(current.state)) this.enqueueAdvance(localId);
+        return;
+      }
     }
     await this.queue.add(async () => {
       const db = getDb();
