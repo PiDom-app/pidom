@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
+import { isLocalDocumentId } from './document-id';
 
 /**
  * Finding a word inside the open document.
@@ -62,7 +63,10 @@ export function useFindInDocument(documentId: Id<'documents'>, active: boolean):
   // Fetch and index once, the first time the bar opens. Nothing runs while it is
   // closed, and a second open reuses what the first one cached.
   useEffect(() => {
-    if (!active || pages.current !== null) return;
+    if (!active || pages.current !== null || isLocalDocumentId(documentId)) {
+      if (isLocalDocumentId(documentId)) setAvailability('unavailable');
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
