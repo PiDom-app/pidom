@@ -46,7 +46,7 @@ let raw: DatabaseSync | null = null;
  *  desktop-initiated import pipeline. v4 added the offline organization mirror
  *  (`collections`, `collection_items`, `sync_queue`) so collection/favorite/
  *  finished edits work with no network and drain to Convex on reconnect. */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /**
  * A synchronous diagnostic line, straight to stderr.
@@ -167,6 +167,12 @@ function migrateUp(database: DatabaseSync): void {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS sync_queue_by_state ON sync_queue (state);
+
+    CREATE TABLE IF NOT EXISTS editor_drafts (
+      document_id TEXT PRIMARY KEY NOT NULL,
+      content TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
   `);
   // Additive columns for databases created before multi-format imports. SQLite
   // has no IF NOT EXISTS form for ALTER TABLE, so tolerate the already-present
@@ -285,4 +291,27 @@ function closeQuietly(): void {
 export function userVersion(): number {
   if (!raw) getDb();
   return readPragmaInt(raw!, 'user_version');
+}
+
+export function getEditorDraft(documentId: string): { content: string; updatedAt: number } | null {
+  if (!raw) getDb();
+  const row = raw!.prepare(
+    'SELECT content, updated_at AS updatedAt FROM editor_drafts WHERE document_id = ?',
+  ).get(documentId) as { content?: unknown; updatedAt?: unknown } | undefined;
+  return typeof row?.content === 'string'
+    ? { content: row.content, updatedAt: Number(row.updatedAt) || 0 }
+    : null;
+}
+
+export function putEditorDraft(documentId: string, content: string): void {
+  if (!raw) getDb();
+  raw!.prepare(
+    `INSERT INTO editor_drafts (document_id, content, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(document_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
+  ).run(documentId, content, Date.now());
+}
+
+export function deleteEditorDraft(documentId: string): void {
+  if (!raw) getDb();
+  raw!.prepare('DELETE FROM editor_drafts WHERE document_id = ?').run(documentId);
 }

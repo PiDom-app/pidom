@@ -1,13 +1,20 @@
-import { app, net, protocol } from 'electron';
+import { app, dialog, net, protocol, type BrowserWindow, type SaveDialogOptions } from 'electron';
 import { createHash, randomBytes } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { join, normalize, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { CLOUD_BYTE_MAX, TEXT_BYTE_MAX } from '@convex-model/limits';
-import type { ReaderDocumentHandle, ReaderOpenRequest } from '../shared/ipc';
+import type {
+  ReaderDocumentHandle,
+  ReaderOpenRequest,
+  ReaderSaveAsRequest,
+  ReaderSaveAsResult,
+  ReaderSaveRequest,
+  ReaderSaveResult,
+} from '../shared/ipc';
 import { isSafeDocumentId } from './storage/paths';
 import { detectDocumentFormat, hasRecognizedSignature } from '../../../src/lib/document-formats';
 
@@ -86,6 +93,7 @@ interface OpenDocument {
    *  file — that copy outlives the reader session. */
   persistent?: boolean;
   contentType: string;
+  contentHash: string;
 }
 
 /** Handle → verified copy. The renderer only ever holds the key. */
@@ -162,6 +170,117 @@ export async function closeDocument(handle: string): Promise<void> {
   if (!entry.persistent) await rm(entry.path, { force: true });
 }
 
+function validateEditorBytes(request: { bytes: ArrayBuffer; format: string }): void {
+  if (request.format === 'image') {
+    const bytes = new Uint8Array(request.bytes);
+    if (
+      bytes.length < 8 ||
+      bytes[0] !== 0x89 ||
+      bytes[1] !== 0x50 ||
+      bytes[2] !== 0x4e ||
+      bytes[3] !== 0x47 ||
+      bytes[4] !== 0x0d ||
+      bytes[5] !== 0x0a ||
+      bytes[6] !== 0x1a ||
+      bytes[7] !== 0x0a
+    ) {
+      throw new Error('save rejected: image export is not a PNG');
+    }
+    return;
+  }
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(request.bytes);
+  } catch {
+    throw new Error('save rejected: document is not valid UTF-8');
+  }
+}
+async function hashFile(path: string): Promise<string> {
+  return createHash('sha256').update(await readFile(path)).digest('hex');
+}
+
+export async function saveDocument(
+  _owner: BrowserWindow | null,
+  request: ReaderSaveRequest,
+): Promise<ReaderSaveResult> {
+  const entry = open.get(request.handle);
+  if (!entry) throw new Error('save rejected: unknown document handle');
+  if (!entry.persistent) throw new Error('save rejected: no local source file');
+  validateEditorBytes(request);
+  const currentHash = await hashFile(entry.path);
+  if (currentHash !== request.expectedContentHash) {
+    return { status: 'conflict', currentContentHash: currentHash };
+  }
+  const temporary = `${entry.path}.pidom-${randomBytes(8).toString('hex')}.tmp`;
+  try {
+    await writeFile(temporary, new Uint8Array(request.bytes), { flag: 'wx', mode: 0o600 });
+    await rename(temporary, entry.path);
+    const contentHash = createHash('sha256').update(new Uint8Array(request.bytes)).digest('hex');
+    entry.bytes = request.bytes.byteLength;
+    entry.contentHash = contentHash;
+    return { status: 'saved', contentHash };
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+
+
+/**
+ * Writes an edited in-memory document through the native Save As dialog.
+ * Renderer bytes are bounded by IPC validation; the handle is still required
+ * to prevent an unrelated renderer from turning this into an arbitrary export
+ * primitive.
+ */
+export async function saveDocumentAs(
+  owner: BrowserWindow | null,
+  request: ReaderSaveAsRequest,
+): Promise<ReaderSaveAsResult> {
+  if (!open.has(request.handle)) throw new Error('saveAs rejected: unknown document handle');
+  if (!['txt', 'md', 'csv', 'image'].includes(request.format)) {
+    throw new Error('saveAs rejected: unsupported editable format');
+  }
+
+  if (request.format === 'image') {
+    const bytes = new Uint8Array(request.bytes);
+    const isPng =
+      bytes.length >= 8 &&
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47 &&
+      bytes[4] === 0x0d &&
+      bytes[5] === 0x0a &&
+      bytes[6] === 0x1a &&
+      bytes[7] === 0x0a;
+    if (!isPng) throw new Error('saveAs rejected: image export is not a PNG');
+  } else {
+    try {
+      new TextDecoder('utf-8', { fatal: true }).decode(request.bytes);
+    } catch {
+      throw new Error('saveAs rejected: document is not valid UTF-8');
+    }
+  }
+  const options: SaveDialogOptions = {
+    defaultPath: request.suggestedName,
+    buttonLabel: 'Save',
+    properties: ['createDirectory', 'showOverwriteConfirmation'],
+  };
+  const result = owner
+    ? await dialog.showSaveDialog(owner, options)
+    : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return { saved: false };
+
+  const destination = normalize(result.filePath);
+  const temporary = `${destination}.pidom-${randomBytes(8).toString('hex')}.tmp`;
+  try {
+    await writeFile(temporary, new Uint8Array(request.bytes), { flag: 'wx' });
+    await rename(temporary, destination);
+    return { saved: true };
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
 /** Drops the oldest copies until the cap is respected again. */
 async function evictToCap(): Promise<void> {
   while (open.size >= MAX_OPEN_DOCUMENTS) {
@@ -215,12 +334,14 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
         openedAt: Date.now(),
         persistent: true,
         contentType: format.contentType,
+        contentHash: await hashFile(localPath),
       });
       return {
         handle,
         url: `${DOC_SCHEME}://${handle}/document`,
         bytes: info.size,
         contentType: format.contentType,
+        contentHash: open.get(handle)?.contentHash ?? '',
       };
     } catch {
       // The record said available but the file is gone; fall through and fetch.
@@ -318,11 +439,16 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     clearTimeout(timer);
   }
 
+  const contentHash = createHash('sha256');
+  // The downloaded file is already verified; hash it once before exposing the
+  // handle so a later overwrite can detect changes made outside Pidom.
+  contentHash.update(await readFile(path));
   open.set(handle, {
     path,
     bytes: total,
     openedAt: Date.now(),
     contentType: format.contentType,
+    contentHash: contentHash.digest('hex'),
   });
 
   return {
@@ -330,6 +456,7 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     url: `${DOC_SCHEME}://${handle}/document`,
     bytes: total,
     contentType: format.contentType,
+    contentHash: open.get(handle)?.contentHash ?? '',
   };
 }
 

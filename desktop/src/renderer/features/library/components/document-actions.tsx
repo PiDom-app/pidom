@@ -148,6 +148,7 @@ function actionItems(
     document,
     collectionContext,
     open,
+    edit,
     toggleFavorite,
     setFinished,
     removeDocumentFromCollection,
@@ -159,6 +160,7 @@ function actionItems(
     document: LibraryDocument;
     collectionContext?: CollectionContext;
     open: () => void;
+    edit: () => void;
     toggleFavorite: (id: Id<'documents'>, next: boolean) => void;
     setFinished: (id: Id<'documents'>, next: boolean, pageCount: number) => void;
     removeDocumentFromCollection: (
@@ -177,6 +179,14 @@ function actionItems(
       <Item className={menuItemClass} onSelect={open}>
         <BookOpen className="size-4" />
         Open
+      </Item>
+      <Item
+        className={cn(menuItemClass, !['txt', 'md', 'csv', 'image', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'].includes(document.documentKind) && 'opacity-50')}
+        disabled={!['txt', 'md', 'csv', 'image', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'].includes(document.documentKind)}
+        onSelect={edit}
+      >
+        <Pencil className="size-4" />
+        Edit
       </Item>
       <Item
         className={menuItemClass}
@@ -247,6 +257,7 @@ function useDocumentMenuState() {
     setFinished,
     removeDocumentFromCollection,
     open: (id: Id<'documents'>) => void navigate({ to: '/reader/$documentId', params: { documentId: id } }),
+    edit: (id: Id<'documents'>) => void navigate({ to: '/editor/$documentId', params: { documentId: id } }),
   };
 }
 
@@ -280,6 +291,7 @@ export function DocumentActions({
               document,
               collectionContext,
               open: () => s.open(document.id),
+              edit: () => s.edit(document.id),
               toggleFavorite: s.toggleFavorite,
               setFinished: s.setFinished,
               removeDocumentFromCollection: s.removeDocumentFromCollection,
@@ -329,6 +341,7 @@ export function DocumentContextMenu({
               document,
               collectionContext,
               open: () => s.open(document.id),
+              edit: () => s.edit(document.id),
               toggleFavorite: s.toggleFavorite,
               setFinished: s.setFinished,
               removeDocumentFromCollection: s.removeDocumentFromCollection,

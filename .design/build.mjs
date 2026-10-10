@@ -126,6 +126,14 @@ const icons = {
   circleSlash: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
   layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 10.37-3.48 1.59a1 1 0 0 0 0 1.83l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.48-1.59"/><path d="m6.08 15.37-3.48 1.59a1 1 0 0 0 0 1.83l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.48-1.59"/>',
   sliders: '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
+  fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>',
+  fileX: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 13 6 6"/><path d="m15 13-6 6"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v1"/>',
+  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0-6 6v1"/>',
+  mousePointer: '<path d="m4 4 7.07 16.97 2.32-7.58L21 11.07z"/>',
+  hand: '<path d="M18 11V6a1 1 0 0 0-2 0v4"/><path d="M14 10V4a1 1 0 0 0-2 0v6"/><path d="M10 10V5a1 1 0 0 0-2 0v7"/><path d="M6 11V9a1 1 0 0 0-2 0v5a8 8 0 0 0 8 8h1a7 7 0 0 0 7-7v-4a1 1 0 0 0-2 0v2"/>',
+  textCursor: '<path d="M4 6V4h16v2"/><path d="M12 4v16"/><path d="M8 20h8"/>',
+  history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/>',
 };
 const icon = (name, size, color, sw = 1.75) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;display:block">${icons[name]}</svg>`;
@@ -5144,6 +5152,176 @@ function downloadModel() {
   });
 }
 
+/* ======================= DESKTOP EDITOR =========================== *
+ * Desktop boards reuse the same warm-neutral tokens, 6px radius, compact
+ * density, and quiet dividers as the mobile canvas. They are intentionally
+ * capability-led: an unavailable operation is shown as unavailable instead
+ * of being implied by a toolbar icon.
+ * ------------------------------------------------------------------ */
+function desktopButton(c, label, { primary = false, muted = false } = {}) {
+  const background = primary ? c.primary : 'transparent';
+  const color = primary ? c.onPrimary : muted ? c.fgMuted : c.fg;
+  const border = primary ? c.primary : c.border;
+  return `<div style="height:34px;display:flex;align-items:center;gap:7px;padding:0 12px;border-radius:${R};background:${background};box-shadow:inset 0 0 0 1px ${border};font-size:12px;font-weight:600;color:${color}">${label}</div>`;
+}
+
+function desktopIconButton(c, glyph, label, { active = false, disabled = false } = {}) {
+  return `<div aria-label="${label}" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:${R};background:${active ? c.primaryTint : 'transparent'};box-shadow:inset 0 0 0 1px ${active ? c.primary : c.border};opacity:${disabled ? '.38' : '1'}">${icon(glyph, 16, active ? c.primary : c.fgMuted, 1.8)}</div>`;
+}
+
+function desktopPanel(c, title, body, { w = 280 } = {}) {
+  return `<div style="width:${w}px;flex:0 0 ${w}px;background:${c.surface};border-left:1px solid ${c.border};overflow:hidden">
+    <div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid ${c.hairline}">
+      <div style="font-size:12px;font-weight:700;color:${c.fg}">${title}</div>
+      ${icon('close', 15, c.fgSubtle, 1.8)}
+    </div>
+    <div style="padding:16px">${body}</div>
+  </div>`;
+}
+
+function desktopRows(c, rows) {
+  return rows.map(({ glyph, title, detail, tone = c.fgMuted, active = false }) => `<div style="display:flex;align-items:center;gap:10px;min-height:46px;padding:7px 10px;border-bottom:1px solid ${c.hairline};background:${active ? c.primaryTint : 'transparent'}">
+    ${icon(glyph, 16, active ? c.primary : tone, 1.8)}
+    <div style="min-width:0;flex:1">
+      <div style="font-size:12px;font-weight:${active ? '700' : '600'};color:${active ? c.fg : c.fgMuted};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
+      ${detail ? `<div style="margin-top:2px;font-size:11px;color:${c.fgSubtle}">${detail}</div>` : ''}
+    </div>
+  </div>`).join('');
+}
+
+function desktopBoard({ title, subtitle, glyph = 'fileText', body, panel = null, status = 'Saved locally' }) {
+  const c = DARK;
+  return dc({
+    w: 1440, h: 900, bg: c.bg,
+    body: `<div style="width:1440px;height:900px;background:${c.bg};color:${c.fg};font-family:${FONT};overflow:hidden">
+      <div style="height:48px;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid ${c.hairline};background:${c.surface}">
+        <div style="width:22px;height:22px;border-radius:${R};background:${c.primary};display:flex;align-items:center;justify-content:center">${icon('bookOpen', 14, c.onPrimary, 1.8)}</div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.01em">Pidom</div>
+        <div style="height:18px;width:1px;background:${c.border}"></div>
+        <div style="font-size:12px;color:${c.fgMuted}">${title}</div>
+        <div style="flex:1"></div>
+        <div style="font-size:11px;color:${c.fgSubtle}">${status}</div>
+        ${desktopIconButton(c, 'cloudCheck', 'Sync status')}
+        ${desktopIconButton(c, 'settings', 'Settings')}
+        <div style="width:26px;height:26px;border-radius:50%;background:${c.primaryTint};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${c.primary}">EM</div>
+      </div>
+      <div style="height:48px;display:flex;align-items:center;gap:7px;padding:0 14px;border-bottom:1px solid ${c.hairline};background:${c.bg}">
+        ${desktopIconButton(c, 'arrowLeft', 'Back')}
+        <div style="width:1px;height:22px;background:${c.border}"></div>
+        ${desktopIconButton(c, 'undo', 'Undo', { disabled: true })}
+        ${desktopIconButton(c, 'redo', 'Redo', { disabled: true })}
+        <div style="width:1px;height:22px;background:${c.border}"></div>
+        ${desktopIconButton(c, 'mousePointer', 'Select', { active: true })}
+        ${desktopIconButton(c, 'hand', 'Pan')}
+        ${desktopIconButton(c, glyph, 'Markup')}
+        ${desktopIconButton(c, 'pencil', 'Draw')}
+        ${desktopIconButton(c, 'textCursor', 'Insert text')}
+        ${desktopIconButton(c, 'image', 'Insert image')}
+        <div style="width:1px;height:22px;background:${c.border}"></div>
+        ${desktopButton(c, 'Annotate')}
+        ${desktopButton(c, 'Edit content', { muted: true })}
+        <div style="flex:1"></div>
+        ${desktopButton(c, 'Save')}
+        ${desktopButton(c, 'Export', { muted: true })}
+        ${desktopIconButton(c, 'more', 'More actions')}
+      </div>
+      <div style="height:804px;display:flex">
+        <div style="width:224px;flex:0 0 224px;background:${c.surface};border-right:1px solid ${c.border};overflow:hidden">
+          <div style="height:44px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid ${c.hairline}">
+            ${icon('fileText', 16, c.primary, 1.8)}
+            <div style="min-width:0;flex:1;font-size:12px;font-weight:700;color:${c.fg};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Designing Data.pdf</div>
+            <div style="width:7px;height:7px;border-radius:50%;background:${c.warn}"></div>
+          </div>
+          <div style="padding:12px 10px 6px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.fgSubtle}">Open documents</div>
+          ${desktopRows(c, [
+            { glyph: 'fileText', title: 'Designing Data.pdf', detail: '88 / 613 pages', active: true },
+            { glyph: 'notebookPen', title: 'Meeting notes.md', detail: 'Unsaved changes', tone: c.warn },
+            { glyph: 'grid', title: 'Budget 2025.xlsx', detail: 'Read-only', tone: c.fgSubtle },
+          ])}
+          <div style="padding:18px 10px 6px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.fgSubtle}">Pages</div>
+          ${desktopRows(c, [
+            { glyph: 'rectangleVertical', title: 'Page 88', detail: 'Selected', active: true },
+            { glyph: 'rectangleVertical', title: 'Page 89', detail: 'Annotation' },
+            { glyph: 'rectangleVertical', title: 'Page 90' },
+          ])}
+        </div>
+        <div style="flex:1;min-width:0;background:${c.sunken};display:flex;align-items:flex-start;justify-content:center;padding:26px;overflow:hidden">
+          ${body}
+        </div>
+        ${panel ?? desktopPanel(c, 'Document', `<div style="font-size:12px;line-height:18px;color:${c.fgMuted}">Select an object or tool to inspect its properties. Changes stay local until you save.</div>`)}
+      </div>
+      <div style="position:absolute;left:224px;right:280px;bottom:0;height:28px;display:flex;align-items:center;gap:16px;padding:0 14px;background:${c.surface};border-top:1px solid ${c.hairline};font-size:11px;color:${c.fgSubtle}">
+        <span>Page 88 of 613</span><span>•</span><span>125%</span><span style="flex:1"></span><span>Local draft ready</span>
+      </div>
+    </div>`,
+  });
+}
+
+function desktopDocumentPage(c, { kind = 'pdf', label = 'Designing Data-Intensive Applications', notice = null } = {}) {
+  const page = kind === 'pdf'
+    ? `<div style="position:relative;width:620px;height:748px;background:#f8f6f1;box-shadow:0 10px 32px rgba(0,0,0,.28);padding:54px 58px;color:#252321">
+        <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#827d74">Chapter 4 · Storage and Retrieval</div>
+        <div style="margin-top:22px;font-family:Georgia,serif;font-size:29px;line-height:34px;font-weight:700">${label}</div>
+        <div style="margin-top:18px;height:1px;background:#d7d0c5"></div>
+        <div style="margin-top:26px;font-family:Georgia,serif;font-size:14px;line-height:23px;color:#403c37">${Array.from({ length: 13 }, (_, i) => `<div style="width:${i % 4 === 0 ? 82 : 94}%;height:7px;margin-bottom:10px;background:#c9c1b5;border-radius:2px"></div>`).join('')}</div>
+        <div style="position:absolute;left:250px;top:354px;width:120px;height:52px;background:rgba(106,89,232,.18);box-shadow:inset 0 0 0 2px ${c.primary}"></div>
+        <div style="position:absolute;left:58px;bottom:50px;font-size:11px;color:#827d74">88</div>
+      </div>`
+    : `<div style="width:620px;height:748px;background:${c.surface};box-shadow:0 10px 32px rgba(0,0,0,.28);padding:54px 58px;color:${c.fg}">
+        <div style="font-size:14px;font-weight:700">${label}</div>
+        <div style="margin-top:24px;font-family:ui-monospace,monospace;font-size:13px;line-height:22px;color:${c.fgMuted}">${Array.from({ length: 24 }, (_, i) => `<div><span style="display:inline-block;width:28px;color:${c.fgSubtle}">${String(i + 1).padStart(2, '0')}</span>${i === 8 ? `<span style="background:${c.primaryTint};color:${c.fg}">const version = await saveDraft(document)</span>` : `document content line ${i + 1}`}</div>`).join('')}</div>
+      </div>`;
+  return `${notice ? `<div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:2;padding:8px 12px;border-radius:${R};background:${c.warnTint};box-shadow:inset 0 0 0 1px ${c.warn};font-size:11px;color:${c.warn}">${notice}</div>` : ''}${page}`;
+}
+
+function desktopEditorBoard(mode) {
+  const c = DARK;
+  const configs = {
+    library: { title: 'Library', subtitle: 'Desktop library', glyph: 'bookOpen', status: '6 documents on this device' },
+    import: { title: 'Open / import', subtitle: 'Choose a document', glyph: 'filePlus', status: 'Files are checked before opening' },
+    tabs: { title: 'Workspace', subtitle: 'Three documents open', glyph: 'layers', status: 'Saved locally' },
+    pdfAnnotate: { title: 'PDF annotate', subtitle: 'Annotate mode', glyph: 'highlighter', status: 'Unsaved annotation' },
+    pdfContent: { title: 'PDF edit content', subtitle: 'Capability boundary', glyph: 'pencil', status: 'Editing existing content is engine-dependent' },
+    pages: { title: 'Page manager', subtitle: 'Reorder and extract', glyph: 'rows3', status: 'Local draft ready' },
+    text: { title: 'Text editor', subtitle: 'Markdown source', glyph: 'notebookPen', status: 'Unsaved changes' },
+    csv: { title: 'CSV editor', subtitle: 'Structured grid', glyph: 'grid', status: 'Delimiter: comma · UTF-8' },
+    image: { title: 'Image markup', subtitle: 'Pixel document', glyph: 'image', status: 'Saved locally' },
+    office: { title: 'Office preview', subtitle: 'Read-only capability', glyph: 'fileX', status: 'Write-back unavailable' },
+    conflict: { title: 'Save conflict', subtitle: 'External file changed', glyph: 'shieldAlert', status: 'Action required' },
+    export: { title: 'Save As / export', subtitle: 'Choose output', glyph: 'download', status: 'Original stays unchanged' },
+    versions: { title: 'Version history', subtitle: 'Restore a local checkpoint', glyph: 'history', status: '4 local versions' },
+    sync: { title: 'Sync & recovery', subtitle: 'Local-first state', glyph: 'cloudCheck', status: 'Cloud sync paused' },
+    settings: { title: 'Editor settings', subtitle: 'Desktop preferences', glyph: 'settings', status: 'Changes apply immediately' },
+    empty: { title: 'Unsupported document', subtitle: 'Capability state', glyph: 'fileX', status: 'No write-back available' },
+  };
+  const config = configs[mode];
+  const panelBody = {
+    library: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Open a local document or pick one from your account. The editor keeps the file on this device until you choose to sync it.</div>${desktopButton(c, 'Open document', { primary: true })}`,
+    pdfAnnotate: `<div style="font-size:11px;color:${c.fgSubtle}">Selected annotation</div><div style="margin-top:8px;font-size:14px;color:${c.fg}">Highlight</div><div style="margin-top:18px;display:flex;gap:8px">${desktopButton(c, 'Yellow', { primary: true })}${desktopButton(c, 'Opacity 30%', { muted: true })}</div>`,
+    pdfContent: `<div style="padding:12px;border-radius:${R};background:${c.warnTint};box-shadow:inset 0 0 0 1px ${c.warn};font-size:12px;line-height:18px;color:${c.warn}">Existing-content editing requires a preserving document engine. This release keeps the operation disabled rather than painting over original text.</div>`,
+    pages: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Drag pages to reorder them. Deleting and extracting create reversible local checkpoints.</div>${desktopRows(c, [{ glyph: 'rectangleVertical', title: 'Page 88', detail: 'Selected', active: true }, { glyph: 'rectangleVertical', title: 'Page 89' }, { glyph: 'rectangleVertical', title: 'Page 90' }])}`,
+    text: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Plain text and Markdown save their source bytes. Preview is sanitized and never executes embedded HTML.</div>`,
+    csv: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">CSV writes quoted cells, preserves delimiters, and asks before changing encoding.</div>`,
+    image: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Markup is a local edit. Export creates a new image or PDF; the original stays available.</div>`,
+    office: `<div style="padding:12px;border-radius:${R};background:${c.sunken};box-shadow:inset 0 0 0 1px ${c.border};font-size:12px;line-height:18px;color:${c.fgMuted}">DOCX, XLSX, and PPTX can be inspected for reading, but this build does not claim faithful write-back.</div>`,
+    conflict: `<div style="font-size:12px;line-height:18px;color:${c.fgMuted}">The destination changed outside Pidom. Keep this draft, reload the external file, or save a new copy.</div>${desktopButton(c, 'Save as new copy', { primary: true })}`,
+    export: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Choose a destination and output format. Flattening is labelled because it removes editable annotation state.</div>${desktopButton(c, 'Choose destination', { primary: true })}`,
+    versions: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Local checkpoints are immutable until you explicitly remove them.</div>${desktopRows(c, [{ glyph: 'clock', title: 'Now · unsaved draft', detail: 'Current session', active: true }, { glyph: 'clock', title: '10 minutes ago', detail: 'Saved locally' }, { glyph: 'clock', title: 'Yesterday', detail: 'Synced version' }])}`,
+    sync: `<div style="padding:12px;border-radius:${R};background:${c.primaryTint};box-shadow:inset 0 0 0 1px ${c.primary};font-size:12px;line-height:18px;color:${c.fg}">Local save is complete. Cloud sync is separate and will retry with the same operation id.</div>`,
+    settings: `<div style="font-size:12px;color:${c.fgMuted};line-height:18px">Autosave drafts, recovery retention, shortcut visibility, PDF markup defaults, and sync policy.</div>`,
+    empty: `<div style="padding:12px;border-radius:${R};background:${c.sunken};box-shadow:inset 0 0 0 1px ${c.border};font-size:12px;line-height:18px;color:${c.fgMuted}">This format opens safely for reading, but no adapter can serialize edits without risking data loss.</div>`,
+  }[mode];
+  return desktopBoard({
+    ...config,
+    panel: desktopPanel(c, config.subtitle, panelBody ?? '<div></div>'),
+    body: desktopDocumentPage(c, {
+      kind: mode === 'text' || mode === 'csv' ? 'text' : 'pdf',
+      label: mode === 'csv' ? 'Budget 2025.csv' : mode === 'text' ? 'Meeting notes.md' : 'Designing Data-Intensive Applications',
+      notice: mode === 'conflict' ? 'The source changed outside Pidom' : mode === 'office' || mode === 'empty' ? 'Read-only' : null,
+    }),
+  });
+}
+
 const out = {
   'Main.dc.html': home(true),
   'HomeLight.dc.html': home(false),
@@ -5267,8 +5445,39 @@ const out = {
   'DownloadStates.dc.html': downloadStates(),
   'DownloadRowAnatomy.dc.html': downloadRowAnatomy(),
   'DownloadModel.dc.html': downloadModel(),
+
+  /* Desktop document editor. */
+  'DesktopLibrary.dc.html': desktopEditorBoard('library'),
+  'DesktopImport.dc.html': desktopEditorBoard('import'),
+  'DesktopTabs.dc.html': desktopEditorBoard('tabs'),
+  'DesktopPdfAnnotate.dc.html': desktopEditorBoard('pdfAnnotate'),
+  'DesktopPdfContent.dc.html': desktopEditorBoard('pdfContent'),
+  'DesktopPages.dc.html': desktopEditorBoard('pages'),
+  'DesktopText.dc.html': desktopEditorBoard('text'),
+  'DesktopCsv.dc.html': desktopEditorBoard('csv'),
+  'DesktopImage.dc.html': desktopEditorBoard('image'),
+  'DesktopOfficeReadonly.dc.html': desktopEditorBoard('office'),
+  'DesktopSaveConflict.dc.html': desktopEditorBoard('conflict'),
+  'DesktopExport.dc.html': desktopEditorBoard('export'),
+  'DesktopVersions.dc.html': desktopEditorBoard('versions'),
+  'DesktopSyncRecovery.dc.html': desktopEditorBoard('sync'),
+  'DesktopSettings.dc.html': desktopEditorBoard('settings'),
+  'DesktopUnsupported.dc.html': desktopEditorBoard('empty'),
 };
 for (const [name, html] of Object.entries(out)) { writeFileSync(new URL('./' + name, import.meta.url), html); }
+
+/*
+ * These boards predate the current generator and remain useful as historical
+ * library/sign-in explorations. Keep them on the canvas without rewriting
+ * their source files so a build cannot make tracked design work disappear.
+ */
+const preservedArtboards = [
+  { file: 'LibraryHomeActivity.dc.html', title: 'Library home — activity exploration', x: 0, y: 30608, w: 840, h: 900 },
+  { file: 'LibraryHomeFinal.dc.html', title: 'Library home — final exploration', x: 880, y: 30608, w: 840, h: 900 },
+  { file: 'LibraryHomeRedesign.dc.html', title: 'Library home — redesign exploration', x: 1760, y: 30608, w: 840, h: 900 },
+  { file: 'SignInHero.dc.html', title: 'Sign-in hero exploration', x: 2640, y: 30608, w: 840, h: 900 },
+  { file: 'SignInHeroOptions.dc.html', title: 'Sign-in hero options exploration', x: 3520, y: 30608, w: 840, h: 900 },
+];
 
 const canvas = {
   artboards: [
@@ -5401,6 +5610,25 @@ const canvas = {
     { file: 'DownloadStates.dc.html', title: 'Where a file is, and what it waits for', x: 0, y: 23828, w: 1024, h: 760 },
     { file: 'DownloadRowAnatomy.dc.html', title: 'The download row — anatomy', x: 1124, y: 23828, w: 900, h: 560 },
     { file: 'DownloadModel.dc.html', title: 'How a PDF gets onto this phone', x: 2124, y: 23828, w: 900, h: 760 },
+
+    /* Desktop editor — capability states before implementation. */
+    { file: 'DesktopLibrary.dc.html', title: 'Desktop library', x: 0, y: 24848, w: 1440, h: 900 },
+    { file: 'DesktopImport.dc.html', title: 'Desktop open / import', x: 1480, y: 24848, w: 1440, h: 900 },
+    { file: 'DesktopTabs.dc.html', title: 'Desktop multi-document tabs', x: 2960, y: 24848, w: 1440, h: 900 },
+    { file: 'DesktopPdfAnnotate.dc.html', title: 'Desktop PDF annotate mode', x: 0, y: 25808, w: 1440, h: 900 },
+    { file: 'DesktopPdfContent.dc.html', title: 'Desktop PDF edit-content boundary', x: 1480, y: 25808, w: 1440, h: 900 },
+    { file: 'DesktopPages.dc.html', title: 'Desktop page manager', x: 2960, y: 25808, w: 1440, h: 900 },
+    { file: 'DesktopText.dc.html', title: 'Desktop text / Markdown editor', x: 0, y: 26768, w: 1440, h: 900 },
+    { file: 'DesktopCsv.dc.html', title: 'Desktop CSV grid editor', x: 1480, y: 26768, w: 1440, h: 900 },
+    { file: 'DesktopImage.dc.html', title: 'Desktop image markup editor', x: 2960, y: 26768, w: 1440, h: 900 },
+    { file: 'DesktopOfficeReadonly.dc.html', title: 'Desktop Office read-only state', x: 0, y: 27728, w: 1440, h: 900 },
+    { file: 'DesktopSaveConflict.dc.html', title: 'Desktop external save conflict', x: 1480, y: 27728, w: 1440, h: 900 },
+    { file: 'DesktopExport.dc.html', title: 'Desktop Save As / export', x: 2960, y: 27728, w: 1440, h: 900 },
+    { file: 'DesktopVersions.dc.html', title: 'Desktop version history', x: 0, y: 28688, w: 1440, h: 900 },
+    { file: 'DesktopSyncRecovery.dc.html', title: 'Desktop sync and recovery', x: 1480, y: 28688, w: 1440, h: 900 },
+    { file: 'DesktopSettings.dc.html', title: 'Desktop editor settings', x: 2960, y: 28688, w: 1440, h: 900 },
+    { file: 'DesktopUnsupported.dc.html', title: 'Desktop unsupported capability', x: 0, y: 29648, w: 1440, h: 900 },
+    ...preservedArtboards,
   ],
   annotations: [
     { id: 'note-downloads', x: 0, y: 21730, w: 880, text: 'Four of these states did not exist, and their absence was a wrong answer rather than a missing feature.\nA download held for Wi-Fi, one queued behind two others, one paused halfway and one that had simply failed were all \u201cmissing\u201d on the tile \u2014 the same word as a document nobody had ever asked for. A reader about to board a flight could not tell which of the four they were looking at, which is the one moment the answer matters.\nNothing here reaches the account. documentFiles is the only table with no counterpart on the server, because only the phone can honestly say whether a file is on it and whether it opens.' },
@@ -5425,4 +5653,10 @@ const canvas = {
   launch: { view: 'canvas' },
 };
 writeFileSync(new URL('./canvas.json', import.meta.url), JSON.stringify(canvas, null, 2));
-console.log('wrote', Object.keys(out).length, 'artboards + canvas.json');
+console.log(
+  'wrote',
+  Object.keys(out).length,
+  'generated artboards +',
+  preservedArtboards.length,
+  'preserved artboards + canvas.json',
+);

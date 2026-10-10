@@ -14,12 +14,13 @@ import {
   type EditAction,
   type LocalDocumentStatus,
   type ReaderOpenRequest,
+  type ReaderSaveRequest,
   type UpdatePrefs,
   type ZoomAction,
 } from '../shared/ipc';
 import { SessionManager } from './auth/oauth';
-import { userVersion } from './db';
-import { closeDocument, fetchText, openDocument } from './reader';
+import { deleteEditorDraft, getEditorDraft, putEditorDraft, userVersion } from './db';
+import { closeDocument, fetchText, openDocument, saveDocument, saveDocumentAs } from './reader';
 import type { CollectionsService } from './collections/service';
 import type { StorageService } from './storage/service';
 import type { ImportService } from './storage/import-service';
@@ -72,6 +73,20 @@ const Schemas = {
     documentKind: z.string().max(16).optional(),
   }),
   handle: HandleSchema,
+  editorDraftDocumentId: IdSchema,
+  editorDraftPut: z.object({ documentId: IdSchema, content: z.string().max(2_000_000) }),
+  readerSaveAs: z.object({
+    handle: HandleSchema,
+    bytes: z.instanceof(ArrayBuffer).refine((value) => value.byteLength > 0 && value.byteLength <= 32 * 1024 * 1024),
+    suggestedName: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,159}$/),
+    format: z.enum(['txt', 'md', 'csv', 'image']),
+  }),
+  readerSave: z.object({
+    handle: HandleSchema,
+    bytes: z.instanceof(ArrayBuffer).refine((value) => value.byteLength > 0 && value.byteLength <= 32 * 1024 * 1024),
+    expectedContentHash: z.string().regex(/^[a-f0-9]{64}$/i),
+    format: z.enum(['txt', 'md', 'csv', 'image']),
+  }),
   signedUrl: UrlSchema,
   documentId: IdSchema,
   destination: PathSchema,
@@ -287,6 +302,21 @@ export function registerIpc(
     IPC.dbUserVersion,
     guard(() => userVersion()),
   );
+  ipcMain.handle(
+    IPC.editorDraftGet,
+    guard((_event, payload) => getEditorDraft(Schemas.editorDraftDocumentId.parse(payload))),
+  );
+  ipcMain.handle(
+    IPC.editorDraftPut,
+    guard((_event, payload) => {
+      const value = Schemas.editorDraftPut.parse(payload);
+      putEditorDraft(value.documentId, value.content);
+    }),
+  );
+  ipcMain.handle(
+    IPC.editorDraftDelete,
+    guard((_event, payload) => deleteEditorDraft(Schemas.editorDraftDocumentId.parse(payload))),
+  );
 
   // ─── Window chrome ───────────────────────────────────────────────────────
   ipcMain.handle(
@@ -392,6 +422,16 @@ export function registerIpc(
   );
   handleWith(IPC.readerCloseDocument, Schemas.handle, (_event, handle: string) =>
     closeDocument(handle),
+  );
+  handleWith(
+    IPC.readerSaveAs,
+    Schemas.readerSaveAs,
+    (_event, request) => saveDocumentAs(opts.getWindow(), request),
+  );
+  handleWith(
+    IPC.readerSave,
+    Schemas.readerSave,
+    (_event, request: ReaderSaveRequest) => saveDocument(opts.getWindow(), request),
   );
   handleWith(IPC.readerFetchText, Schemas.signedUrl, (_event, signedUrl: string) =>
     fetchText(signedUrl),

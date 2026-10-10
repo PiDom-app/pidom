@@ -11,6 +11,7 @@
 import type * as account from "../account.js";
 import type * as collections from "../collections.js";
 import type * as crons from "../crons.js";
+import type * as editor from "../editor.js";
 import type * as groups from "../groups.js";
 import type * as library from "../library.js";
 import type * as maintenance from "../maintenance.js";
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   account: typeof account;
   collections: typeof collections;
   crons: typeof crons;
+  editor: typeof editor;
   groups: typeof groups;
   library: typeof library;
   maintenance: typeof maintenance;

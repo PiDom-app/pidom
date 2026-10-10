@@ -16,6 +16,10 @@ import { ConvexError } from 'convex/values';
 /** Long enough for a real academic title, short enough to stay one row. */
 export const TITLE_MAX = 300;
 export const AUTHOR_MAX = 200;
+/** Maximum UTF-8 editor snapshot kept inline in Convex. Larger drafts stay local. */
+export const EDITOR_CONTENT_MAX = 750_000;
+export const EDITOR_COMMIT_ID_MAX = 96;
+export const EDITOR_HISTORY_LIMIT = 50;
 /** A collection name has to fit a 148px tile in two lines at 13px. */
 export const COLLECTION_NAME_MAX = 80;
 

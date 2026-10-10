@@ -1,8 +1,14 @@
-import { zipSync } from 'fflate';
+import { unzipSync, zipSync } from 'fflate';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseDocumentBytes } from '../src/renderer/features/reader/formats/document-adapters.ts';
+import {
+  parseDocumentBytes,
+  serializeCsvRows,
+} from '../src/renderer/features/reader/formats/document-adapters.ts';
+import { applyOfficeTextReplacements } from '../src/renderer/features/reader/formats/office-writer.ts';
+import { applyPdfEdits } from '../src/renderer/features/reader/pdf/editor.ts';
+import { formatFromFilename } from '../../src/lib/document-formats.ts';
 
 const text = (value: string) => new TextEncoder().encode(value);
 
@@ -87,6 +93,30 @@ test('desktop adapter fixture matrix', async (t) => {
     });
   });
 
+  await t.test('round-trips quoted CSV cells without losing commas or quotes', () => {
+    const source = serializeCsvRows([
+      ['Name', 'Note'],
+      ['Pidom', 'A, "careful" reader'],
+    ]);
+    const result = parseDocumentBytes(text(source), 'csv');
+    assert.deepEqual(result, {
+      kind: 'table',
+      rows: [
+        ['Name', 'Note'],
+        ['Pidom', 'A, "careful" reader'],
+      ],
+    });
+  });
+
+  await t.test('marks only the open-source text formats as editable', () => {
+    assert.equal(formatFromFilename('notes.txt').editable, true);
+    assert.equal(formatFromFilename('notes.md').editable, true);
+    assert.equal(formatFromFilename('rows.csv').editable, true);
+    assert.equal(formatFromFilename('photo.jpg').editable, true);
+    assert.equal(formatFromFilename('report.pdf').editable, false);
+    assert.equal(formatFromFilename('report.docx').editable, false);
+  });
+
   for (const [format, filename, source] of [
     ['docx', 'word/document.xml', '<w:document><w:p><w:t>Pidom DOCX</w:t></w:p></w:document>'],
     ['odt', 'content.xml', '<office:document><text:p>Pidom ODT</text:p></office:document>'],
@@ -102,4 +132,42 @@ test('desktop adapter fixture matrix', async (t) => {
       assert.match(JSON.stringify(result), /Pidom/);
     });
   }
+
+  await t.test('preserves Office package entries while replacing supported text', () => {
+    const source = zipSync({
+      '[Content_Types].xml': text('<Types/>'),
+      'word/document.xml': text('<w:t>Old value</w:t>'),
+      'word/media/image.bin': new Uint8Array([1, 2, 3]),
+      'word/vbaProject.bin': new Uint8Array([4, 5, 6]),
+    });
+    const result = applyOfficeTextReplacements(source, 'docx', [
+      { find: 'Old value', replace: 'New value' },
+    ]);
+    const entries = unzipSync(result);
+    assert.equal(new TextDecoder().decode(entries['word/document.xml']), '<w:t>New value</w:t>');
+    assert.deepEqual(entries['word/media/image.bin'], new Uint8Array([1, 2, 3]));
+    assert.deepEqual(entries['word/vbaProject.bin'], new Uint8Array([4, 5, 6]));
+  });
+
+  await t.test('persists PDF page and visual annotation edits', async () => {
+    const { PDFDocument } = await import('pdf-lib');
+    const sourceDocument = await PDFDocument.create();
+    sourceDocument.addPage([300, 400]);
+    sourceDocument.addPage([300, 400]);
+    const source = await sourceDocument.save();
+    const edited = await applyPdfEdits(source, {
+      pages: [
+        { type: 'rotate', page: 1, degrees: 90 },
+        { type: 'move', page: 2, to: 1 },
+      ],
+      annotations: [
+        { type: 'text', page: 1, x: 20, y: 20, text: 'Pidom' },
+        { type: 'highlight', page: 1, x: 10, y: 10, width: 40, height: 12 },
+      ],
+    });
+    const reopened = await PDFDocument.load(edited);
+    assert.equal(reopened.getPageCount(), 2);
+    assert.equal(reopened.getPage(1).getRotation().angle, 90);
+    assert.ok(edited.byteLength > source.byteLength);
+  });
 });

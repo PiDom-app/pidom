@@ -31,6 +31,33 @@ the main-process `pidom-doc` protocol; filesystem paths, storage keys, and
 arbitrary network access never cross into the renderer. Archive-backed formats
 are bounded and office/EPUB active content is not executed.
 
+The desktop editor uses the same registry as a capability contract, not as a
+format guess. Plain text, Markdown, and CSV have bounded source editing,
+native Save As support, and atomic overwrite when the document is a verified
+local copy. Overwrite carries the baseline SHA-256 observed at open time; if
+the file changed outside Pidom, main returns a conflict without replacing it,
+leaving Save As as the safe copy-out path. Images support a
+rotate-and-export-to-PNG operation
+that creates a new file and leaves the source untouched. The bounded binary
+editing services now provide PDF page rotation/deletion/reordering,
+text/highlight/rectangle/ink overlays, AcroForm text/checkbox/dropdown values,
+and selected text replacement inside DOCX/XLSX/PPTX/ODT XML packages. They
+copy all untouched Office entries, preserving media, relationships, styles,
+formulas, and macro payloads. Existing PDF glyph editing, XFA, and legacy
+DOC/XLS/PPT binary write-back remain read-only; the UI must keep those
+boundaries explicit. Recovery drafts for
+editable text are device-local, bounded, and persisted in the desktop SQLite
+cache (`editor_drafts`) rather than renderer storage. Explicit cloud saves for text,
+Markdown, and CSV create immutable rows in Convex's `editorVersions` table.
+Each commit carries a client idempotency key, a SHA-256 content hash, and an
+optional expected base version. A retry returns the original version, while a
+stale base returns `EDITOR_CONFLICT` rather than silently overwriting another
+device. History is owner-scoped and capped; restoring a version creates a new
+version instead of mutating history. Snapshots larger than the bounded Convex
+row limit remain local-only until object-backed editor content is introduced.
+The editor blocks browser unload and confirms before its Back action discards a
+dirty draft.
+
 ## Where a PDF lives
 
 **Convex owns metadata, the device owns the file.** Rendering the library never

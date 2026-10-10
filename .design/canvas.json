@@ -927,6 +927,174 @@
       "y": 23828,
       "w": 900,
       "h": 760
+    },
+    {
+      "file": "DesktopLibrary.dc.html",
+      "title": "Desktop library",
+      "x": 0,
+      "y": 24848,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopImport.dc.html",
+      "title": "Desktop open / import",
+      "x": 1480,
+      "y": 24848,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopTabs.dc.html",
+      "title": "Desktop multi-document tabs",
+      "x": 2960,
+      "y": 24848,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopPdfAnnotate.dc.html",
+      "title": "Desktop PDF annotate mode",
+      "x": 0,
+      "y": 25808,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopPdfContent.dc.html",
+      "title": "Desktop PDF edit-content boundary",
+      "x": 1480,
+      "y": 25808,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopPages.dc.html",
+      "title": "Desktop page manager",
+      "x": 2960,
+      "y": 25808,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopText.dc.html",
+      "title": "Desktop text / Markdown editor",
+      "x": 0,
+      "y": 26768,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopCsv.dc.html",
+      "title": "Desktop CSV grid editor",
+      "x": 1480,
+      "y": 26768,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopImage.dc.html",
+      "title": "Desktop image markup editor",
+      "x": 2960,
+      "y": 26768,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopOfficeReadonly.dc.html",
+      "title": "Desktop Office read-only state",
+      "x": 0,
+      "y": 27728,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopSaveConflict.dc.html",
+      "title": "Desktop external save conflict",
+      "x": 1480,
+      "y": 27728,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopExport.dc.html",
+      "title": "Desktop Save As / export",
+      "x": 2960,
+      "y": 27728,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopVersions.dc.html",
+      "title": "Desktop version history",
+      "x": 0,
+      "y": 28688,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopSyncRecovery.dc.html",
+      "title": "Desktop sync and recovery",
+      "x": 1480,
+      "y": 28688,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopSettings.dc.html",
+      "title": "Desktop editor settings",
+      "x": 2960,
+      "y": 28688,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "DesktopUnsupported.dc.html",
+      "title": "Desktop unsupported capability",
+      "x": 0,
+      "y": 29648,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "LibraryHomeActivity.dc.html",
+      "title": "Library home — activity exploration",
+      "x": 0,
+      "y": 30608,
+      "w": 840,
+      "h": 900
+    },
+    {
+      "file": "LibraryHomeFinal.dc.html",
+      "title": "Library home — final exploration",
+      "x": 880,
+      "y": 30608,
+      "w": 840,
+      "h": 900
+    },
+    {
+      "file": "LibraryHomeRedesign.dc.html",
+      "title": "Library home — redesign exploration",
+      "x": 1760,
+      "y": 30608,
+      "w": 840,
+      "h": 900
+    },
+    {
+      "file": "SignInHero.dc.html",
+      "title": "Sign-in hero exploration",
+      "x": 2640,
+      "y": 30608,
+      "w": 840,
+      "h": 900
+    },
+    {
+      "file": "SignInHeroOptions.dc.html",
+      "title": "Sign-in hero options exploration",
+      "x": 3520,
+      "y": 30608,
+      "w": 840,
+      "h": 900
     }
   ],
   "annotations": [
