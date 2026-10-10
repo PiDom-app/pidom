@@ -51,6 +51,10 @@ to `main` produces a desktop release tagged
 A manually supplied `vX.Y.Z` tag is also accepted, but its version must match
 `desktop/package.json`; CI rejects version mismatches. The release matrix
 produces Windows NSIS, macOS DMG/ZIP, and Linux AppImage/DEB/RPM artifacts.
+The package jobs use the `production` GitHub Environment, where the public
+Convex URLs and desktop OAuth values are configured; `desktop/.env.production`
+remains a tracked public fallback so a missing environment variable cannot
+produce a blank renderer at runtime.
 The Windows installer is currently published unsigned with electron-builder
 SHA-512 metadata so the release path is usable while the approved SignPath
 signer is being configured. macOS artifacts are validation-only until
