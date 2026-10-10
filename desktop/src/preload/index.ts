@@ -9,6 +9,8 @@ import {
   type MigrationStatus,
   type PidomBridge,
   type ReaderOpenRequest,
+  type ReaderSaveAsRequest,
+  type ReaderSaveRequest,
   type UpdatePrefs,
   type UpdateState,
   type ZoomAction,
@@ -34,6 +36,11 @@ const bridge: PidomBridge = {
   },
   db: {
     userVersion: () => ipcRenderer.invoke(IPC.dbUserVersion),
+    editorDraftGet: (documentId: string) => ipcRenderer.invoke(IPC.editorDraftGet, documentId),
+    editorDraftPut: (documentId: string, content: string) =>
+      ipcRenderer.invoke(IPC.editorDraftPut, { documentId, content }),
+    editorDraftDelete: (documentId: string) =>
+      ipcRenderer.invoke(IPC.editorDraftDelete, documentId),
   },
   window: {
     minimize: () => ipcRenderer.invoke(IPC.windowMinimize),
@@ -64,6 +71,8 @@ const bridge: PidomBridge = {
     openDocument: (request: ReaderOpenRequest) =>
       ipcRenderer.invoke(IPC.readerOpenDocument, request),
     closeDocument: (handle: string) => ipcRenderer.invoke(IPC.readerCloseDocument, handle),
+    saveAs: (request: ReaderSaveAsRequest) => ipcRenderer.invoke(IPC.readerSaveAs, request),
+    save: (request: ReaderSaveRequest) => ipcRenderer.invoke(IPC.readerSave, request),
     fetchText: (signedUrl: string) => ipcRenderer.invoke(IPC.readerFetchText, signedUrl),
   },
   storage: {

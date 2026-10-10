@@ -37,6 +37,7 @@
     "@tanstack/react-router-devtools": "^1.87.0",
     "@tanstack/react-table": "^8.20.5",
     "@tanstack/react-virtual": "^3.11.0",
+    "@zip.js/zip.js": "2.7.57",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
@@ -52,6 +53,7 @@
     "motion": "^11.15.0",
     "nanoid": "^5.0.9",
     "p-queue": "^8.0.1",
+    "pdf-lib": "1.17.1",
     "pdfjs-dist": "^4.9.155",
     "radix-ui": "^1.1.2",
     "react": "^19.2.0",
@@ -66,7 +68,6 @@
     "@electron-forge/plugin-fuses": "^8.0.1",
     "@electron-forge/plugin-vite": "^8.0.1",
     "@electron/fuses": "^2.1.3",
-    "electron-builder": "^26.0.12",
     "@tailwindcss/vite": "^4.0.0",
     "@tanstack/router-cli": "^1.87.0",
     "@tanstack/router-plugin": "^1.87.0",
@@ -77,6 +78,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "drizzle-kit": "^1.0.0-rc.4",
     "electron": "^44.0.0",
+    "electron-builder": "^26.0.12",
     "jimp": "^1.6.0",
     "png-to-ico": "^2.1.8",
     "tailwindcss": "^4.0.0",
@@ -122,7 +124,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "Pidom-Setup-${version}.${ext}"
@@ -135,11 +139,18 @@
       "createStartMenuShortcut": true
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.productivity"
     },
     "linux": {
-      "target": ["AppImage", "deb", "rpm"],
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "category": "Office",
       "artifactName": "Pidom-${version}-${arch}.${ext}"
     }

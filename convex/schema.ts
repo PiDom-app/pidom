@@ -623,6 +623,31 @@ export default defineSchema({
     }),
 
   /**
+   * Immutable editor snapshots for formats whose bytes can be safely
+   * round-tripped by the open-source editor.
+   *
+   * The content is intentionally bounded. Convex documents have a size limit,
+   * and large binary documents belong in object storage rather than in a
+   * mutation argument or a database row. The desktop editor only uses this
+   * table for bounded text/CSV snapshots and treats larger files as local-only.
+   */
+  editorVersions: defineTable({
+    ownerId: v.id('users'),
+    documentId: v.id('documents'),
+    version: v.number(),
+    parentVersion: v.optional(v.number()),
+    format: v.union(v.literal('txt'), v.literal('md'), v.literal('csv')),
+    content: v.string(),
+    contentHash: v.string(),
+    clientCommitId: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_document_and_version', ['documentId', 'version'])
+    .index('by_document_and_created', ['documentId', 'createdAt'])
+    .index('by_owner_and_commit', ['ownerId', 'clientCommitId'])
+    .index('by_owner_and_document', ['ownerId', 'documentId']),
+
+  /**
    * One PDF's bytes, shared by every document that turned out to be that PDF.
    *
    * A set text goes round a class and forty people import the same file. Before

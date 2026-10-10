@@ -60,13 +60,24 @@ breaks — and pre-rendering HTML for an auth-gated reader buys nothing anyway.
 ## The canvas
 
 `.design/` holds the design source: `build.mjs` generates one `.dc.html`
-artboard per screen — a hundred and sixteen of them — and `screens.mjs` draws
+artboard per screen — including the sixteen desktop editor states — and registers
+five preserved library/sign-in exploration boards that predate the current generator.
+`screens.mjs` draws
 twenty-one of the same screens as SVG for the images in the README. Both read the same tokens
 as `src/design/global.css`, so a colour that changes there has to change in both
 — the audit that checks `src/` does not reach them.
 
 `build.mjs` also writes `canvas.json`, which lays the artboards out. Editing that
 file by hand is a change the next build silently reverts; the generator owns it.
+The canvas contains 137 boards: 132 generated boards and five preserved legacy
+explorations. The preserved boards are intentionally registered but not rewritten.
+
+The desktop editor boards are capability states, not claims that every format
+supports write-back. Text, Markdown, CSV, image export, recovery, save
+conflicts, cloud versions, and explicit PDF/Office capability boundaries are
+represented in the live editor. The remaining PDF/Office write-back states stay
+visible so the product boundary is reviewable until a preserving engine is
+approved.
 
 ```bash
 node .design/build.mjs      # artboards for the canvas
