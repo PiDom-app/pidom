@@ -8,9 +8,21 @@ import {
 } from '../src/renderer/features/reader/formats/document-adapters.ts';
 import { applyOfficeTextReplacements } from '../src/renderer/features/reader/formats/office-writer.ts';
 import { applyPdfEdits } from '../src/renderer/features/reader/pdf/editor.ts';
+import { starterDocumentBytes, starterDocumentLocalId } from '../src/main/storage/starter-document.ts';
 import { formatFromFilename } from '../../src/lib/document-formats.ts';
 
 const text = (value: string) => new TextEncoder().encode(value);
+
+test('built-in starter document', () => {
+  const bytes = starterDocumentBytes();
+  const entries = unzipSync(bytes);
+  assert.ok(entries['word/document.xml']);
+  assert.equal(starterDocumentLocalId('test-subject').length, 32);
+  const parsed = parseDocumentBytes(bytes, 'docx');
+  assert.equal(parsed.kind, 'text');
+  assert.match(JSON.stringify(parsed), /Welcome to Pidom/);
+  assert.match(JSON.stringify(parsed), /Local-first desktop behavior/);
+});
 
 test('desktop adapter fixture matrix', async (t) => {
   await t.test('reads plain, markdown, rich text, and legacy binary fixtures', () => {
