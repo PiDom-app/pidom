@@ -108,13 +108,13 @@ test('desktop adapter fixture matrix', async (t) => {
     });
   });
 
-  await t.test('marks only the open-source text formats as editable', () => {
+  await t.test('marks formats with verified desktop write-back as editable', () => {
     assert.equal(formatFromFilename('notes.txt').editable, true);
     assert.equal(formatFromFilename('notes.md').editable, true);
     assert.equal(formatFromFilename('rows.csv').editable, true);
     assert.equal(formatFromFilename('photo.jpg').editable, true);
-    assert.equal(formatFromFilename('report.pdf').editable, false);
-    assert.equal(formatFromFilename('report.docx').editable, false);
+    assert.equal(formatFromFilename('report.pdf').editable, true);
+    assert.equal(formatFromFilename('report.docx').editable, true);
   });
 
   for (const [format, filename, source] of [
