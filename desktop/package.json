@@ -1,7 +1,7 @@
 {
   "name": "pidom-desktop",
   "productName": "Pidom",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Pidom desktop companion — an Electron reader sharing the mobile app's Convex backend, theme, and security model.",
   "repository": {
     "type": "git",

@@ -9,6 +9,7 @@ import {
 import { applyOfficeTextReplacements } from '../src/renderer/features/reader/formats/office-writer.ts';
 import { applyPdfEdits } from '../src/renderer/features/reader/pdf/editor.ts';
 import { starterDocumentBytes, starterDocumentLocalId } from '../src/main/storage/starter-document.ts';
+import { isLocalDocumentId } from '../src/renderer/features/reader/data/document-id.ts';
 import { formatFromFilename } from '../../src/lib/document-formats.ts';
 
 const text = (value: string) => new TextEncoder().encode(value);
@@ -22,6 +23,11 @@ test('built-in starter document', () => {
   assert.equal(parsed.kind, 'text');
   assert.match(JSON.stringify(parsed), /Welcome to Pidom/);
   assert.match(JSON.stringify(parsed), /Local-first desktop behavior/);
+});
+
+test('local import ids never masquerade as Convex document ids', () => {
+  assert.equal(isLocalDocumentId('ea6d969fb95fa9e26c6746202602fd0d'), true);
+  assert.equal(isLocalDocumentId('jd7f3b4x5k2m9n1p0q8r6s4t2v'), false);
 });
 
 test('desktop adapter fixture matrix', async (t) => {

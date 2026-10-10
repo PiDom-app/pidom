@@ -15,6 +15,7 @@ import type { SessionManager } from '../auth/oauth';
 import { StorageConvex } from './convex-client';
 import type { StorageService } from './service';
 import { detectDocumentFormat } from '../../../../src/lib/document-formats';
+import type { DocumentFormat } from '../../../../src/lib/document-formats';
 import {
   documentPath,
   fingerprintOfFile,
@@ -204,6 +205,7 @@ export class ImportService {
       receivedBytes: row.state === 'uploading' ? (this.uploadProgress.get(row.localId) ?? 0) : null,
       documentId: row.documentId,
       error: row.error,
+      documentKind: row.documentKind as DocumentFormat | null,
     };
   }
 
