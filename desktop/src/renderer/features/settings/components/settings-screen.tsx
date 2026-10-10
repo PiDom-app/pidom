@@ -1,5 +1,18 @@
 import { useState } from 'react';
 import { ScrollArea } from 'radix-ui';
+import {
+  BookOpen,
+  Cloud,
+  FilePlus2,
+  HardDrive,
+  Keyboard,
+  Palette,
+  RefreshCw,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SelectSetting } from './settings-ui';
 import { AppearanceSection } from './appearance-section';
@@ -25,17 +38,17 @@ type SectionId =
   | 'privacy'
   | 'updates';
 
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'accent', label: 'Accent color' },
-  { id: 'reader', label: 'Reader' },
-  { id: 'storage', label: 'Library & storage' },
-  { id: 'import', label: 'Import' },
-  { id: 'account', label: 'Account & sync' },
-  { id: 'profile', label: 'Profile' },
-  { id: 'shortcuts', label: 'Keyboard shortcuts' },
-  { id: 'privacy', label: 'Privacy & security' },
-  { id: 'updates', label: 'Updates' },
+const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
+  { id: 'appearance', label: 'Appearance', icon: SlidersHorizontal },
+  { id: 'accent', label: 'Accent color', icon: Palette },
+  { id: 'reader', label: 'Reader', icon: BookOpen },
+  { id: 'storage', label: 'Library & storage', icon: HardDrive },
+  { id: 'import', label: 'Import', icon: FilePlus2 },
+  { id: 'account', label: 'Account & sync', icon: Cloud },
+  { id: 'profile', label: 'Profile', icon: UserRound },
+  { id: 'shortcuts', label: 'Keyboard shortcuts', icon: Keyboard },
+  { id: 'privacy', label: 'Privacy & security', icon: ShieldCheck },
+  { id: 'updates', label: 'Updates', icon: RefreshCw },
 ];
 
 /**
@@ -65,18 +78,20 @@ export function SettingsScreen() {
           <div className="flex gap-10">
             <nav className="hidden w-48 shrink-0 md:block">
               <div className="sticky top-0 flex flex-col gap-0.5">
-                {SECTIONS.map((section) => (
+                {SECTIONS.map(({ id, label, icon: Icon }) => (
                   <button
-                    key={section.id}
-                    onClick={() => setActive(section.id)}
+                    key={id}
+                    type="button"
+                    onClick={() => setActive(id)}
                     className={cn(
-                      'rounded-md px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus',
-                      active === section.id
+                      'flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus',
+                      active === id
                         ? 'bg-hover font-medium text-foreground'
                         : 'text-fg-muted hover:bg-hover hover:text-foreground',
                     )}
                   >
-                    {section.label}
+                    <Icon size={16} className="shrink-0" aria-hidden="true" />
+                    <span>{label}</span>
                   </button>
                 ))}
               </div>

@@ -58,6 +58,23 @@ row limit remain local-only until object-backed editor content is introduced.
 The editor blocks browser unload and confirms before its Back action discards a
 dirty draft.
 
+## Desktop starter document
+
+After a desktop account becomes signed in, the main process creates one
+deterministic `Welcome to Pidom.docx` guide if that account has not already
+received it. The document is generated from a minimal valid DOCX package,
+stored in the account-scoped local library, and entered through the normal
+durable import queue. This makes the guide available offline immediately while
+allowing registration and upload to resume after reconnecting. The stable local
+id makes the operation idempotent across auth refreshes and app restarts; it
+does not introduce a second library data path. Once created, it is an ordinary
+DOCX document and uses the same edit, save, export, remove, and sync behavior
+as an imported document.
+
+The desktop release containing this flow is version 1.0.2. Settings keeps the
+existing ten sections and adds a Lucide icon to each desktop navigation item;
+the compact select remains the narrow-window fallback.
+
 ## Where a PDF lives
 
 **Convex owns metadata, the device owns the file.** Rendering the library never
