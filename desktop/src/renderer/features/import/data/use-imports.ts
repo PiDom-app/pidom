@@ -49,7 +49,7 @@ export function isTerminalState(state: ImportJobStatus['state']): boolean {
 
 /** A short, reader-facing sentence for a picked/dropped count. */
 function queuedMessage(count: number): string {
-  if (count === 0) return 'No PDFs to import.';
+  if (count === 0) return 'No supported documents to import.';
   if (count === 1) return 'Importing 1 document…';
   return `Importing ${count} documents…`;
 }
@@ -100,7 +100,7 @@ export function useImports(): Imports {
     try {
       const count = await window.pidom.import.pickFolder();
       toast[count > 0 ? 'success' : 'message'](
-        count > 0 ? queuedMessage(count) : 'No PDFs found in that folder.',
+        count > 0 ? queuedMessage(count) : 'No supported documents found in that folder.',
       );
     } catch (error) {
       console.error('import.pickFolder failed', error);
@@ -112,7 +112,7 @@ export function useImports(): Imports {
     try {
       const count = await window.pidom.import.addDropped(files);
       toast[count > 0 ? 'success' : 'message'](
-        count > 0 ? queuedMessage(count) : 'Only PDF files can be imported.',
+        count > 0 ? queuedMessage(count) : 'Only supported document formats can be imported.',
       );
     } catch (error) {
       console.error('import.addDropped failed', error);

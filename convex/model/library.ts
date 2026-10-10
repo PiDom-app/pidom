@@ -1229,17 +1229,36 @@ export async function attachUpload(
     throw error;
   }
 
-  const pdf = await r2.getMetadata(ctx, input.storageKey);
-  if (pdf === null) {
+  const upload = await r2.getMetadata(ctx, input.storageKey);
+  if (upload === null) {
     invalid('That upload is no longer available.');
   }
-  if (pdf.size !== undefined && pdf.size > CLOUD_BYTE_MAX) {
+  if (upload.size !== undefined && upload.size > CLOUD_BYTE_MAX) {
     await discard(ctx, input.storageKey, input.coverStorageKey);
     invalid(`Documents over ${Math.round(CLOUD_BYTE_MAX / 1024 / 1024)} MB cannot be synced.`);
   }
-  if (pdf.contentType !== 'application/pdf') {
+  const allowedContentTypes = new Set([
+    'application/pdf',
+    'text/plain',
+    'text/markdown',
+    'text/csv',
+    'text/html',
+    'application/rtf',
+    'application/epub+zip',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.oasis.opendocument.text',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/bmp',
+    'image/webp',
+    'image/avif',
+  ]);
+  if (!upload.contentType || !allowedContentTypes.has(upload.contentType)) {
     await discard(ctx, input.storageKey, input.coverStorageKey);
-    invalid('That upload is not a PDF.');
+    invalid('That upload has an unsupported document type.');
   }
 
   let coverStorageKey = input.coverStorageKey;
@@ -1281,7 +1300,7 @@ export async function attachUpload(
    * a text object somebody has already extracted is inherited whole, so pdf.js
    * never runs over those pages a second time.
    */
-  const twin = pdf.sha256 === undefined ? null : await Blobs.byHash(ctx, pdf.sha256);
+  const twin = upload.sha256 === undefined ? null : await Blobs.byHash(ctx, upload.sha256);
 
   // Whatever this document was pointing at before is let go first. A reader
   // replacing a synced file arrives here with a row that already has a blob on
@@ -1315,16 +1334,16 @@ export async function attachUpload(
     if (input.storageKey !== storageKey) {
       await r2.deleteObject(ctx, input.storageKey).catch(() => undefined);
     }
-  } else if (pdf.sha256 !== undefined) {
+  } else if (upload.sha256 !== undefined) {
     // Nobody has these bytes yet, so this upload becomes the one everybody
     // else will point at. The object stays exactly where the client put it —
     // copying it to a canonical name would mean an S3 call from inside a
     // mutation, and what an object is called matters far less than how many
     // documents need it.
     blobId = await Blobs.create(ctx, {
-      contentHash: pdf.sha256,
+      contentHash: upload.sha256,
       storageKey: input.storageKey,
-      byteSize: pdf.size ?? doc.byteSize,
+      byteSize: upload.size ?? doc.byteSize,
       ...(pageCount === undefined ? {} : { pageCount }),
     });
   }
@@ -1338,10 +1357,10 @@ export async function attachUpload(
     uploadedAt: Date.now(),
     // R2's own digest of the object it holds. Taking one from the client would
     // be recording a claim, not a checksum.
-    ...(pdf.sha256 === undefined ? {} : { contentHash: pdf.sha256 }),
+    ...(upload.sha256 === undefined ? {} : { contentHash: upload.sha256 }),
     ...(pageCount === undefined ? {} : { pageCount }),
     // The stored size is now a measured fact rather than what the picker said.
-    ...(pdf.size === undefined ? {} : { byteSize: pdf.size }),
+    ...(upload.size === undefined ? {} : { byteSize: upload.size }),
     ...(blobId === undefined ? {} : { blobId }),
     updatedAt: Date.now(),
   };
@@ -1356,7 +1375,7 @@ export async function attachUpload(
   // bytes, in which case the answer was inherited above and a second run of
   // pdf.js would spend a Node action's compute to reach it again. Never awaited
   // for its result and never able to fail the upload — see `queueExtraction`.
-  if (needsExtraction) {
+  if (needsExtraction && (doc.documentKind ?? 'pdf') === 'pdf') {
     await queueExtraction(ctx, doc._id, owner._id);
   }
 }
