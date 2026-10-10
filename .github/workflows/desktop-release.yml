@@ -37,14 +37,12 @@ jobs:
             args: '--linux AppImage deb rpm'
             publish: true
     runs-on: ${{ matrix.os }}
+    environment: production
     defaults:
       run:
         shell: bash
         working-directory: desktop
     env:
-      VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
-      VITE_CONVEX_SITE_URL: ${{ vars.VITE_CONVEX_SITE_URL }}
-      GOOGLE_DESKTOP_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
       GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
@@ -88,6 +86,32 @@ jobs:
       - name: Install shared backend dependencies
         working-directory: ${{ github.workspace }}
         run: npm ci
+
+      - name: Load desktop production configuration
+        env:
+          REPO_VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
+          REPO_VITE_CONVEX_SITE_URL: ${{ vars.VITE_CONVEX_SITE_URL }}
+          REPO_GOOGLE_DESKTOP_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
+        run: |
+          set -a
+          . ./.env.production
+          set +a
+
+          if [ -n "$REPO_VITE_CONVEX_URL" ]; then
+            VITE_CONVEX_URL="$REPO_VITE_CONVEX_URL"
+          fi
+          if [ -n "$REPO_VITE_CONVEX_SITE_URL" ]; then
+            VITE_CONVEX_SITE_URL="$REPO_VITE_CONVEX_SITE_URL"
+          fi
+          if [ -n "$REPO_GOOGLE_DESKTOP_CLIENT_ID" ]; then
+            GOOGLE_DESKTOP_CLIENT_ID="$REPO_GOOGLE_DESKTOP_CLIENT_ID"
+          fi
+
+          {
+            echo "VITE_CONVEX_URL=$VITE_CONVEX_URL"
+            echo "VITE_CONVEX_SITE_URL=$VITE_CONVEX_SITE_URL"
+            echo "GOOGLE_DESKTOP_CLIENT_ID=$GOOGLE_DESKTOP_CLIENT_ID"
+          } >> "$GITHUB_ENV"
 
       - name: Validate public production configuration
         run: |
