@@ -225,7 +225,6 @@ export class ImportService {
       receivedBytes: row.state === 'uploading' ? (this.uploadProgress.get(row.localId) ?? 0) : null,
       documentId: row.documentId,
       error: row.error,
-      documentKind: row.documentKind as DocumentFormat | null,
     };
   }
 

@@ -3,8 +3,6 @@
  * renderer. One source of truth for channel names and payload shapes so the
  * three processes cannot drift.
  */
-import type { DocumentFormat } from '../../../src/lib/document-formats';
-
 export const IPC = {
   authSignIn: 'auth:signIn',
   authSignOut: 'auth:signOut',
@@ -288,8 +286,6 @@ export interface ImportJobStatus {
   documentId: string | null;
   /** A short non-sensitive reason code when `state` is `failed`. */
   error: string | null;
-  /** The detected format family for local-only documents. */
-  documentKind?: DocumentFormat | null;
 }
 
 /**
