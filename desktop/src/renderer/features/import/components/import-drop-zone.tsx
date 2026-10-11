@@ -67,7 +67,7 @@ export function ImportDropZone({ children }: { children: ReactNode }) {
         <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-overlay/60 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border-strong bg-elevated px-10 py-8 text-center shadow-lg">
             <UploadCloud className="size-8 text-primary" />
-            <p className="text-sm font-medium text-foreground">Drop PDFs to import</p>
+            <p className="text-sm font-medium text-foreground">Drop documents to import</p>
             <p className="max-w-xs text-xs text-fg-muted">
               They stage on this device and start uploading to your library.
             </p>

@@ -3,7 +3,7 @@ import { R2 } from '@convex-dev/r2';
 import { components } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import { assertOwner, requireUser } from './model/auth';
-import { coverKey, documentIdOf, pdfKey } from './model/library';
+import { coverKey, documentIdOf, documentKey } from './model/library';
 import { limit } from './model/rateLimits';
 
 /**
@@ -56,7 +56,10 @@ export const { syncMetadata } = r2.clientApi<DataModel>({
     const documentId = ctx.db.normalizeId('documents', claimed);
     const doc = documentId === null ? null : await ctx.db.get('documents', documentId);
     assertOwner(doc, user);
-    if (key !== pdfKey(user._id, doc._id) && key !== coverKey(user._id, doc._id)) {
+    if (
+      key !== documentKey(user._id, doc._id, doc.documentKind ?? 'pdf') &&
+      key !== coverKey(user._id, doc._id)
+    ) {
       assertOwner(null, user);
     }
     // Metered last, so a caller naming somebody else's key is refused on

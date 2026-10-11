@@ -23,6 +23,7 @@ export function uploadFraction(job: ImportJobStatus): number | null {
 /** A short, reader-facing reason for a failed import. Codes come from main. */
 const FAILURE_REASON: Record<string, string> = {
   'not-a-pdf': 'that file is not a PDF',
+  'unsupported-document': 'that file is not a supported document',
   'too-large': 'that file is larger than the 100 MB limit',
   'not-a-file': 'that path is not a file',
   unreadable: "the file couldn't be read",

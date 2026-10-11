@@ -7,7 +7,7 @@ import { openPdf, readOutline, type PDFDocumentProxy } from '@/features/reader/p
 import { useImports } from '../data/use-imports';
 
 /**
- * A headless watcher that finishes the desktop half of a document's probe.
+ * A headless watcher that finishes the desktop half of a PDF's probe.
  *
  * A desktop-imported PDF is registered before anything has read the file, so the
  * account holds it as `processing: 'probing'` with no page count and no contents
@@ -39,7 +39,10 @@ export function ImportProber() {
   useEffect(() => {
     if (busy.current) return;
     const pending = jobs.filter(
-      (job) => job.documentId !== null && !attempted.current.has(job.documentId),
+      (job) =>
+        job.documentId !== null &&
+        job.documentKind === 'pdf' &&
+        !attempted.current.has(job.documentId),
     );
     if (pending.length === 0) return;
 

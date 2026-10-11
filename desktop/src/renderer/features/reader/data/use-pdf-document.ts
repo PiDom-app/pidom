@@ -3,7 +3,6 @@ import { useConvex } from 'convex/react';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { openPdf, pageSizeOf, type PageSize, type PDFDocumentProxy } from '../pdf/engine';
-import { isLocalDocumentId } from './document-id';
 
 /**
  * The whole "resolve an id to renderable bytes" path, in one hook.
@@ -34,6 +33,7 @@ const OPEN_FAILED = "This document couldn't be opened.";
 export function usePdfDocument(
   documentId: Id<'documents'>,
   documentKind: string = 'pdf',
+  localOnly = false,
 ): PdfDocumentState {
   const convex = useConvex();
   const [state, setState] = useState<PdfDocumentState>({
@@ -71,7 +71,7 @@ export function usePdfDocument(
       // local copy straight from the id — so treat a failed mint as "no URL"
       // and let `openDocument` fall back to the local copy.
       let signedUrl: string | null = null;
-      if (!isLocalDocumentId(documentId)) {
+      if (!localOnly) {
         try {
           signedUrl = await convex.mutation(api.library.downloadUrl, {
             documentId,
@@ -138,7 +138,7 @@ export function usePdfDocument(
       void doc?.destroy();
       if (handle) void window.pidom.reader.closeDocument(handle);
     };
-  }, [convex, documentId, documentKind]);
+  }, [convex, documentId, documentKind, localOnly]);
 
   return state;
 }

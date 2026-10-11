@@ -112,7 +112,7 @@ export function useImports(): Imports {
     try {
       const count = await window.pidom.import.addDropped(files);
       toast[count > 0 ? 'success' : 'message'](
-        count > 0 ? queuedMessage(count) : 'Only supported document formats can be imported.',
+        count > 0 ? queuedMessage(count) : 'No supported document formats were found in that drop.',
       );
     } catch (error) {
       console.error('import.addDropped failed', error);

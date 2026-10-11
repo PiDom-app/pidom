@@ -140,6 +140,42 @@ const KIND_BY_MIME: Record<string, DocumentKind> = {
   'image/webp': 'image',
 };
 
+const EXTENSION_BY_KIND: Record<DocumentKind, string> = {
+  pdf: 'pdf',
+  doc: 'doc',
+  docx: 'docx',
+  odt: 'odt',
+  rtf: 'rtf',
+  epub: 'epub',
+  md: 'md',
+  txt: 'txt',
+  html: 'html',
+  csv: 'csv',
+  xls: 'xls',
+  xlsx: 'xlsx',
+  ppt: 'ppt',
+  pptx: 'pptx',
+  image: 'image',
+  unknown: 'bin',
+};
+
+const CONTENT_TYPE_BY_KIND: Partial<Record<DocumentKind, string>> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  odt: 'application/vnd.oasis.opendocument.text',
+  rtf: 'application/rtf',
+  epub: 'application/epub+zip',
+  md: 'text/markdown',
+  txt: 'text/plain',
+  html: 'text/html',
+  csv: 'text/csv',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
+
 function kindFromMetadata(
   filename: string | undefined,
   mimeType: string | undefined,
@@ -462,7 +498,11 @@ export async function importDocument(
   // document id is — so this is about legibility rather than safety.
   const originalFileName = cleanOptionalText(input.originalFileName, TITLE_MAX, 'File name');
   const mimeType = cleanOptionalText(input.mimeType, MIME_TYPE_MAX, 'File type');
-  const documentKind = input.documentKind ?? kindFromMetadata(originalFileName, mimeType);
+  const inferredKind = kindFromMetadata(originalFileName, mimeType);
+  // Older clients sent no filename or MIME metadata and every such row was a
+  // PDF. Preserve that contract while still allowing an explicit `unknown`
+  // kind for a newer client that actually inspected an unsupported file.
+  const documentKind = input.documentKind ?? (inferredKind === 'unknown' ? 'pdf' : inferredKind);
 
   if (!Number.isFinite(input.byteSize) || input.byteSize <= 0) {
     invalid('A document must have a size.');
@@ -528,7 +568,7 @@ export async function importDocument(
     // A page count means the probe finished before the reader committed, which
     // is the usual case — the cover renders while they are reading the title.
     // Without one the document is in the library and its cover is still coming.
-    processing: pageCount === undefined ? 'probing' : 'ready',
+    processing: documentKind === 'pdf' && pageCount === undefined ? 'probing' : 'ready',
     hasOutline: false,
     currentPage: 1,
     progress: 0,
@@ -1118,7 +1158,16 @@ export async function rename(
  */
 /** The object keys for a document. Derived server-side, never an argument. */
 export function pdfKey(ownerId: Id<'users'>, documentId: Id<'documents'>): string {
-  return `${ownerId}/${documentId}.pdf`;
+  return documentKey(ownerId, documentId, 'pdf');
+}
+
+/** The canonical object key for a document's detected format. */
+export function documentKey(
+  ownerId: Id<'users'>,
+  documentId: Id<'documents'>,
+  documentKind: DocumentKind = 'pdf',
+): string {
+  return `${ownerId}/${documentId}.${EXTENSION_BY_KIND[documentKind]}`;
 }
 
 export function coverKey(ownerId: Id<'users'>, documentId: Id<'documents'>): string {
@@ -1182,9 +1231,26 @@ export function keyParts(key: string): { ownerId: string; documentId: string } |
     ? '.text.json'
     : rest.endsWith('.cover.jpg')
       ? '.cover.jpg'
-      : rest.endsWith('.pdf')
-        ? '.pdf'
-        : null;
+      : ((
+          [
+            '.pdf',
+            '.doc',
+            '.docx',
+            '.odt',
+            '.rtf',
+            '.epub',
+            '.md',
+            '.txt',
+            '.html',
+            '.csv',
+            '.xls',
+            '.xlsx',
+            '.ppt',
+            '.pptx',
+            '.image',
+            '.bin',
+          ] as const
+        ).find((candidate) => rest.endsWith(candidate)) ?? null);
   if (suffix === null) {
     return null;
   }
@@ -1207,18 +1273,6 @@ export async function attachUpload(
     pageCount?: number;
   },
 ): Promise<void> {
-  // The keys are recomputed rather than trusted. A caller who sent somebody
-  // else's key would otherwise attach their object to their own row.
-  const expectedPdf = pdfKey(owner._id, input.documentId);
-  const expectedCover = coverKey(owner._id, input.documentId);
-
-  if (input.storageKey !== expectedPdf) {
-    invalid('That upload does not belong to this document.');
-  }
-  if (input.coverStorageKey !== undefined && input.coverStorageKey !== expectedCover) {
-    invalid('That cover does not belong to this document.');
-  }
-
   let doc: Doc<'documents'>;
   try {
     doc = await requireDocument(ctx, owner, input.documentId);
@@ -1229,6 +1283,18 @@ export async function attachUpload(
     throw error;
   }
 
+  // The keys are recomputed rather than trusted. A caller who sent somebody
+  // else's key would otherwise attach their object to their own row.
+  const expectedDocument = documentKey(owner._id, input.documentId, doc.documentKind ?? 'pdf');
+  const expectedCover = coverKey(owner._id, input.documentId);
+
+  if (input.storageKey !== expectedDocument) {
+    invalid('That upload does not belong to this document.');
+  }
+  if (input.coverStorageKey !== undefined && input.coverStorageKey !== expectedCover) {
+    invalid('That cover does not belong to this document.');
+  }
+
   const upload = await r2.getMetadata(ctx, input.storageKey);
   if (upload === null) {
     invalid('That upload is no longer available.');
@@ -1237,28 +1303,16 @@ export async function attachUpload(
     await discard(ctx, input.storageKey, input.coverStorageKey);
     invalid(`Documents over ${Math.round(CLOUD_BYTE_MAX / 1024 / 1024)} MB cannot be synced.`);
   }
-  const allowedContentTypes = new Set([
-    'application/pdf',
-    'text/plain',
-    'text/markdown',
-    'text/csv',
-    'text/html',
-    'application/rtf',
-    'application/epub+zip',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.oasis.opendocument.text',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'image/png',
-    'image/jpeg',
-    'image/gif',
-    'image/bmp',
-    'image/webp',
-    'image/avif',
-  ]);
-  if (!upload.contentType || !allowedContentTypes.has(upload.contentType)) {
+  const contentType = upload.contentType?.toLowerCase().split(';', 1)[0].trim() ?? '';
+  const expectedContentType =
+    doc.documentKind === 'image'
+      ? contentType.startsWith('image/')
+      : CONTENT_TYPE_BY_KIND[doc.documentKind ?? 'pdf'] === undefined
+        ? contentType.length > 0
+        : contentType === CONTENT_TYPE_BY_KIND[doc.documentKind ?? 'pdf'];
+  if (!expectedContentType) {
     await discard(ctx, input.storageKey, input.coverStorageKey);
-    invalid('That upload has an unsupported document type.');
+    invalid('That upload has an unsupported content type.');
   }
 
   let coverStorageKey = input.coverStorageKey;

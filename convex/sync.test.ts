@@ -160,6 +160,27 @@ describe('importDocument', () => {
     expect(home.recentlyAdded).toHaveLength(2);
   });
 
+  test('persists the detected document kind and metadata', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+
+    const documentId = await as.mutation(
+      api.library.importDocument,
+      anImport({
+        title: 'Welcome to Pidom',
+        originalFileName: 'Welcome-to-Pidom.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        documentKind: 'docx',
+        byteSize: 6315,
+      }),
+    );
+
+    const row = await storedDocument(t, documentId);
+    expect(row?.documentKind).toBe('docx');
+    expect(row?.originalFileName).toBe('Welcome-to-Pidom.docx');
+    expect(row?.processing).toBe('ready');
+  });
+
   test('one reader cannot claim another reader s localId', async () => {
     const t = harness();
     const mine = await signedIn(t);

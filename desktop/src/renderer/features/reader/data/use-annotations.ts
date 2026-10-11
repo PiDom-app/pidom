@@ -36,7 +36,7 @@ function mintOpId(): string {
  * one; a `clientOpId` makes a create safe to deliver twice, matching the mobile
  * outbox.
  */
-export function useAnnotations(documentId: Id<'documents'>): {
+export function useAnnotations(documentId: Id<'documents'>, localOnly = false): {
   passages: Passage[];
   keep: (page: number, text: string) => void;
   remove: (id: Id<'documentAnnotations'>) => void;
@@ -56,6 +56,7 @@ export function useAnnotations(documentId: Id<'documents'>): {
 
   const keep = useCallback(
     (page: number, text: string) => {
+      if (localOnly) return;
       const trimmed = text.trim().slice(0, ANNOTATION_TEXT_MAX);
       if (!trimmed) return;
       void add({
@@ -68,16 +69,17 @@ export function useAnnotations(documentId: Id<'documents'>): {
         .then(() => toast.success('Highlight kept'))
         .catch(() => toast.error("Couldn't keep this highlight"));
     },
-    [add, documentId],
+    [add, documentId, localOnly],
   );
 
   const remove = useCallback(
     (id: Id<'documentAnnotations'>) => {
+      if (localOnly) return;
       void removeAnnotation({ annotationId: id }).catch(() =>
         toast.error("Couldn't remove this highlight"),
       );
     },
-    [removeAnnotation],
+    [removeAnnotation, localOnly],
   );
 
   return { passages, keep, remove };

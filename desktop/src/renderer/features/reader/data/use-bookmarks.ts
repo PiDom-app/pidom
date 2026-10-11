@@ -19,7 +19,7 @@ export interface Bookmark {
  * few hundred rows covers it; the list stays a reactive query, so a bookmark
  * made in the sidebar and one made from the toolbar are the same source.
  */
-export function useBookmarks(documentId: Id<'documents'>): {
+export function useBookmarks(documentId: Id<'documents'>, localOnly = false): {
   bookmarks: Bookmark[];
   isBookmarked: (page: number) => boolean;
   toggle: (page: number, bookmarked: boolean) => void;
@@ -43,17 +43,19 @@ export function useBookmarks(documentId: Id<'documents'>): {
   const isBookmarked = useCallback((page: number) => marked.has(page), [marked]);
 
   const toggle = useCallback(
-    (page: number, bookmarked: boolean) => {
+      (page: number, bookmarked: boolean) => {
+      if (localOnly) return;
       const call = bookmarked
         ? remove({ documentId, currentPage: page })
         : add({ documentId, currentPage: page });
       void call.catch(() => toast.error("Couldn't update this bookmark"));
     },
-    [add, remove, documentId],
+    [add, remove, documentId, localOnly],
   );
 
   const rename = useCallback(
     (page: number, label: string) => {
+      if (localOnly) return;
       void renameBookmark({
         documentId,
         currentPage: page,
@@ -61,7 +63,7 @@ export function useBookmarks(documentId: Id<'documents'>): {
         clientUpdatedAt: Date.now(),
       }).catch(() => toast.error("Couldn't rename this bookmark"));
     },
-    [renameBookmark, documentId],
+    [renameBookmark, documentId, localOnly],
   );
 
   return { bookmarks, isBookmarked, toggle, rename };

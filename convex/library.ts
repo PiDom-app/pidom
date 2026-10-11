@@ -658,7 +658,7 @@ export const uploadUrl = mutation({
     const key =
       args.what === 'cover'
         ? Library.coverKey(user._id, doc._id)
-        : Library.pdfKey(user._id, doc._id);
+        : Library.documentKey(user._id, doc._id, doc.documentKind ?? 'pdf');
 
     // The component fails on a key that already exists, so a re-sync clears the
     // old object first. Without this, syncing a document twice is an error the
@@ -670,7 +670,7 @@ export const uploadUrl = mutation({
     // carries *their* key, and deleting it here would empty a library this
     // reader cannot see.
     const existing = args.what === 'cover' ? doc.coverStorageKey : doc.storageKey;
-    if (existing === key) {
+    if (existing !== undefined && existing === key) {
       if (await Blobs.sharedKey(ctx, key)) {
         // Reachable only by re-uploading a document that is *already* synced —
         // sharing means R2 confirmed this object's digest and a blob row holds

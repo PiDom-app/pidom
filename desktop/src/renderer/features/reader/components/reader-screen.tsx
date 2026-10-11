@@ -42,12 +42,12 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const navigate = useNavigate();
   const goBack = useCallback(() => void navigate({ to: '/library' }), [navigate]);
 
-  const localDocument = isLocalDocumentId(documentId);
-  const meta = useQuery(api.library.document, localDocument ? 'skip' : { documentId });
   const { jobs } = useImports();
-  const localJob = localDocument ? jobs.find((job) => job.localId === documentId) : undefined;
-  const documentKind = localJob?.documentKind ?? meta?.documentKind ?? 'pdf';
-  const pdf = usePdfDocument(documentId, documentKind);
+  const importJob = jobs.find((job) => job.localId === documentId && job.documentId === null);
+  const localOnly = importJob !== undefined || isLocalDocumentId(documentId);
+  const meta = useQuery(api.library.document, localOnly ? 'skip' : { documentId });
+  const documentKind = importJob?.documentKind ?? meta?.documentKind ?? 'pdf';
+  const pdf = usePdfDocument(documentId, documentKind, localOnly);
   const { prefs } = useReaderPreferences();
   const { readerTint, keepAwake } = useDesktopSettings();
   const view = useReaderView(prefs);
@@ -73,11 +73,11 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const pageCount = pdf.pageCount || meta?.pageCount || 0;
   const readingMode = view.mode;
 
-  const { reportPage } = useReaderSession(documentId, pageCount, readingMode);
-  const bookmarks = useBookmarks(documentId);
-  const annotations = useAnnotations(documentId);
-  const outline = useOutline(documentId);
-  const find = useFindInDocument(documentId, findOpen);
+  const { reportPage } = useReaderSession(documentId, pageCount, readingMode, localOnly);
+  const bookmarks = useBookmarks(documentId, localOnly);
+  const annotations = useAnnotations(documentId, localOnly);
+  const outline = useOutline(documentId, localOnly);
+  const find = useFindInDocument(documentId, findOpen, localOnly);
 
   // Restore the synced position once, after the document is open and the account
   // says to. A jump reports immediately, so the restore also seeds the writer.
@@ -180,8 +180,9 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
       <DocumentReader
         documentId={documentId}
         format={documentKind}
-        title={meta?.title ?? 'Document'}
+        title={importJob?.title ?? meta?.title ?? 'Document'}
         onBack={goBack}
+        localOnly={localOnly}
       />
     );
   }

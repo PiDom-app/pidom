@@ -59,15 +59,17 @@ const updateService = new UpdateService();
 const collectionsService = new CollectionsService(authSession);
 
 /**
- * The first `.pdf` path in a launch argv, or null. Windows hands a
+ * The first supported-document path in a launch argv, or null. Windows hands a
  * double-clicked / "Open With" / Open Recent file to the app this way; Squirrel's
  * own `--squirrel-*` flags and other switches never match. Only the extension is
  * checked here — the import pipeline canonicalizes and verifies the bytes.
  */
-function pdfPathFromArgv(argv: string[]): string | null {
+function documentPathFromArgv(argv: string[]): string | null {
   for (const arg of argv.slice(1)) {
     if (arg.startsWith('-')) continue;
-    if (arg.toLowerCase().endsWith('.pdf')) return arg;
+    if (/[.](pdf|txt|text|log|md|markdown|html?|epub|docx?|odt|rtf|csv|xlsx?|pptx?|png|jpe?g|gif|bmp|webp|avif)$/i.test(arg)) {
+      return arg;
+    }
   }
   return null;
 }
@@ -77,7 +79,7 @@ function pdfPathFromArgv(argv: string[]): string | null {
  * is validated, deduped, and made available offline), then lets the renderer
  * open it by id. Records it in the OS "Recent" list on the attempt.
  */
-function openExternalPdf(sourcePath: string): void {
+function openExternalDocument(sourcePath: string): void {
   app.addRecentDocument(sourcePath);
   void importService.openExternalFile(sourcePath).catch((error) => {
     console.error('[main] failed to open external file', error);
@@ -302,8 +304,8 @@ if (shouldBoot)
     // Launched with a file (Windows double-click / "Open With" / Open Recent):
     // stage it and open it once the window is ready. On macOS the same intent
     // arrives through `open-file` instead (wired below).
-    const launchPdf = pdfPathFromArgv(process.argv);
-    if (launchPdf) openExternalPdf(launchPdf);
+    const launchDocument = documentPathFromArgv(process.argv);
+    if (launchDocument) openExternalDocument(launchDocument);
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
@@ -336,15 +338,17 @@ app.on('second-instance', (_event, argv) => {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   }
-  const pdf = pdfPathFromArgv(argv);
-  if (pdf) openExternalPdf(pdf);
+  const document = documentPathFromArgv(argv);
+  if (document) openExternalDocument(document);
 });
 
 // macOS delivers "Open With" / double-click as an event rather than an argv
 // entry, before and after the app is ready. Stage and open the same way.
 app.on('open-file', (event, path) => {
   event.preventDefault();
-  if (path.toLowerCase().endsWith('.pdf')) openExternalPdf(path);
+  if (/[.](pdf|txt|text|log|md|markdown|html?|epub|docx?|odt|rtf|csv|xlsx?|pptx?|png|jpe?g|gif|bmp|webp|avif)$/i.test(path)) {
+    openExternalDocument(path);
+  }
 });
 
 // Temporary streamed copies do not outlive the run that fetched them; nor do

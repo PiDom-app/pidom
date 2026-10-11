@@ -6,6 +6,7 @@ import { isAbsolute, join, normalize, resolve, sep } from 'node:path';
 import { CLOUD_BYTE_MAX } from '@convex-model/limits';
 import {
   detectDocumentFormat,
+  formatFromKind,
   formatFromFilename,
   hasRecognizedSignature,
   type DocumentCapabilities,
@@ -149,16 +150,13 @@ export function documentPath(
   if (!isSafeDocumentId(documentId)) {
     throw new Error('storage rejected: bad document id');
   }
-  const extension = formatFromFilename(`document.${format}`).extensions[0] ?? 'bin';
+  const extension = formatFromKind(format).extensions[0] ?? 'bin';
   const path = normalize(join(paths.documents, `${documentId}.${extension}`));
   if (!path.startsWith(paths.documents + sep)) {
     throw new Error('storage rejected: path escapes the library root');
   }
   return path;
 }
-
-/** Every PDF begins with this. Other formats use their own bounded signature rules. */
-const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
 
 /** The 64 KB edge window the mobile fingerprint hashes at each end of the file. */
 const FINGERPRINT_EDGE = 64 * 1024;
@@ -171,7 +169,7 @@ const MAX_SCAN_FILES = 1000;
 
 /**
  * A device-minted document id for a local-first import: 32 lowercase hex chars,
- * exactly the mobile app's `mintId`. It names the staged `<localId>.pdf` and is
+ * exactly the mobile app's `mintId`. It names the staged `<localId>.<extension>` and is
  * the idempotency key on `importDocument`, so it must pass `isSafeDocumentId`
  * (it does — hex is a subset of `[A-Za-z0-9]`).
  */
@@ -215,8 +213,8 @@ export interface ValidatedSource {
  * Validates a path the reader picked, dropped, or launched us with — all
  * untrusted input to main. The bytes decide what a file is, never its extension:
  * the path must resolve (symlinks followed) to a regular file within the cloud
- * size ceiling whose first bytes are the `%PDF-` magic. Returns the canonical
- * path and size; throws a short-coded error otherwise.
+ * size ceiling whose leading bytes match its detected format. Returns the
+ * canonical path and size; throws a short-coded error otherwise.
  */
 export async function validateSourceFile(pickedPath: string): Promise<ValidatedSource> {
   if (typeof pickedPath !== 'string' || pickedPath.length === 0 || !isAbsolute(pickedPath)) {
@@ -236,7 +234,7 @@ export async function validateSourceFile(pickedPath: string): Promise<ValidatedS
   if (info.size > CLOUD_BYTE_MAX) throw new Error('import rejected: file exceeds the size ceiling');
 
   const extensionFormat = formatFromFilename(pickedPath);
-  const head = Buffer.alloc(Math.max(PDF_MAGIC.byteLength, 8));
+    const head = Buffer.alloc(16);
   const handle = await openFile(canonical, 'r');
   try {
     const { bytesRead } = await handle.read(head, 0, head.byteLength, 0);
@@ -285,7 +283,7 @@ export async function fingerprintOfFile(path: string, size: number): Promise<str
 }
 
 /**
- * A bounded, depth-first walk collecting `.pdf` files under a picked folder. The
+ * A bounded, depth-first walk collecting supported documents under a picked folder. The
  * folder itself is untrusted, so the walk resolves and canonicalises the root,
  * refuses to follow directory symlinks (a loop would never terminate), and caps
  * both depth and count. Extension is advisory here — every returned path is still

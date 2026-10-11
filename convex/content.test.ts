@@ -223,7 +223,7 @@ describe('multi-format content attachment', () => {
       mimeType: 'text/plain',
       documentKind: 'txt',
     });
-    const key = `${await userIdOf(t, ALICE)}/${documentId}.pdf`;
+    const key = `${await userIdOf(t, ALICE)}/${documentId}.txt`;
     await objectExists(t, key, { size: 12, contentType: 'text/plain' });
 
     await as.mutation(api.library.attachUpload, { documentId, storageKey: key });
@@ -490,6 +490,30 @@ describe('deleting a document nobody shares', () => {
     expect(row?.storageKey).toBeUndefined();
     // The row itself stays — unsyncing is not deleting.
     expect(row).not.toBeNull();
+  });
+});
+
+describe('non-PDF uploads', () => {
+  test('attaches a text document without starting PDF extraction', async () => {
+    const t = harness();
+    const alice = await signedIn(t, ALICE);
+    const documentId = await alice.mutation(api.library.importDocument, {
+      title: 'Notes',
+      byteSize: 4_000,
+      localId: localId('txt1'),
+      originalFileName: 'notes.txt',
+      mimeType: 'text/plain',
+      documentKind: 'txt',
+    });
+    const key = `${await userIdOf(t, ALICE)}/${documentId}.txt`;
+    await objectExists(t, key, { contentType: 'text/plain', size: 4_000 });
+
+    await alice.mutation(api.library.attachUpload, { documentId, storageKey: key });
+
+    const row = await documentRow(t, documentId);
+    expect(row?.storageKey).toBe(key);
+    expect(row?.processing).toBe('ready');
+    expect(row?.textStatus).toBeUndefined();
   });
 });
 

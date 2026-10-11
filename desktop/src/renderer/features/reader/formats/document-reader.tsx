@@ -4,18 +4,19 @@ import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { parseDocument, type ParsedDocument } from './document-adapters';
 import { ReaderError, ReaderLoading } from '../components/reader-states';
-import { isLocalDocumentId } from '../data/document-id';
 
 export function DocumentReader({
   documentId,
   format,
   title,
   onBack,
+  localOnly = false,
 }: {
   documentId: Id<'documents'>;
   format: string;
-  title: string;
-  onBack: () => void;
+    title: string;
+    onBack: () => void;
+    localOnly?: boolean;
 }) {
   const convex = useConvex();
   const [state, setState] = useState<{
@@ -34,13 +35,13 @@ export function DocumentReader({
     void (async () => {
       try {
         let signedUrl = '';
-        if (!isLocalDocumentId(documentId)) {
+        if (!localOnly) {
           try {
             signedUrl =
               (await convex.mutation(api.library.downloadUrl, { documentId, what: 'document' })) ??
               '';
           } catch {
-            // A local-only import can still be opened by main without a signed URL.
+            signedUrl = '';
           }
         }
         const opened = await window.pidom.reader.openDocument({
@@ -65,7 +66,7 @@ export function DocumentReader({
       cancelled = true;
       if (handle) void window.pidom.reader.closeDocument(handle);
     };
-  }, [convex, documentId, format]);
+  }, [convex, documentId, format, localOnly]);
 
   if (state.error) return <ReaderError message={state.error} onBack={onBack} />;
   if (!state.content) return <ReaderLoading />;

@@ -56,7 +56,7 @@ export function ImportBatchToaster() {
       const parts: string[] = [];
       if (t.imported) parts.push(`${t.imported} imported`);
       if (t.duplicate) parts.push(`${t.duplicate} already in library`);
-      if (t.unsupported) parts.push(`${t.unsupported} not a PDF`);
+       if (t.unsupported) parts.push(`${t.unsupported} unsupported`);
       if (t.failed) parts.push(`${t.failed} failed`);
       if (parts.length > 0) {
         const message = parts.join(' · ');

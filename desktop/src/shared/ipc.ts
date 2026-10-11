@@ -3,8 +3,6 @@
  * renderer. One source of truth for channel names and payload shapes so the
  * three processes cannot drift.
  */
-import type { DocumentFormat } from '../../../src/lib/document-formats';
-
 export const IPC = {
   authSignIn: 'auth:signIn',
   authSignOut: 'auth:signOut',
@@ -70,7 +68,7 @@ export const IPC = {
   storageChanged: 'storage:changed', // main → renderer push
   storageMigrationChanged: 'storage:migrationChanged', // main → renderer push
 
-  // Desktop-initiated import: add PDFs from THIS computer (file picker, folder
+  // Desktop-initiated import: add supported documents from THIS computer (file picker, folder
   // scan, drag-drop, "Open With"). Main does every fs/network step; the renderer
   // never sends or receives a filesystem path — drop paths are resolved in
   // preload via `webUtils` and invoked straight to main.
@@ -278,6 +276,8 @@ export type ImportJobState =
 export interface ImportJobStatus {
   localId: string;
   title: string;
+  /** Stable format family detected from the file's name, MIME, and signature. */
+  documentKind: string;
   state: ImportJobState;
   byteSize: number;
   /** R2 upload progress in bytes while `uploading`, else null. */
@@ -286,8 +286,6 @@ export interface ImportJobStatus {
   documentId: string | null;
   /** A short non-sensitive reason code when `state` is `failed`. */
   error: string | null;
-  /** The detected format family for local-only documents. */
-  documentKind?: DocumentFormat | null;
 }
 
 /**
@@ -406,9 +404,9 @@ export interface PidomBridge {
   };
   reader: {
     /**
-     * Fetches the signed URL to a temp file, checks the `%PDF-` magic and the
-     * size ceiling, and returns a handle to read it back through. Rejects if
-     * the bytes are not a PDF.
+     * Fetches the signed URL to a temp file, checks the detected document
+     * signature and the size ceiling, and returns a handle to read it back
+     * through.
      */
     openDocument(request: ReaderOpenRequest): Promise<ReaderDocumentHandle>;
     /** Drops the cached copy. Safe to call twice, or on an unknown handle. */
@@ -465,10 +463,10 @@ export interface PidomBridge {
     onMigration(listener: (status: MigrationStatus) => void): () => void;
   };
   import: {
-    /** Opens the OS file picker (PDF filter, multi-select), stages the chosen
+    /** Opens the OS file picker (supported-document filter, multi-select), stages the chosen
      *  files, and returns how many were queued. No path crosses back. */
     pickFiles(): Promise<number>;
-    /** Opens the OS folder picker, scans it for PDFs (bounded), stages them, and
+    /** Opens the OS folder picker, scans it for supported documents (bounded), stages them, and
      *  returns how many were queued. */
     pickFolder(): Promise<number>;
     /** Stages files dropped from the OS. The renderer passes the dropped `File`
@@ -483,9 +481,9 @@ export interface PidomBridge {
     retry(localId: string): Promise<void>;
     /** Retries every failed import. Returns how many were re-queued. */
     retryAll(): Promise<number>;
-    /** Whether the Pidom "Open With" handler is registered for `.pdf` (Windows). */
+    /** Whether the Pidom "Open With" handler is registered for supported documents (Windows). */
     getAssociation(): Promise<boolean>;
-    /** Registers or removes the Pidom "Open With" handler for `.pdf` (Windows).
+    /** Registers or removes the Pidom "Open With" handler for supported documents (Windows).
      *  Cannot seize the default handler — that stays the user's choice. */
     setAssociation(on: boolean): Promise<boolean>;
     /** Subscribe to import-job changes; returns an unsubscribe function. */

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
-import { isLocalDocumentId } from './document-id';
 
 /**
  * Finding a word inside the open document.
@@ -53,7 +52,11 @@ function snippetAround(text: string, index: number, length: number): string {
   return `${start > 0 ? '…' : ''}${core}${end < text.length ? '…' : ''}`;
 }
 
-export function useFindInDocument(documentId: Id<'documents'>, active: boolean): FindState {
+export function useFindInDocument(
+  documentId: Id<'documents'>,
+  active: boolean,
+  localOnly = false,
+): FindState {
   const convex = useConvex();
   const [term, setTerm] = useState('');
   const [at, setAt] = useState(-1);
@@ -63,10 +66,11 @@ export function useFindInDocument(documentId: Id<'documents'>, active: boolean):
   // Fetch and index once, the first time the bar opens. Nothing runs while it is
   // closed, and a second open reuses what the first one cached.
   useEffect(() => {
-    if (!active || pages.current !== null || isLocalDocumentId(documentId)) {
-      if (isLocalDocumentId(documentId)) setAvailability('unavailable');
+    if (localOnly) {
+      setAvailability('unavailable');
       return;
     }
+    if (!active || pages.current !== null) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -94,7 +98,7 @@ export function useFindInDocument(documentId: Id<'documents'>, active: boolean):
     return () => {
       cancelled = true;
     };
-  }, [active, convex, documentId]);
+  }, [active, convex, documentId, localOnly]);
 
   const hits = useMemo<FindHit[]>(() => {
     const needle = term.trim().toLowerCase();

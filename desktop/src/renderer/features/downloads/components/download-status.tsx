@@ -9,6 +9,7 @@ import { DownloadProgress } from './download-progress';
 /** A short reader-facing reason for a failed download, from the main-process code. */
 const FAILURE_REASON: Record<string, string> = {
   'not-a-pdf': 'file is not a PDF',
+  'unsupported-document': 'file is not a supported document',
   'too-large': 'file is too large',
   'bad-url': 'bad download link',
   'signed-out': 'sign in to download',

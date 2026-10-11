@@ -8,14 +8,18 @@ import PQueue from 'p-queue';
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import { CLOUD_BYTE_MAX } from '@convex-model/limits';
+import type { DocumentKind } from '@convex-model/library';
 import type { ImportJobStatus } from '../../shared/ipc';
 import { getDb } from '../db';
 import { importJobs, localFiles, type ImportJobRow, type ImportJobState } from '../db/schema';
 import type { SessionManager } from '../auth/oauth';
 import { StorageConvex } from './convex-client';
 import type { StorageService } from './service';
-import { detectDocumentFormat } from '../../../../src/lib/document-formats';
-import type { DocumentFormat } from '../../../../src/lib/document-formats';
+import {
+  detectDocumentFormat,
+  hasRecognizedSignature,
+  type DocumentFormat,
+} from '../../../../src/lib/document-formats';
 import {
   documentPath,
   fingerprintOfFile,
@@ -27,12 +31,10 @@ import {
 import { getPdfAssociation, setPdfAssociation } from '../squirrel-events';
 import { starterDocumentBytes, starterDocumentLocalId } from './starter-document';
 
-const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
-
 /**
  * The desktop-initiated import pipeline.
  *
- * A reader adds a PDF from this computer — file picker, folder scan, drag-drop,
+ * A reader adds a document from this computer — file picker, folder scan, drag-drop,
  * or "Open With" — and this stages it into the same managed library
  * `StorageService` downloads into, then reconciles it onto the Convex account
  * exactly as the mobile importer does. The seam is identical to the rest of the
@@ -48,7 +50,6 @@ const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
  * advances them the moment `SessionManager` reports signed-in.
  */
 
-/** Every PDF begins with this. A renamed non-PDF fails here, whatever its name. */
 /** Presentation title cap; the id, not the title, is ever a path segment. */
 const MAX_TITLE = 200;
 
@@ -215,6 +216,8 @@ export class ImportService {
     return {
       localId: row.localId,
       title: row.title,
+      documentKind: (row.documentKind ??
+        detectDocumentFormat(row.originalName ?? '', row.mimeType).format) as DocumentKind,
       state: row.state,
       byteSize: row.byteSize,
       // Live only while the R2 PUT is running; null the moment it settles, so the
@@ -222,7 +225,6 @@ export class ImportService {
       receivedBytes: row.state === 'uploading' ? (this.uploadProgress.get(row.localId) ?? 0) : null,
       documentId: row.documentId,
       error: row.error,
-      documentKind: row.documentKind as DocumentFormat | null,
     };
   }
 
@@ -500,7 +502,7 @@ export class ImportService {
   }
 
   /**
-   * Moves the staged `<localId>.pdf` onto its Convex id and re-keys the local
+   * Moves the staged `<localId>.<format>` onto its Convex id and re-keys the local
    * records to it, so the copy is `available` under the real id the instant that
    * document arrives through `snapshot`. Tolerant of a partial prior run: a
    * destination that already exists wins and the redundant staged bytes are
@@ -720,12 +722,12 @@ export class ImportService {
 
   // ---- Windows "Open With" association + OS launch -------------------------
 
-  /** Whether the Pidom "Open With" handler is registered for `.pdf`. */
+  /** Whether the Pidom "Open With" handler is registered for supported documents. */
   getAssociation(): Promise<boolean> {
     return getPdfAssociation();
   }
 
-  /** Registers or removes the Pidom "Open With" handler for `.pdf`. Cannot seize
+  /** Registers or removes the Pidom "Open With" handler for supported documents. Cannot seize
    *  the default handler — that stays the reader's choice. */
   setAssociation(on: boolean): Promise<boolean> {
     return setPdfAssociation(on);
@@ -754,8 +756,8 @@ function titleFromPath(path: string): string {
 }
 
 /**
- * Streams a source file into a `.part`, hashing it and enforcing the `%PDF-`
- * magic and the size ceiling as the bytes flow — the same guards `runDownload`
+ * Streams a source file into a `.part`, hashing it and enforcing the size
+ * ceiling as the bytes flow — the same guards `runDownload`
  * applies to a network body, since a local file is untrusted input too. Returns
  * the full sha256 of what was written; the caller renames the `.part` into place.
  */
@@ -763,12 +765,12 @@ async function stageCopy(
   source: string,
   part: string,
   _expected: number,
-  format: string,
+  format: DocumentFormat,
 ): Promise<string> {
   const hash = createHash('sha256');
   const src = createReadStream(source);
   const sink = createWriteStream(part, { mode: 0o600 });
-  const head = Buffer.alloc(PDF_MAGIC.byteLength);
+  const head = Buffer.alloc(16);
   let headLength = 0;
   let total = 0;
   try {
@@ -782,14 +784,13 @@ async function stageCopy(
           0,
           Math.min(chunk.byteLength, head.byteLength - headLength),
         );
-        if (format === 'pdf' && headLength === head.byteLength && !head.equals(PDF_MAGIC)) {
-          throw new Error('not a PDF');
-        }
       }
       hash.update(chunk);
       if (!sink.write(chunk)) await once(sink, 'drain');
     }
-    if (format === 'pdf' && headLength < head.byteLength) throw new Error('not a PDF');
+    if (!hasRecognizedSignature(format, head.subarray(0, headLength))) {
+      throw new Error('invalid document signature');
+    }
     await new Promise<void>((resolve, reject) =>
       sink.end((error?: Error | null) => (error ? reject(error) : resolve())),
     );
@@ -895,6 +896,9 @@ function importErrorCode(error: unknown): string {
   if (isUploadNotYetSynced(error)) return 'upload-not-synced';
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes('not a PDF')) return 'not-a-pdf';
+  if (message.includes('invalid document signature') || message.includes('unsupported')) {
+    return 'unsupported-document';
+  }
   if (message.includes('size ceiling') || message.includes('exceeds the size')) return 'too-large';
   if (message.includes('not an absolute path')) return 'bad-path';
   if (message.includes('does not exist')) return 'missing-file';
