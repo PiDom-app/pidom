@@ -83,7 +83,7 @@ for (const update of updates) {
 }
 
 const files = [...changed].filter((path) => existsSync(join(root, path)));
-const prettier = join(root, 'node_modules', '.bin', 'prettier');
+const prettier = join(root, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
 
 // Nothing to check, or nothing to check it with. Neither is a reason to refuse
 // a push — the gate in CI has the final say either way.
@@ -92,7 +92,7 @@ if (files.length === 0 || !existsSync(prettier)) {
 }
 
 try {
-  execFileSync(prettier, ['--check', '--ignore-unknown', ...files], {
+  execFileSync(process.execPath, [prettier, '--check', '--ignore-unknown', ...files], {
     cwd: root,
     stdio: ['ignore', 'ignore', 'inherit'],
   });
