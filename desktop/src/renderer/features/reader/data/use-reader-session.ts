@@ -4,6 +4,7 @@ import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import type { FunctionReturnType } from 'convex/server';
 import { PROGRESS_DEBOUNCE_MS, PROGRESS_JUMP_PAGES } from '@convex-model/limits';
+import { isLocalDocumentId } from './document-id';
 
 type ReadingMode = NonNullable<FunctionReturnType<typeof api.library.document>['readingMode']>;
 
@@ -50,6 +51,7 @@ export function useReaderSession(
     lastWritten.current = page;
 
     const count = pageCountRef.current;
+    if (isLocalDocumentId(documentId)) return;
     void convex.mutation(api.library.recordProgress, {
       documentId,
       currentPage: page,

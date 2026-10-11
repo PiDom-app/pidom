@@ -2,6 +2,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import type { FunctionReturnType } from 'convex/server';
+import { isLocalDocumentId } from './document-id';
 
 export type OutlineEntry = FunctionReturnType<typeof api.library.outline>[number];
 
@@ -14,5 +15,5 @@ export type OutlineEntry = FunctionReturnType<typeof api.library.outline>[number
  * contents live for it. `undefined` while the query is in flight.
  */
 export function useOutline(documentId: Id<'documents'>): OutlineEntry[] | undefined {
-  return useQuery(api.library.outline, { documentId });
+  return useQuery(api.library.outline, isLocalDocumentId(documentId) ? 'skip' : { documentId });
 }

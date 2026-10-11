@@ -58,6 +58,23 @@ row limit remain local-only until object-backed editor content is introduced.
 The editor blocks browser unload and confirms before its Back action discards a
 dirty draft.
 
+## Desktop starter document
+
+After a desktop account becomes signed in, the main process creates one
+deterministic `Welcome to Pidom.docx` guide if that account has not already
+received it. The document is generated from a minimal valid DOCX package,
+stored in the account-scoped local library, and entered through the normal
+durable import queue. This makes the guide available offline immediately while
+allowing registration and upload to resume after reconnecting. The stable local
+id makes the operation idempotent across auth refreshes and app restarts; it
+does not introduce a second library data path. Once created, it is an ordinary
+DOCX document and uses the same edit, save, export, remove, and sync behavior
+as an imported document.
+
+The desktop release containing this flow is version 1.0.2. Settings keeps the
+existing ten sections and adds a Lucide icon to each desktop navigation item;
+the compact select remains the narrow-window fallback.
+
 ## Where a PDF lives
 
 **Convex owns metadata, the device owns the file.** Rendering the library never
@@ -125,7 +142,9 @@ far stronger than a permanent public link. Five rather than the component's
 default of fifteen: a download starts immediately, and the window has no reason
 to be wider than the act.
 
-**Object keys never cross the wire.** They are `<ownerId>/<documentId>.pdf`,
+**Object keys never cross the wire.** They are `<ownerId>/<documentId>.pdf`
+(the suffix is retained for compatibility with existing keys, even when the
+object contains TXT, Office, EPUB, or image bytes),
 minted in `library.uploadUrl` from ids the caller cannot bend — the component's
 own `generateUploadUrl` refuses a custom key because, as its docs say, you do
 not want the client naming your objects. `toPublicDocument` exposes `isSynced`
@@ -134,9 +153,11 @@ way a Convex id is not.
 
 The upload is three requests — `uploadUrl`, a PUT straight to R2, `attachUpload`
 — and the third one is why. Nothing in the middle request is under the server's
-control: not the size, not the content type, not whether it is a PDF. So
-`attachUpload` recomputes the key, reads the object's size, type and digest back
-out of R2's metadata, and **deletes anything that fails rather than linking it**.
+control: not the size, not the content type, not whether it is a PDF. So `attachUpload` recomputes the key, reads the object's size, type and digest
+back out of R2's metadata, accepts only supported document MIME types, and
+**deletes anything that fails rather than linking it**. PDF-only extraction is
+queued only for PDF documents; other formats remain available through their
+generic download path.
 A rejected upload that stayed would be billed storage the reader cannot see or
 remove.
 

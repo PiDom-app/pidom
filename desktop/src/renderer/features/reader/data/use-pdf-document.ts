@@ -3,6 +3,7 @@ import { useConvex } from 'convex/react';
 import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { openPdf, pageSizeOf, type PageSize, type PDFDocumentProxy } from '../pdf/engine';
+import { isLocalDocumentId } from './document-id';
 
 /**
  * The whole "resolve an id to renderable bytes" path, in one hook.
@@ -70,13 +71,15 @@ export function usePdfDocument(
       // local copy straight from the id — so treat a failed mint as "no URL"
       // and let `openDocument` fall back to the local copy.
       let signedUrl: string | null = null;
-      try {
-        signedUrl = await convex.mutation(api.library.downloadUrl, {
-          documentId,
-          what: 'document',
-        });
-      } catch {
-        signedUrl = null;
+      if (!isLocalDocumentId(documentId)) {
+        try {
+          signedUrl = await convex.mutation(api.library.downloadUrl, {
+            documentId,
+            what: 'document',
+          });
+        } catch {
+          signedUrl = null;
+        }
       }
       if (cancelled) return;
 

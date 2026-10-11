@@ -8,9 +8,27 @@ import {
 } from '../src/renderer/features/reader/formats/document-adapters.ts';
 import { applyOfficeTextReplacements } from '../src/renderer/features/reader/formats/office-writer.ts';
 import { applyPdfEdits } from '../src/renderer/features/reader/pdf/editor.ts';
+import { starterDocumentBytes, starterDocumentLocalId } from '../src/main/storage/starter-document.ts';
+import { isLocalDocumentId } from '../src/renderer/features/reader/data/document-id.ts';
 import { formatFromFilename } from '../../src/lib/document-formats.ts';
 
 const text = (value: string) => new TextEncoder().encode(value);
+
+test('built-in starter document', () => {
+  const bytes = starterDocumentBytes();
+  const entries = unzipSync(bytes);
+  assert.ok(entries['word/document.xml']);
+  assert.equal(starterDocumentLocalId('test-subject').length, 32);
+  const parsed = parseDocumentBytes(bytes, 'docx');
+  assert.equal(parsed.kind, 'text');
+  assert.match(JSON.stringify(parsed), /Welcome to Pidom/);
+  assert.match(JSON.stringify(parsed), /Local-first desktop behavior/);
+});
+
+test('local import ids never masquerade as Convex document ids', () => {
+  assert.equal(isLocalDocumentId('ea6d969fb95fa9e26c6746202602fd0d'), true);
+  assert.equal(isLocalDocumentId('jd7f3b4x5k2m9n1p0q8r6s4t2v'), false);
+});
 
 test('desktop adapter fixture matrix', async (t) => {
   await t.test('reads plain, markdown, rich text, and legacy binary fixtures', () => {
@@ -108,13 +126,13 @@ test('desktop adapter fixture matrix', async (t) => {
     });
   });
 
-  await t.test('marks only the open-source text formats as editable', () => {
+  await t.test('marks formats with verified desktop write-back as editable', () => {
     assert.equal(formatFromFilename('notes.txt').editable, true);
     assert.equal(formatFromFilename('notes.md').editable, true);
     assert.equal(formatFromFilename('rows.csv').editable, true);
     assert.equal(formatFromFilename('photo.jpg').editable, true);
-    assert.equal(formatFromFilename('report.pdf').editable, false);
-    assert.equal(formatFromFilename('report.docx').editable, false);
+    assert.equal(formatFromFilename('report.pdf').editable, true);
+    assert.equal(formatFromFilename('report.docx').editable, true);
   });
 
   for (const [format, filename, source] of [

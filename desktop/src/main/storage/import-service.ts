@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, net } from 'electron';
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { readFile, rename, rm, stat } from 'node:fs/promises';
+import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { basename, extname, join } from 'node:path';
 import PQueue from 'p-queue';
@@ -15,6 +15,7 @@ import type { SessionManager } from '../auth/oauth';
 import { StorageConvex } from './convex-client';
 import type { StorageService } from './service';
 import { detectDocumentFormat } from '../../../../src/lib/document-formats';
+import type { DocumentFormat } from '../../../../src/lib/document-formats';
 import {
   documentPath,
   fingerprintOfFile,
@@ -24,6 +25,7 @@ import {
   validateSourceFile,
 } from './paths';
 import { getPdfAssociation, setPdfAssociation } from '../squirrel-events';
+import { starterDocumentBytes, starterDocumentLocalId } from './starter-document';
 
 const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
 
@@ -82,7 +84,99 @@ export class ImportService {
     this.convex = new StorageConvex(session);
     // The moment auth returns, finish every job that was waiting on the network.
     this.session.onChange((state) => {
-      if (state.status === 'signed-in') void this.drain();
+      if (state.status === 'signed-in') {
+        void this.ensureStarterDocument().catch((error: unknown) => {
+          console.error('starter document initialization failed', error);
+        });
+        void this.drain();
+      }
+    });
+  }
+
+  /**
+   * Creates the built-in DOCX guide once per account. It enters the same
+   * durable staged -> registered -> uploaded pipeline as a user import, so it
+   * is immediately readable offline and cannot create duplicates on restart.
+   */
+  async ensureStarterDocument(): Promise<void> {
+    const subject = this.session.getState().profile?.subject;
+    if (!subject) return;
+    const localId = starterDocumentLocalId(subject);
+    const existing = getDb()
+      .select()
+      .from(importJobs)
+      .where(eq(importJobs.localId, localId))
+      .get();
+    if (existing) {
+      if (existing.state === 'failed') {
+        const available = this.storage.availablePath(localId);
+        if (available) {
+          this.setState(localId, 'staged');
+        } else {
+          // A failed starter from an older build may have lost its staged
+          // bytes. Clear that orphan so the deterministic guide can be rebuilt.
+          await this.cancel(localId);
+        }
+      }
+      const current = getDb()
+        .select()
+        .from(importJobs)
+        .where(eq(importJobs.localId, localId))
+        .get();
+      if (current) {
+        if (PENDING.includes(current.state)) this.enqueueAdvance(localId);
+        return;
+      }
+    }
+    await this.queue.add(async () => {
+      const db = getDb();
+      if (db.select().from(importJobs).where(eq(importJobs.localId, localId)).get()) return;
+      this.storage.throwIfBusy();
+      const bytes = starterDocumentBytes();
+      const paths = await this.storage.resolvePaths();
+      const finalPath = documentPath(paths, localId, 'docx');
+      const partPath = join(paths.tmp, `${localId}-${Date.now()}.part`);
+      const contentHash = createHash('sha256').update(bytes).digest('hex');
+      let moved = false;
+      try {
+        await writeFile(partPath, bytes, { flag: 'wx', mode: 0o600 });
+        await rename(partPath, finalPath);
+        moved = true;
+        db.transaction((tx) => {
+          tx.insert(importJobs)
+            .values({
+              localId,
+              title: 'Welcome to Pidom',
+              originalName: 'Welcome-to-Pidom.docx',
+              documentKind: 'docx',
+              mimeType:
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              byteSize: bytes.byteLength,
+              contentHash,
+              state: 'staged',
+              updatedAt: Date.now(),
+            })
+            .run();
+          tx.insert(localFiles)
+            .values({
+              documentId: localId,
+              path: finalPath,
+              hash: contentHash,
+              bytes: bytes.byteLength,
+              version: contentHash,
+              state: 'available',
+              updatedAt: Date.now(),
+            })
+            .run();
+        });
+        this.emit();
+        this.storage.emitStatus(localId);
+        this.enqueueAdvance(localId);
+      } catch (error) {
+        await rm(partPath, { force: true });
+        if (moved) await rm(finalPath, { force: true });
+        throw error;
+      }
     });
   }
 
@@ -128,6 +222,7 @@ export class ImportService {
       receivedBytes: row.state === 'uploading' ? (this.uploadProgress.get(row.localId) ?? 0) : null,
       documentId: row.documentId,
       error: row.error,
+      documentKind: row.documentKind as DocumentFormat | null,
     };
   }
 

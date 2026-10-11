@@ -9,14 +9,30 @@ import {
   serializeCsvRows,
   type ParsedDocument,
 } from '@/features/reader/formats/document-adapters';
+import { applyOfficeTextReplacements } from '@/features/reader/formats/office-writer';
+import { applyPdfEdits } from '@/features/reader/pdf/editor';
 import { buttonGhostClass } from '@/lib/ui';
 
 const OFFICE = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp']);
+const EDITABLE_BINARY = new Set(['pdf', 'docx', 'xlsx', 'pptx', 'odt']);
 const RECOVERY_MAX = 2_000_000;
-type EditableFormat = 'txt' | 'md' | 'csv';
+type EditableFormat = 'txt' | 'md' | 'csv' | 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'odt';
 
 function asEditableFormat(value: string): EditableFormat | null {
-  return value === 'txt' || value === 'md' || value === 'csv' ? value : null;
+  return value === 'txt' ||
+    value === 'md' ||
+    value === 'csv' ||
+    EDITABLE_BINARY.has(value)
+    ? (value as EditableFormat)
+    : null;
+}
+
+function isOfficeEditable(value: EditableFormat): value is 'docx' | 'odt' | 'xlsx' | 'pptx' {
+  return value === 'docx' || value === 'odt' || value === 'xlsx' || value === 'pptx';
+}
+
+function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.slice().buffer as ArrayBuffer;
 }
 
 export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) {
@@ -30,6 +46,10 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
   const [handle, setHandle] = useState<string | null>(null);
   const [contentHash, setContentHash] = useState<string | null>(null);
   const [content, setContent] = useState<ParsedDocument | null>(null);
+  const [sourceBytes, setSourceBytes] = useState<Uint8Array | null>(null);
+  const [officeSourceText, setOfficeSourceText] = useState('');
+  const [pdfAnnotation, setPdfAnnotation] = useState('');
+  const [pdfRotation, setPdfRotation] = useState<0 | 90 | 180 | 270>(0);
   const [draft, setDraft] = useState('');
   const [savedDraft, setSavedDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +58,12 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
   const [cloudVersion, setCloudVersion] = useState<number | null>(null);
   const [cloudMessage, setCloudMessage] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const dirty = editable && draft !== savedDraft;
+  const dirty =
+    editable &&
+    (draft !== savedDraft ||
+      imageRotation !== 0 ||
+      pdfAnnotation.trim().length > 0 ||
+      pdfRotation !== 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +84,8 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
         setHandle(opened.handle);
         setContentHash(opened.contentHash);
         setContent(parsed);
+        setSourceBytes(bytes);
+        setOfficeSourceText(parsed.kind === 'text' ? parsed.text : '');
         const initial =
           parsed.kind === 'table'
             ? serializeCsvRows(parsed.rows)
@@ -107,7 +134,11 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
   }, [history]);
 
   const title = meta?.title ?? 'Document';
-  const canEdit = editable && (content?.kind === 'text' || content?.kind === 'table');
+  const canEdit =
+    editable &&
+    (format === 'pdf' || content?.kind === 'text' || content?.kind === 'table');
+  const canCloudEdit =
+    editableFormat === 'txt' || editableFormat === 'md' || editableFormat === 'csv';
   const display = useMemo(() => {
     if (!content) return '';
     if (content.kind === 'table') return content.rows.map((row) => row.join('\t')).join('\n');
@@ -115,18 +146,24 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
   }, [content]);
 
   const saveAs = async () => {
-    if (!handle || !canEdit) return;
-    const bytes = new TextEncoder().encode(format === 'csv' ? draft : draft);
+    if (!handle || !canEdit || !sourceBytes || !editableFormat) return;
+    const bytes = await editedBytes();
     const baseName =
       title.replace(/\.[A-Za-z0-9]+$/, '').replace(/[^A-Za-z0-9 ._-]/g, '_').slice(0, 150) ||
       'document';
     const result = await window.pidom.reader.saveAs({
       handle,
-      bytes: bytes.buffer,
+      bytes: asArrayBuffer(bytes),
       suggestedName: `${baseName}.${format}`,
-      format: editableFormat ?? 'txt',
+      format: editableFormat,
     });
     if (result.saved) {
+      setSourceBytes(bytes);
+      if (isOfficeEditable(editableFormat)) setOfficeSourceText(draft);
+      if (editableFormat === 'pdf') {
+        setPdfAnnotation('');
+        setPdfRotation(0);
+      }
       setSavedDraft(draft);
       setRecovered(false);
       void window.pidom.db.editorDraftDelete(documentId);
@@ -135,10 +172,10 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
 
   const save = async () => {
     if (!handle || !contentHash || !canEdit || editableFormat === null) return;
-    const bytes = new TextEncoder().encode(draft);
+    const bytes = await editedBytes();
     const result = await window.pidom.reader.save({
       handle,
-      bytes: bytes.buffer,
+      bytes: asArrayBuffer(bytes),
       expectedContentHash: contentHash,
       format: editableFormat,
     });
@@ -147,13 +184,38 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
       return;
     }
     setContentHash(result.contentHash);
+    setSourceBytes(bytes);
+    if (isOfficeEditable(editableFormat)) setOfficeSourceText(draft);
+    if (editableFormat === 'pdf') {
+      setPdfAnnotation('');
+      setPdfRotation(0);
+    }
     setSavedDraft(draft);
     setRecovered(false);
     void window.pidom.db.editorDraftDelete(documentId);
   };
 
+  const editedBytes = async (): Promise<Uint8Array> => {
+    if (!sourceBytes || !editableFormat) throw new Error('document is not ready to save');
+    if (editableFormat === 'pdf') {
+      return applyPdfEdits(sourceBytes, {
+        pages: pdfRotation ? [{ type: 'rotate', page: 1, degrees: pdfRotation }] : [],
+        annotations: pdfAnnotation.trim()
+          ? [{ type: 'text', page: 1, x: 36, y: 36, text: pdfAnnotation.trim() }]
+          : [],
+      });
+    }
+    if (isOfficeEditable(editableFormat)) {
+      return applyOfficeTextReplacements(sourceBytes, editableFormat, [
+        { find: officeSourceText, replace: draft },
+      ]);
+    }
+    return new TextEncoder().encode(draft);
+  };
+
   const saveVersion = async () => {
-    if (!canEdit || editableFormat === null) return;
+    if (!canEdit || !canCloudEdit || editableFormat === null) return;
+    if (editableFormat !== 'txt' && editableFormat !== 'md' && editableFormat !== 'csv') return;
     setCloudMessage(null);
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(draft));
     const contentHash = Array.from(new Uint8Array(digest), (byte) =>
@@ -261,6 +323,8 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
               disabled={!dirty}
               onClick={() => {
                 setDraft(savedDraft);
+                setPdfAnnotation('');
+                setPdfRotation(0);
                 setRecovered(false);
                 void window.pidom.db.editorDraftDelete(documentId);
               }}
@@ -280,7 +344,7 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
               <Save className="size-4" />
               Save
             </button>
-            <button
+            {canCloudEdit && <button
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground disabled:opacity-40"
               disabled={!dirty || draft.length > 750_000}
               onClick={() => void saveVersion()}
@@ -288,7 +352,7 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
             >
               <Cloud className="size-4" />
               Save version
-            </button>
+            </button>}
           </>
         )}
         {cloudMessage && (
@@ -298,7 +362,38 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
         )}
       </header>
       <main className="min-h-0 flex-1 overflow-auto p-6">
-        {canEdit ? (
+        {canEdit && format === 'pdf' ? (
+          <div className="mx-auto flex max-w-2xl flex-col gap-4 rounded-md border border-border bg-elevated p-6">
+            <div>
+              <h1 className="text-sm font-semibold text-foreground">Edit PDF</h1>
+              <p className="mt-1 text-sm leading-6 text-fg-muted">
+                Add a persisted text annotation or rotate the first page. Existing PDF glyphs and XFA remain unchanged.
+              </p>
+            </div>
+            <label className="text-sm text-foreground">
+              Text annotation
+              <textarea
+                className="mt-2 min-h-24 w-full rounded-md border border-border bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                value={pdfAnnotation}
+                onChange={(event) => setPdfAnnotation(event.target.value)}
+                placeholder="Add a note to page 1"
+              />
+            </label>
+            <label className="text-sm text-foreground">
+              First page rotation
+              <select
+                className="mt-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={pdfRotation}
+                onChange={(event) => setPdfRotation(Number(event.target.value) as 0 | 90 | 180 | 270)}
+              >
+                <option value={0}>No rotation</option>
+                <option value={90}>90 degrees</option>
+                <option value={180}>180 degrees</option>
+                <option value={270}>270 degrees</option>
+              </select>
+            </label>
+          </div>
+        ) : canEdit ? (
           <textarea
             className="mx-auto block min-h-[calc(100vh-10rem)] w-full max-w-5xl resize-none rounded-md border border-border bg-elevated p-6 font-mono text-sm leading-6 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus"
             value={draft}
@@ -311,7 +406,7 @@ export function DocumentEditor({ documentId }: { documentId: Id<'documents'> }) 
             <LockKeyhole className="size-5 text-fg-muted" />
             <h1 className="text-sm font-semibold text-foreground">Office editing is not enabled</h1>
             <p className="text-sm leading-6 text-fg-muted">
-              This release preserves Office files as read-only until a document engine with verified round-trip support is approved.
+              This editor can preserve selected text changes while keeping the rest of the Office package intact.
             </p>
           </div>
         ) : format === 'image' ? (

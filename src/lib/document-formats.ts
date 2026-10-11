@@ -52,7 +52,7 @@ const FORMATS: readonly DocumentCapabilities[] = [
     reflowable: false,
     preservesPageLayout: true,
     searchable: true,
-    editable: false,
+    editable: true,
   },
   {
     format: 'doc',
@@ -78,7 +78,7 @@ const FORMATS: readonly DocumentCapabilities[] = [
     reflowable: true,
     preservesPageLayout: false,
     searchable: true,
-    editable: false,
+    editable: true,
   },
   {
     format: 'odt',
@@ -91,7 +91,7 @@ const FORMATS: readonly DocumentCapabilities[] = [
     reflowable: true,
     preservesPageLayout: false,
     searchable: true,
-    editable: false,
+    editable: true,
   },
   {
     format: 'rtf',
@@ -195,7 +195,7 @@ const FORMATS: readonly DocumentCapabilities[] = [
     reflowable: true,
     preservesPageLayout: false,
     searchable: true,
-    editable: false,
+    editable: true,
   },
   {
     format: 'ppt',
@@ -221,7 +221,7 @@ const FORMATS: readonly DocumentCapabilities[] = [
     reflowable: false,
     preservesPageLayout: true,
     searchable: true,
-    editable: false,
+    editable: true,
   },
   {
     format: 'image',

@@ -4,6 +4,7 @@ import { api } from '@convex/api';
 import type { Id } from '@convex/dataModel';
 import { parseDocument, type ParsedDocument } from './document-adapters';
 import { ReaderError, ReaderLoading } from '../components/reader-states';
+import { isLocalDocumentId } from '../data/document-id';
 
 export function DocumentReader({
   documentId,
@@ -33,12 +34,14 @@ export function DocumentReader({
     void (async () => {
       try {
         let signedUrl = '';
-        try {
-          signedUrl =
-            (await convex.mutation(api.library.downloadUrl, { documentId, what: 'document' })) ??
-            '';
-        } catch {
-          // A local-only import can still be opened by main without a signed URL.
+        if (!isLocalDocumentId(documentId)) {
+          try {
+            signedUrl =
+              (await convex.mutation(api.library.downloadUrl, { documentId, what: 'document' })) ??
+              '';
+          } catch {
+            // A local-only import can still be opened by main without a signed URL.
+          }
         }
         const opened = await window.pidom.reader.openDocument({
           documentId,

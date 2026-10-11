@@ -23,6 +23,8 @@ import { FindBar } from './find-bar';
 import { SelectionMenu } from './selection-menu';
 import { ReaderError, ReaderLoading } from './reader-states';
 import { DocumentReader } from '../formats/document-reader';
+import { isLocalDocumentId } from '../data/document-id';
+import { useImports } from '@/features/import/data/use-imports';
 
 /** The fits the toolbar's fit button cycles through, in order. */
 const FIT_CYCLE: Fit[] = ['fit-width', 'fit-page', 'auto'];
@@ -40,8 +42,11 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const navigate = useNavigate();
   const goBack = useCallback(() => void navigate({ to: '/library' }), [navigate]);
 
-  const meta = useQuery(api.library.document, { documentId });
-  const documentKind = meta?.documentKind ?? 'pdf';
+  const localDocument = isLocalDocumentId(documentId);
+  const meta = useQuery(api.library.document, localDocument ? 'skip' : { documentId });
+  const { jobs } = useImports();
+  const localJob = localDocument ? jobs.find((job) => job.localId === documentId) : undefined;
+  const documentKind = localJob?.documentKind ?? meta?.documentKind ?? 'pdf';
   const pdf = usePdfDocument(documentId, documentKind);
   const { prefs } = useReaderPreferences();
   const { readerTint, keepAwake } = useDesktopSettings();

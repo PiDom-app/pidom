@@ -119,6 +119,23 @@ async function storedAnnotations(t: ReturnType<typeof harness>, documentId: Id<'
 }
 
 describe('importDocument', () => {
+  test('accepts the desktop documentKind metadata', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+
+    const documentId = await as.mutation(
+      api.library.importDocument,
+      anImport({
+        documentKind: 'docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        originalFileName: 'Welcome-to-Pidom.docx',
+      }),
+    );
+
+    const stored = await storedDocument(t, documentId);
+    expect(stored?.documentKind).toBe('docx');
+  });
+
   test('delivered twice with one localId makes one document', async () => {
     const t = harness();
     const as = await signedIn(t);

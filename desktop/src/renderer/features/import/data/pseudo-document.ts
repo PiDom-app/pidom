@@ -47,6 +47,6 @@ export function pseudoDocument(job: ImportJobStatus): LibraryEntry {
     mimeType: 'application/pdf',
     fingerprint: null,
     importJob: job,
-    documentKind: 'pdf',
+    documentKind: job.documentKind ?? 'pdf',
   };
 }
