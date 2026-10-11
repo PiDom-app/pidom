@@ -33,6 +33,7 @@ const OPEN_FAILED = "This document couldn't be opened.";
 export function usePdfDocument(
   documentId: Id<'documents'>,
   documentKind: string = 'pdf',
+  localOnly = false,
 ): PdfDocumentState {
   const convex = useConvex();
   const [state, setState] = useState<PdfDocumentState>({
@@ -70,13 +71,15 @@ export function usePdfDocument(
       // local copy straight from the id — so treat a failed mint as "no URL"
       // and let `openDocument` fall back to the local copy.
       let signedUrl: string | null = null;
-      try {
-        signedUrl = await convex.mutation(api.library.downloadUrl, {
-          documentId,
-          what: 'document',
-        });
-      } catch {
-        signedUrl = null;
+      if (!localOnly) {
+        try {
+          signedUrl = await convex.mutation(api.library.downloadUrl, {
+            documentId,
+            what: 'document',
+          });
+        } catch {
+          signedUrl = null;
+        }
       }
       if (cancelled) return;
 
@@ -135,7 +138,7 @@ export function usePdfDocument(
       void doc?.destroy();
       if (handle) void window.pidom.reader.closeDocument(handle);
     };
-  }, [convex, documentId, documentKind]);
+  }, [convex, documentId, documentKind, localOnly]);
 
   return state;
 }

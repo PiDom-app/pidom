@@ -7,7 +7,7 @@ import { SettingRow, SettingsSection, ToggleSetting } from './settings-ui';
 const isWindows = window.pidom?.platform?.os === 'win32';
 
 /**
- * Everything about bringing PDFs in from this computer: the two pickers (the
+ * Everything about bringing supported documents in from this computer: the two pickers (the
  * same actions as the Library header and drag-and-drop), a live readout of what
  * is still importing or has failed, and — on Windows — the "Open With" handler
  * toggle. Main owns every filesystem and registry step; this screen only calls
@@ -20,11 +20,11 @@ export function ImportSection() {
     <>
       <SettingsSection
         title="Import"
-        description="Add PDFs stored on this computer. They stage locally, open right away, and upload to your library when you are online."
+         description="Add supported documents stored on this computer. They stage locally, open right away, and upload to your library when you are online."
       >
         <SettingRow
           label="Add to your library"
-          description="Pick individual files, or a folder to scan for PDFs."
+           description="Pick individual files, or a folder to scan for supported documents."
         >
           <div className="flex items-center gap-2">
             <button className={buttonPrimaryClass} onClick={() => void pickFiles()}>
@@ -94,11 +94,11 @@ function AssociationSection() {
   return (
     <SettingsSection
       title="File association"
-      description="Let Windows offer Pidom when you right-click a PDF and choose Open With. This never changes your default PDF app — that stays your choice."
+      description="Let Windows offer Pidom when you right-click a supported document and choose Open With. This never changes your defaults — that stays your choice."
     >
       <SettingRow
-        label="Show Pidom in “Open With” for PDFs"
-        description="Also adds opened files to the Pidom jump-list under Recent."
+        label="Show Pidom in “Open With” for documents"
+        description="Supports text, office, spreadsheet, presentation, image, and PDF files."
       >
         <ToggleSetting
           label="Register the Pidom Open With handler"

@@ -5,7 +5,7 @@ import { useImports } from '@/features/import/data/use-imports';
 /**
  * First-run state, after connecting an account that has nothing in it yet.
  * Explains where documents come from and offers the two ways to add one from
- * this device — a file picker or a folder scan — with a hint that dropping PDFs
+ * this device — a file picker or a folder scan — with a hint that dropping documents
  * onto the window works too. Documents added on the phone still arrive by sync.
  */
 export function EmptyLibrary() {
@@ -18,7 +18,7 @@ export function EmptyLibrary() {
       </div>
       <h2 className="mt-4 text-lg font-semibold text-foreground">Your library is empty</h2>
       <p className="mt-1 max-w-sm text-sm text-fg-muted">
-        Import a PDF from this computer, or open one on your phone — anything in your account
+         Import a document from this computer, or open one on your phone — anything in your account
         appears here as soon as it syncs.
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -31,7 +31,7 @@ export function EmptyLibrary() {
           Import folder
         </button>
       </div>
-      <p className="mt-3 text-xs text-fg-subtle">Or drop PDFs anywhere on this window.</p>
+       <p className="mt-3 text-xs text-fg-subtle">Or drop supported documents anywhere on this window.</p>
     </div>
   );
 }

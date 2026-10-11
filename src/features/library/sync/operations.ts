@@ -21,6 +21,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
+import { detectDocumentFormat } from '@/lib/document-formats';
 
 import * as Collections from '../local/repository/collections';
 import * as Documents from '../local/repository/documents';
@@ -120,6 +121,7 @@ async function sendDocument({ client, db }: Sender, operation: QueuedOperation):
         ? {}
         : { originalFileName: document.originalFileName }),
       ...(document.mimeType === null ? {} : { mimeType: document.mimeType }),
+      documentKind: detectDocumentFormat(document.originalFileName ?? '', document.mimeType).format,
       ...(document.fingerprint === null ? {} : { fingerprint: document.fingerprint }),
     });
 

@@ -13,6 +13,6 @@ export type OutlineEntry = FunctionReturnType<typeof api.library.outline>[number
  * streamed the document never ran that probe, so this is the one place the
  * contents live for it. `undefined` while the query is in flight.
  */
-export function useOutline(documentId: Id<'documents'>): OutlineEntry[] | undefined {
-  return useQuery(api.library.outline, { documentId });
+export function useOutline(documentId: Id<'documents'>, localOnly = false): OutlineEntry[] | undefined {
+  return useQuery(api.library.outline, localOnly ? 'skip' : { documentId });
 }

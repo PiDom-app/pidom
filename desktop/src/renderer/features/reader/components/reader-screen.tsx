@@ -23,6 +23,7 @@ import { FindBar } from './find-bar';
 import { SelectionMenu } from './selection-menu';
 import { ReaderError, ReaderLoading } from './reader-states';
 import { DocumentReader } from '../formats/document-reader';
+import { useImports } from '@/features/import/data/use-imports';
 
 /** The fits the toolbar's fit button cycles through, in order. */
 const FIT_CYCLE: Fit[] = ['fit-width', 'fit-page', 'auto'];
@@ -40,9 +41,16 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const navigate = useNavigate();
   const goBack = useCallback(() => void navigate({ to: '/library' }), [navigate]);
 
-  const meta = useQuery(api.library.document, { documentId });
-  const documentKind = meta?.documentKind ?? 'pdf';
-  const pdf = usePdfDocument(documentId, documentKind);
+  const { jobs, loading: importsLoading } = useImports();
+  const importJob = jobs.find((job) => job.localId === documentId && job.documentId === null);
+  // Desktop imports use a 32-character lowercase hex id before Convex assigns
+  // an account id. While the import list is still loading, treat that shape as
+  // local so the first render cannot send it to a v.id('documents') query.
+  const localOnly =
+    importJob !== undefined || (importsLoading && /^[a-f0-9]{32}$/.test(documentId));
+  const meta = useQuery(api.library.document, localOnly ? 'skip' : { documentId });
+  const documentKind = importJob?.documentKind ?? meta?.documentKind ?? 'pdf';
+  const pdf = usePdfDocument(documentId, documentKind, localOnly);
   const { prefs } = useReaderPreferences();
   const { readerTint, keepAwake } = useDesktopSettings();
   const view = useReaderView(prefs);
@@ -68,11 +76,11 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const pageCount = pdf.pageCount || meta?.pageCount || 0;
   const readingMode = view.mode;
 
-  const { reportPage } = useReaderSession(documentId, pageCount, readingMode);
-  const bookmarks = useBookmarks(documentId);
-  const annotations = useAnnotations(documentId);
-  const outline = useOutline(documentId);
-  const find = useFindInDocument(documentId, findOpen);
+  const { reportPage } = useReaderSession(documentId, pageCount, readingMode, localOnly);
+  const bookmarks = useBookmarks(documentId, localOnly);
+  const annotations = useAnnotations(documentId, localOnly);
+  const outline = useOutline(documentId, localOnly);
+  const find = useFindInDocument(documentId, findOpen, localOnly);
 
   // Restore the synced position once, after the document is open and the account
   // says to. A jump reports immediately, so the restore also seeds the writer.
@@ -175,8 +183,9 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
       <DocumentReader
         documentId={documentId}
         format={documentKind}
-        title={meta?.title ?? 'Document'}
+        title={importJob?.title ?? meta?.title ?? 'Document'}
         onBack={goBack}
+        localOnly={localOnly}
       />
     );
   }

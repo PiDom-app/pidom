@@ -26,6 +26,7 @@ export function useReaderSession(
   documentId: Id<'documents'>,
   pageCount: number,
   readingMode: ReadingMode,
+  localOnly = false,
 ): { reportPage: (page: number) => void } {
   const convex = useConvex();
 
@@ -46,6 +47,10 @@ export function useReaderSession(
     }
     const page = pending.current;
     if (page === null || page === lastWritten.current) return;
+    if (localOnly) {
+      pending.current = null;
+      return;
+    }
     pending.current = null;
     lastWritten.current = page;
 
@@ -58,7 +63,7 @@ export function useReaderSession(
       readingMode: readingModeRef.current,
       clientUpdatedAt: Date.now(),
     });
-  }, [convex, documentId]);
+  }, [convex, documentId, localOnly]);
 
   const reportPage = useCallback(
     (page: number) => {

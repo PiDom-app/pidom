@@ -7,7 +7,7 @@ const config: ExpoConfig = {
   slug: 'pidom',
   owner: 'teum254s-team',
   // Unsigned EAS Update is a separate runtime from the prior signed build.
-  version: '1.0.3',
+  version: '1.0.6',
   orientation: 'default',
   icon: './assets/images/icon.png',
   scheme: 'pidom',

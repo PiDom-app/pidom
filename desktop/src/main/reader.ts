@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { CLOUD_BYTE_MAX, TEXT_BYTE_MAX } from '@convex-model/limits';
 import type { ReaderDocumentHandle, ReaderOpenRequest } from '../shared/ipc';
 import { isSafeDocumentId } from './storage/paths';
-import { detectDocumentFormat, hasRecognizedSignature } from '../../../src/lib/document-formats';
+import { formatFromKind, formatFromFilename, hasRecognizedSignature } from '../../../src/lib/document-formats';
 
 /**
  * The one privileged thing the reader needs: turn a signed URL into bytes the
@@ -192,10 +192,9 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     throw new Error('openDocument rejected: bad document id');
   }
 
-  const format = detectDocumentFormat(
-    request.documentKind ? `document.${request.documentKind}` : 'document.pdf',
-    undefined,
-  );
+  const format = request.documentKind
+    ? formatFromKind(request.documentKind)
+    : formatFromFilename('document.pdf');
   if (format.format === 'unknown') throw new Error('openDocument rejected: unsupported format');
 
   // A persistent local copy opens with no network at all: the storage service
@@ -271,7 +270,7 @@ export async function openDocument(request: ReaderOpenRequest): Promise<ReaderDo
     if (!response.body) throw new Error('openDocument failed: empty response');
 
     const sink = createWriteStream(path, { mode: 0o600 });
-    const head = Buffer.alloc(8);
+    const head = Buffer.alloc(16);
     let headLength = 0;
 
     try {

@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   detectDocumentFormat,
-  formatFromFilename,
+  formatFromKind,
   formatFromMimeType,
+  formatFromFilename,
   hasRecognizedSignature,
   isSupportedDocument,
 } from './document-formats';
@@ -23,6 +24,13 @@ describe('document format detection', () => {
       formatFromMimeType('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         .format,
     ).toBe('docx');
+  });
+
+  it('resolves stable kinds and wildcard image metadata', () => {
+    expect(formatFromKind('docx').contentType).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    expect(formatFromMimeType('image/*').format).toBe('image');
   });
 
   it('does not claim support for unknown extensions', () => {

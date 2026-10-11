@@ -8,7 +8,11 @@ import PQueue from 'p-queue';
 import { eq } from 'drizzle-orm';
 
 import { CLOUD_BYTE_MAX } from '@convex-model/limits';
-import { formatFromFilename, formatFromMimeType } from '../../../../src/lib/document-formats';
+import {
+  formatFromFilename,
+  formatFromMimeType,
+  hasRecognizedSignature,
+} from '../../../../src/lib/document-formats';
 import type {
   LocalDocumentStatus,
   LocalFileState,
@@ -53,8 +57,6 @@ import {
  */
 
 /** Every PDF begins with this. Anything else is not one, whatever it was named. */
-const PDF_MAGIC = Buffer.from('%PDF-', 'ascii');
-
 /** How long the fetch of a signed URL may take before it is abandoned. */
 const FETCH_TIMEOUT_MS = 120_000;
 
@@ -288,7 +290,7 @@ export class StorageService {
     return rows.map((row) => this.rowToStatus(row.documentId, row, jobs.get(row.documentId)));
   }
 
-  /** Downloads, verifies, and persists a document's PDF. Idempotent: an already
+/** Downloads, verifies, and persists a document. Idempotent: an already
    *  `available` copy is returned as-is without re-fetching. */
   async download(documentId: string): Promise<LocalDocumentStatus> {
     if (!isSafeDocumentId(documentId)) throw new Error('storage rejected: bad document id');
@@ -395,7 +397,7 @@ export class StorageService {
       setJob({ state: 'running', totalBytes });
 
       const sink = createWriteStream(partPath, { mode: 0o600 });
-      const head = Buffer.alloc(PDF_MAGIC.byteLength);
+       const head = Buffer.alloc(16);
       let headLength = 0;
       let lastProgressAt = 0;
 
@@ -404,8 +406,8 @@ export class StorageService {
           total += chunk.byteLength;
           if (total > CLOUD_BYTE_MAX) throw new Error('exceeds size ceiling');
 
-          // Check the magic on the first bytes that arrive, so a large file that
-          // was never a PDF costs one chunk rather than the whole download.
+       // Check the magic on the first bytes that arrive, so an invalid file
+       // costs one chunk rather than the whole download.
           if (headLength < head.byteLength) {
             headLength += chunk.copy(
               head,
@@ -413,13 +415,6 @@ export class StorageService {
               0,
               Math.min(chunk.byteLength, head.byteLength - headLength),
             );
-            if (
-              format.format === 'pdf' &&
-              headLength === head.byteLength &&
-              !head.equals(PDF_MAGIC)
-            ) {
-              throw new Error('not a PDF');
-            }
           }
 
           hash.update(chunk);
@@ -432,7 +427,9 @@ export class StorageService {
           }
         }
 
-        if (format.format === 'pdf' && headLength < head.byteLength) throw new Error('not a PDF');
+        if (!hasRecognizedSignature(format.format, head.subarray(0, headLength))) {
+          throw new Error('invalid document signature');
+        }
         await new Promise<void>((resolve, reject) =>
           sink.end((error?: Error | null) => (error ? reject(error) : resolve())),
         );
@@ -771,6 +768,9 @@ async function freeSpace(path: string): Promise<number | null> {
 function errorCode(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes('not a PDF')) return 'not-a-pdf';
+  if (message.includes('invalid document signature') || message.includes('unsupported document')) {
+    return 'unsupported-document';
+  }
   if (message.includes('size ceiling')) return 'too-large';
   if (message.includes('non-https')) return 'bad-url';
   if (message.includes('Not signed in')) return 'signed-out';

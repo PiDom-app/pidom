@@ -1,7 +1,7 @@
 {
   "name": "pidom",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "A private, offline-first document reader for Android and Windows.",
   "repository": {
     "type": "git",

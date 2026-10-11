@@ -254,8 +254,15 @@ export function formatFromFilename(filename: string): DocumentCapabilities {
   return byExtension.get(extension) ?? unknownFormat();
 }
 
+/** Resolves the stable wire kind used by Convex and the desktop reader. */
+export function formatFromKind(kind: string | null | undefined): DocumentCapabilities {
+  return FORMATS.find((entry) => entry.format === kind) ?? unknownFormat();
+}
+
 export function formatFromMimeType(mimeType: string | null | undefined): DocumentCapabilities {
-  return byMime.get((mimeType ?? '').toLowerCase()) ?? unknownFormat();
+  const normalized = (mimeType ?? '').toLowerCase().split(';', 1)[0].trim();
+  if (normalized === 'image/*') return byExtension.get('png') ?? unknownFormat();
+  return byMime.get(normalized) ?? unknownFormat();
 }
 
 export function detectDocumentFormat(
