@@ -223,7 +223,7 @@ describe('multi-format content attachment', () => {
       mimeType: 'text/plain',
       documentKind: 'txt',
     });
-    const key = `${await userIdOf(t, ALICE)}/${documentId}.pdf`;
+    const key = `${await userIdOf(t, ALICE)}/${documentId}.txt`;
     await objectExists(t, key, { size: 12, contentType: 'text/plain' });
 
     await as.mutation(api.library.attachUpload, { documentId, storageKey: key });
