@@ -189,6 +189,14 @@ export const localSettings = sqliteTable('local_settings', {
 
 export type LocalSettingRow = typeof localSettings.$inferSelect;
 
+export const editorDrafts = sqliteTable('editor_drafts', {
+  documentId: text('document_id').primaryKey(),
+  content: text('content').notNull(),
+  updatedAt: integer('updated_at').notNull().default(0),
+});
+
+export type EditorDraftRow = typeof editorDrafts.$inferSelect;
+
 /**
  * The local mirror of a collection — the offline source of truth for the
  * organization UI. Mirrors a subset of the cloud `collections` row

@@ -9,21 +9,15 @@
  * the renderer entirely.
  *
  * Reading through this module rather than touching `import.meta.env` inline
- * turns a missing variable into one clear error at startup instead of an opaque
- * websocket failure several screens later. Mirrors the mobile app's src/lib/env.ts.
+ * keeps configuration access in one place. Missing configuration is reported by
+ * ConvexProvider inside the mounted renderer error boundary.
  */
-function required(name: string, value: string | undefined): string {
-  if (value === undefined || value.trim() === '') {
-    throw new Error(
-      `${name} is missing. Copy .env.example to .env.local and fill it in, then ` +
-        'restart `npm start` — Vite inlines VITE_* at build time, so a running dev ' +
-        'server will not pick up the change.',
-    );
-  }
-  return value;
+function optional(value: string | undefined): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
 }
 
 export const env = {
   /** Convex deployment URL, e.g. `https://acme-cat-123.convex.cloud`. */
-  convexUrl: required('VITE_CONVEX_URL', import.meta.env.VITE_CONVEX_URL),
+  convexUrl: optional(import.meta.env.VITE_CONVEX_URL),
 } as const;

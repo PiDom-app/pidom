@@ -23,6 +23,7 @@ import { FindBar } from './find-bar';
 import { SelectionMenu } from './selection-menu';
 import { ReaderError, ReaderLoading } from './reader-states';
 import { DocumentReader } from '../formats/document-reader';
+import { isLocalDocumentId } from '../data/document-id';
 import { useImports } from '@/features/import/data/use-imports';
 
 /** The fits the toolbar's fit button cycles through, in order. */
@@ -41,13 +42,9 @@ export function ReaderScreen({ documentId }: { documentId: Id<'documents'> }) {
   const navigate = useNavigate();
   const goBack = useCallback(() => void navigate({ to: '/library' }), [navigate]);
 
-  const { jobs, loading: importsLoading } = useImports();
+  const { jobs } = useImports();
   const importJob = jobs.find((job) => job.localId === documentId && job.documentId === null);
-  // Desktop imports use a 32-character lowercase hex id before Convex assigns
-  // an account id. While the import list is still loading, treat that shape as
-  // local so the first render cannot send it to a v.id('documents') query.
-  const localOnly =
-    importJob !== undefined || (importsLoading && /^[a-f0-9]{32}$/.test(documentId));
+  const localOnly = importJob !== undefined || isLocalDocumentId(documentId);
   const meta = useQuery(api.library.document, localOnly ? 'skip' : { documentId });
   const documentKind = importJob?.documentKind ?? meta?.documentKind ?? 'pdf';
   const pdf = usePdfDocument(documentId, documentKind, localOnly);

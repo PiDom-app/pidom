@@ -211,6 +211,29 @@ async function extracted(t: Harness, documentId: Id<'documents'>, textStorageKey
 
 /* ── the same file, twice ───────────────────────────────────────────── */
 
+describe('multi-format content attachment', () => {
+  test('attaches a supported text document without PDF extraction', async () => {
+    const t = harness();
+    const as = await signedIn(t);
+    const documentId = await as.mutation(api.library.importDocument, {
+      title: 'Notes',
+      byteSize: 12,
+      localId: localId('txt'),
+      originalFileName: 'notes.txt',
+      mimeType: 'text/plain',
+      documentKind: 'txt',
+    });
+    const key = `${await userIdOf(t, ALICE)}/${documentId}.pdf`;
+    await objectExists(t, key, { size: 12, contentType: 'text/plain' });
+
+    await as.mutation(api.library.attachUpload, { documentId, storageKey: key });
+
+    const stored = await documentRow(t, documentId);
+    expect(stored?.storageKey).toBe(key);
+    expect(stored?.documentKind).toBe('txt');
+  });
+});
+
 describe('two accounts with identical bytes', () => {
   test('end up sharing one object, counted twice', async () => {
     const t = harness();

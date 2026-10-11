@@ -3,6 +3,7 @@
  * renderer. One source of truth for channel names and payload shapes so the
  * three processes cannot drift.
  */
+import type { DocumentFormat } from '../../../src/lib/document-formats';
 
 export const IPC = {
   authSignIn: 'auth:signIn',
@@ -11,6 +12,9 @@ export const IPC = {
   authStatus: 'auth:status',
   authChanged: 'auth:changed', // main → renderer push
   dbUserVersion: 'db:userVersion',
+  editorDraftGet: 'editor:draftGet',
+  editorDraftPut: 'editor:draftPut',
+  editorDraftDelete: 'editor:draftDelete',
 
   // Window chrome — the custom, frameless title bar drives these.
   windowMinimize: 'window:minimize',
@@ -37,6 +41,8 @@ export const IPC = {
   // the renderer can render from; release it when the document closes.
   readerOpenDocument: 'reader:openDocument',
   readerCloseDocument: 'reader:closeDocument',
+  readerSaveAs: 'reader:saveAs',
+  readerSave: 'reader:save',
   // Fetch a document's extracted-text object (find in document). R2 is not in
   // the renderer CSP, so main fetches the signed URL and returns the JSON text.
   readerFetchText: 'reader:fetchText',
@@ -151,7 +157,30 @@ export interface ReaderDocumentHandle {
   url: string;
   bytes: number;
   contentType: string;
+  contentHash: string;
 }
+
+export interface ReaderSaveAsRequest {
+  handle: string;
+  bytes: ArrayBuffer;
+  suggestedName: string;
+  format: 'txt' | 'md' | 'csv' | 'docx' | 'odt' | 'xlsx' | 'pptx' | 'pdf' | 'image';
+}
+
+export interface ReaderSaveAsResult {
+  saved: boolean;
+}
+
+export interface ReaderSaveRequest {
+  handle: string;
+  bytes: ArrayBuffer;
+  expectedContentHash: string;
+  format: 'txt' | 'md' | 'csv' | 'docx' | 'odt' | 'xlsx' | 'pptx' | 'pdf' | 'image';
+}
+
+export type ReaderSaveResult =
+  | { status: 'saved'; contentHash: string }
+  | { status: 'conflict'; currentContentHash: string };
 
 /** The availability of a document's physical copy on this computer. Mirrors the
  *  mobile app's file states so both clients describe the library the same way. */
@@ -259,6 +288,8 @@ export interface ImportJobStatus {
   documentId: string | null;
   /** A short non-sensitive reason code when `state` is `failed`. */
   error: string | null;
+  /** The detected format family for local-only documents. */
+  documentKind?: DocumentFormat | null;
 }
 
 /**
@@ -345,6 +376,9 @@ export interface PidomBridge {
   db: {
     /** Trivial round-trip proving the main-process SQLite connection is live. */
     userVersion(): Promise<number>;
+    editorDraftGet(documentId: string): Promise<{ content: string; updatedAt: number } | null>;
+    editorDraftPut(documentId: string, content: string): Promise<void>;
+    editorDraftDelete(documentId: string): Promise<void>;
   };
   window: {
     minimize(): Promise<void>;
@@ -381,6 +415,9 @@ export interface PidomBridge {
     openDocument(request: ReaderOpenRequest): Promise<ReaderDocumentHandle>;
     /** Drops the cached copy. Safe to call twice, or on an unknown handle. */
     closeDocument(handle: string): Promise<void>;
+    /** Opens the native Save As dialog and atomically writes edited bytes. */
+    saveAs(request: ReaderSaveAsRequest): Promise<ReaderSaveAsResult>;
+    save(request: ReaderSaveRequest): Promise<ReaderSaveResult>;
     /**
      * Fetches the signed URL to a document's extracted-text object and returns
      * its JSON text. The renderer parses it; main only moves the bytes, since

@@ -212,12 +212,18 @@ function csvRows(value: string): string[][] {
   let row: string[] = [];
   let cell = '';
   let quoted = false;
-  for (const char of value) {
-    if (char === '"') quoted = !quoted;
-    else if (char === ',' && !quoted) {
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === '"' && quoted && value[index + 1] === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
       row.push(cell.trim());
       cell = '';
     } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && value[index + 1] === '\n') index += 1;
       if (cell || row.length) {
         row.push(cell.trim());
         rows.push(row);
@@ -233,6 +239,12 @@ function csvRows(value: string): string[][] {
   return rows.slice(0, 10_000).map((cells) => cells.slice(0, 200));
 }
 
+export function serializeCsvRows(rows: readonly (readonly string[])[]): string {
+  return rows
+    .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(','))
+    .join('\r\n');
+}
+
 export type ParsedDocument =
   | { kind: 'text'; text: string }
   | { kind: 'html'; html: string }
@@ -241,6 +253,7 @@ export type ParsedDocument =
 
 export function parseDocumentBytes(bytes: Uint8Array, format: string): ParsedDocument {
   if (format === 'image') return { kind: 'text', text: '' };
+  if (format === 'pdf') return { kind: 'text', text: '' };
   if (format === 'html') {
     const raw = new TextDecoder().decode(bytes).slice(0, MAX_TEXT);
     return { kind: 'html', html: sanitizeHtml(raw) };

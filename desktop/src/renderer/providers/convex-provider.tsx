@@ -12,7 +12,13 @@ import { env } from '../lib/env';
  * session context.
  */
 export function ConvexProvider({ children }: { children: React.ReactNode }) {
-  const client = useMemo(() => new ConvexReactClient(env.convexUrl), []);
+  const convexUrl = env.convexUrl;
+  if (!convexUrl) {
+    throw new Error(
+      'VITE_CONVEX_URL is missing from this build. Reinstall the latest Pidom release or contact support.',
+    );
+  }
+  const client = useMemo(() => new ConvexReactClient(convexUrl), [convexUrl]);
 
   return (
     <ConvexProviderWithAuth client={client} useAuth={useConvexGoogleAuth}>
